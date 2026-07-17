@@ -1,0 +1,91 @@
+appId: dev.codezero.app
+productName: codezero
+directories:
+  buildResources: build
+  output: dist
+
+files:
+  - out/**
+  - package.json
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+
+# Native modules and the mastracode agent stack must stay outside the asar
+# archive: the agent-host utilityProcess resolves `mastracode` from disk, and
+# .node addons cannot be loaded from within an asar file.
+asarUnpack:
+  - '**/*.node'
+  - node_modules/mastracode/**
+  - node_modules/@mastra/**
+  - node_modules/onnxruntime-node/**
+  - node_modules/@libsql/**
+  - node_modules/libsql/**
+  - node_modules/@ast-grep/**
+  - node_modules/node-pty/**
+  - node_modules/better-sqlite3/**
+
+npmRebuild: true
+
+# electron-builder's pnpm dependency walker fails to map these packages
+# ("cannot find path for dependency"), so they are omitted from app.asar even
+# though yargs/cliui in the mastracode tree require them at runtime. Placing
+# them in Resources/node_modules keeps them on Node's module lookup path
+# (parent of app.asar). The list includes their full resolution closure since
+# packages here cannot resolve back into the asar.
+extraResources:
+  - from: node_modules/string-width
+    to: node_modules/string-width
+  - from: node_modules/wrap-ansi
+    to: node_modules/wrap-ansi
+  - from: node_modules/strip-ansi-cjs
+    to: node_modules/strip-ansi-cjs
+  # strip-ansi@6 (CJS) for string-width@4/wrap-ansi@7; the root strip-ansi is
+  # v7 (ESM-only) and nested node_modules are not copied by extraResources.
+  - from: node_modules/string-width/node_modules/strip-ansi
+    to: node_modules/strip-ansi
+  - from: node_modules/emoji-regex
+    to: node_modules/emoji-regex
+  - from: node_modules/is-fullwidth-code-point
+    to: node_modules/is-fullwidth-code-point
+  - from: node_modules/ansi-regex
+    to: node_modules/ansi-regex
+  - from: node_modules/ansi-styles
+    to: node_modules/ansi-styles
+  - from: node_modules/color-convert
+    to: node_modules/color-convert
+  - from: node_modules/color-name
+    to: node_modules/color-name
+
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize: false
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Development
+
+publish: null

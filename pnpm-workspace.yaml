@@ -1,0 +1,14 @@
+packages:
+  - '.'
+
+# pnpm 10 reads the build-script allowlist from here (the package.json
+# "pnpm.onlyBuiltDependencies" field is ignored by newer pnpm versions).
+onlyBuiltDependencies:
+  - electron
+  - better-sqlite3
+  - node-pty
+  - esbuild
+  - bufferutil
+  - onnxruntime-node
+  - protobufjs
+  - '@ast-grep/napi'

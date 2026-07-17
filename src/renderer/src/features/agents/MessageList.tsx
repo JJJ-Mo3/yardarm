@@ -1,0 +1,136 @@
+import React, { useEffect, useRef, useState } from 'react'
+import { Brain, ChevronDown, ChevronRight, RotateCcw } from 'lucide-react'
+import { cn } from '../../lib/utils'
+import { Markdown } from './Markdown'
+import { ToolCallCard } from './ToolCallCard'
+import type { MessagePart, StoredMessage } from '../../../../shared/ui-message'
+
+function ReasoningBlock({ text }: { text: string }): React.JSX.Element {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="my-1">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
+      >
+        {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+        <Brain size={11} />
+        Thinking
+      </button>
+      {open && (
+        <div className="mt-1 border-l-2 border-border pl-3 text-muted-foreground selectable">
+          <Markdown text={text} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Part({ part }: { part: MessagePart }): React.JSX.Element | null {
+  switch (part.type) {
+    case 'text':
+      return <Markdown text={part.text} />
+    case 'reasoning':
+      return <ReasoningBlock text={part.text} />
+    case 'tool-call':
+      return <ToolCallCard part={part} />
+    case 'info':
+      return (
+        <div
+          className={cn(
+            'text-xs rounded px-2 py-1 my-1',
+            part.level === 'error' ? 'text-destructive bg-destructive/10' : 'text-muted-foreground'
+          )}
+        >
+          {part.text}
+        </div>
+      )
+    default:
+      return null
+  }
+}
+
+function MessageItem({
+  message,
+  onRollback
+}: {
+  message: StoredMessage
+  onRollback?: (messageId: string) => void
+}): React.JSX.Element {
+  if (message.role === 'user') {
+    const text = message.parts
+      .map((p) => (p.type === 'text' ? p.text : ''))
+      .join('')
+    return (
+      <div className="flex justify-end group">
+        <div className="relative max-w-[85%] rounded-lg bg-accent border border-border px-3 py-2 selectable whitespace-pre-wrap text-[13px]">
+          {text}
+          {onRollback && message.checkpointRef && (
+            <button
+              title="Rollback to before this message"
+              onClick={() => onRollback(message.id)}
+              className="absolute -left-6 top-2 hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
+            >
+              <RotateCcw size={12} />
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div className="max-w-full">
+      {message.parts.map((part, i) => (
+        <Part key={i} part={part} />
+      ))}
+    </div>
+  )
+}
+
+export function MessageList({
+  messages,
+  running,
+  onRollback
+}: {
+  messages: StoredMessage[]
+  running: boolean
+  onRollback?: (messageId: string) => void
+}): React.JSX.Element {
+  const bottomRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const stickToBottom = useRef(true)
+
+  useEffect(() => {
+    if (stickToBottom.current) {
+      bottomRef.current?.scrollIntoView({ block: 'end' })
+    }
+  }, [messages, running])
+
+  return (
+    <div
+      ref={containerRef}
+      onScroll={() => {
+        const el = containerRef.current
+        if (!el) return
+        stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60
+      }}
+      className="flex-1 overflow-y-auto px-4 py-3 space-y-3"
+    >
+      {messages.length === 0 && !running && (
+        <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+          Start a conversation with the agent
+        </div>
+      )}
+      {messages.map((m) => (
+        <MessageItem key={m.id} message={m} onRollback={onRollback} />
+      ))}
+      {running && (
+        <div className="flex items-center gap-2 text-muted-foreground text-xs">
+          <span className="inline-block h-2 w-2 rounded-full bg-foreground/60 animate-pulse" />
+          Working…
+        </div>
+      )}
+      <div ref={bottomRef} />
+    </div>
+  )
+}
