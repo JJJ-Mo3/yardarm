@@ -73,10 +73,10 @@ export function Sidebar(): React.JSX.Element {
   return (
     <div className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-card">
       {/* Titlebar spacer (macOS traffic lights sit at y=14..28; keep the
-          title fully below them) */}
-      <div className="titlebar-drag h-[52px] shrink-0 flex items-end gap-1.5 px-3 pb-1.5">
-        <img src={logo} alt="" className="h-4 w-4 rounded-[4px]" />
-        <span className="text-xs font-semibold tracking-wide text-muted-foreground">Yardarm</span>
+          title well below them) */}
+      <div className="titlebar-drag h-[84px] shrink-0 flex items-end gap-2.5 px-3 pb-2.5">
+        <img src={logo} alt="" className="h-10 w-10 rounded-lg" />
+        <span className="text-xl font-semibold tracking-wide text-foreground">Yardarm</span>
       </div>
 
       {/* Project picker */}
