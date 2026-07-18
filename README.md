@@ -14,6 +14,31 @@ launch. It shares every config file with the `mastracode` CLI, so you can move
 between the app and the terminal freely. A global CLI install is optional
 (Settings → About offers a one-click install).
 
+> Yardarm is an independent project that builds on Mastra Code. It is not
+> affiliated with, endorsed by, or sponsored by Mastra.
+
+## Why Mastra Code
+
+Yardarm exists because Mastra Code is a genuinely different coding agent:
+
+- **Observational Memory** — instead of compacting the conversation when
+  context runs out, a background observer continuously distills what matters
+  and a reflector condenses it further. The agent keeps working with a small,
+  dense memory of the session, so long-running work doesn't fall off a cliff
+  at the context limit.
+- **Goals with a judge** — hand the agent an objective (`/goal`) and it keeps
+  running until an independent judge model agrees the goal is met, not just
+  until the first "done" claim.
+- **Bring any model** — OAuth in with existing Claude, OpenAI Codex, or
+  GitHub Copilot subscriptions, use API keys from a dozen providers, or point
+  it at any OpenAI-compatible endpoint. Different models per mode, per
+  subagent, per judge, and per memory role.
+- **Deeply extensible** — MCP servers, lifecycle hooks, skills and plugins,
+  subagents, and custom slash commands (plain `.md` files), all configurable
+  globally or per project.
+- **Open source and local-first** — configuration is plain files on disk,
+  shared between the CLI, ACP editors, and this app.
+
 ## Features
 
 **Agent chat**
@@ -134,9 +159,10 @@ degrade.
 - **Persistence**: better-sqlite3 + drizzle in the main process
 - **Isolation**: chats can run in dedicated git worktrees; checkpoints are
   pinned as git refs so they survive GC until deleted
-- **Packaging**: electron-builder; native modules and the mastracode runtime
-  are kept outside the asar (`asarUnpack`) so the agent host can resolve them
-  from disk
+- **Packaging**: electron-builder; native modules are kept outside the asar
+  (`asarUnpack`), and the mastracode runtime ships as a self-contained,
+  npm-staged tree in `Resources/agent-runtime` (see
+  `scripts/build-agent-runtime.mjs`) that the agent host imports when packaged
 
 ## License
 

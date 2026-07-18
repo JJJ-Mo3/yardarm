@@ -28,9 +28,11 @@ function ThresholdField({
   onCommit: (n: number) => void
 }): React.JSX.Element {
   const [draft, setDraft] = useState(value != null ? String(value) : '')
+  const [focused, setFocused] = useState(false)
   useEffect(() => {
-    setDraft(value != null ? String(value) : '')
-  }, [value])
+    // Live session-state refreshes shouldn't clobber an in-progress edit.
+    if (!focused) setDraft(value != null ? String(value) : '')
+  }, [value, focused])
   const commit = (): void => {
     const n = Number(draft)
     if (Number.isFinite(n) && n > 0 && n !== value) onCommit(n)
@@ -41,7 +43,11 @@ function ThresholdField({
       value={draft}
       disabled={disabled}
       onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
+      onFocus={() => setFocused(true)}
+      onBlur={() => {
+        setFocused(false)
+        commit()
+      }}
       onKeyDown={(e) => {
         if (e.key === 'Enter') commit()
       }}

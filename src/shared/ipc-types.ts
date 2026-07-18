@@ -225,4 +225,10 @@ export interface HostBootConfig {
   modelId?: string
   yolo?: boolean
   thinkingLevel?: string
+  /**
+   * Packaged builds only: absolute path to the vendored mastracode runtime
+   * (Resources/agent-runtime). The host imports mastracode/@mastra/code-sdk
+   * from its node_modules instead of the app's bundled tree.
+   */
+  agentRuntimePath?: string
 }

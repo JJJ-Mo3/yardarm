@@ -8,18 +8,6 @@ importers:
 
   .:
     dependencies:
-      '@ai-sdk/provider-v5':
-        specifier: npm:@ai-sdk/provider@2.0.3
-        version: '@ai-sdk/provider@2.0.3'
-      '@ai-sdk/provider-v6':
-        specifier: npm:@ai-sdk/provider@3.0.14
-        version: '@ai-sdk/provider@3.0.14'
-      '@ai-sdk/provider-v7':
-        specifier: npm:@ai-sdk/provider@4.0.3
-        version: '@ai-sdk/provider@4.0.3'
-      '@mastra/code-sdk':
-        specifier: 0.1.0
-        version: 0.1.0(bufferutil@4.1.0)(express@5.2.1)(playwright-core@1.61.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@trpc/server':
         specifier: ^11.18.0
         version: 11.18.0(typescript@5.9.3)
@@ -32,30 +20,18 @@ importers:
       electron-updater:
         specifier: ^6.8.9
         version: 6.8.9
-      mastracode:
-        specifier: 0.31.0
-        version: 0.31.0(bufferutil@4.1.0)(express@5.2.1)(playwright-core@1.61.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(ws@8.21.1(bufferutil@4.1.0))
       node-pty:
         specifier: ^1.1.0
         version: 1.1.0
       simple-git:
         specifier: ^3.36.0
         version: 3.36.0
-      string-width:
-        specifier: 4.2.3
-        version: 4.2.3
-      strip-ansi-cjs:
-        specifier: npm:strip-ansi@6.0.1
-        version: strip-ansi@6.0.1
       superjson:
         specifier: ^2.2.6
         version: 2.2.6
       trpc-electron:
         specifier: ^0.1.2
         version: 0.1.2(@trpc/client@11.18.0(@trpc/server@11.18.0(typescript@5.9.3))(typescript@5.9.3))(@trpc/server@11.18.0(typescript@5.9.3))(electron@39.8.10)
-      wrap-ansi:
-        specifier: 7.0.0
-        version: 7.0.0
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -66,6 +42,9 @@ importers:
       '@git-diff-view/react':
         specifier: ^0.1.7
         version: 0.1.7(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@mastra/code-sdk':
+        specifier: 0.1.0
+        version: 0.1.0(bufferutil@4.1.0)(express@5.2.1)(playwright-core@1.61.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@monaco-editor/react':
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.55.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -156,6 +135,9 @@ importers:
       lucide-react:
         specifier: ^1.25.0
         version: 1.25.0(react@19.2.7)
+      mastracode:
+        specifier: 0.31.0
+        version: 0.31.0(bufferutil@4.1.0)(express@5.2.1)(playwright-core@1.61.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(ws@8.21.1(bufferutil@4.1.0))
       monaco-editor:
         specifier: ^0.55.1
         version: 0.55.1

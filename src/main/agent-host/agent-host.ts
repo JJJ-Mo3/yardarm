@@ -5,7 +5,53 @@
  * the interactive Session API to the main process over parentPort messages.
  * This is the single integration point with the mastracode SDK.
  */
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import type { HostBootConfig, HostCommand, HostMessage } from '../../shared/ipc-types'
+
+/**
+ * Packaged builds: root of the vendored mastracode runtime
+ * (Resources/agent-runtime). Unset in dev, where bare specifiers resolve
+ * normally from the app's node_modules.
+ */
+let runtimeDir: string | undefined
+
+/** Resolve an exports-map entry, preferring the import condition. */
+function resolveExportTarget(value: unknown): string | undefined {
+  if (typeof value === 'string') return value
+  if (value && typeof value === 'object') {
+    const v = value as Record<string, unknown>
+    return resolveExportTarget(v.import) ?? resolveExportTarget(v.default)
+  }
+  return undefined
+}
+
+/**
+ * Import a module from the vendored agent runtime when packaged. The app
+ * bundle's own node_modules tree is mis-linked by electron-builder's pnpm
+ * walker (wrong @ai-sdk/* versions nested together), so the packaged host
+ * must load mastracode/@mastra/code-sdk from Resources/agent-runtime instead.
+ */
+async function runtimeImport<T>(spec: string): Promise<T> {
+  if (!runtimeDir) return (await import(spec)) as T
+  const m = /^((?:@[^/]+\/)?[^/]+)(\/.+)?$/.exec(spec)
+  if (!m) throw new Error(`Invalid module specifier: ${spec}`)
+  const pkgDir = path.join(runtimeDir, 'node_modules', m[1])
+  const pkg = JSON.parse(readFileSync(path.join(pkgDir, 'package.json'), 'utf8')) as {
+    main?: string
+    exports?: Record<string, unknown>
+  }
+  const key = m[2] ? `.${m[2]}` : '.'
+  let target = pkg.exports ? resolveExportTarget(pkg.exports[key]) : undefined
+  if (!target && pkg.exports && m[2]) {
+    // Literal "./*" substitution (e.g. @mastra/code-sdk maps ./* -> ./dist/*.js).
+    const wildcard = resolveExportTarget(pkg.exports['./*'])
+    if (wildcard) target = wildcard.replace('*', m[2].slice(1))
+  }
+  if (!target) target = m[2] ? `.${m[2]}` : (pkg.main ?? './index.js')
+  return (await import(pathToFileURL(path.join(pkgDir, target)).href)) as T
+}
 
 interface ParentPort {
   on(event: 'message', listener: (ev: { data: HostCommand }) => void): void
@@ -85,6 +131,7 @@ async function main(): Promise<void> {
     process.exit(1)
   }
   const boot: HostBootConfig = JSON.parse(bootRaw)
+  runtimeDir = boot.agentRuntimePath
 
   const nodeVersion = process.versions.node
   const [major, minor] = nodeVersion.split('.').map(Number)
@@ -97,7 +144,7 @@ async function main(): Promise<void> {
 
   let sdk: typeof import('mastracode')
   try {
-    sdk = await import('mastracode')
+    sdk = await runtimeImport<typeof import('mastracode')>('mastracode')
   } catch (err) {
     post({ t: 'boot-error', error: `Failed to load mastracode: ${String(err)}` })
     process.exit(1)
@@ -383,7 +430,9 @@ async function main(): Promise<void> {
             break
           case 'listCommands':
             await respond(cmd.reqId, async () => {
-              const loader = await import('@mastra/code-sdk/utils/slash-command-loader')
+              const loader = await runtimeImport<
+                typeof import('@mastra/code-sdk/utils/slash-command-loader')
+              >('@mastra/code-sdk/utils/slash-command-loader')
               const commands = await loader.loadCustomCommands(boot.cwd)
               return commands.map((c) => ({
                 name: c.name,
@@ -394,8 +443,12 @@ async function main(): Promise<void> {
             break
           case 'expandCommand':
             await respond(cmd.reqId, async () => {
-              const loader = await import('@mastra/code-sdk/utils/slash-command-loader')
-              const processor = await import('@mastra/code-sdk/utils/slash-command-processor')
+              const loader = await runtimeImport<
+                typeof import('@mastra/code-sdk/utils/slash-command-loader')
+              >('@mastra/code-sdk/utils/slash-command-loader')
+              const processor = await runtimeImport<
+                typeof import('@mastra/code-sdk/utils/slash-command-processor')
+              >('@mastra/code-sdk/utils/slash-command-processor')
               const commands = await loader.loadCustomCommands(boot.cwd)
               const meta = commands.find((c) => c.name === cmd.name)
               if (!meta) throw new Error(`Unknown command: /${cmd.name}`)
@@ -488,7 +541,9 @@ async function main(): Promise<void> {
             break
           case 'oauthProviders':
             await respond(cmd.reqId, async () => {
-              const auth = await import('@mastra/code-sdk/auth/index')
+              const auth = await runtimeImport<typeof import('@mastra/code-sdk/auth/index')>(
+                '@mastra/code-sdk/auth/index'
+              )
               authStorage.reload()
               return auth.getOAuthProviders().map((p) => ({
                 id: p.id,

@@ -21,7 +21,9 @@ export default defineConfig({
     }
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
+    // Sandboxed preloads cannot require() external modules, so trpc-electron
+    // must be bundled in (it only touches contextBridge/ipcRenderer there).
+    plugins: [externalizeDepsPlugin({ exclude: ['trpc-electron'] })],
     build: {
       rollupOptions: {
         input: {

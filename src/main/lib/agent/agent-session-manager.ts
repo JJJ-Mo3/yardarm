@@ -7,7 +7,7 @@ import { EventEmitter } from 'node:events'
 import { randomUUID } from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
-import { shell, utilityProcess, type UtilityProcess } from 'electron'
+import { app, shell, utilityProcess, type UtilityProcess } from 'electron'
 import { eq, desc, sql } from 'drizzle-orm'
 import { getDb, schema } from '../db'
 import { EventTranslator } from './event-translator'
@@ -212,6 +212,11 @@ export class AgentSessionManager {
   }
 
   private spawnHost(subchatId: string, boot: HostBootConfig): HostHandle {
+    if (app.isPackaged) {
+      // Use the vendored runtime (Resources/agent-runtime) instead of the
+      // walker-bundled node_modules; see scripts/build-agent-runtime.mjs.
+      boot = { ...boot, agentRuntimePath: path.join(process.resourcesPath, 'agent-runtime') }
+    }
     const proc = utilityProcess.fork(HOST_ENTRY, [], {
       serviceName: `yardarm-agent-${subchatId}`,
       stdio: 'pipe',
@@ -707,8 +712,9 @@ export class AgentSessionManager {
 
   private relayOauthStatus(ev: OAuthStatusEvent): void {
     // Open the provider's auth page for the user; the event still carries the
-    // URL so the renderer can offer an "open again" link.
-    if (ev.kind === 'auth-url' && ev.url) {
+    // URL so the renderer can offer an "open again" link. Only http(s) URLs —
+    // never hand other schemes (file:, app protocols) to the OS.
+    if (ev.kind === 'auth-url' && ev.url && /^https?:\/\//i.test(ev.url)) {
       shell.openExternal(ev.url).catch(() => {})
     }
     this.oauthEmitter.emit('status', ev)

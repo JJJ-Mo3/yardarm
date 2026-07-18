@@ -8,6 +8,23 @@ import { createWindow, setIpcHandler } from './windows/window-manager'
 import { initUpdater } from './lib/updater'
 import icon from '../../build/icon.png?asset'
 
+// Two OS-level instances would contend over the same SQLite database and
+// mastracode thread locks; a second launch focuses the existing instance
+// instead (multiple windows are available in-app).
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+}
+
+app.on('second-instance', () => {
+  const win = BrowserWindow.getAllWindows()[0]
+  if (win) {
+    if (win.isMinimized()) win.restore()
+    win.focus()
+  } else {
+    createWindow()
+  }
+})
+
 app.whenReady().then(() => {
   app.setAppUserModelId('dev.yardarm.app')
 

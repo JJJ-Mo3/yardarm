@@ -11,15 +11,9 @@ import { app } from 'electron'
 /** Version of the mastracode package bundled with the app, or null if missing. */
 export function getMastracodeVersion(): string | null {
   const candidates = [
-    // Packaged: unpacked from the asar so the utility process can import it.
-    path.join(
-      process.resourcesPath ?? '',
-      'app.asar.unpacked',
-      'node_modules',
-      'mastracode',
-      'package.json'
-    ),
-    // Dev (and packaged fallback via Electron's asar fs): app root node_modules.
+    // Packaged: vendored runtime the agent host actually imports.
+    path.join(process.resourcesPath ?? '', 'agent-runtime', 'node_modules', 'mastracode', 'package.json'),
+    // Dev: app root node_modules (mastracode is a devDependency).
     path.join(app.getAppPath(), 'node_modules', 'mastracode', 'package.json')
   ]
   for (const p of candidates) {

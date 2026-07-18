@@ -26,7 +26,7 @@ export function createWindow(): BrowserWindow {
     ...(process.platform !== 'darwin' ? { icon } : {}),
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
-      sandbox: false,
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false
     }
