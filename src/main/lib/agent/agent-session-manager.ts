@@ -15,6 +15,7 @@ import { clampMessageForStorage } from './message-clamp'
 import type {
   AgentControllerEventLike,
   AuthEntry,
+  FileAttachment,
   GoalInfo,
   HostBootConfig,
   HostCommand,
@@ -24,14 +25,20 @@ import type {
   OAuthStatusEvent,
   OmRuntimeInfo,
   OmRuntimePatch,
+  PacksInfo,
   PermissionPolicy,
   PermissionsSnapshot,
   PluginInfo,
+  PluginScope,
   ResourceInfo,
+  SessionStateInfo,
+  SessionStatePatch,
+  SkillInfo,
   SlashCommandInfo,
+  SttModelInfo,
   ThreadInfo
 } from '../../../shared/ipc-types'
-import type { AgentStatus, AgentUIEvent, StoredMessage } from '../../../shared/ui-message'
+import type { AgentStatus, AgentUIEvent, StoredMessage, TaskItem } from '../../../shared/ui-message'
 
 const HOST_ENTRY = path.join(__dirname, 'agent-host.js')
 
@@ -94,6 +101,11 @@ export class AgentSessionManager {
 
   meta(subchatId: string): HostHandle['meta'] | null {
     return this.hosts.get(subchatId)?.meta ?? null
+  }
+
+  /** Latest agent task list, for seeding new stream subscribers. */
+  tasks(subchatId: string): TaskItem[] {
+    return this.hosts.get(subchatId)?.translator.tasks ?? []
   }
 
   pendingApprovals(subchatId: string): AgentUIEvent[] {
@@ -299,6 +311,12 @@ export class AgentSessionManager {
               | string
               | undefined
           }
+          {
+            // Seed the task list from boot state so the panel reflects
+            // existing tasks before the next task_updated event.
+            const bootTasks = (msg.state as Record<string, unknown> | undefined)?.tasks
+            if (Array.isArray(bootTasks)) handle.translator.tasks = bootTasks as TaskItem[]
+          }
           if (msg.threadId) {
             getDb()
               .update(schema.subchats)
@@ -407,30 +425,17 @@ export class AgentSessionManager {
 
   // ---- Public command surface -------------------------------------------
 
-  /**
-   * Send a prompt to the agent. `displayText` (when set) is what the
-   * transcript stores/shows — e.g. `/cmd args` — while `content` is the
-   * expanded prompt actually sent to the model.
-   */
-  async sendMessage(
-    subchatId: string,
-    content: string,
-    checkpointRef?: string,
-    displayText?: string
-  ): Promise<void> {
-    const handle = await this.ensureHost(subchatId)
-    // Persist + broadcast the user message immediately.
+  /** Persist + broadcast a user message and touch the chat's updatedAt. */
+  private recordUserMessage(subchatId: string, text: string, checkpointRef?: string): void {
     const userMessage: StoredMessage = {
       id: randomUUID(),
       role: 'user',
-      parts: [{ type: 'text', text: displayText ?? content }],
+      parts: [{ type: 'text', text }],
       checkpointRef: checkpointRef ?? null,
       createdAt: Date.now()
     }
     this.persistMessage(subchatId, userMessage)
     this.emitUI(subchatId, { type: 'message-upsert', message: userMessage })
-    this.sendCommand(handle, { t: 'send', text: content })
-    // Touch chat updatedAt
     const db = getDb()
     const subchat = db
       .select({ chatId: schema.subchats.chatId })
@@ -443,6 +448,36 @@ export class AgentSessionManager {
         .where(eq(schema.chats.id, subchat.chatId))
         .run()
     }
+  }
+
+  /**
+   * Send a prompt to the agent. `displayText` (when set) is what the
+   * transcript stores/shows — e.g. `/cmd args` — while `content` is the
+   * expanded prompt actually sent to the model.
+   */
+  async sendMessage(
+    subchatId: string,
+    content: string,
+    checkpointRef?: string,
+    displayText?: string,
+    files?: FileAttachment[]
+  ): Promise<void> {
+    const handle = await this.ensureHost(subchatId)
+    const attachmentNote = files?.length
+      ? `\n\n[${files.length} file${files.length === 1 ? '' : 's'} attached]`
+      : ''
+    this.recordUserMessage(subchatId, (displayText ?? content) + attachmentNote, checkpointRef)
+    this.sendCommand(handle, { t: 'send', text: content, files })
+  }
+
+  /**
+   * Queue a message to run after the active run finishes (Session.followUp);
+   * sends immediately when the session is idle. No files support (SDK limit).
+   */
+  async followUp(subchatId: string, content: string, checkpointRef?: string): Promise<void> {
+    const handle = await this.ensureHost(subchatId)
+    this.recordUserMessage(subchatId, content, checkpointRef)
+    this.sendCommand(handle, { t: 'followUp', text: content })
   }
 
   async approve(
@@ -673,10 +708,120 @@ export class AgentSessionManager {
     return this.request<ResourceInfo>(handle, { t: 'resourceInfo', reqId: randomUUID() })
   }
 
-  /** Plugins/skills loaded by the subchat's host (display-only). */
+  /** Session-state keys surfaced to the UI (notifications, smartEditing, sandbox paths). */
+  async stateGet(subchatId: string): Promise<SessionStateInfo> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<SessionStateInfo>(handle, { t: 'stateGet', reqId: randomUUID() })
+  }
+
+  async stateSet(subchatId: string, patch: SessionStatePatch): Promise<SessionStateInfo> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<SessionStateInfo>(handle, { t: 'stateSet', reqId: randomUUID(), patch })
+  }
+
+  /** User-invocable workspace skills (SKILL.md) for the subchat's cwd. */
+  async listSkills(subchatId: string): Promise<SkillInfo[]> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<SkillInfo[]>(handle, { t: 'listSkills', reqId: randomUUID() })
+  }
+
+  /** Activate a skill and send it; transcript shows `/skill name args`. */
+  async runSkill(
+    subchatId: string,
+    name: string,
+    args: string,
+    checkpointRef?: string
+  ): Promise<void> {
+    const handle = await this.ensureHost(subchatId)
+    const { display, prompt } = await this.request<{ display: string; prompt: string }>(handle, {
+      t: 'runSkill',
+      reqId: randomUUID(),
+      name,
+      args
+    })
+    await this.sendMessage(subchatId, prompt, checkpointRef, display)
+  }
+
+  /** Plugins/skills loaded by the subchat's host. */
   async listPlugins(subchatId: string): Promise<PluginInfo[]> {
     const handle = await this.ensureHost(subchatId)
     return this.request<PluginInfo[]>(handle, { t: 'listPlugins', reqId: randomUUID() })
+  }
+
+  /** Install a plugin; runs on the subchat's host so 'project' scope hits its cwd. */
+  async pluginInstall(
+    subchatId: string,
+    source: 'local' | 'github',
+    pathOrUrl: string,
+    scope: PluginScope
+  ): Promise<PluginInfo[]> {
+    const handle = await this.ensureHost(subchatId)
+    // GitHub installs clone a repo — allow well beyond the default timeout.
+    return this.request<PluginInfo[]>(
+      handle,
+      { t: 'pluginInstall', reqId: randomUUID(), source, pathOrUrl, scope },
+      5 * 60_000
+    )
+  }
+
+  async pluginUninstall(
+    subchatId: string,
+    pluginId: string,
+    scope: PluginScope
+  ): Promise<PluginInfo[]> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<PluginInfo[]>(handle, {
+      t: 'pluginUninstall',
+      reqId: randomUUID(),
+      pluginId,
+      scope
+    })
+  }
+
+  async pluginSetEnabled(
+    subchatId: string,
+    pluginId: string,
+    scope: PluginScope,
+    enabled: boolean
+  ): Promise<PluginInfo[]> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<PluginInfo[]>(handle, {
+      t: 'pluginSetEnabled',
+      reqId: randomUUID(),
+      pluginId,
+      scope,
+      enabled
+    })
+  }
+
+  async pluginSetConfig(
+    subchatId: string,
+    pluginId: string,
+    scope: PluginScope,
+    key: string,
+    value: string | boolean
+  ): Promise<PluginInfo[]> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<PluginInfo[]>(handle, {
+      t: 'pluginSetConfig',
+      reqId: randomUUID(),
+      pluginId,
+      scope,
+      key,
+      value
+    })
+  }
+
+  /** Built-in + custom model packs and OM packs, filtered by provider access. */
+  async listPacks(): Promise<PacksInfo> {
+    const handle = await this.ensureUtilityHost()
+    return this.request<PacksInfo>(handle, { t: 'listPacks', reqId: randomUUID() })
+  }
+
+  /** The SDK's speech-to-text model registry (voice settings picker). */
+  async sttRegistry(): Promise<SttModelInfo[]> {
+    const handle = await this.ensureUtilityHost()
+    return this.request<SttModelInfo[]>(handle, { t: 'sttRegistry', reqId: randomUUID() })
   }
 
   async listModels(subchatId?: string): Promise<ModelInfo[]> {

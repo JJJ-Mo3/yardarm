@@ -22,6 +22,8 @@ export interface AgentStreamState {
   meta: SessionMeta
   usage: UsageInfo | null
   tasks: TaskItem[]
+  /** Messages queued behind the active run (Session.followUp). */
+  queued: number
   infos: Array<{ level: 'info' | 'error'; text: string; ts: number }>
   /** Latest goal-judge evaluation this session, if any. */
   goal: GoalEvaluationInfo | null
@@ -39,6 +41,7 @@ const initialState: AgentStreamState = {
   meta: {},
   usage: null,
   tasks: [],
+  queued: 0,
   infos: [],
   goal: null,
   omEvents: [],
@@ -62,7 +65,8 @@ function reducer(state: AgentStreamState, ev: AgentUIEvent): AgentStreamState {
     case 'run-started':
       return { ...state, running: true }
     case 'run-finished':
-      return { ...state, running: false, approvals: [], suspensions: [] }
+      // The SDK flushes the follow-up queue when the run ends.
+      return { ...state, running: false, approvals: [], suspensions: [], queued: 0 }
     case 'approval-request':
       if (state.approvals.some((a) => a.toolCallId === ev.approval.toolCallId)) return state
       return { ...state, approvals: [...state.approvals, ev.approval] }
@@ -82,6 +86,8 @@ function reducer(state: AgentStreamState, ev: AgentUIEvent): AgentStreamState {
       return { ...state, usage: ev.usage }
     case 'task-list':
       return { ...state, tasks: ev.tasks }
+    case 'queue-update':
+      return { ...state, queued: ev.count }
     case 'info':
       return {
         ...state,

@@ -172,6 +172,30 @@ async function main(): Promise<void> {
 
   const { session, controller, authStorage } = mc
 
+  /** Project session state onto the wire-safe SessionStateInfo shape. */
+  const stateInfo = (): Record<string, unknown> => {
+    const st = (session.state.get() ?? {}) as Record<string, unknown>
+    return {
+      notifications: st.notifications ?? 'off',
+      smartEditing: st.smartEditing ?? false,
+      sandboxAllowedPaths: st.sandboxAllowedPaths ?? []
+    }
+  }
+
+  /** Project LoadedPlugins onto the wire-safe PluginInfo shape. */
+  const mapPlugins = (list: typeof mc.loadedPlugins): Record<string, unknown>[] =>
+    list.map((p) => ({
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      scope: p.scope,
+      status: p.status,
+      toolNames: p.toolNames,
+      skillCount: p.skillPaths?.length ?? 0,
+      commandCount: p.commandPaths?.length ?? 0,
+      error: p.error
+    }))
+
   session.subscribe((event) => {
     // The display_state_changed firehose is large and derivable; skip it.
     if ((event as { type: string }).type === 'display_state_changed') return
@@ -230,8 +254,18 @@ async function main(): Promise<void> {
       try {
         switch (cmd.t) {
           case 'send':
-            session.sendMessage({ content: cmd.text }).catch((err: unknown) => {
+            session.sendMessage({ content: cmd.text, files: cmd.files }).catch((err: unknown) => {
               post({ t: 'log', level: 'error', msg: `sendMessage failed: ${String(err)}` })
+              post({
+                t: 'event',
+                ev: { type: 'error', error: { message: String(err) } }
+              })
+            })
+            break
+          case 'followUp':
+            // Queues behind the active run; sends immediately when idle.
+            session.followUp({ content: cmd.text }).catch((err: unknown) => {
+              post({ t: 'log', level: 'error', msg: `followUp failed: ${String(err)}` })
               post({
                 t: 'event',
                 ev: { type: 'error', error: { message: String(err) } }
@@ -469,19 +503,145 @@ async function main(): Promise<void> {
             }))
             break
           case 'listPlugins':
-            await respond(cmd.reqId, async () =>
-              mc.loadedPlugins.map((p) => ({
+            await respond(cmd.reqId, async () => mapPlugins(mc.loadedPlugins))
+            break
+          case 'pluginInstall':
+            await respond(cmd.reqId, async () => {
+              const pm = mc.pluginManager
+              if (!pm) throw new Error('Plugin manager unavailable')
+              if (cmd.source === 'local') await pm.installLocal(cmd.pathOrUrl, cmd.scope)
+              else await pm.installGithub(cmd.pathOrUrl, cmd.scope)
+              return mapPlugins(await pm.reload())
+            })
+            break
+          case 'pluginUninstall':
+            await respond(cmd.reqId, async () => {
+              const pm = mc.pluginManager
+              if (!pm) throw new Error('Plugin manager unavailable')
+              await pm.uninstall(cmd.pluginId, cmd.scope)
+              return mapPlugins(await pm.reload())
+            })
+            break
+          case 'pluginSetEnabled':
+            await respond(cmd.reqId, async () => {
+              const pm = mc.pluginManager
+              if (!pm) throw new Error('Plugin manager unavailable')
+              await pm.setEnabled(cmd.pluginId, cmd.scope, cmd.enabled)
+              return mapPlugins(await pm.reload())
+            })
+            break
+          case 'pluginSetConfig':
+            await respond(cmd.reqId, async () => {
+              const pm = mc.pluginManager
+              if (!pm) throw new Error('Plugin manager unavailable')
+              await pm.setConfigValue(cmd.pluginId, cmd.scope, cmd.key, cmd.value)
+              return mapPlugins(await pm.reload())
+            })
+            break
+          case 'stateGet':
+            await respond(cmd.reqId, async () => stateInfo())
+            break
+          case 'stateSet':
+            await respond(cmd.reqId, async () => {
+              const patch: Record<string, unknown> = {}
+              for (const [k, v] of Object.entries(cmd.patch)) {
+                if (v !== undefined) patch[k] = v
+              }
+              await session.state.set(patch as never)
+              return stateInfo()
+            })
+            break
+          case 'listSkills':
+            await respond(cmd.reqId, async () => {
+              const workspace = await controller.resolveWorkspace({ session: session as never })
+              if (!workspace?.skills) return []
+              const skills = await workspace.skills.list()
+              return skills
+                .filter((s) => s['user-invocable'] !== false)
+                .map((s) => ({ name: s.name, description: s.description }))
+            })
+            break
+          case 'runSkill':
+            await respond(cmd.reqId, async () => {
+              const workspace = await controller.resolveWorkspace({ session: session as never })
+              if (!workspace?.skills) throw new Error('No workspace skills available')
+              const skill = await workspace.skills.get(cmd.name)
+              if (!skill) throw new Error(`Unknown skill: ${cmd.name}`)
+              if (skill['user-invocable'] === false) {
+                throw new Error(`Skill is not user-invocable: ${cmd.name}`)
+              }
+              const ws = await runtimeImport<typeof import('@mastra/core/workspace')>(
+                '@mastra/core/workspace'
+              )
+              let content = ws.formatSkillActivation(skill)
+              const args = cmd.args.trim()
+              if (args) content += `\n\nARGUMENTS: ${args}`
+              // Match the CLI: escape closing tags so the wrapper stays intact.
+              const escaped = content.replaceAll('</skill>', '&lt;/skill&gt;')
+              return {
+                display: `/skill ${cmd.name}${args ? ` ${args}` : ''}`,
+                prompt: `<skill name="${skill.name}">\n${escaped}\n</skill>`
+              }
+            })
+            break
+          case 'listPacks':
+            await respond(cmd.reqId, async () => {
+              const onboarding = await runtimeImport<
+                typeof import('@mastra/code-sdk/onboarding/index')
+              >('@mastra/code-sdk/onboarding/index')
+              authStorage.reload()
+              const models = await controller.listAvailableModels()
+              // Replicates the CLI's ProviderAccess derivation (no exported helper).
+              const accessLevel = (id: string): 'oauth' | 'apikey' | false => {
+                const cred = authStorage.get(id)
+                if (cred?.type === 'oauth') return 'oauth'
+                if (cred?.type === 'api_key' && cred.key.trim()) return 'apikey'
+                return false
+              }
+              const hasEnv = (provider: string): 'apikey' | false =>
+                models.some((m) => m.provider === provider && m.hasApiKey) ? 'apikey' : false
+              const access: Record<string, 'oauth' | 'apikey' | false> = {
+                anthropic: accessLevel('anthropic'),
+                openai: accessLevel('openai-codex'),
+                cerebras: hasEnv('cerebras'),
+                google: hasEnv('google'),
+                deepseek: hasEnv('deepseek'),
+                'github-copilot': accessLevel('github-copilot')
+              }
+              for (const m of models) {
+                if (m.hasApiKey && access[m.provider] === undefined) access[m.provider] = 'apikey'
+              }
+              const settings = await onboarding.loadSettings()
+              const modePacks = onboarding
+                .getAvailableModePacks(access as never, settings.customModelPacks)
+                // 'custom' is the CLI's "New Custom Pack…" sentinel, not a real pack.
+                .filter((p) => p.id !== 'custom')
+                .map((p) => ({
+                  id: p.id,
+                  name: p.name,
+                  description: p.description,
+                  models: { ...p.models }
+                }))
+              const omPacks = onboarding.getAvailableOmPacks(access as never).map((p) => ({
                 id: p.id,
                 name: p.name,
                 description: p.description,
-                scope: p.scope,
-                status: p.status,
-                toolNames: p.toolNames,
-                skillCount: p.skillPaths?.length ?? 0,
-                commandCount: p.commandPaths?.length ?? 0,
-                error: p.error
+                modelId: p.modelId
               }))
-            )
+              return { modePacks, omPacks }
+            })
+            break
+          case 'sttRegistry':
+            await respond(cmd.reqId, async () => {
+              const stt = await runtimeImport<
+                typeof import('@mastra/code-sdk/voice/stt-registry')
+              >('@mastra/code-sdk/voice/stt-registry')
+              return stt.STT_MODELS.map((m) => ({
+                provider: m.provider,
+                model: m.model,
+                label: m.label
+              }))
+            })
             break
           case 'listModels':
             await respond(cmd.reqId, async () => {

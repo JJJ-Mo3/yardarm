@@ -10,6 +10,7 @@ import type {
   PendingApproval,
   PendingSuspension,
   StoredMessage,
+  TaskItem,
   ToolCallPart,
   UsageInfo
 } from '../../../shared/ui-message'
@@ -51,6 +52,8 @@ export class EventTranslator {
   readonly pendingApprovals = new Map<string, PendingApproval>()
   readonly pendingSuspensions = new Map<string, PendingSuspension>()
   running = false
+  /** Latest agent task list (seeded from boot state, updated by task_updated). */
+  tasks: TaskItem[] = []
 
   constructor(private cb: TranslatorCallbacks) {}
 
@@ -190,7 +193,8 @@ export class EventTranslator {
         break
 
       case 'task_updated':
-        this.cb.emit({ type: 'task-list', tasks: (ev.tasks ?? []) as never })
+        this.tasks = (ev.tasks ?? []) as TaskItem[]
+        this.cb.emit({ type: 'task-list', tasks: this.tasks })
         break
 
       case 'mode_changed':
@@ -211,6 +215,10 @@ export class EventTranslator {
         }
         this.cb.onMetaChanged(meta)
         this.cb.emit({ type: 'session-meta', meta })
+        if (Array.isArray(state.tasks)) {
+          this.tasks = state.tasks as TaskItem[]
+          this.cb.emit({ type: 'task-list', tasks: this.tasks })
+        }
         break
       }
 
@@ -259,6 +267,9 @@ export class EventTranslator {
       }
 
       case 'follow_up_queued':
+        this.cb.emit({ type: 'queue-update', count: (ev.count as number) ?? 0 })
+        break
+
       case 'thread_deleted':
       case 'subagent_model_changed':
         break

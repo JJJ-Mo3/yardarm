@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { ArrowUp, Square } from 'lucide-react'
+import { ArrowUp, Square, X } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
@@ -9,6 +9,26 @@ const KIND_LABEL: Record<SlashCommandEntry['kind'], string | null> = {
   builtin: null,
   custom: 'custom',
   'cli-only': 'CLI'
+}
+
+export interface ComposerAttachment {
+  data: string
+  mediaType: string
+  filename?: string
+}
+
+/** Read an image file into a base64 attachment (no data: prefix). */
+function fileToAttachment(file: File): Promise<ComposerAttachment> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const url = reader.result as string
+      const base64 = url.slice(url.indexOf(',') + 1)
+      resolve({ data: base64, mediaType: file.type, filename: file.name || undefined })
+    }
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
 }
 
 export function PromptInput({
@@ -24,12 +44,13 @@ export function PromptInput({
   running: boolean
   projectRoot: string | null
   commands: SlashCommandEntry[]
-  onSend: (content: string) => void
+  onSend: (content: string, files?: ComposerAttachment[]) => void
   onAbort: () => void
   /** Handle a slash command; return a string to show as an inline hint. */
   onSlashCommand: (entry: SlashCommandEntry, args: string) => string | void
 }): React.JSX.Element {
   const [value, setValue] = useState('')
+  const [attachments, setAttachments] = useState<ComposerAttachment[]>([])
   const [hint, setHint] = useState<string | null>(null)
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const [mentionIndex, setMentionIndex] = useState(0)
@@ -94,9 +115,21 @@ export function PromptInput({
     }
   }
 
+  /** Add pasted/dropped image files as attachments (disabled mid-run). */
+  async function addFiles(files: File[]): Promise<void> {
+    const images = files.filter((f) => f.type.startsWith('image/'))
+    if (images.length === 0) return
+    if (running) {
+      setHint('Attachments are unavailable while the agent is running — wait for the run to finish.')
+      return
+    }
+    const converted = await Promise.all(images.map(fileToAttachment))
+    setAttachments((prev) => [...prev, ...converted])
+  }
+
   function submit(): void {
     const content = value.trim()
-    if (!content) return
+    if (!content && attachments.length === 0) return
     if (content.startsWith('/')) {
       const m = content.match(/^\/(\S+)(?:\s+([\s\S]*))?$/)
       const name = m?.[1] ?? ''
@@ -108,8 +141,13 @@ export function PromptInput({
       runSlash(entry, m?.[2]?.trim() ?? '')
       return
     }
-    onSend(content)
+    if (running && attachments.length > 0) {
+      setHint('Attachments are unavailable while the agent is running — remove them or wait.')
+      return
+    }
+    onSend(content || 'See the attached file(s).', attachments.length ? attachments : undefined)
     setValue('')
+    setAttachments([])
     setHint(null)
     setMentionQuery(null)
   }
@@ -165,7 +203,18 @@ export function PromptInput({
   }
 
   return (
-    <div className="relative border-t border-border p-3">
+    <div
+      className="relative border-t border-border p-3"
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes('Files')) e.preventDefault()
+      }}
+      onDrop={(e) => {
+        if (e.dataTransfer.files.length > 0) {
+          e.preventDefault()
+          void addFiles(Array.from(e.dataTransfer.files))
+        }
+      }}
+    >
       {mentionQuery !== null && files.length > 0 && (
         <div className="absolute bottom-full left-3 right-3 mb-1 rounded-md border border-border bg-background shadow-lg overflow-hidden z-10">
           {files.map((f, i) => (
@@ -214,27 +263,63 @@ export function PromptInput({
           {hint}
         </div>
       )}
+      {attachments.length > 0 && (
+        <div className="mb-1.5 flex flex-wrap gap-1.5">
+          {attachments.map((a, i) => (
+            <div
+              key={i}
+              className="group relative h-12 w-12 overflow-hidden rounded border border-border"
+              title={a.filename ?? a.mediaType}
+            >
+              <img
+                src={`data:${a.mediaType};base64,${a.data}`}
+                alt={a.filename ?? 'attachment'}
+                className="h-full w-full object-cover"
+              />
+              <button
+                title="Remove attachment"
+                className="absolute right-0 top-0 hidden rounded-bl bg-background/80 p-0.5 group-hover:block cursor-pointer"
+                onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
+              >
+                <X size={10} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="flex items-end gap-2">
         <textarea
           ref={textareaRef}
           rows={Math.min(6, Math.max(1, value.split('\n').length))}
           value={value}
           disabled={disabled}
-          placeholder="Message the agent… (@ to mention files, / for commands)"
+          placeholder="Message the agent… (@ to mention files, / for commands, paste images)"
           onChange={(e) => {
             setValue(e.target.value)
             setHint(null)
             updateMention(e.target.value, e.target.selectionStart)
           }}
           onKeyDown={onKeyDown}
+          onPaste={(e) => {
+            const files = Array.from(e.clipboardData.files)
+            if (files.some((f) => f.type.startsWith('image/'))) {
+              e.preventDefault()
+              void addFiles(files)
+            }
+          }}
           className="flex-1 resize-none rounded-md border border-border bg-background px-3 py-2 text-[13px] placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
         />
-        {running ? (
+        {running && !value.trim() ? (
           <Button size="icon" variant="destructive" title="Stop" onClick={onAbort}>
             <Square size={13} />
           </Button>
         ) : (
-          <Button size="icon" title="Send" disabled={disabled || !value.trim()} onClick={submit}>
+          <Button
+            size="icon"
+            title={running ? 'Queue message (runs after the current turn)' : 'Send'}
+            disabled={disabled || (!value.trim() && attachments.length === 0)}
+            onClick={submit}
+          >
             <ArrowUp size={14} />
           </Button>
         )}

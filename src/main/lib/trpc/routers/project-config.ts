@@ -143,10 +143,78 @@ export const projectConfigRouter = router({
       return agentSessionManager.resourceInfo(input.subchatId)
     }),
 
-  // ---- plugins / skills (display-only) ------------------------------------
+  // ---- plugins / skills ----------------------------------------------------
   pluginsList: publicProcedure
     .input(z.object({ subchatId: z.string() }))
     .query(async ({ input }) => {
       return agentSessionManager.listPlugins(input.subchatId)
+    }),
+
+  pluginInstall: publicProcedure
+    .input(
+      z.object({
+        subchatId: z.string(),
+        source: z.enum(['local', 'github']),
+        pathOrUrl: z.string().min(1),
+        scope: z.enum(['global', 'project'])
+      })
+    )
+    .mutation(async ({ input }) => {
+      return agentSessionManager.pluginInstall(
+        input.subchatId,
+        input.source,
+        input.pathOrUrl,
+        input.scope
+      )
+    }),
+
+  pluginUninstall: publicProcedure
+    .input(
+      z.object({
+        subchatId: z.string(),
+        pluginId: z.string().min(1),
+        scope: z.enum(['global', 'project'])
+      })
+    )
+    .mutation(async ({ input }) => {
+      return agentSessionManager.pluginUninstall(input.subchatId, input.pluginId, input.scope)
+    }),
+
+  pluginSetEnabled: publicProcedure
+    .input(
+      z.object({
+        subchatId: z.string(),
+        pluginId: z.string().min(1),
+        scope: z.enum(['global', 'project']),
+        enabled: z.boolean()
+      })
+    )
+    .mutation(async ({ input }) => {
+      return agentSessionManager.pluginSetEnabled(
+        input.subchatId,
+        input.pluginId,
+        input.scope,
+        input.enabled
+      )
+    }),
+
+  pluginSetConfig: publicProcedure
+    .input(
+      z.object({
+        subchatId: z.string(),
+        pluginId: z.string().min(1),
+        scope: z.enum(['global', 'project']),
+        key: z.string().min(1),
+        value: z.union([z.string(), z.boolean()])
+      })
+    )
+    .mutation(async ({ input }) => {
+      return agentSessionManager.pluginSetConfig(
+        input.subchatId,
+        input.pluginId,
+        input.scope,
+        input.key,
+        input.value
+      )
     })
 })

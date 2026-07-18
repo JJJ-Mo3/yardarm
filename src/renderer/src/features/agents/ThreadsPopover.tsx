@@ -16,6 +16,7 @@ import { selectedChatIdAtom, selectedSubchatIdAtom } from '../../lib/atoms'
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
+import { useConfirm } from '../../components/ConfirmDialog'
 
 export function ThreadsPopover({
   subchatId,
@@ -57,6 +58,7 @@ export function ThreadsPopover({
 
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [title, setTitle] = useState('')
+  const confirmDialog = useConfirm()
 
   const list = threads.data ?? []
   const active = list.find((t) => t.active)
@@ -212,9 +214,13 @@ export function ThreadsPopover({
                     className="hover:text-destructive cursor-pointer"
                     disabled={busy}
                     onClick={() => {
-                      if (confirm(`Delete thread "${label(t)}"? This cannot be undone.`)) {
-                        deleteThread.mutate({ subchatId, threadId: t.id })
-                      }
+                      void confirmDialog({
+                        title: 'Delete thread?',
+                        description: `"${label(t)}" will be permanently deleted. This cannot be undone.`,
+                        confirmLabel: 'Delete'
+                      }).then((ok) => {
+                        if (ok) deleteThread.mutate({ subchatId, threadId: t.id })
+                      })
                     }}
                   >
                     <Trash2 size={11} />

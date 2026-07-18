@@ -3,6 +3,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
+import { useConfirm } from '../../components/ConfirmDialog'
 
 interface Draft {
   name: string
@@ -19,6 +20,7 @@ export function ProvidersTab(): React.JSX.Element {
   const [draft, setDraft] = useState<Draft>(EMPTY)
   const [editing, setEditing] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
+  const confirmDialog = useConfirm()
 
   const onSaved = (): void => {
     setDirty(true)
@@ -85,9 +87,13 @@ export function ProvidersTab(): React.JSX.Element {
               title="Remove provider"
               className="text-muted-foreground hover:text-destructive cursor-pointer"
               onClick={() => {
-                if (confirm(`Remove custom provider "${p.name}"?`)) {
-                  remove.mutate({ name: p.name })
-                }
+                void confirmDialog({
+                  title: 'Remove provider?',
+                  description: `Custom provider "${p.name}" will be removed from settings.json.`,
+                  confirmLabel: 'Remove'
+                }).then((ok) => {
+                  if (ok) remove.mutate({ name: p.name })
+                })
               }}
             >
               <Trash2 size={12} />

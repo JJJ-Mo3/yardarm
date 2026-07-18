@@ -34,6 +34,8 @@ export const agentRouter = router({
       emit.next({ type: 'status', status: agentSessionManager.status(subchatId) })
       const meta = agentSessionManager.meta(subchatId)
       if (meta) emit.next({ type: 'session-meta', meta })
+      const tasks = agentSessionManager.tasks(subchatId)
+      if (tasks.length > 0) emit.next({ type: 'task-list', tasks })
       if (agentSessionManager.isRunning(subchatId)) emit.next({ type: 'run-started' })
       for (const ev of agentSessionManager.pendingApprovals(subchatId)) emit.next(ev)
 
@@ -43,11 +45,41 @@ export const agentRouter = router({
   }),
 
   send: publicProcedure
+    .input(
+      z.object({
+        subchatId: z.string(),
+        content: z.string().min(1),
+        files: z
+          .array(
+            z.object({
+              data: z.string().min(1),
+              mediaType: z.string().min(1),
+              filename: z.string().optional()
+            })
+          )
+          .optional()
+      })
+    )
+    .mutation(async ({ input }) => {
+      const cwd = subchatCwd(input.subchatId)
+      const checkpointRef = cwd ? await captureCheckpoint(cwd) : null
+      await agentSessionManager.sendMessage(
+        input.subchatId,
+        input.content,
+        checkpointRef ?? undefined,
+        undefined,
+        input.files
+      )
+      return { ok: true }
+    }),
+
+  /** Queue a message behind the active run (sends immediately when idle). */
+  followUp: publicProcedure
     .input(z.object({ subchatId: z.string(), content: z.string().min(1) }))
     .mutation(async ({ input }) => {
       const cwd = subchatCwd(input.subchatId)
       const checkpointRef = cwd ? await captureCheckpoint(cwd) : null
-      await agentSessionManager.sendMessage(input.subchatId, input.content, checkpointRef ?? undefined)
+      await agentSessionManager.followUp(input.subchatId, input.content, checkpointRef ?? undefined)
       return { ok: true }
     }),
 
@@ -257,6 +289,48 @@ export const agentRouter = router({
         input.name,
         input.policy
       )
+    }),
+
+  /** Session-state keys surfaced to the UI (notifications, smartEditing, sandbox paths). */
+  stateGet: publicProcedure.input(z.object({ subchatId: z.string() })).query(async ({ input }) => {
+    return agentSessionManager.stateGet(input.subchatId)
+  }),
+
+  stateSet: publicProcedure
+    .input(
+      z.object({
+        subchatId: z.string(),
+        patch: z.object({
+          notifications: z.enum(['bell', 'system', 'both', 'off']).optional(),
+          smartEditing: z.boolean().optional(),
+          sandboxAllowedPaths: z.array(z.string()).optional()
+        })
+      })
+    )
+    .mutation(async ({ input }) => {
+      return agentSessionManager.stateSet(input.subchatId, input.patch)
+    }),
+
+  /** User-invocable workspace skills (SKILL.md) in this subchat's worktree. */
+  listSkills: publicProcedure
+    .input(z.object({ subchatId: z.string() }))
+    .query(async ({ input }) => {
+      return agentSessionManager.listSkills(input.subchatId)
+    }),
+
+  /** Activate a skill and send it as a prompt. */
+  runSkill: publicProcedure
+    .input(z.object({ subchatId: z.string(), name: z.string().min(1), args: z.string() }))
+    .mutation(async ({ input }) => {
+      const cwd = subchatCwd(input.subchatId)
+      const checkpointRef = cwd ? await captureCheckpoint(cwd) : null
+      await agentSessionManager.runSkill(
+        input.subchatId,
+        input.name,
+        input.args,
+        checkpointRef ?? undefined
+      )
+      return { ok: true }
     }),
 
   /** Custom .md slash commands available in this subchat's worktree. */

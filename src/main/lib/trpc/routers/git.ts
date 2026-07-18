@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import {
+  checkoutBranch,
   commit,
+  createBranch,
   discardFiles,
   fileDiff,
   gitLog,
@@ -10,6 +12,7 @@ import {
   stageFiles,
   unstageFiles
 } from '../../git/ops'
+import { createPr, ghPath } from '../../git/gh'
 import { publicProcedure, router } from '../trpc'
 
 const cwdInput = z.object({ cwd: z.string() })
@@ -55,6 +58,41 @@ export const gitRouter = router({
   }),
 
   branches: publicProcedure.input(cwdInput).query(({ input }) => listBranches(input.cwd)),
+
+  checkout: publicProcedure
+    .input(cwdInput.extend({ branch: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      await checkoutBranch(input.cwd, input.branch)
+      return { ok: true }
+    }),
+
+  createBranch: publicProcedure
+    .input(cwdInput.extend({ branch: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      await createBranch(input.cwd, input.branch)
+      return { ok: true }
+    }),
+
+  /** Whether the GitHub CLI is installed (enables the Create PR flow). */
+  ghAvailable: publicProcedure.query(async () => ({ available: (await ghPath()) !== null })),
+
+  createPr: publicProcedure
+    .input(
+      cwdInput.extend({
+        title: z.string().min(1),
+        body: z.string(),
+        base: z.string().optional(),
+        draft: z.boolean().optional()
+      })
+    )
+    .mutation(({ input }) =>
+      createPr(input.cwd, {
+        title: input.title,
+        body: input.body,
+        base: input.base,
+        draft: input.draft
+      })
+    ),
 
   log: publicProcedure
     .input(cwdInput.extend({ limit: z.number().int().positive().max(200).default(50) }))

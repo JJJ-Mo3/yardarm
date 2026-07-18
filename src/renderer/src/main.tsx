@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import ReactDOM from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createTrpcClient, trpc } from './lib/trpc'
+import { ConfirmProvider } from './components/ConfirmDialog'
 import App from './App'
 import './styles/globals.css'
 
@@ -17,7 +18,9 @@ function Root(): React.JSX.Element {
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
-        <App />
+        <ConfirmProvider>
+          <App />
+        </ConfirmProvider>
       </QueryClientProvider>
     </trpc.Provider>
   )

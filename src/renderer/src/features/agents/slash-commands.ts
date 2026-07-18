@@ -36,6 +36,9 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
   { name: 'commands', description: 'Manage custom .md commands', kind: 'builtin' },
   { name: 'resource', description: 'Show/set the memory resource id', kind: 'builtin' },
   { name: 'skills', description: 'List installed skills & plugins', kind: 'builtin' },
+  { name: 'skill', description: 'Run a skill', args: '<name> [args]', kind: 'builtin' },
+  { name: 'subagents', description: 'Manage subagents', kind: 'builtin' },
+  { name: 'sandbox', description: 'Sandbox & session settings', kind: 'builtin' },
   {
     name: 'goal',
     description: 'Set a goal with judge evaluation',
@@ -65,10 +68,7 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
  * features land; the rest stay here so /help still accounts for them.
  */
 export const CLI_ONLY_COMMANDS: SlashCommandEntry[] = [
-  { name: 'subagents', description: 'Manage subagents', kind: 'cli-only' },
-  { name: 'skill', description: 'Run a skill', args: '<name>', kind: 'cli-only' },
   { name: 'thread:tag-dir', description: 'Tag threads by directory', kind: 'cli-only' },
-  { name: 'sandbox', description: 'Sandboxed execution', kind: 'cli-only' },
   { name: 'review', description: 'Code review workflow', kind: 'cli-only' },
   { name: 'github', description: 'GitHub integration', kind: 'cli-only' },
   { name: 'observability', description: 'Observability integration', kind: 'cli-only' },

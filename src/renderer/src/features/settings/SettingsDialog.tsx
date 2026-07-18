@@ -1,6 +1,17 @@
 import React, { useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
-import { Boxes, Info, KeyRound, Palette, Plug, Server, Trash2 } from 'lucide-react'
+import {
+  Boxes,
+  Globe,
+  Info,
+  KeyRound,
+  Mic,
+  Palette,
+  Plug,
+  Server,
+  SlidersHorizontal,
+  Trash2
+} from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
 import {
@@ -17,9 +28,12 @@ import { Textarea } from '../../components/ui/textarea'
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
 import { Switch } from '../../components/ui/switch'
 import { AboutTab } from './AboutTab'
+import { BrowserTab } from './BrowserTab'
 import { ModelsTab } from './ModelsTab'
 import { OAuthSection } from './OAuthSection'
+import { PreferencesTab } from './PreferencesTab'
 import { ProvidersTab } from './ProvidersTab'
+import { VoiceTab } from './VoiceTab'
 
 const PROVIDERS = ['anthropic', 'openai', 'google', 'openrouter', 'xai', 'groq', 'mistral']
 
@@ -204,9 +218,12 @@ export function SettingsDialog(): React.JSX.Element {
 
   const tabs: Array<{ id: SettingsTab; label: string; icon: React.ReactNode }> = [
     { id: 'appearance', label: 'Appearance', icon: <Palette size={13} /> },
+    { id: 'preferences', label: 'Preferences', icon: <SlidersHorizontal size={13} /> },
     { id: 'keys', label: 'API Keys', icon: <KeyRound size={13} /> },
     { id: 'models', label: 'Models', icon: <Boxes size={13} /> },
     { id: 'providers', label: 'Providers', icon: <Plug size={13} /> },
+    { id: 'voice', label: 'Voice', icon: <Mic size={13} /> },
+    { id: 'browser', label: 'Browser', icon: <Globe size={13} /> },
     { id: 'mcp', label: 'MCP Servers', icon: <Server size={13} /> },
     { id: 'about', label: 'About', icon: <Info size={13} /> }
   ]
@@ -233,9 +250,12 @@ export function SettingsDialog(): React.JSX.Element {
           </div>
           <div className="min-h-72 flex-1">
             {tab === 'appearance' && <AppearanceTab />}
+            {tab === 'preferences' && <PreferencesTab />}
             {tab === 'keys' && <KeysTab />}
             {tab === 'models' && <ModelsTab />}
             {tab === 'providers' && <ProvidersTab />}
+            {tab === 'voice' && <VoiceTab />}
+            {tab === 'browser' && <BrowserTab />}
             {tab === 'mcp' && <McpTab />}
             {tab === 'about' && <AboutTab />}
           </div>

@@ -113,6 +113,7 @@ export type AgentUIEvent =
   | { type: 'suspension-request'; suspension: PendingSuspension }
   | { type: 'suspension-resolved'; toolCallId: string }
   | { type: 'task-list'; tasks: TaskItem[] }
+  | { type: 'queue-update'; count: number }
   | { type: 'usage'; usage: UsageInfo }
   | { type: 'session-meta'; meta: SessionMeta }
   | { type: 'status'; status: AgentStatus; error?: string }

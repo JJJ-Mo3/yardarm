@@ -10,9 +10,22 @@ export const selectedSubchatIdAtom = atom<string | null>(null)
 export const mainTabAtom = atom<MainTab>('chat')
 export const themeAtom = atomWithStorage<Theme>('cz.theme', 'dark')
 export const settingsOpenAtom = atom(false)
-export type SettingsTab = 'appearance' | 'keys' | 'models' | 'providers' | 'mcp' | 'about'
+export type SettingsTab =
+  | 'appearance'
+  | 'preferences'
+  | 'keys'
+  | 'models'
+  | 'providers'
+  | 'voice'
+  | 'browser'
+  | 'mcp'
+  | 'about'
 export const settingsTabAtom = atom<SettingsTab>('appearance')
 export const helpOpenAtom = atom(false)
+/** New-chat dialog in the Sidebar (also opened by Cmd+N). */
+export const newChatOpenAtom = atom(false)
+/** Threads popover in the active ChatView (also opened by Cmd+P). */
+export const threadsOpenAtom = atom(false)
 export type ProjectSettingsTab =
   | 'mcp'
   | 'hooks'

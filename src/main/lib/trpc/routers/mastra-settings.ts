@@ -6,12 +6,19 @@
 import { z } from 'zod'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import {
+  deleteCustomPack,
   readSettings,
   removeCustomProvider,
+  saveCustomPack,
+  setActiveModelPack,
+  setBrowserSettings,
   setGoalDefaults,
   setModeDefault,
   setOmDefaults,
+  setOmPack,
+  setPreferences,
   setSubagentModel,
+  setVoiceSettings,
   upsertCustomProvider
 } from '../../mastra-config/settings-json'
 import { publicProcedure, router } from '../trpc'
@@ -54,6 +61,7 @@ export const mastraSettingsRouter = router({
       z.object({
         observerModelOverride: z.string().nullable().optional(),
         reflectorModelOverride: z.string().nullable().optional(),
+        omModelOverride: z.string().nullable().optional(),
         omObservationThreshold: z.number().positive().nullable().optional(),
         omReflectionThreshold: z.number().positive().nullable().optional(),
         omCavemanObservations: z.boolean().nullable().optional()
@@ -63,6 +71,109 @@ export const mastraSettingsRouter = router({
       await setOmDefaults(input)
       return NEEDS_RESTART
     }),
+
+  setPreferences: publicProcedure
+    .input(
+      z.object({
+        yolo: z.boolean().nullable().optional(),
+        theme: z.enum(['auto', 'dark', 'light']).optional(),
+        thinkingLevel: z.enum(['off', 'low', 'medium', 'high', 'xhigh']).optional(),
+        quietMode: z.boolean().optional(),
+        quietModeMaxToolPreviewLines: z.number().int().min(0).optional()
+      })
+    )
+    .mutation(async ({ input }) => {
+      await setPreferences(input)
+      return NEEDS_RESTART
+    }),
+
+  setVoiceSettings: publicProcedure
+    .input(
+      z.object({
+        enabled: z.boolean().optional(),
+        engine: z.enum(['macos-native', 'cloud']).optional(),
+        provider: z.string().optional(),
+        model: z.string().nullable().optional()
+      })
+    )
+    .mutation(async ({ input }) => {
+      await setVoiceSettings(input)
+      return NEEDS_RESTART
+    }),
+
+  setBrowserSettings: publicProcedure
+    .input(
+      z.object({
+        enabled: z.boolean().optional(),
+        provider: z.enum(['stagehand', 'agent-browser']).optional(),
+        headless: z.boolean().optional(),
+        cdpUrl: z.string().nullable().optional(),
+        profile: z.string().nullable().optional(),
+        executablePath: z.string().nullable().optional(),
+        scope: z.enum(['shared', 'thread']).nullable().optional(),
+        stagehand: z
+          .object({
+            env: z.enum(['LOCAL', 'BROWSERBASE']).optional(),
+            apiKey: z.string().nullable().optional(),
+            projectId: z.string().nullable().optional(),
+            preserveUserDataDir: z.boolean().optional()
+          })
+          .optional(),
+        agentBrowser: z.object({ storageState: z.string().nullable().optional() }).optional()
+      })
+    )
+    .mutation(async ({ input }) => {
+      await setBrowserSettings(input)
+      return NEEDS_RESTART
+    }),
+
+  /** Built-in + custom model packs and OM packs available to this user. */
+  listPacks: publicProcedure.query(async () => {
+    return agentSessionManager.listPacks()
+  }),
+
+  setActiveModelPack: publicProcedure
+    .input(
+      z.object({
+        packId: z.string().nullable(),
+        packModels: z.record(z.string(), z.string()).optional()
+      })
+    )
+    .mutation(async ({ input }) => {
+      await setActiveModelPack(input.packId, input.packModels)
+      return NEEDS_RESTART
+    }),
+
+  setOmPack: publicProcedure
+    .input(z.object({ packId: z.string().nullable() }))
+    .mutation(async ({ input }) => {
+      await setOmPack(input.packId)
+      return NEEDS_RESTART
+    }),
+
+  saveCustomPack: publicProcedure
+    .input(
+      z.object({
+        name: z.string().min(1),
+        models: z.record(z.string(), z.string().min(1))
+      })
+    )
+    .mutation(async ({ input }) => {
+      await saveCustomPack(input.name, input.models)
+      return NEEDS_RESTART
+    }),
+
+  deleteCustomPack: publicProcedure
+    .input(z.object({ name: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      await deleteCustomPack(input.name)
+      return NEEDS_RESTART
+    }),
+
+  /** The SDK's speech-to-text model registry (voice settings picker). */
+  sttRegistry: publicProcedure.query(async () => {
+    return agentSessionManager.sttRegistry()
+  }),
 
   upsertCustomProvider: publicProcedure
     .input(

@@ -14,9 +14,12 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import type {
+  BrowserSettingsPatch,
   CustomProviderSetting,
   MastraSettings,
-  OmDefaultsPatch
+  OmDefaultsPatch,
+  PreferencesPatch,
+  VoiceSettingsPatch
 } from '../../../shared/mastra-settings'
 
 export function mastraAppDataDir(): string {
@@ -113,13 +116,18 @@ export function setGoalDefaults(patch: {
 export function setOmDefaults(patch: OmDefaultsPatch): Promise<MastraSettings> {
   return updateSettings((s) => {
     const m = models(s)
-    if (patch.observerModelOverride !== undefined || patch.reflectorModelOverride !== undefined) {
+    if (
+      patch.observerModelOverride !== undefined ||
+      patch.reflectorModelOverride !== undefined ||
+      patch.omModelOverride !== undefined
+    ) {
       m.activeOmPackId = null
     }
     if (patch.observerModelOverride !== undefined)
       m.observerModelOverride = patch.observerModelOverride
     if (patch.reflectorModelOverride !== undefined)
       m.reflectorModelOverride = patch.reflectorModelOverride
+    if (patch.omModelOverride !== undefined) m.omModelOverride = patch.omModelOverride
     if (patch.omObservationThreshold !== undefined)
       m.omObservationThreshold = patch.omObservationThreshold
     if (patch.omReflectionThreshold !== undefined)
@@ -133,6 +141,113 @@ export function setPreference(key: string, value: unknown): Promise<MastraSettin
   return updateSettings((s) => {
     if (!s.preferences) s.preferences = {}
     s.preferences[key] = value
+  })
+}
+
+export function setPreferences(patch: PreferencesPatch): Promise<MastraSettings> {
+  return updateSettings((s) => {
+    if (!s.preferences) s.preferences = {}
+    for (const [k, v] of Object.entries(patch)) {
+      if (v !== undefined) s.preferences[k] = v
+    }
+  })
+}
+
+export function setVoiceSettings(patch: VoiceSettingsPatch): Promise<MastraSettings> {
+  return updateSettings((s) => {
+    if (!s.voice) s.voice = {}
+    if (patch.enabled !== undefined) s.voice.enabled = patch.enabled
+    if (patch.engine !== undefined) s.voice.engine = patch.engine
+    if (patch.provider !== undefined) s.voice.provider = patch.provider
+    if (patch.model !== undefined) {
+      if (patch.model === null) delete s.voice.model
+      else s.voice.model = patch.model
+    }
+  })
+}
+
+export function setBrowserSettings(patch: BrowserSettingsPatch): Promise<MastraSettings> {
+  return updateSettings((s) => {
+    if (!s.browser) s.browser = {}
+    const b = s.browser
+    const setOrDelete = (obj: Record<string, unknown>, key: string, v: unknown): void => {
+      if (v === undefined) return
+      if (v === null || v === '') delete obj[key]
+      else obj[key] = v
+    }
+    if (patch.enabled !== undefined) b.enabled = patch.enabled
+    if (patch.provider !== undefined) b.provider = patch.provider
+    if (patch.headless !== undefined) b.headless = patch.headless
+    setOrDelete(b, 'cdpUrl', patch.cdpUrl)
+    setOrDelete(b, 'profile', patch.profile)
+    setOrDelete(b, 'executablePath', patch.executablePath)
+    setOrDelete(b, 'scope', patch.scope)
+    if (patch.stagehand) {
+      if (!b.stagehand) b.stagehand = {}
+      if (patch.stagehand.env !== undefined) b.stagehand.env = patch.stagehand.env
+      if (patch.stagehand.preserveUserDataDir !== undefined)
+        b.stagehand.preserveUserDataDir = patch.stagehand.preserveUserDataDir
+      setOrDelete(b.stagehand, 'apiKey', patch.stagehand.apiKey)
+      setOrDelete(b.stagehand, 'projectId', patch.stagehand.projectId)
+    }
+    if (patch.agentBrowser) {
+      if (!b.agentBrowser) b.agentBrowser = {}
+      setOrDelete(b.agentBrowser, 'storageState', patch.agentBrowser.storageState)
+    }
+  })
+}
+
+/**
+ * Activate a model pack. Built-in packs clear manual mode defaults (models
+ * resolve from the pack at boot); custom packs pin their models as the
+ * defaults, matching the CLI's /models pack semantics. `null` deactivates.
+ */
+export function setActiveModelPack(
+  packId: string | null,
+  packModels?: Record<string, string>
+): Promise<MastraSettings> {
+  return updateSettings((s) => {
+    const m = models(s)
+    m.activeModelPackId = packId
+    if (packId) {
+      m.modeDefaults = packId.startsWith('custom:') ? { ...(packModels ?? {}) } : {}
+      m.subagentModels = {}
+    }
+  })
+}
+
+/** Activate an OM pack; clears manual OM model overrides so the pack applies. */
+export function setOmPack(packId: string | null): Promise<MastraSettings> {
+  return updateSettings((s) => {
+    const m = models(s)
+    m.activeOmPackId = packId
+    if (packId) {
+      m.omModelOverride = null
+      m.observerModelOverride = null
+      m.reflectorModelOverride = null
+    }
+  })
+}
+
+export function saveCustomPack(
+  name: string,
+  packModels: Record<string, string>
+): Promise<MastraSettings> {
+  return updateSettings((s) => {
+    const list = [...(s.customModelPacks ?? [])]
+    const entry = { name, models: packModels, createdAt: new Date().toISOString() }
+    const idx = list.findIndex((p) => p.name === name)
+    if (idx >= 0) list[idx] = { ...list[idx], ...entry }
+    else list.push(entry)
+    s.customModelPacks = list
+  })
+}
+
+export function deleteCustomPack(name: string): Promise<MastraSettings> {
+  return updateSettings((s) => {
+    s.customModelPacks = (s.customModelPacks ?? []).filter((p) => p.name !== name)
+    const m = models(s)
+    if (m.activeModelPackId === `custom:${name}`) m.activeModelPackId = null
   })
 }
 

@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { useAtomValue, useSetAtom } from 'jotai'
+import React, { useEffect, useRef, useState } from 'react'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { CheckCircle2, Circle, CircleDot } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import {
@@ -10,6 +10,7 @@ import {
   projectSettingsTabAtom,
   settingsOpenAtom,
   settingsTabAtom,
+  threadsOpenAtom,
   type ProjectSettingsTab,
   type SettingsTab
 } from '../../lib/atoms'
@@ -22,15 +23,18 @@ import {
   SelectValue
 } from '../../components/ui/select'
 import { Switch } from '../../components/ui/switch'
+import { useConfirm } from '../../components/ConfirmDialog'
 import { useAgentStream } from './use-agent-stream'
 import { MessageList } from './MessageList'
 import { ApprovalCard } from './ApprovalCard'
 import { PlanApprovalCard } from './PlanApprovalCard'
+import { AskUserCard } from './AskUserCard'
 import { PromptInput } from './PromptInput'
 import { HelpDialog } from './HelpDialog'
 import { CostPopover } from './CostPopover'
 import { ThreadsPopover } from './ThreadsPopover'
 import { PermissionsDialog } from './PermissionsDialog'
+import { SandboxDialog } from './SandboxDialog'
 import { GoalBanner } from './GoalBanner'
 import { OmStatusPopover } from './OmStatusPopover'
 import { useSlashCommands, type SlashCommandEntry } from './slash-commands'
@@ -50,6 +54,7 @@ export function ChatView({
   const utils = trpc.useUtils()
 
   const send = trpc.agent.send.useMutation()
+  const followUp = trpc.agent.followUp.useMutation()
   const approve = trpc.agent.approve.useMutation()
   const respondSuspension = trpc.agent.respondSuspension.useMutation()
   const abort = trpc.agent.abort.useMutation()
@@ -62,6 +67,8 @@ export function ChatView({
   })
   const models = trpc.agent.listModels.useQuery({ subchatId }, { staleTime: 60_000 })
   const runCommand = trpc.agent.runCommand.useMutation()
+  const runSkill = trpc.agent.runSkill.useMutation()
+  const skills = trpc.agent.listSkills.useQuery({ subchatId }, { staleTime: 30_000 })
   const invalidateThreads = (): void => {
     utils.agent.listThreads.invalidate({ subchatId })
   }
@@ -82,12 +89,33 @@ export function ChatView({
   const setProjectSettingsOpen = useSetAtom(projectSettingsOpenAtom)
   const setProjectSettingsTab = useSetAtom(projectSettingsTabAtom)
   const [costOpen, setCostOpen] = useState(false)
-  const [threadsOpen, setThreadsOpen] = useState(false)
+  const [threadsOpen, setThreadsOpen] = useAtom(threadsOpenAtom)
   const [permissionsOpen, setPermissionsOpen] = useState(false)
+  const [sandboxOpen, setSandboxOpen] = useState(false)
   const [omOpen, setOmOpen] = useState(false)
+  const confirmDialog = useConfirm()
 
   const meta = state.meta
-  const busy = send.isPending
+  const busy = send.isPending || followUp.isPending
+
+  // OS notification when a run finishes while the window is unfocused,
+  // honoring the mastracode `notifications` session-state setting.
+  const sessionState = trpc.agent.stateGet.useQuery({ subchatId }, { staleTime: 30_000 })
+  const notifyMode = sessionState.data?.notifications
+  const wasRunning = useRef(false)
+  useEffect(() => {
+    if (wasRunning.current && !state.running) {
+      const wants = notifyMode === 'system' || notifyMode === 'both'
+      if (wants && !document.hasFocus() && 'Notification' in window) {
+        if (Notification.permission === 'granted') {
+          new Notification('Yardarm', { body: 'Agent run finished', silent: false })
+        } else if (Notification.permission === 'default') {
+          void Notification.requestPermission()
+        }
+      }
+    }
+    wasRunning.current = state.running
+  }, [state.running, notifyMode])
 
   function openSettings(tab: SettingsTab): void {
     setSettingsTab(tab)
@@ -184,6 +212,27 @@ export function ChatView({
       case 'skills':
         openProjectSettings('plugins')
         return
+      case 'skill': {
+        const trimmed = args.trim()
+        const name = trimmed.split(/\s+/)[0] ?? ''
+        const rest = trimmed.slice(name.length).trim()
+        const available = skills.data ?? []
+        if (!name) {
+          if (available.length === 0) return 'No user-invocable skills found in this worktree.'
+          return `Usage: /skill <name> [args]. Available: ${available.map((s) => s.name).join(', ')}`
+        }
+        if (available.length > 0 && !available.some((s) => s.name === name)) {
+          return `Unknown skill: ${name}. Available: ${available.map((s) => s.name).join(', ')}`
+        }
+        runSkill.mutate({ subchatId, name, args: rest })
+        return
+      }
+      case 'subagents':
+        openSettings('models')
+        return
+      case 'sandbox':
+        setSandboxOpen(true)
+        return
       case 'goal': {
         const objective = args.trim()
         if (!objective) {
@@ -275,6 +324,14 @@ export function ChatView({
             {state.approvals.length + state.suspensions.length} pending
           </Badge>
         )}
+        {state.queued > 0 && (
+          <Badge
+            className="border-sky-500/50 text-sky-500"
+            title="Messages queued behind the active run"
+          >
+            {state.queued} queued
+          </Badge>
+        )}
         <ThreadsPopover subchatId={subchatId} open={threadsOpen} onOpenChange={setThreadsOpen} />
         <OmStatusPopover
           subchatId={subchatId}
@@ -317,9 +374,13 @@ export function ChatView({
         messages={state.messages}
         running={state.running}
         onRollback={(messageId) => {
-          if (confirm('Rollback files and history to before this message?')) {
-            rollback.mutate({ subchatId, messageId })
-          }
+          void confirmDialog({
+            title: 'Rollback to checkpoint?',
+            description: 'Files and chat history will be restored to before this message.',
+            confirmLabel: 'Rollback'
+          }).then((ok) => {
+            if (ok) rollback.mutate({ subchatId, messageId })
+          })
         }}
       />
 
@@ -351,15 +412,25 @@ export function ChatView({
               }
             />
           ))}
-          {state.suspensions.map((s) => (
-            <PlanApprovalCard
-              key={s.toolCallId}
-              suspension={s}
-              onResume={(resumeData) =>
-                respondSuspension.mutate({ subchatId, toolCallId: s.toolCallId, resumeData })
-              }
-            />
-          ))}
+          {state.suspensions.map((s) =>
+            s.toolName === 'ask_user' ? (
+              <AskUserCard
+                key={s.toolCallId}
+                suspension={s}
+                onResume={(resumeData) =>
+                  respondSuspension.mutate({ subchatId, toolCallId: s.toolCallId, resumeData })
+                }
+              />
+            ) : (
+              <PlanApprovalCard
+                key={s.toolCallId}
+                suspension={s}
+                onResume={(resumeData) =>
+                  respondSuspension.mutate({ subchatId, toolCallId: s.toolCallId, resumeData })
+                }
+              />
+            )
+          )}
         </div>
       )}
 
@@ -378,7 +449,11 @@ export function ChatView({
         running={state.running}
         projectRoot={projectRoot}
         commands={commands}
-        onSend={(content) => send.mutate({ subchatId, content })}
+        onSend={(content, files) => {
+          // followUp() queues behind the active run but doesn't accept files.
+          if (state.running) followUp.mutate({ subchatId, content })
+          else send.mutate({ subchatId, content, files })
+        }}
         onAbort={() => abort.mutate({ subchatId })}
         onSlashCommand={handleSlashCommand}
       />
@@ -388,6 +463,7 @@ export function ChatView({
         open={permissionsOpen}
         onOpenChange={setPermissionsOpen}
       />
+      <SandboxDialog subchatId={subchatId} open={sandboxOpen} onOpenChange={setSandboxOpen} />
     </div>
   )
 }

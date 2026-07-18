@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { Trash2 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -39,16 +40,30 @@ export function ModelsTab(): React.JSX.Element {
   const utils = trpc.useUtils()
   const settings = trpc.mastraSettings.get.useQuery()
   const models = trpc.agent.listModels.useQuery(undefined, { staleTime: 60_000 })
+  const packs = trpc.mastraSettings.listPacks.useQuery(undefined, { staleTime: 60_000 })
   const [dirty, setDirty] = useState(false)
+  const [packName, setPackName] = useState('')
 
   const onSaved = (): void => {
     setDirty(true)
     utils.mastraSettings.get.invalidate()
+    utils.mastraSettings.listPacks.invalidate()
   }
   const setModeDefault = trpc.mastraSettings.setModeDefault.useMutation({ onSuccess: onSaved })
   const setSubagentModel = trpc.mastraSettings.setSubagentModel.useMutation({ onSuccess: onSaved })
   const setGoalDefaults = trpc.mastraSettings.setGoalDefaults.useMutation({ onSuccess: onSaved })
   const setOmDefaults = trpc.mastraSettings.setOmDefaults.useMutation({ onSuccess: onSaved })
+  const setActiveModelPack = trpc.mastraSettings.setActiveModelPack.useMutation({
+    onSuccess: onSaved
+  })
+  const setOmPack = trpc.mastraSettings.setOmPack.useMutation({ onSuccess: onSaved })
+  const saveCustomPack = trpc.mastraSettings.saveCustomPack.useMutation({
+    onSuccess: () => {
+      setPackName('')
+      onSaved()
+    }
+  })
+  const deleteCustomPack = trpc.mastraSettings.deleteCustomPack.useMutation({ onSuccess: onSaved })
   const applyRestart = trpc.mastraSettings.applyRestart.useMutation({
     onSuccess: () => setDirty(false)
   })
@@ -56,6 +71,9 @@ export function ModelsTab(): React.JSX.Element {
   const s = settings.data ?? {}
   const m = s.models ?? {}
   const modelList = models.data ?? []
+  const modePacks = packs.data?.modePacks ?? []
+  const omPacks = packs.data?.omPacks ?? []
+  const customPacks = s.customModelPacks ?? []
 
   const error =
     settings.error ??
@@ -63,6 +81,10 @@ export function ModelsTab(): React.JSX.Element {
     setSubagentModel.error ??
     setGoalDefaults.error ??
     setOmDefaults.error ??
+    setActiveModelPack.error ??
+    setOmPack.error ??
+    saveCustomPack.error ??
+    deleteCustomPack.error ??
     applyRestart.error
 
   return (
@@ -70,6 +92,78 @@ export function ModelsTab(): React.JSX.Element {
       <div className="text-[11px] text-muted-foreground">
         Global defaults stored in mastracode&apos;s <code>settings.json</code> (shared with the
         CLI). Changes apply to agents on restart.
+      </div>
+
+      {/* Model packs */}
+      <div>
+        <div className="mb-1.5 text-xs font-medium">Model pack</div>
+        <div className="space-y-1.5">
+          <select
+            value={m.activeModelPackId ?? ''}
+            onChange={(e) => {
+              const packId = e.target.value || null
+              const pack = modePacks.find((p) => p.id === packId)
+              setActiveModelPack.mutate({
+                packId,
+                packModels: packId?.startsWith('custom:') ? pack?.models : undefined
+              })
+            }}
+            className="h-7 w-full min-w-0 rounded-md border border-border bg-background px-2 text-[11px]"
+          >
+            <option value="">(none — manual defaults below)</option>
+            {modePacks.map((p) => (
+              <option key={p.id} value={p.id} title={p.description}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          {m.activeModelPackId && (
+            <div className="text-[11px] text-muted-foreground">
+              {modePacks.find((p) => p.id === m.activeModelPackId)?.description ??
+                'Pack models resolve when agents boot.'}
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <Input
+              className="h-7 flex-1 text-[11px]"
+              placeholder="Save current mode defaults as custom pack…"
+              value={packName}
+              onChange={(e) => setPackName(e.target.value)}
+            />
+            <Button
+              size="sm"
+              className="h-7 px-2 text-[11px]"
+              disabled={
+                !packName.trim() ||
+                !Object.keys(m.modeDefaults ?? {}).length ||
+                saveCustomPack.isPending
+              }
+              onClick={() =>
+                saveCustomPack.mutate({ name: packName.trim(), models: m.modeDefaults ?? {} })
+              }
+            >
+              Save pack
+            </Button>
+          </div>
+          {customPacks.map((p) => (
+            <div
+              key={p.name}
+              className="flex items-center gap-2 rounded border border-border px-2 py-1"
+            >
+              <span className="flex-1 text-[11px]">{p.name}</span>
+              <span className="text-[10px] text-muted-foreground">
+                {Object.keys(p.models).length} models
+              </span>
+              <button
+                title="Delete custom pack"
+                className="text-muted-foreground hover:text-destructive cursor-pointer"
+                onClick={() => deleteCustomPack.mutate({ name: p.name })}
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Per-mode defaults */}
@@ -153,6 +247,30 @@ export function ModelsTab(): React.JSX.Element {
       <div>
         <div className="mb-1.5 text-xs font-medium">Observational Memory defaults (/om)</div>
         <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="w-16 text-[11px] text-muted-foreground">OM pack</span>
+            <select
+              value={m.activeOmPackId ?? ''}
+              onChange={(e) => setOmPack.mutate({ packId: e.target.value || null })}
+              className="h-7 w-full min-w-0 rounded-md border border-border bg-background px-2 text-[11px]"
+            >
+              <option value="">(none — manual overrides below)</option>
+              {omPacks.map((p) => (
+                <option key={p.id} value={p.id} title={p.description}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-16 text-[11px] text-muted-foreground">OM model</span>
+            <ModelSelect
+              value={m.omModelOverride ?? ''}
+              onChange={(v) => setOmDefaults.mutate({ omModelOverride: v || null })}
+              models={modelList}
+              placeholder="(pack / default)"
+            />
+          </div>
           <div className="flex items-center gap-2">
             <span className="w-16 text-[11px] text-muted-foreground">Observer</span>
             <ModelSelect

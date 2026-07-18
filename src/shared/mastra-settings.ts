@@ -37,6 +37,46 @@ export interface MastraPreferencesSettings {
   theme?: 'auto' | 'dark' | 'light'
   thinkingLevel?: 'off' | 'low' | 'medium' | 'high' | 'xhigh'
   quietMode?: boolean
+  quietModeMaxToolPreviewLines?: number
+  [key: string]: unknown
+}
+
+/** Hold-space dictation config (VoiceSettings in the SDK). */
+export interface MastraVoiceSettings {
+  enabled?: boolean
+  engine?: 'macos-native' | 'cloud'
+  provider?: string
+  model?: string
+  [key: string]: unknown
+}
+
+export interface MastraStagehandSettings {
+  env?: 'LOCAL' | 'BROWSERBASE'
+  apiKey?: string
+  projectId?: string
+  preserveUserDataDir?: boolean
+  [key: string]: unknown
+}
+
+/** Browser automation config (BrowserSettings in the SDK). */
+export interface MastraBrowserSettings {
+  enabled?: boolean
+  provider?: 'stagehand' | 'agent-browser'
+  headless?: boolean
+  cdpUrl?: string
+  profile?: string
+  executablePath?: string
+  scope?: 'shared' | 'thread'
+  stagehand?: MastraStagehandSettings
+  agentBrowser?: { storageState?: string; [key: string]: unknown }
+  [key: string]: unknown
+}
+
+/** A user-defined model pack saved in settings.json. */
+export interface CustomPackSetting {
+  name: string
+  models: Record<string, string>
+  createdAt?: string
   [key: string]: unknown
 }
 
@@ -44,13 +84,50 @@ export interface MastraSettings {
   models?: MastraModelsSettings
   preferences?: MastraPreferencesSettings
   customProviders?: CustomProviderSetting[]
+  customModelPacks?: CustomPackSetting[]
+  voice?: MastraVoiceSettings
+  browser?: MastraBrowserSettings
   [key: string]: unknown
+}
+
+/** Preference fields settable from the UI. */
+export interface PreferencesPatch {
+  yolo?: boolean | null
+  theme?: 'auto' | 'dark' | 'light'
+  thinkingLevel?: 'off' | 'low' | 'medium' | 'high' | 'xhigh'
+  quietMode?: boolean
+  quietModeMaxToolPreviewLines?: number
+}
+
+export interface VoiceSettingsPatch {
+  enabled?: boolean
+  engine?: 'macos-native' | 'cloud'
+  provider?: string
+  model?: string | null
+}
+
+export interface BrowserSettingsPatch {
+  enabled?: boolean
+  provider?: 'stagehand' | 'agent-browser'
+  headless?: boolean
+  cdpUrl?: string | null
+  profile?: string | null
+  executablePath?: string | null
+  scope?: 'shared' | 'thread' | null
+  stagehand?: {
+    env?: 'LOCAL' | 'BROWSERBASE'
+    apiKey?: string | null
+    projectId?: string | null
+    preserveUserDataDir?: boolean
+  }
+  agentBrowser?: { storageState?: string | null }
 }
 
 /** OM fields settable from the UI (subset of MastraModelsSettings). */
 export interface OmDefaultsPatch {
   observerModelOverride?: string | null
   reflectorModelOverride?: string | null
+  omModelOverride?: string | null
   omObservationThreshold?: number | null
   omReflectionThreshold?: number | null
   omCavemanObservations?: boolean | null

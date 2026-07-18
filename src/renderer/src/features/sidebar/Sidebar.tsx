@@ -4,6 +4,7 @@ import { FolderCog, FolderGit2, MessageSquarePlus, Plus, Settings, Trash2 } from
 import { trpc } from '../../lib/trpc'
 import { cn, timeAgo } from '../../lib/utils'
 import {
+  newChatOpenAtom,
   projectSettingsOpenAtom,
   selectedChatIdAtom,
   selectedProjectIdAtom,
@@ -25,6 +26,7 @@ import {
   SelectValue
 } from '../../components/ui/select'
 import { Switch } from '../../components/ui/switch'
+import { useConfirm } from '../../components/ConfirmDialog'
 import logo from '../../assets/logo.png'
 
 export function Sidebar(): React.JSX.Element {
@@ -33,9 +35,10 @@ export function Sidebar(): React.JSX.Element {
   const setSubchatId = useSetAtom(selectedSubchatIdAtom)
   const setSettingsOpen = useSetAtom(settingsOpenAtom)
   const setProjectSettingsOpen = useSetAtom(projectSettingsOpenAtom)
-  const [newChatOpen, setNewChatOpen] = useState(false)
+  const [newChatOpen, setNewChatOpen] = useAtom(newChatOpenAtom)
   const [newChatTitle, setNewChatTitle] = useState('')
   const [useWorktree, setUseWorktree] = useState(true)
+  const confirmDialog = useConfirm()
 
   const utils = trpc.useUtils()
   const projects = trpc.projects.list.useQuery()
@@ -152,13 +155,18 @@ export function Sidebar(): React.JSX.Element {
                 className="hidden group-hover:block text-muted-foreground hover:text-destructive cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation()
-                  if (confirm(`Delete chat "${c.title}" and its worktree?`)) {
+                  void confirmDialog({
+                    title: 'Delete chat?',
+                    description: `"${c.title}" and its worktree will be permanently deleted.`,
+                    confirmLabel: 'Delete'
+                  }).then((ok) => {
+                    if (!ok) return
                     if (chatId === c.id) {
                       setChatId(null)
                       setSubchatId(null)
                     }
                     deleteChat.mutate({ id: c.id })
-                  }
+                  })
                 }}
               >
                 <Trash2 size={12} />

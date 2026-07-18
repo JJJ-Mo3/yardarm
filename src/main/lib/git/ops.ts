@@ -106,6 +106,15 @@ export async function listBranches(cwd: string): Promise<{ current: string; all:
   return { current: b.current, all: b.all }
 }
 
+export async function checkoutBranch(cwd: string, branch: string): Promise<void> {
+  await simpleGit(cwd).checkout(branch)
+}
+
+/** Create a new branch from HEAD and switch to it. */
+export async function createBranch(cwd: string, branch: string): Promise<void> {
+  await simpleGit(cwd).checkoutLocalBranch(branch)
+}
+
 export async function gitLog(
   cwd: string,
   limit = 50

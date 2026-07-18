@@ -1,11 +1,30 @@
 import React, { useMemo, useState } from 'react'
 import { DiffModeEnum, DiffView } from '@git-diff-view/react'
 import { generateDiffFile } from '@git-diff-view/file'
-import { GitCommitHorizontal, Minus, Plus, RefreshCw, Undo2, Upload } from 'lucide-react'
+import {
+  GitBranchPlus,
+  GitCommitHorizontal,
+  GitPullRequestArrow,
+  Minus,
+  Plus,
+  RefreshCw,
+  Undo2,
+  Upload
+} from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
 import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
 import { Textarea } from '../../components/ui/textarea'
+import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '../../components/ui/select'
+import { useConfirm } from '../../components/ConfirmDialog'
 
 function statusColor(status: string): string {
   if (status.includes('?')) return 'text-green-500'
@@ -54,13 +73,22 @@ function FileDiffPanel({ cwd, path }: { cwd: string; path: string }): React.JSX.
 
 export function ChangesView({ cwd }: { cwd: string }): React.JSX.Element {
   const utils = trpc.useUtils()
+  const confirmDialog = useConfirm()
   const status = trpc.git.status.useQuery({ cwd }, { refetchInterval: 4000 })
+  const branches = trpc.git.branches.useQuery({ cwd }, { staleTime: 10_000 })
+  const ghAvailable = trpc.git.ghAvailable.useQuery(undefined, { staleTime: Infinity })
   const [selected, setSelected] = useState<string | null>(null)
   const [commitMsg, setCommitMsg] = useState('')
+  const [newBranchOpen, setNewBranchOpen] = useState(false)
+  const [newBranchName, setNewBranchName] = useState('')
+  const [prOpen, setPrOpen] = useState(false)
+  const [prTitle, setPrTitle] = useState('')
+  const [prBody, setPrBody] = useState('')
 
   const invalidate = (): void => {
     utils.git.status.invalidate({ cwd })
     utils.git.fileDiff.invalidate()
+    utils.git.branches.invalidate({ cwd })
   }
   const stage = trpc.git.stage.useMutation({ onSuccess: invalidate })
   const unstage = trpc.git.unstage.useMutation({ onSuccess: invalidate })
@@ -72,18 +100,71 @@ export function ChangesView({ cwd }: { cwd: string }): React.JSX.Element {
     }
   })
   const push = trpc.git.push.useMutation({ onSuccess: invalidate })
+  const checkout = trpc.git.checkout.useMutation({ onSuccess: invalidate })
+  const createBranch = trpc.git.createBranch.useMutation({
+    onSuccess: () => {
+      setNewBranchOpen(false)
+      setNewBranchName('')
+      invalidate()
+    }
+  })
+  const createPr = trpc.git.createPr.useMutation()
 
   const files = status.data?.files ?? []
+  const branchList = branches.data?.all ?? []
+  const currentBranch = status.data?.branch ?? ''
 
   return (
     <div className="flex h-full">
       {/* File list + commit box */}
       <div className="flex w-72 shrink-0 flex-col border-r border-border">
-        <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-          <span className="truncate font-mono text-[11px] text-muted-foreground flex-1">
-            {status.data?.branch ?? ''}
-            {status.data && status.data.ahead > 0 ? ` ↑${status.data.ahead}` : ''}
-          </span>
+        <div className="flex items-center gap-1 border-b border-border px-2 py-2">
+          <Select
+            value={currentBranch}
+            onValueChange={(branch) => {
+              if (branch !== currentBranch) checkout.mutate({ cwd, branch })
+            }}
+          >
+            <SelectTrigger className="h-7 min-w-0 flex-1 font-mono text-[11px]">
+              <SelectValue placeholder="branch" />
+            </SelectTrigger>
+            <SelectContent>
+              {(branchList.includes(currentBranch) || !currentBranch
+                ? branchList
+                : [currentBranch, ...branchList]
+              ).map((b) => (
+                <SelectItem key={b} value={b} className="font-mono text-[11px]">
+                  {b}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {status.data && status.data.ahead > 0 && (
+            <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+              ↑{status.data.ahead}
+            </span>
+          )}
+          <Button
+            size="icon"
+            variant="ghost"
+            title="New branch"
+            onClick={() => setNewBranchOpen(true)}
+          >
+            <GitBranchPlus size={12} />
+          </Button>
+          {ghAvailable.data?.available && (
+            <Button
+              size="icon"
+              variant="ghost"
+              title="Create pull request (gh)"
+              onClick={() => {
+                createPr.reset()
+                setPrOpen(true)
+              }}
+            >
+              <GitPullRequestArrow size={12} />
+            </Button>
+          )}
           <Button size="icon" variant="ghost" title="Refresh" onClick={() => invalidate()}>
             <RefreshCw size={12} />
           </Button>
@@ -136,9 +217,13 @@ export function ChangesView({ cwd }: { cwd: string }): React.JSX.Element {
                   className="text-muted-foreground hover:text-destructive cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation()
-                    if (confirm(`Discard changes to ${f.path}?`)) {
-                      discard.mutate({ cwd, paths: [f.path] })
-                    }
+                    void confirmDialog({
+                      title: 'Discard changes?',
+                      description: `Changes to ${f.path} will be permanently lost.`,
+                      confirmLabel: 'Discard'
+                    }).then((ok) => {
+                      if (ok) discard.mutate({ cwd, paths: [f.path] })
+                    })
                   }}
                 >
                   <Undo2 size={11} />
@@ -175,9 +260,9 @@ export function ChangesView({ cwd }: { cwd: string }): React.JSX.Element {
               <Upload size={13} />
             </Button>
           </div>
-          {(commit.error || push.error) && (
+          {(commit.error || push.error || checkout.error) && (
             <div className="text-[11px] text-destructive selectable">
-              {commit.error?.message ?? push.error?.message}
+              {commit.error?.message ?? push.error?.message ?? checkout.error?.message}
             </div>
           )}
         </div>
@@ -193,6 +278,116 @@ export function ChangesView({ cwd }: { cwd: string }): React.JSX.Element {
           </div>
         )}
       </div>
+
+      {/* New branch dialog */}
+      <Dialog open={newBranchOpen} onOpenChange={setNewBranchOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogTitle>New branch</DialogTitle>
+          <div className="space-y-3">
+            <Input
+              autoFocus
+              placeholder="branch-name"
+              value={newBranchName}
+              onChange={(e) => setNewBranchName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newBranchName.trim()) {
+                  createBranch.mutate({ cwd, branch: newBranchName.trim() })
+                }
+              }}
+            />
+            <div className="text-[11px] text-muted-foreground">
+              Created from the current HEAD ({currentBranch}) and checked out.
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setNewBranchOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                disabled={!newBranchName.trim() || createBranch.isPending}
+                onClick={() => createBranch.mutate({ cwd, branch: newBranchName.trim() })}
+              >
+                {createBranch.isPending ? 'Creating…' : 'Create'}
+              </Button>
+            </div>
+            {createBranch.error && (
+              <div className="text-[11px] text-destructive selectable">
+                {createBranch.error.message}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create PR dialog (gh CLI) */}
+      <Dialog open={prOpen} onOpenChange={setPrOpen}>
+        <DialogContent>
+          <DialogTitle>Create pull request</DialogTitle>
+          {createPr.data ? (
+            <div className="space-y-3">
+              <div className="text-[13px]">Pull request created:</div>
+              <a
+                href={createPr.data.url}
+                target="_blank"
+                rel="noreferrer"
+                className="block truncate font-mono text-[12px] text-primary underline"
+              >
+                {createPr.data.url}
+              </a>
+              <div className="flex justify-end">
+                <Button size="sm" onClick={() => setPrOpen(false)}>
+                  Done
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="text-[11px] text-muted-foreground font-mono">
+                {currentBranch} → default branch
+              </div>
+              <Input
+                autoFocus
+                placeholder="Title"
+                value={prTitle}
+                onChange={(e) => setPrTitle(e.target.value)}
+              />
+              <Textarea
+                rows={5}
+                placeholder="Description"
+                value={prBody}
+                onChange={(e) => setPrBody(e.target.value)}
+              />
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setPrOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={!prTitle.trim() || createPr.isPending}
+                  onClick={() =>
+                    createPr.mutate({ cwd, title: prTitle.trim(), body: prBody, draft: true })
+                  }
+                >
+                  Draft
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={!prTitle.trim() || createPr.isPending}
+                  onClick={() => createPr.mutate({ cwd, title: prTitle.trim(), body: prBody })}
+                >
+                  {createPr.isPending ? 'Creating…' : 'Create PR'}
+                </Button>
+              </div>
+              {createPr.error && (
+                <div className="max-h-24 overflow-y-auto text-[11px] text-destructive selectable whitespace-pre-wrap">
+                  {createPr.error.message}
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

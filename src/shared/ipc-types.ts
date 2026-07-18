@@ -6,7 +6,9 @@
 
 /** main -> host */
 export type HostCommand =
-  | { t: 'send'; text: string }
+  | { t: 'send'; text: string; files?: FileAttachment[] }
+  /** Queue a message to run after the active run finishes (Session.followUp). */
+  | { t: 'followUp'; text: string }
   | {
       t: 'approve'
       toolCallId: string
@@ -45,6 +47,25 @@ export type HostCommand =
   | { t: 'reloadHooks'; reqId: string }
   | { t: 'resourceInfo'; reqId: string }
   | { t: 'listPlugins'; reqId: string }
+  | { t: 'pluginInstall'; reqId: string; source: 'local' | 'github'; pathOrUrl: string; scope: PluginScope }
+  | { t: 'pluginUninstall'; reqId: string; pluginId: string; scope: PluginScope }
+  | { t: 'pluginSetEnabled'; reqId: string; pluginId: string; scope: PluginScope; enabled: boolean }
+  | {
+      t: 'pluginSetConfig'
+      reqId: string
+      pluginId: string
+      scope: PluginScope
+      key: string
+      value: string | boolean
+    }
+  /** Read session-state keys (notifications, smartEditing, sandboxAllowedPaths). */
+  | { t: 'stateGet'; reqId: string }
+  | { t: 'stateSet'; reqId: string; patch: SessionStatePatch }
+  | { t: 'listSkills'; reqId: string }
+  /** Activate a workspace skill: returns the display text + expanded content. */
+  | { t: 'runSkill'; reqId: string; name: string; args: string }
+  | { t: 'listPacks'; reqId: string }
+  | { t: 'sttRegistry'; reqId: string }
   | { t: 'authList'; reqId: string }
   | { t: 'authSet'; reqId: string; provider: string; key: string }
   | { t: 'authRemove'; reqId: string; provider: string }
@@ -186,7 +207,7 @@ export interface ResourceInfo {
   resourceId: string
 }
 
-/** A loaded mastracode plugin/skill pack (display-only). */
+/** A loaded mastracode plugin/skill pack. */
 export interface PluginInfo {
   id: string
   name?: string
@@ -197,6 +218,59 @@ export interface PluginInfo {
   skillCount: number
   commandCount: number
   error?: string
+}
+
+/** Where a plugin is installed: global (~/.mastracode) or project-local. */
+export type PluginScope = 'global' | 'project'
+
+/** Base64 file attachment for Session.sendMessage. */
+export interface FileAttachment {
+  data: string
+  mediaType: string
+  filename?: string
+}
+
+/** Session-state keys exposed to the UI (subset of MastraCodeState). */
+export interface SessionStateInfo {
+  notifications: 'bell' | 'system' | 'both' | 'off'
+  smartEditing: boolean
+  sandboxAllowedPaths: string[]
+}
+
+export type SessionStatePatch = Partial<SessionStateInfo>
+
+/** A user-invocable workspace skill (SKILL.md). */
+export interface SkillInfo {
+  name: string
+  description?: string
+}
+
+/** A built-in or custom model pack (per-mode model selections). */
+export interface ModePackInfo {
+  id: string
+  name: string
+  description?: string
+  models: Record<string, string>
+}
+
+/** An Observational Memory model pack. */
+export interface OmPackInfo {
+  id: string
+  name: string
+  description?: string
+  modelId: string
+}
+
+export interface PacksInfo {
+  modePacks: ModePackInfo[]
+  omPacks: OmPackInfo[]
+}
+
+/** An STT registry entry for the voice settings picker. */
+export interface SttModelInfo {
+  provider: string
+  model: string
+  label: string
 }
 
 export type PermissionPolicy = 'allow' | 'ask' | 'deny'

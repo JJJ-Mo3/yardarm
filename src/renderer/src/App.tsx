@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { FileCode2, GitCompare, MessageSquare, TerminalSquare } from 'lucide-react'
+import { FileCode2, FolderGit2, GitCompare, MessageSquare, Plus, TerminalSquare } from 'lucide-react'
 import { trpc } from './lib/trpc'
 import { cn } from './lib/utils'
 import {
@@ -11,6 +11,8 @@ import {
   themeAtom,
   type MainTab
 } from './lib/atoms'
+import { useAppShortcuts } from './lib/shortcuts'
+import { Button } from './components/ui/button'
 import { Sidebar } from './features/sidebar/Sidebar'
 import { BootErrorScreen } from './features/boot/BootErrorScreen'
 import { ChatView } from './features/agents/ChatView'
@@ -48,13 +50,22 @@ function useThemeEffect(): void {
 
 export default function App(): React.JSX.Element {
   useThemeEffect()
+  useAppShortcuts()
+  const setProjectId = useSetAtom(selectedProjectIdAtom)
   const projectId = useAtomValue(selectedProjectIdAtom)
   const chatId = useAtomValue(selectedChatIdAtom)
   const subchatId = useAtomValue(selectedSubchatIdAtom)
   const setSubchatId = useSetAtom(selectedSubchatIdAtom)
   const [tab, setTab] = useAtom(mainTabAtom)
 
+  const utils = trpc.useUtils()
   const projects = trpc.projects.list.useQuery()
+  const addProject = trpc.projects.addViaDialog.useMutation({
+    onSuccess: (p) => {
+      utils.projects.list.invalidate()
+      if (p) setProjectId(p.id)
+    }
+  })
   const chat = trpc.chats.get.useQuery({ id: chatId ?? '' }, { enabled: !!chatId })
   const preflight = trpc.system.preflight.useQuery(undefined, {
     staleTime: Infinity,
@@ -109,7 +120,27 @@ export default function App(): React.JSX.Element {
         </div>
 
         <div className="min-h-0 flex-1">
-          {!chatId || !subchatId ? (
+          {projects.data && projects.data.length === 0 ? (
+            // Onboarding: no projects yet.
+            <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
+              <FolderGit2 size={40} strokeWidth={1.25} className="text-muted-foreground" />
+              <div className="space-y-1">
+                <div className="text-lg font-semibold">Welcome to Yardarm</div>
+                <div className="max-w-sm text-sm text-muted-foreground">
+                  Yardarm runs Mastra Code agents against your local git repositories. Add a
+                  project folder to start your first chat.
+                </div>
+              </div>
+              <Button disabled={addProject.isPending} onClick={() => addProject.mutate()}>
+                <Plus size={14} />
+                Add project folder
+              </Button>
+              <div className="max-w-md text-[11px] leading-5 text-muted-foreground">
+                Each chat can run in an isolated git worktree · @-mention files · / for slash
+                commands · paste images into the composer · ⌘J toggles the terminal
+              </div>
+            </div>
+          ) : !chatId || !subchatId ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
               <MessageSquare size={28} strokeWidth={1.5} />
               <div className="text-sm">

@@ -26,6 +26,7 @@ import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Textarea } from '../../components/ui/textarea'
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
+import { useConfirm } from '../../components/ConfirmDialog'
 
 function McpTab({ projectPath }: { projectPath: string }): React.JSX.Element {
   const utils = trpc.useUtils()
@@ -161,6 +162,7 @@ function CommandsTab({ projectPath }: { projectPath: string }): React.JSX.Elemen
   const [text, setText] = useState('')
   const [dirty, setDirty] = useState(false)
   const [newName, setNewName] = useState('')
+  const confirmDialog = useConfirm()
 
   const file = trpc.projectConfig.commandRead.useQuery(
     { projectPath, relPath: selected ?? '' },
@@ -239,7 +241,13 @@ function CommandsTab({ projectPath }: { projectPath: string }): React.JSX.Elemen
               className="hidden group-hover:block text-muted-foreground hover:text-destructive cursor-pointer"
               onClick={(e) => {
                 e.stopPropagation()
-                if (confirm(`Delete /${c.name}?`)) remove.mutate({ projectPath, relPath: c.relPath })
+                void confirmDialog({
+                  title: `Delete /${c.name}?`,
+                  description: 'The command file will be removed from .mastracode/commands.',
+                  confirmLabel: 'Delete'
+                }).then((ok) => {
+                  if (ok) remove.mutate({ projectPath, relPath: c.relPath })
+                })
               }}
             >
               <Trash2 size={11} />
@@ -414,53 +422,213 @@ function ResourceTab({
   )
 }
 
+function PluginConfigRow({
+  subchatId,
+  pluginId,
+  scope
+}: {
+  subchatId: string
+  pluginId: string
+  scope: 'global' | 'project'
+}): React.JSX.Element {
+  const utils = trpc.useUtils()
+  const [key, setKey] = useState('')
+  const [value, setValue] = useState('')
+  const setConfig = trpc.projectConfig.pluginSetConfig.useMutation({
+    onSuccess: (list) => {
+      utils.projectConfig.pluginsList.setData({ subchatId }, list)
+      setKey('')
+      setValue('')
+    }
+  })
+  return (
+    <div className="mt-1.5 flex gap-1.5">
+      <Input
+        placeholder="config key"
+        value={key}
+        onChange={(e) => setKey(e.target.value)}
+        className="h-6 font-mono text-[10px]"
+      />
+      <Input
+        placeholder="value (true/false for booleans)"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        className="h-6 font-mono text-[10px]"
+      />
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-6 px-2 text-[10px]"
+        disabled={!key.trim() || setConfig.isPending}
+        onClick={() => {
+          const raw = value.trim()
+          const parsed: string | boolean = raw === 'true' ? true : raw === 'false' ? false : raw
+          setConfig.mutate({ subchatId, pluginId, scope, key: key.trim(), value: parsed })
+        }}
+      >
+        Set
+      </Button>
+      {setConfig.error && (
+        <span className="text-[10px] text-destructive selectable">{setConfig.error.message}</span>
+      )}
+    </div>
+  )
+}
+
 function PluginsTab({ subchatId }: { subchatId: string | null }): React.JSX.Element {
+  const utils = trpc.useUtils()
   const plugins = trpc.projectConfig.pluginsList.useQuery(
     { subchatId: subchatId ?? '' },
     { enabled: !!subchatId }
   )
+  const [source, setSource] = useState<'local' | 'github'>('local')
+  const [pathOrUrl, setPathOrUrl] = useState('')
+  const [installScope, setInstallScope] = useState<'global' | 'project'>('project')
+  const [configFor, setConfigFor] = useState<string | null>(null)
+  const confirmDialog = useConfirm()
+
+  const onList = (list: NonNullable<typeof plugins.data>): void => {
+    utils.projectConfig.pluginsList.setData({ subchatId: subchatId ?? '' }, list)
+  }
+  const install = trpc.projectConfig.pluginInstall.useMutation({
+    onSuccess: (list) => {
+      setPathOrUrl('')
+      onList(list)
+    }
+  })
+  const uninstall = trpc.projectConfig.pluginUninstall.useMutation({ onSuccess: onList })
+  const setEnabled = trpc.projectConfig.pluginSetEnabled.useMutation({ onSuccess: onList })
 
   if (!subchatId) {
     return (
       <div className="text-[11px] text-muted-foreground">
-        Open a chat in this project to see the plugins its agent loaded.
+        Open a chat in this project to manage the plugins its agent loads.
       </div>
     )
   }
+  const mutationError = install.error ?? uninstall.error ?? setEnabled.error
+  const busy = install.isPending || uninstall.isPending || setEnabled.isPending
   return (
     <div className="space-y-2">
       <div className="text-[11px] text-muted-foreground">
-        Plugins and skills loaded by this chat&apos;s agent. Install/manage via the mastracode CLI
-        (<code>/subagents</code>, <code>/skills</code>).
+        Plugins add tools, skills and commands to this chat&apos;s agent. Project scope installs to{' '}
+        <code>.mastracode/plugins</code>; global to the shared app data dir.
+      </div>
+      <div className="flex gap-1.5">
+        <select
+          value={source}
+          onChange={(e) => setSource(e.target.value as 'local' | 'github')}
+          className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+        >
+          <option value="local">local path</option>
+          <option value="github">github</option>
+        </select>
+        <Input
+          placeholder={source === 'local' ? '/path/to/plugin' : 'https://github.com/org/repo'}
+          value={pathOrUrl}
+          onChange={(e) => setPathOrUrl(e.target.value)}
+          className="font-mono text-[11px]"
+        />
+        <select
+          value={installScope}
+          onChange={(e) => setInstallScope(e.target.value as 'global' | 'project')}
+          className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+        >
+          <option value="project">project</option>
+          <option value="global">global</option>
+        </select>
+        <Button
+          size="sm"
+          disabled={!pathOrUrl.trim() || busy}
+          onClick={() =>
+            install.mutate({
+              subchatId,
+              source,
+              pathOrUrl: pathOrUrl.trim(),
+              scope: installScope
+            })
+          }
+        >
+          {install.isPending ? 'Installing…' : 'Install'}
+        </Button>
       </div>
       {plugins.isLoading && <div className="text-xs text-muted-foreground">Loading…</div>}
       {plugins.error && (
         <div className="text-xs text-destructive selectable">{plugins.error.message}</div>
       )}
+      {mutationError && (
+        <div className="text-xs text-destructive selectable">{mutationError.message}</div>
+      )}
       <div className="space-y-1.5">
-        {(plugins.data ?? []).map((p) => (
-          <div key={`${p.scope}:${p.id}`} className="rounded border border-border px-2 py-1.5">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium">{p.name ?? p.id}</span>
-              <span
-                className={cn(
-                  'rounded px-1 py-0.5 text-[9px] uppercase',
-                  p.status === 'active' ? 'bg-green-500/15 text-green-500' : 'bg-accent'
-                )}
-              >
-                {p.status}
-              </span>
-              <span className="text-[10px] text-muted-foreground">{p.scope}</span>
+        {(plugins.data ?? []).map((p) => {
+          const scope = (p.scope === 'global' ? 'global' : 'project') as 'global' | 'project'
+          const enabled = p.status !== 'disabled'
+          return (
+            <div key={`${p.scope}:${p.id}`} className="rounded border border-border px-2 py-1.5">
+              <div className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                  {p.name ?? p.id}
+                </span>
+                <span
+                  className={cn(
+                    'rounded px-1 py-0.5 text-[9px] uppercase',
+                    p.status === 'active'
+                      ? 'bg-green-500/15 text-green-500'
+                      : p.status === 'error'
+                        ? 'bg-destructive/15 text-destructive'
+                        : 'bg-accent'
+                  )}
+                >
+                  {p.status}
+                </span>
+                <span className="text-[10px] text-muted-foreground">{p.scope}</span>
+                <button
+                  title={enabled ? 'Disable plugin' : 'Enable plugin'}
+                  className="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+                  disabled={busy}
+                  onClick={() =>
+                    setEnabled.mutate({ subchatId, pluginId: p.id, scope, enabled: !enabled })
+                  }
+                >
+                  {enabled ? 'disable' : 'enable'}
+                </button>
+                <button
+                  title="Configure plugin"
+                  className="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+                  onClick={() => setConfigFor(configFor === p.id ? null : p.id)}
+                >
+                  config
+                </button>
+                <button
+                  title="Uninstall plugin"
+                  className="text-muted-foreground hover:text-destructive cursor-pointer"
+                  disabled={busy}
+                  onClick={() => {
+                    void confirmDialog({
+                      title: 'Uninstall plugin?',
+                      description: `${p.name ?? p.id} will be removed (${scope} scope).`,
+                      confirmLabel: 'Uninstall'
+                    }).then((ok) => {
+                      if (ok) uninstall.mutate({ subchatId, pluginId: p.id, scope })
+                    })
+                  }}
+                >
+                  <Trash2 size={11} />
+                </button>
+              </div>
+              {p.description && (
+                <div className="text-[10px] text-muted-foreground">{p.description}</div>
+              )}
+              <div className="text-[10px] text-muted-foreground">
+                {p.toolNames.length} tools · {p.skillCount} skills · {p.commandCount} commands
+              </div>
+              {p.error && <div className="text-[10px] text-destructive selectable">{p.error}</div>}
+              {configFor === p.id && (
+                <PluginConfigRow subchatId={subchatId} pluginId={p.id} scope={scope} />
+              )}
             </div>
-            {p.description && (
-              <div className="text-[10px] text-muted-foreground">{p.description}</div>
-            )}
-            <div className="text-[10px] text-muted-foreground">
-              {p.toolNames.length} tools · {p.skillCount} skills · {p.commandCount} commands
-            </div>
-            {p.error && <div className="text-[10px] text-destructive selectable">{p.error}</div>}
-          </div>
-        ))}
+          )
+        })}
         {plugins.data?.length === 0 && (
           <div className="text-[11px] text-muted-foreground">No plugins loaded.</div>
         )}
