@@ -1,20 +1,93 @@
-# Yardarm
+<p align="center">
+  <img src="build/icon.png" alt="Yardarm logo" width="128" height="128" />
+</p>
 
-Electron desktop UI for [Mastra Code](https://code.mastra.ai). The mastracode
-runtime is bundled with the app — no separate install required. A global
-`mastracode` CLI is optional (Settings → About offers a one-click install) and
-shares all configuration with the app.
+<h1 align="center">Yardarm</h1>
 
-## Develop
+<p align="center">
+  A standalone desktop app for <a href="https://code.mastra.ai">Mastra Code</a>.
+</p>
+
+Yardarm is an Electron UI for the Mastra Code coding agent. The `mastracode`
+runtime is bundled with the app — no separate install, no account required to
+launch. It shares every config file with the `mastracode` CLI, so you can move
+between the app and the terminal freely. A global CLI install is optional
+(Settings → About offers a one-click install).
+
+## Features
+
+**Agent chat**
+
+- Streaming agent chat with tool-call cards, plan approval, and tool-approval
+  prompts (allow once / always / deny)
+- Plan / Build / Fast modes, per-mode model selection, extended-thinking
+  toggle, and yolo mode
+- Session permissions panel (`/permissions`): per-category and per-tool
+  allow / ask / deny
+- Goals (`/goal`) with a live goal banner, and Observational Memory status
+  (`/om`) showing observer/reflector activity and token budgets
+- Threads (`/threads`): switch, rename, clone, delete, open in a new subchat,
+  with per-thread token usage in the cost popover (`/cost`)
+
+**Slash commands**
+
+- Autocomplete for the full command surface from code.mastra.ai — mode and
+  model switches, threads, `/mcp`, `/hooks`, `/commands`, `/skills`,
+  `/resource`, `/login`, `/api-keys`, `/diff`, `/help`, and more
+- Project and global custom commands (`.md` files with frontmatter) are
+  loaded through the mastracode command loader and run as prompts
+- Commands that only make sense in a terminal (e.g. `/sandbox`, `/voice`)
+  are listed in `/help` and point you to the CLI
+- `pnpm check:commands` guards that the registry stays in sync with the
+  documented command list
+
+**Workspace**
+
+- Projects sidebar with chats; each chat can run in an isolated git worktree
+  (branch prefix `yardarm/`, optional `setup-worktree` commands from
+  `.yardarm/worktree.json`)
+- Changes view with side-by-side Monaco diffs, staging, commit, and push
+- Checkpoints: every user message pins a restorable snapshot
+  (`refs/yardarm/checkpoints/*`); roll back the conversation and the tree
+- Read-only file viewer (tree + Monaco) and an integrated terminal
+  (node-pty + xterm)
+- Multiple windows, multiple subchats per chat
+
+**Providers & auth**
+
+- OAuth login for Anthropic (Claude subscriptions), OpenAI Codex, and GitHub
+  Copilot — the browser flow runs inside the bundled runtime and credentials
+  land in mastracode's `auth.json`
+- API keys for any supported provider, plus custom OpenAI-compatible
+  providers (base URL + models) in Settings → Providers
+- Model defaults per mode, subagent, goal judge, and OM roles in
+  Settings → Models — written to the shared `settings.json`
+
+**Per-project configuration**
+
+- Project Settings dialog (gear in the sidebar): MCP servers, lifecycle
+  hooks, custom commands, agent instructions, memory `resourceId`, and
+  installed skills/plugins
+- Edits are atomic, preserve unknown keys, and restart affected agent
+  processes so they take effect immediately
+
+## Getting started
+
+Requirements: Node 22+, [pnpm](https://pnpm.io) 10.
 
 ```sh
 pnpm install
-pnpm dev          # run in development
-pnpm typecheck    # tsc for main + renderer
+pnpm dev             # run in development
+pnpm typecheck       # tsc for main + renderer
 pnpm check:commands  # slash-command registry covers code.mastra.ai
-pnpm build        # production build to out/
-pnpm dist         # package installers (electron-builder)
+pnpm build           # production build to out/
+pnpm package         # unpacked app bundle (dist/, no installers)
+pnpm dist            # package installers (electron-builder)
 ```
+
+First run: add a project (folder) from the sidebar, open a chat, and either
+paste an API key or use OAuth login in Settings → API Keys. Type `/` in the
+prompt to explore commands, or `/help` for the full list.
 
 ## Configuration paths (shared with the mastracode CLI)
 
@@ -45,5 +118,26 @@ processes so changes take effect.
 ## App data
 
 The app's own state (projects, chats, transcripts, checkpoints) lives in a
-SQLite database in Electron's userData directory, separate from mastracode's
-files.
+SQLite database (`yardarm.db`) in Electron's userData directory, separate from
+mastracode's files. The database runs in WAL mode with periodic maintenance
+(vacuum/optimize, size-bounded transcripts) so long-lived installs don't
+degrade.
+
+## Architecture
+
+- **Shell**: Electron + electron-vite, React 19, Tailwind 4, jotai, tRPC over
+  IPC (superjson), Monaco, xterm
+- **Agent host**: each active subchat forks a `utilityProcess` that imports
+  the bundled `mastracode` SDK (`createMastraCode`) and speaks a small
+  JSON message protocol with the main process (streaming events, requests
+  with timeouts, OAuth flows)
+- **Persistence**: better-sqlite3 + drizzle in the main process
+- **Isolation**: chats can run in dedicated git worktrees; checkpoints are
+  pinned as git refs so they survive GC until deleted
+- **Packaging**: electron-builder; native modules and the mastracode runtime
+  are kept outside the asar (`asarUnpack`) so the agent host can resolve them
+  from disk
+
+## License
+
+Apache-2.0
