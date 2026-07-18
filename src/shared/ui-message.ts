@@ -85,6 +85,25 @@ export interface SessionMeta {
 
 export type AgentStatus = 'stopped' | 'starting' | 'ready' | 'running' | 'error'
 
+/** Result of one goal-judge evaluation (goal_evaluation event). */
+export interface GoalEvaluationInfo {
+  objective: string
+  iteration: number
+  maxRuns: number
+  passed: boolean
+  status: 'active' | 'paused' | 'done'
+  reason?: string
+  pausedReason?: string
+}
+
+/** A typed Observational Memory progress event (om_* SDK events). */
+export interface OmProgressInfo {
+  /** SDK event type without the om_ prefix, e.g. 'status', 'observation_end'. */
+  kind: string
+  data: Record<string, unknown>
+  ts: number
+}
+
 /** Events streamed to the renderer over the tRPC subscription. */
 export type AgentUIEvent =
   | { type: 'message-upsert'; message: StoredMessage }
@@ -100,4 +119,6 @@ export type AgentUIEvent =
   | { type: 'run-started' }
   | { type: 'run-finished'; reason?: string }
   | { type: 'info'; level: 'info' | 'error'; text: string }
+  | { type: 'goal-update'; goal: GoalEvaluationInfo }
+  | { type: 'om-progress'; om: OmProgressInfo }
   | { type: 'raw'; event: unknown }

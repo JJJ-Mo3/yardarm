@@ -135,12 +135,38 @@ export async function captureCheckpoint(cwd: string): Promise<string | null> {
       if (out) {
         stash = out
         // Keep the dangling commit alive against GC.
-        await git.raw(['update-ref', `refs/codezero/checkpoints/${stash}`, stash]).catch(() => {})
+        await git.raw(['update-ref', `refs/yardarm/checkpoints/${stash}`, stash]).catch(() => {})
       }
     } catch {
       // clean tree or stash unsupported
     }
     return JSON.stringify({ head, stash })
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Delete checkpoint keep-alive refs so the pinned stash commits become
+ * garbage-collectable. Best-effort: missing refs are ignored.
+ */
+export async function deleteCheckpointRefs(cwd: string, stashShas: string[]): Promise<void> {
+  if (stashShas.length === 0) return
+  try {
+    const git = simpleGit(cwd)
+    for (const sha of stashShas) {
+      await git.raw(['update-ref', '-d', `refs/yardarm/checkpoints/${sha}`]).catch(() => {})
+    }
+  } catch {
+    // best effort
+  }
+}
+
+/** Extract the stash sha (if any) from a captureCheckpoint() JSON string. */
+export function checkpointStashSha(checkpointRef: string): string | null {
+  try {
+    const parsed = JSON.parse(checkpointRef) as { stash?: string | null }
+    return parsed.stash ?? null
   } catch {
     return null
   }

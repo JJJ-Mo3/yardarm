@@ -71,7 +71,7 @@ async function uniqueBranch(projectPath: string, base: string): Promise<string> 
 
 /** Optional per-repo worktree setup commands (mirrors 1code's format). */
 async function readSetupCommands(projectPath: string): Promise<string[]> {
-  for (const rel of ['.codezero/worktree.json', '.1code/worktree.json']) {
+  for (const rel of ['.yardarm/worktree.json', '.1code/worktree.json']) {
     try {
       const raw = await fs.readFile(path.join(projectPath, rel), 'utf8')
       const parsed = JSON.parse(raw) as { 'setup-worktree'?: string[] }
@@ -91,7 +91,7 @@ export async function createWorktree(
   baseBranch: string
 ): Promise<WorktreeInfo> {
   const git = simpleGit(projectPath)
-  const branch = await uniqueBranch(projectPath, `codezero/${slugify(title)}`)
+  const branch = await uniqueBranch(projectPath, `yardarm/${slugify(title)}`)
   const worktreePath = path.join(worktreesRoot(), projectId, chatId)
   await fs.mkdir(path.dirname(worktreePath), { recursive: true })
 
@@ -140,7 +140,7 @@ export async function removeWorktree(
   } else {
     await git.raw(['worktree', 'prune']).catch(() => {})
   }
-  if (branch?.startsWith('codezero/')) {
+  if (branch?.startsWith('yardarm/')) {
     await git.raw(['branch', '-D', branch]).catch(() => {})
   }
 }

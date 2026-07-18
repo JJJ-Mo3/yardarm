@@ -241,15 +241,38 @@ export class EventTranslator {
         this.cb.emit({ type: 'info', level: 'info', text: (ev.message as string) ?? '' })
         break
 
+      case 'goal_evaluation': {
+        const p = (ev.payload ?? {}) as Record<string, unknown>
+        this.cb.emit({
+          type: 'goal-update',
+          goal: {
+            objective: (p.objective as string) ?? '',
+            iteration: (p.iteration as number) ?? 0,
+            maxRuns: (p.maxRuns as number) ?? 0,
+            passed: (p.passed as boolean) ?? false,
+            status: (p.status as 'active' | 'paused' | 'done') ?? 'active',
+            reason: p.reason as string | undefined,
+            pausedReason: p.pausedReason as string | undefined
+          }
+        })
+        break
+      }
+
       case 'follow_up_queued':
       case 'thread_deleted':
       case 'subagent_model_changed':
         break
 
       default:
-        // om_*, subagent_*, workspace_*, goal_evaluation, unknown future events
+        // om_*, subagent_*, workspace_*, unknown future events
         if (ev.type.startsWith('subagent_')) {
           this.handleSubagent(ev)
+        } else if (ev.type.startsWith('om_')) {
+          const { type, ...data } = ev
+          this.cb.emit({
+            type: 'om-progress',
+            om: { kind: type.slice('om_'.length), data, ts: Date.now() }
+          })
         } else {
           this.cb.emit({ type: 'raw', event: ev })
         }

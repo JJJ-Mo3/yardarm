@@ -1,4 +1,4 @@
-export interface CodezeroApi {
+export interface YardarmApi {
   platform: NodeJS.Platform
   versions: { electron: string; node: string }
   send: (channel: string, ...args: unknown[]) => void
@@ -6,7 +6,7 @@ export interface CodezeroApi {
 
 declare global {
   interface Window {
-    codezero: CodezeroApi
+    yardarm: YardarmApi
   }
 }
 

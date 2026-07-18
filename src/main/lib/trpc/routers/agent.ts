@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { getDb, schema } from '../../db'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import { captureCheckpoint } from '../../git/ops'
+import { readSettings } from '../../mastra-config/settings-json'
 import type { AgentUIEvent } from '../../../../shared/ui-message'
 import { publicProcedure, router } from '../trpc'
 
@@ -127,5 +128,156 @@ export const agentRouter = router({
     .input(z.object({ subchatId: z.string().optional() }).optional())
     .query(async ({ input }) => {
       return agentSessionManager.listModels(input?.subchatId)
+    }),
+
+  newThread: publicProcedure
+    .input(z.object({ subchatId: z.string() }))
+    .mutation(async ({ input }) => {
+      return agentSessionManager.newThread(input.subchatId)
+    }),
+
+  listThreads: publicProcedure
+    .input(z.object({ subchatId: z.string() }))
+    .query(async ({ input }) => {
+      return agentSessionManager.listThreads(input.subchatId)
+    }),
+
+  switchThread: publicProcedure
+    .input(z.object({ subchatId: z.string(), threadId: z.string() }))
+    .mutation(async ({ input }) => {
+      return agentSessionManager.switchThread(input.subchatId, input.threadId)
+    }),
+
+  /** Renames the subchat's active thread (SDK constraint). */
+  renameThread: publicProcedure
+    .input(z.object({ subchatId: z.string(), title: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      await agentSessionManager.renameThread(input.subchatId, input.title)
+      return { ok: true }
+    }),
+
+  cloneThread: publicProcedure
+    .input(
+      z.object({
+        subchatId: z.string(),
+        sourceThreadId: z.string().optional(),
+        title: z.string().optional()
+      })
+    )
+    .mutation(async ({ input }) => {
+      return agentSessionManager.cloneThread(input.subchatId, input.sourceThreadId, input.title)
+    }),
+
+  deleteThread: publicProcedure
+    .input(z.object({ subchatId: z.string(), threadId: z.string() }))
+    .mutation(async ({ input }) => {
+      return agentSessionManager.deleteThread(input.subchatId, input.threadId)
+    }),
+
+  /** The active thread's goal objective, or null. */
+  goalGet: publicProcedure.input(z.object({ subchatId: z.string() })).query(async ({ input }) => {
+    return agentSessionManager.goalGet(input.subchatId)
+  }),
+
+  /** Set a goal. Judge model / max turns default from global settings. */
+  goalSet: publicProcedure
+    .input(
+      z.object({
+        subchatId: z.string(),
+        objective: z.string().min(1),
+        judgeModelId: z.string().optional(),
+        maxRuns: z.number().int().positive().optional()
+      })
+    )
+    .mutation(async ({ input }) => {
+      let judgeModelId = input.judgeModelId
+      let maxRuns = input.maxRuns
+      if (!judgeModelId || maxRuns === undefined) {
+        const settings = await readSettings()
+        judgeModelId = judgeModelId ?? settings.models?.goalJudgeModel ?? undefined
+        maxRuns = maxRuns ?? settings.models?.goalMaxTurns ?? undefined
+      }
+      // Without a judge model the SDK treats the goal as a no-op.
+      if (!judgeModelId) {
+        const meta = agentSessionManager.meta(input.subchatId)
+        judgeModelId = meta?.modelId
+      }
+      return agentSessionManager.goalSet(input.subchatId, input.objective, judgeModelId, maxRuns)
+    }),
+
+  goalClear: publicProcedure
+    .input(z.object({ subchatId: z.string() }))
+    .mutation(async ({ input }) => {
+      await agentSessionManager.goalClear(input.subchatId)
+      return { ok: true }
+    }),
+
+  /** Observational Memory runtime config from live session state. */
+  omGet: publicProcedure.input(z.object({ subchatId: z.string() })).query(async ({ input }) => {
+    return agentSessionManager.omGet(input.subchatId)
+  }),
+
+  omSet: publicProcedure
+    .input(
+      z.object({
+        subchatId: z.string(),
+        patch: z.object({
+          observerModelId: z.string().optional(),
+          reflectorModelId: z.string().optional(),
+          observationThreshold: z.number().positive().optional(),
+          reflectionThreshold: z.number().positive().optional(),
+          cavemanObservations: z.boolean().optional()
+        })
+      })
+    )
+    .mutation(async ({ input }) => {
+      return agentSessionManager.omSet(input.subchatId, input.patch)
+    }),
+
+  /** Tool-permission rules (persisted in session state) + session grants. */
+  getPermissions: publicProcedure
+    .input(z.object({ subchatId: z.string() }))
+    .query(async ({ input }) => {
+      return agentSessionManager.getPermissions(input.subchatId)
+    }),
+
+  setPermission: publicProcedure
+    .input(
+      z.object({
+        subchatId: z.string(),
+        scope: z.enum(['tool', 'category']),
+        name: z.string().min(1),
+        policy: z.enum(['allow', 'ask', 'deny'])
+      })
+    )
+    .mutation(async ({ input }) => {
+      return agentSessionManager.setPermission(
+        input.subchatId,
+        input.scope,
+        input.name,
+        input.policy
+      )
+    }),
+
+  /** Custom .md slash commands available in this subchat's worktree. */
+  listCommands: publicProcedure
+    .input(z.object({ subchatId: z.string() }))
+    .query(async ({ input }) => {
+      return agentSessionManager.listCommands(input.subchatId)
+    }),
+
+  /** Expand a custom command and send it as a prompt. */
+  runCommand: publicProcedure
+    .input(z.object({ subchatId: z.string(), name: z.string().min(1), args: z.string() }))
+    .mutation(async ({ input }) => {
+      const cwd = subchatCwd(input.subchatId)
+      const checkpointRef = cwd ? await captureCheckpoint(cwd) : null
+      await agentSessionManager.runCommand(
+        input.subchatId,
+        input.name,
+        input.args,
+        checkpointRef ?? undefined
+      )
+      return { ok: true }
     })
 })

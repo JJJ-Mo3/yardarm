@@ -32,7 +32,7 @@ export class PtyManager {
       cols,
       rows,
       cwd,
-      env: { ...process.env, TERM_PROGRAM: 'codezero' } as Record<string, string>
+      env: { ...process.env, TERM_PROGRAM: 'yardarm' } as Record<string, string>
     })
     const session: PtySession = { id, proc, cwd, buffer: '', emitter: new EventEmitter() }
     session.emitter.setMaxListeners(20)

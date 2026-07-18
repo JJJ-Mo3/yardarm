@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
-import { and, asc, desc, eq, gte } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, isNotNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb, schema } from '../../db'
 import { agentSessionManager } from '../../agent/agent-session-manager'
-import { restoreCheckpoint } from '../../git/ops'
+import { checkpointStashSha, deleteCheckpointRefs, restoreCheckpoint } from '../../git/ops'
 import { createWorktree, removeWorktree } from '../../git/worktree'
 import { ptyManager } from '../../terminal/pty-manager'
 import { publicProcedure, router } from '../trpc'
@@ -117,6 +117,12 @@ export const chatsRouter = router({
     const chat = db.select().from(schema.chats).where(eq(schema.chats.id, input.id)).get()
     if (!chat) return { ok: true }
 
+    const project = db
+      .select()
+      .from(schema.projects)
+      .where(eq(schema.projects.id, chat.projectId))
+      .get()
+
     // Stop hosts + terminals rooted in the worktree, then clean up.
     const subchats = db
       .select()
@@ -125,13 +131,30 @@ export const chatsRouter = router({
       .all()
     for (const sc of subchats) agentSessionManager.stopHost(sc.id)
 
+    // Unpin checkpoint stash commits so the repo doesn't grow unboundedly.
+    // Refs live in the main repo's git dir (shared with its worktrees).
+    if (project && subchats.length > 0) {
+      const refs = db
+        .select({ checkpointRef: schema.messages.checkpointRef })
+        .from(schema.messages)
+        .where(
+          and(
+            inArray(
+              schema.messages.subchatId,
+              subchats.map((sc) => sc.id)
+            ),
+            isNotNull(schema.messages.checkpointRef)
+          )
+        )
+        .all()
+      const stashShas = refs
+        .map((r) => (r.checkpointRef ? checkpointStashSha(r.checkpointRef) : null))
+        .filter((sha): sha is string => sha !== null)
+      await deleteCheckpointRefs(project.path, stashShas)
+    }
+
     if (chat.worktreePath) {
       ptyManager.killByCwdPrefix(chat.worktreePath)
-      const project = db
-        .select()
-        .from(schema.projects)
-        .where(eq(schema.projects.id, chat.projectId))
-        .get()
       if (project) {
         await removeWorktree(project.path, chat.worktreePath, chat.branch ?? undefined)
       }
@@ -141,21 +164,25 @@ export const chatsRouter = router({
     return { ok: true }
   }),
 
-  createSubchat: publicProcedure.input(z.object({ chatId: z.string() })).mutation(({ input }) => {
-    const now = Date.now()
-    const subchat = {
-      id: randomUUID(),
-      chatId: input.chatId,
-      mastraThreadId: null,
-      mode: 'build',
-      modelId: null,
-      thinkingLevel: null,
-      createdAt: now,
-      updatedAt: now
-    }
-    getDb().insert(schema.subchats).values(subchat).run()
-    return subchat
-  }),
+  createSubchat: publicProcedure
+    .input(z.object({ chatId: z.string(), mastraThreadId: z.string().optional() }))
+    .mutation(({ input }) => {
+      const now = Date.now()
+      const subchat = {
+        id: randomUUID(),
+        chatId: input.chatId,
+        // When preset, the new subchat boots straight into an existing
+        // mastracode thread (Threads UI "open as new subchat").
+        mastraThreadId: input.mastraThreadId ?? null,
+        mode: 'build',
+        modelId: null,
+        thinkingLevel: null,
+        createdAt: now,
+        updatedAt: now
+      }
+      getDb().insert(schema.subchats).values(subchat).run()
+      return subchat
+    }),
 
   /**
    * Rollback to the checkpoint captured with a user message: restore the
@@ -187,6 +214,31 @@ export const chatsRouter = router({
       const cwd = chat.worktreePath
       if (msg.checkpointRef && cwd) {
         await restoreCheckpoint(cwd, msg.checkpointRef)
+      }
+
+      // Unpin checkpoint stashes of the messages being deleted. The target's
+      // own ref is included only now that its restore (if any) succeeded.
+      const project = db
+        .select()
+        .from(schema.projects)
+        .where(eq(schema.projects.id, chat.projectId))
+        .get()
+      if (project) {
+        const truncated = db
+          .select({ checkpointRef: schema.messages.checkpointRef })
+          .from(schema.messages)
+          .where(
+            and(
+              eq(schema.messages.subchatId, input.subchatId),
+              gte(schema.messages.seq, msg.seq),
+              isNotNull(schema.messages.checkpointRef)
+            )
+          )
+          .all()
+        const stashShas = truncated
+          .map((r) => (r.checkpointRef ? checkpointStashSha(r.checkpointRef) : null))
+          .filter((sha): sha is string => sha !== null)
+        await deleteCheckpointRefs(project.path, stashShas)
       }
 
       db.delete(schema.messages)

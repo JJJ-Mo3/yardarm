@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
-import { FolderGit2, MessageSquarePlus, Plus, Settings, Trash2 } from 'lucide-react'
+import { FolderCog, FolderGit2, MessageSquarePlus, Plus, Settings, Trash2 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { cn, timeAgo } from '../../lib/utils'
 import {
+  projectSettingsOpenAtom,
   selectedChatIdAtom,
   selectedProjectIdAtom,
   selectedSubchatIdAtom,
@@ -24,12 +25,14 @@ import {
   SelectValue
 } from '../../components/ui/select'
 import { Switch } from '../../components/ui/switch'
+import logo from '../../assets/logo.png'
 
 export function Sidebar(): React.JSX.Element {
   const [projectId, setProjectId] = useAtom(selectedProjectIdAtom)
   const [chatId, setChatId] = useAtom(selectedChatIdAtom)
   const setSubchatId = useSetAtom(selectedSubchatIdAtom)
   const setSettingsOpen = useSetAtom(settingsOpenAtom)
+  const setProjectSettingsOpen = useSetAtom(projectSettingsOpenAtom)
   const [newChatOpen, setNewChatOpen] = useState(false)
   const [newChatTitle, setNewChatTitle] = useState('')
   const [useWorktree, setUseWorktree] = useState(true)
@@ -69,9 +72,11 @@ export function Sidebar(): React.JSX.Element {
 
   return (
     <div className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-card">
-      {/* Titlebar spacer (macOS traffic lights) */}
-      <div className="titlebar-drag h-10 shrink-0 flex items-end px-3 pb-1">
-        <span className="text-xs font-semibold tracking-wide text-muted-foreground">codezero</span>
+      {/* Titlebar spacer (macOS traffic lights sit at y=14..28; keep the
+          title fully below them) */}
+      <div className="titlebar-drag h-[52px] shrink-0 flex items-end gap-1.5 px-3 pb-1.5">
+        <img src={logo} alt="" className="h-4 w-4 rounded-[4px]" />
+        <span className="text-xs font-semibold tracking-wide text-muted-foreground">Yardarm</span>
       </div>
 
       {/* Project picker */}
@@ -91,6 +96,15 @@ export function Sidebar(): React.JSX.Element {
             ))}
           </SelectContent>
         </Select>
+        <Button
+          size="icon"
+          variant="ghost"
+          title="Project settings"
+          disabled={!projectId}
+          onClick={() => setProjectSettingsOpen(true)}
+        >
+          <FolderCog size={14} />
+        </Button>
         <Button
           size="icon"
           variant="ghost"

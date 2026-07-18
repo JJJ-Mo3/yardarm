@@ -3,6 +3,8 @@ import { trpc } from '../../lib/trpc'
 import type {
   AgentStatus,
   AgentUIEvent,
+  GoalEvaluationInfo,
+  OmProgressInfo,
   PendingApproval,
   PendingSuspension,
   SessionMeta,
@@ -21,6 +23,10 @@ export interface AgentStreamState {
   usage: UsageInfo | null
   tasks: TaskItem[]
   infos: Array<{ level: 'info' | 'error'; text: string; ts: number }>
+  /** Latest goal-judge evaluation this session, if any. */
+  goal: GoalEvaluationInfo | null
+  /** Recent Observational Memory progress events (newest last). */
+  omEvents: OmProgressInfo[]
   rawEvents: unknown[]
 }
 
@@ -34,6 +40,8 @@ const initialState: AgentStreamState = {
   usage: null,
   tasks: [],
   infos: [],
+  goal: null,
+  omEvents: [],
   rawEvents: []
 }
 
@@ -79,6 +87,10 @@ function reducer(state: AgentStreamState, ev: AgentUIEvent): AgentStreamState {
         ...state,
         infos: [...state.infos.slice(-49), { level: ev.level, text: ev.text, ts: Date.now() }]
       }
+    case 'goal-update':
+      return { ...state, goal: ev.goal }
+    case 'om-progress':
+      return { ...state, omEvents: [...state.omEvents.slice(-29), ev.om] }
     case 'raw':
       return { ...state, rawEvents: [...state.rawEvents.slice(-99), ev.event] }
     default:

@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { BrowserWindow, shell } from 'electron'
 import type { createIPCHandler } from 'trpc-electron/main'
+import icon from '../../../build/icon.png?asset'
 
 type IPCHandler = ReturnType<typeof createIPCHandler>
 
@@ -20,6 +21,9 @@ export function createWindow(): BrowserWindow {
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     trafficLightPosition: { x: 16, y: 14 },
     backgroundColor: '#0a0a0a',
+    // macOS uses the .icns from electron-builder; win/linux windows take
+    // theirs from BrowserWindow options.
+    ...(process.platform !== 'darwin' ? { icon } : {}),
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       sandbox: false,

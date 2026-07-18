@@ -31,7 +31,9 @@ export const mcpRouter = router({
     .mutation(async ({ input }) => {
       await writeMcpServers(input.servers as Record<string, McpServerConfig>, input.projectPath)
       // Hosts read mcp.json at boot — restart so changes take effect.
-      agentSessionManager.restartAll()
+      // Project-scoped edits only affect that project's hosts.
+      if (input.projectPath) agentSessionManager.restartByProject(input.projectPath)
+      else agentSessionManager.restartAll()
       return { ok: true }
     })
 })

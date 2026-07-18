@@ -3,9 +3,12 @@ import { agentRouter } from './agent'
 import { chatsRouter } from './chats'
 import { filesRouter } from './files'
 import { gitRouter } from './git'
+import { mastraSettingsRouter } from './mastra-settings'
 import { mcpRouter } from './mcp'
+import { projectConfigRouter } from './project-config'
 import { projectsRouter } from './projects'
 import { settingsRouter } from './settings'
+import { systemRouter } from './system'
 import { terminalRouter } from './terminal'
 
 export const appRouter = router({
@@ -17,7 +20,10 @@ export const appRouter = router({
   terminal: terminalRouter,
   files: filesRouter,
   settings: settingsRouter,
-  mcp: mcpRouter
+  mastraSettings: mastraSettingsRouter,
+  mcp: mcpRouter,
+  projectConfig: projectConfigRouter,
+  system: systemRouter
 })
 
 export type AppRouter = typeof appRouter

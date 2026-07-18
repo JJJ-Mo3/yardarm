@@ -1,7 +1,9 @@
+import { observable } from '@trpc/server/observable'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb, schema } from '../../db'
 import { agentSessionManager } from '../../agent/agent-session-manager'
+import type { OAuthStatusEvent } from '../../../../shared/ipc-types'
 import { publicProcedure, router } from '../trpc'
 
 export const settingsRouter = router({
@@ -57,5 +59,38 @@ export const settingsRouter = router({
     .mutation(async ({ input }) => {
       await agentSessionManager.authRemove(input.provider)
       return { ok: true }
+    }),
+
+  // OAuth login flows (Anthropic, OpenAI Codex, GitHub Copilot)
+  oauthProviders: publicProcedure.query(() => agentSessionManager.oauthProviders()),
+
+  oauthStart: publicProcedure
+    .input(z.object({ provider: z.string().min(1), authMode: z.string().optional() }))
+    .mutation(({ input }) => agentSessionManager.oauthStart(input.provider, input.authMode)),
+
+  oauthPrompt: publicProcedure
+    .input(z.object({ flowId: z.string(), value: z.string() }))
+    .mutation(({ input }) => {
+      agentSessionManager.oauthPrompt(input.flowId, input.value)
+      return { ok: true }
+    }),
+
+  oauthCancel: publicProcedure.input(z.object({ flowId: z.string() })).mutation(({ input }) => {
+    agentSessionManager.oauthCancel(input.flowId)
+    return { ok: true }
+  }),
+
+  oauthLogout: publicProcedure
+    .input(z.object({ provider: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      await agentSessionManager.oauthLogout(input.provider)
+      return { ok: true }
+    }),
+
+  /** Live status events for all OAuth flows; filter by flowId in the client. */
+  onOauthStatus: publicProcedure.subscription(() => {
+    return observable<OAuthStatusEvent>((emit) => {
+      return agentSessionManager.onOauthStatus((ev) => emit.next(ev))
     })
+  })
 })

@@ -1,16 +1,25 @@
 import React, { useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
-import { KeyRound, Palette, Server, Trash2 } from 'lucide-react'
+import { Boxes, Info, KeyRound, Palette, Plug, Server, Trash2 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
-import { settingsOpenAtom, themeAtom, debugEventsAtom, type Theme } from '../../lib/atoms'
+import {
+  settingsOpenAtom,
+  settingsTabAtom,
+  themeAtom,
+  debugEventsAtom,
+  type Theme,
+  type SettingsTab
+} from '../../lib/atoms'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Textarea } from '../../components/ui/textarea'
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
 import { Switch } from '../../components/ui/switch'
-
-type Tab = 'appearance' | 'keys' | 'mcp'
+import { AboutTab } from './AboutTab'
+import { ModelsTab } from './ModelsTab'
+import { OAuthSection } from './OAuthSection'
+import { ProvidersTab } from './ProvidersTab'
 
 const PROVIDERS = ['anthropic', 'openai', 'google', 'openrouter', 'xai', 'groq', 'mistral']
 
@@ -64,7 +73,8 @@ function KeysTab(): React.JSX.Element {
   return (
     <div className="space-y-4">
       <div className="text-[11px] text-muted-foreground">
-        Keys are stored in <code>~/.mastracode/auth.json</code> and shared with the mastracode CLI.
+        Keys are stored in mastracode&apos;s app-data <code>auth.json</code> and shared with the
+        mastracode CLI.
       </div>
       <div className="space-y-1">
         {auth.isLoading && <div className="text-xs text-muted-foreground">Loading…</div>}
@@ -120,6 +130,9 @@ function KeysTab(): React.JSX.Element {
       {setKey.error && (
         <div className="text-xs text-destructive selectable">{setKey.error.message}</div>
       )}
+      <div className="border-t border-border pt-3">
+        <OAuthSection />
+      </div>
     </div>
   )
 }
@@ -187,12 +200,15 @@ function McpTab(): React.JSX.Element {
 
 export function SettingsDialog(): React.JSX.Element {
   const [open, setOpen] = useAtom(settingsOpenAtom)
-  const [tab, setTab] = useState<Tab>('appearance')
+  const [tab, setTab] = useAtom(settingsTabAtom)
 
-  const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
+  const tabs: Array<{ id: SettingsTab; label: string; icon: React.ReactNode }> = [
     { id: 'appearance', label: 'Appearance', icon: <Palette size={13} /> },
     { id: 'keys', label: 'API Keys', icon: <KeyRound size={13} /> },
-    { id: 'mcp', label: 'MCP Servers', icon: <Server size={13} /> }
+    { id: 'models', label: 'Models', icon: <Boxes size={13} /> },
+    { id: 'providers', label: 'Providers', icon: <Plug size={13} /> },
+    { id: 'mcp', label: 'MCP Servers', icon: <Server size={13} /> },
+    { id: 'about', label: 'About', icon: <Info size={13} /> }
   ]
 
   return (
@@ -218,7 +234,10 @@ export function SettingsDialog(): React.JSX.Element {
           <div className="min-h-72 flex-1">
             {tab === 'appearance' && <AppearanceTab />}
             {tab === 'keys' && <KeysTab />}
+            {tab === 'models' && <ModelsTab />}
+            {tab === 'providers' && <ProvidersTab />}
             {tab === 'mcp' && <McpTab />}
+            {tab === 'about' && <AboutTab />}
           </div>
         </div>
       </DialogContent>

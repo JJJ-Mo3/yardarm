@@ -1,5 +1,5 @@
-appId: dev.codezero.app
-productName: codezero
+appId: dev.yardarm.app
+productName: Yardarm
 directories:
   buildResources: build
   output: dist

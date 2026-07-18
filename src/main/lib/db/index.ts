@@ -70,10 +70,22 @@ const MIGRATIONS: string[] = [
 
 export function initDb(): DB {
   if (db) return db
-  const dbPath = join(app.getPath('userData'), 'codezero.db')
+  const dbPath = join(app.getPath('userData'), 'yardarm.db')
   sqlite = new Database(dbPath)
   sqlite.pragma('journal_mode = WAL')
   sqlite.pragma('foreign_keys = ON')
+  sqlite.pragma('synchronous = NORMAL')
+  // Cap the WAL file so it can't balloon between checkpoints.
+  sqlite.pragma('journal_size_limit = 16777216')
+  sqlite.pragma('wal_autocheckpoint = 1000')
+
+  // One-time switch to incremental auto-vacuum so deleted pages can be
+  // reclaimed (requires a VACUUM to take effect; cheap while the DB is small).
+  const autoVacuum = sqlite.pragma('auto_vacuum', { simple: true }) as number
+  if (autoVacuum !== 2) {
+    sqlite.pragma('auto_vacuum = INCREMENTAL')
+    sqlite.exec('VACUUM')
+  }
 
   const current = sqlite.pragma('user_version', { simple: true }) as number
   for (let v = current; v < MIGRATIONS.length; v++) {
@@ -85,12 +97,28 @@ export function initDb(): DB {
   return db
 }
 
+/**
+ * Reclaim free pages, truncate the WAL, and refresh query-planner stats.
+ * Cheap when there's nothing to do; safe to call periodically.
+ */
+export function maintainDb(): void {
+  if (!sqlite) return
+  try {
+    sqlite.pragma('incremental_vacuum')
+    sqlite.pragma('wal_checkpoint(TRUNCATE)')
+    sqlite.pragma('optimize')
+  } catch (err) {
+    console.error('[db] maintenance failed', err)
+  }
+}
+
 export function getDb(): DB {
   if (!db) throw new Error('Database not initialized')
   return db
 }
 
 export function closeDb(): void {
+  maintainDb()
   sqlite?.close()
   sqlite = null
   db = null

@@ -7,17 +7,29 @@ import { EventEmitter } from 'node:events'
 import { randomUUID } from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
-import { utilityProcess, type UtilityProcess } from 'electron'
-import { eq, asc } from 'drizzle-orm'
+import { shell, utilityProcess, type UtilityProcess } from 'electron'
+import { eq, desc, sql } from 'drizzle-orm'
 import { getDb, schema } from '../db'
 import { EventTranslator } from './event-translator'
+import { clampMessageForStorage } from './message-clamp'
 import type {
   AgentControllerEventLike,
   AuthEntry,
+  GoalInfo,
   HostBootConfig,
   HostCommand,
   HostMessage,
-  ModelInfo
+  ModelInfo,
+  OAuthProviderInfo,
+  OAuthStatusEvent,
+  OmRuntimeInfo,
+  OmRuntimePatch,
+  PermissionPolicy,
+  PermissionsSnapshot,
+  PluginInfo,
+  ResourceInfo,
+  SlashCommandInfo,
+  ThreadInfo
 } from '../../../shared/ipc-types'
 import type { AgentStatus, AgentUIEvent, StoredMessage } from '../../../shared/ui-message'
 
@@ -49,6 +61,8 @@ export class AgentSessionManager {
   private emitters = new Map<string, EventEmitter>()
   /** A host with cwd=$HOME used for auth/model queries when no chat host exists. */
   private utilityHost: HostHandle | null = null
+  /** Most recent boot-error from any host; cleared when a host boots cleanly. */
+  private lastBootError: string | null = null
 
   private emitterFor(subchatId: string): EventEmitter {
     let em = this.emitters.get(subchatId)
@@ -97,12 +111,16 @@ export class AgentSessionManager {
 
   loadMessages(subchatId: string): StoredMessage[] {
     const db = getDb()
+    // Bounded: only the most recent messages, so translator seeding and the
+    // messages-reset renderer payload stay small as history grows.
     const rows = db
       .select()
       .from(schema.messages)
       .where(eq(schema.messages.subchatId, subchatId))
-      .orderBy(asc(schema.messages.seq))
+      .orderBy(desc(schema.messages.seq))
+      .limit(500)
       .all()
+      .reverse()
     return rows.map((r) => ({
       id: r.id,
       role: r.role as StoredMessage['role'],
@@ -113,7 +131,9 @@ export class AgentSessionManager {
     }))
   }
 
-  private persistMessage(subchatId: string, message: StoredMessage): void {
+  private persistMessage(subchatId: string, rawMessage: StoredMessage): void {
+    // Clamp oversized tool payloads before they hit disk.
+    const message = clampMessageForStorage(rawMessage)
     const db = getDb()
     const existing = db
       .select({ id: schema.messages.id })
@@ -129,13 +149,12 @@ export class AgentSessionManager {
         .where(eq(schema.messages.id, message.id))
         .run()
     } else {
-      const maxSeq = db
-        .select({ seq: schema.messages.seq })
-        .from(schema.messages)
-        .where(eq(schema.messages.subchatId, subchatId))
-        .orderBy(asc(schema.messages.seq))
-        .all()
-        .reduce((m, r) => Math.max(m, r.seq), 0)
+      const maxSeq =
+        db
+          .select({ max: sql<number | null>`max(${schema.messages.seq})` })
+          .from(schema.messages)
+          .where(eq(schema.messages.subchatId, subchatId))
+          .get()?.max ?? 0
       db.insert(schema.messages)
         .values({
           id: message.id,
@@ -194,11 +213,11 @@ export class AgentSessionManager {
 
   private spawnHost(subchatId: string, boot: HostBootConfig): HostHandle {
     const proc = utilityProcess.fork(HOST_ENTRY, [], {
-      serviceName: `codezero-agent-${subchatId}`,
+      serviceName: `yardarm-agent-${subchatId}`,
       stdio: 'pipe',
       env: {
         ...process.env,
-        CODEZERO_BOOT: JSON.stringify(boot)
+        YARDARM_BOOT: JSON.stringify(boot)
       }
     })
 
@@ -264,6 +283,7 @@ export class AgentSessionManager {
       const msg = raw as HostMessage
       switch (msg.t) {
         case 'ready':
+          this.lastBootError = null
           handle.status = 'ready'
           handle.meta = {
             threadId: msg.threadId ?? undefined,
@@ -295,6 +315,7 @@ export class AgentSessionManager {
           handle.readyResolve()
           break
         case 'boot-error':
+          this.lastBootError = msg.error
           handle.status = 'error'
           this.emitUI(subchatId, { type: 'status', status: 'error', error: msg.error })
           handle.readyReject(new Error(msg.error))
@@ -316,6 +337,16 @@ export class AgentSessionManager {
           }
           break
         }
+        case 'oauth-status':
+          this.relayOauthStatus({
+            flowId: msg.reqId,
+            kind: msg.kind,
+            url: msg.url,
+            instructions: msg.instructions,
+            message: msg.message,
+            placeholder: msg.placeholder
+          })
+          break
         case 'log':
           console.log(`[agent-host ${subchatId}]`, msg.msg)
           break
@@ -350,12 +381,16 @@ export class AgentSessionManager {
     handle.proc.postMessage(cmd)
   }
 
-  private request<T>(handle: HostHandle, cmd: HostCommand & { reqId: string }): Promise<T> {
+  private request<T>(
+    handle: HostHandle,
+    cmd: HostCommand & { reqId: string },
+    timeoutMs: number = REQUEST_TIMEOUT_MS
+  ): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
         handle.pending.delete(cmd.reqId)
         reject(new Error(`Agent host request timed out: ${cmd.t}`))
-      }, REQUEST_TIMEOUT_MS)
+      }, timeoutMs)
       handle.pending.set(cmd.reqId, {
         resolve: resolve as (data: unknown) => void,
         reject,
@@ -367,13 +402,23 @@ export class AgentSessionManager {
 
   // ---- Public command surface -------------------------------------------
 
-  async sendMessage(subchatId: string, content: string, checkpointRef?: string): Promise<void> {
+  /**
+   * Send a prompt to the agent. `displayText` (when set) is what the
+   * transcript stores/shows — e.g. `/cmd args` — while `content` is the
+   * expanded prompt actually sent to the model.
+   */
+  async sendMessage(
+    subchatId: string,
+    content: string,
+    checkpointRef?: string,
+    displayText?: string
+  ): Promise<void> {
     const handle = await this.ensureHost(subchatId)
     // Persist + broadcast the user message immediately.
     const userMessage: StoredMessage = {
       id: randomUUID(),
       role: 'user',
-      parts: [{ type: 'text', text: content }],
+      parts: [{ type: 'text', text: displayText ?? content }],
       checkpointRef: checkpointRef ?? null,
       createdAt: Date.now()
     }
@@ -440,6 +485,195 @@ export class AgentSessionManager {
     this.sendCommand(handle, { t: 'setThinking', level })
   }
 
+  async newThread(subchatId: string): Promise<{ threadId: string }> {
+    const handle = await this.ensureHost(subchatId)
+    const res = await this.request<{ threadId: string }>(handle, {
+      t: 'newThread',
+      reqId: randomUUID()
+    })
+    this.bindThread(subchatId, handle, res.threadId)
+    return res
+  }
+
+  /** Persist the subchat↔thread binding and broadcast fresh session meta. */
+  private bindThread(subchatId: string, handle: HostHandle, threadId: string | null): void {
+    handle.meta.threadId = threadId ?? undefined
+    getDb()
+      .update(schema.subchats)
+      .set({ mastraThreadId: threadId })
+      .where(eq(schema.subchats.id, subchatId))
+      .run()
+    this.emitUI(subchatId, { type: 'session-meta', meta: { ...handle.meta } })
+  }
+
+  /** Insert a transcript marker (thread switches interleave histories). */
+  private insertMarker(subchatId: string, text: string): void {
+    const marker: StoredMessage = {
+      id: randomUUID(),
+      role: 'assistant',
+      parts: [{ type: 'info', level: 'info', text }],
+      createdAt: Date.now()
+    }
+    this.persistMessage(subchatId, marker)
+    this.emitUI(subchatId, { type: 'message-upsert', message: marker })
+  }
+
+  async listThreads(subchatId: string): Promise<ThreadInfo[]> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<ThreadInfo[]>(handle, { t: 'threadList', reqId: randomUUID() })
+  }
+
+  async switchThread(subchatId: string, threadId: string): Promise<{ threadId: string }> {
+    const handle = await this.ensureHost(subchatId)
+    const res = await this.request<{ threadId: string | null }>(handle, {
+      t: 'threadSwitch',
+      reqId: randomUUID(),
+      threadId
+    })
+    this.bindThread(subchatId, handle, res.threadId)
+    this.insertMarker(subchatId, `Switched to thread ${res.threadId ?? threadId}`)
+    return { threadId: res.threadId ?? threadId }
+  }
+
+  /** Renames the session's active thread (SDK constraint). */
+  async renameThread(subchatId: string, title: string): Promise<void> {
+    const handle = await this.ensureHost(subchatId)
+    await this.request(handle, { t: 'threadRename', reqId: randomUUID(), title })
+  }
+
+  async cloneThread(
+    subchatId: string,
+    sourceThreadId?: string,
+    title?: string
+  ): Promise<{ threadId: string }> {
+    const handle = await this.ensureHost(subchatId)
+    const res = await this.request<{ threadId: string }>(handle, {
+      t: 'threadClone',
+      reqId: randomUUID(),
+      sourceThreadId,
+      title
+    })
+    this.bindThread(subchatId, handle, res.threadId)
+    this.insertMarker(subchatId, `Cloned into new thread ${res.threadId}`)
+    return res
+  }
+
+  async deleteThread(subchatId: string, threadId: string): Promise<{ threadId: string }> {
+    const handle = await this.ensureHost(subchatId)
+    const res = await this.request<{ threadId: string | null }>(handle, {
+      t: 'threadDelete',
+      reqId: randomUUID(),
+      threadId
+    })
+    this.bindThread(subchatId, handle, res.threadId)
+    return { threadId: res.threadId ?? '' }
+  }
+
+  /** Current tool-permission rules + session grants. */
+  async getPermissions(subchatId: string): Promise<PermissionsSnapshot> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<PermissionsSnapshot>(handle, { t: 'getPermissions', reqId: randomUUID() })
+  }
+
+  async setPermission(
+    subchatId: string,
+    scope: 'tool' | 'category',
+    name: string,
+    policy: PermissionPolicy
+  ): Promise<PermissionsSnapshot> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<PermissionsSnapshot>(handle, {
+      t: 'setPermission',
+      reqId: randomUUID(),
+      scope,
+      name,
+      policy
+    })
+  }
+
+  /** The active thread's durable goal objective, or null. */
+  async goalGet(subchatId: string): Promise<GoalInfo | null> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<GoalInfo | null>(handle, { t: 'goalGet', reqId: randomUUID() })
+  }
+
+  async goalSet(
+    subchatId: string,
+    objective: string,
+    judgeModelId?: string,
+    maxRuns?: number
+  ): Promise<GoalInfo | null> {
+    const handle = await this.ensureHost(subchatId)
+    const goal = await this.request<GoalInfo | null>(handle, {
+      t: 'goalSet',
+      reqId: randomUUID(),
+      objective,
+      judgeModelId,
+      maxRuns
+    })
+    this.insertMarker(subchatId, `Goal set: ${objective}`)
+    return goal
+  }
+
+  async goalClear(subchatId: string): Promise<void> {
+    const handle = await this.ensureHost(subchatId)
+    await this.request<null>(handle, { t: 'goalClear', reqId: randomUUID() })
+    this.insertMarker(subchatId, 'Goal cleared')
+  }
+
+  /** Observational Memory runtime config from live session state. */
+  async omGet(subchatId: string): Promise<OmRuntimeInfo> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<OmRuntimeInfo>(handle, { t: 'omGet', reqId: randomUUID() })
+  }
+
+  async omSet(subchatId: string, patch: OmRuntimePatch): Promise<OmRuntimeInfo> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<OmRuntimeInfo>(handle, { t: 'omSet', reqId: randomUUID(), patch })
+  }
+
+  /** Custom .md slash commands discovered for the subchat's cwd. */
+  async listCommands(subchatId: string): Promise<SlashCommandInfo[]> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<SlashCommandInfo[]>(handle, { t: 'listCommands', reqId: randomUUID() })
+  }
+
+  /** Expand a custom command and send it; transcript shows `/name args`. */
+  async runCommand(
+    subchatId: string,
+    name: string,
+    args: string,
+    checkpointRef?: string
+  ): Promise<void> {
+    const handle = await this.ensureHost(subchatId)
+    const { prompt } = await this.request<{ prompt: string }>(handle, {
+      t: 'expandCommand',
+      reqId: randomUUID(),
+      name,
+      args
+    })
+    const display = `/${name}${args.trim() ? ` ${args.trim()}` : ''}`
+    await this.sendMessage(subchatId, prompt, checkpointRef, display)
+  }
+
+  /** Re-read global + project hooks.json in the live host. */
+  async reloadHooks(subchatId: string): Promise<void> {
+    const handle = await this.ensureHost(subchatId)
+    await this.request<null>(handle, { t: 'reloadHooks', reqId: randomUUID() })
+  }
+
+  /** The live session's memory resource id. */
+  async resourceInfo(subchatId: string): Promise<ResourceInfo> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<ResourceInfo>(handle, { t: 'resourceInfo', reqId: randomUUID() })
+  }
+
+  /** Plugins/skills loaded by the subchat's host (display-only). */
+  async listPlugins(subchatId: string): Promise<PluginInfo[]> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<PluginInfo[]>(handle, { t: 'listPlugins', reqId: randomUUID() })
+  }
+
   async listModels(subchatId?: string): Promise<ModelInfo[]> {
     const handle = subchatId ? await this.ensureHost(subchatId) : await this.ensureUtilityHost()
     return this.request<ModelInfo[]>(handle, { t: 'listModels', reqId: randomUUID() })
@@ -458,6 +692,83 @@ export class AgentSessionManager {
   async authRemove(provider: string): Promise<void> {
     const handle = await this.ensureUtilityHost()
     await this.request(handle, { t: 'authRemove', reqId: randomUUID(), provider })
+  }
+
+  // ---- OAuth login flows ---------------------------------------------------
+
+  private oauthEmitter = new EventEmitter()
+  /** Which host each in-flight OAuth flow runs on (for prompt/cancel routing). */
+  private oauthHandles = new Map<string, HostHandle>()
+
+  onOauthStatus(listener: (ev: OAuthStatusEvent) => void): () => void {
+    this.oauthEmitter.on('status', listener)
+    return () => this.oauthEmitter.off('status', listener)
+  }
+
+  private relayOauthStatus(ev: OAuthStatusEvent): void {
+    // Open the provider's auth page for the user; the event still carries the
+    // URL so the renderer can offer an "open again" link.
+    if (ev.kind === 'auth-url' && ev.url) {
+      shell.openExternal(ev.url).catch(() => {})
+    }
+    this.oauthEmitter.emit('status', ev)
+  }
+
+  async oauthProviders(): Promise<OAuthProviderInfo[]> {
+    const handle = await this.ensureUtilityHost()
+    return this.request<OAuthProviderInfo[]>(handle, { t: 'oauthProviders', reqId: randomUUID() })
+  }
+
+  /**
+   * Start an OAuth login. Returns the flow id immediately; progress and the
+   * final done/error arrive via onOauthStatus.
+   */
+  async oauthStart(provider: string, authMode?: string): Promise<{ flowId: string }> {
+    const handle = await this.ensureUtilityHost()
+    const flowId = randomUUID()
+    this.oauthHandles.set(flowId, handle)
+    this.request<{ loggedIn: boolean }>(
+      handle,
+      { t: 'oauthLogin', reqId: flowId, provider, authMode },
+      10 * 60_000 // user completes the flow in a browser
+    )
+      .then((res) => {
+        this.relayOauthStatus({
+          flowId,
+          kind: res.loggedIn ? 'done' : 'error',
+          message: res.loggedIn ? `Logged in to ${provider}` : 'Login did not complete'
+        })
+      })
+      .catch((err: unknown) => {
+        this.relayOauthStatus({
+          flowId,
+          kind: 'error',
+          message: err instanceof Error ? err.message : String(err)
+        })
+      })
+      .finally(() => {
+        this.oauthHandles.delete(flowId)
+      })
+    return { flowId }
+  }
+
+  oauthPrompt(flowId: string, value: string): void {
+    const handle = this.oauthHandles.get(flowId)
+    if (handle && !handle.killed) {
+      this.sendCommand(handle, { t: 'oauthPrompt', reqId: flowId, value })
+    }
+  }
+
+  oauthCancel(flowId: string): void {
+    const handle = this.oauthHandles.get(flowId)
+    if (handle && !handle.killed) {
+      this.sendCommand(handle, { t: 'oauthCancel', reqId: flowId })
+    }
+  }
+
+  async oauthLogout(provider: string): Promise<void> {
+    const handle = await this.ensureUtilityHost()
+    await this.request(handle, { t: 'oauthLogout', reqId: randomUUID(), provider })
   }
 
   /** Stop the host for a subchat (e.g. on chat delete or app quit). */
@@ -492,8 +803,52 @@ export class AgentSessionManager {
     }
   }
 
+  /**
+   * Restart only the hosts whose subchats belong to the given project (its
+   * worktrees included). Falls back to stopping when the lookup fails.
+   */
+  restartByProject(projectPath: string): void {
+    const db = getDb()
+    for (const subchatId of [...this.hosts.keys()]) {
+      const subchat = db
+        .select({ chatId: schema.subchats.chatId })
+        .from(schema.subchats)
+        .where(eq(schema.subchats.id, subchatId))
+        .get()
+      const chat = subchat
+        ? db
+            .select({ projectId: schema.chats.projectId })
+            .from(schema.chats)
+            .where(eq(schema.chats.id, subchat.chatId))
+            .get()
+        : undefined
+      const project = chat
+        ? db
+            .select({ path: schema.projects.path })
+            .from(schema.projects)
+            .where(eq(schema.projects.id, chat.projectId))
+            .get()
+        : undefined
+      if (!project || project.path === projectPath) this.stopHost(subchatId)
+    }
+  }
+
   shutdownAll(): void {
     this.restartAll()
+  }
+
+  /**
+   * Verify the bundled mastracode runtime can actually boot by ensuring the
+   * utility host is up. Cheap when a host is already running.
+   */
+  async preflight(): Promise<{ ok: boolean; error?: string }> {
+    try {
+      await this.ensureUtilityHost()
+      return { ok: true }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      return { ok: false, error: this.lastBootError ?? message }
+    }
   }
 
   /** Host used only for auth/model queries; cwd = home dir, never runs the agent. */

@@ -1,8 +1,18 @@
-import React from 'react'
-import { useAtomValue } from 'jotai'
+import React, { useState } from 'react'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { CheckCircle2, Circle, CircleDot } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
-import { debugEventsAtom } from '../../lib/atoms'
+import {
+  debugEventsAtom,
+  helpOpenAtom,
+  mainTabAtom,
+  projectSettingsOpenAtom,
+  projectSettingsTabAtom,
+  settingsOpenAtom,
+  settingsTabAtom,
+  type ProjectSettingsTab,
+  type SettingsTab
+} from '../../lib/atoms'
 import { Badge } from '../../components/ui/badge'
 import {
   Select,
@@ -17,6 +27,13 @@ import { MessageList } from './MessageList'
 import { ApprovalCard } from './ApprovalCard'
 import { PlanApprovalCard } from './PlanApprovalCard'
 import { PromptInput } from './PromptInput'
+import { HelpDialog } from './HelpDialog'
+import { CostPopover } from './CostPopover'
+import { ThreadsPopover } from './ThreadsPopover'
+import { PermissionsDialog } from './PermissionsDialog'
+import { GoalBanner } from './GoalBanner'
+import { OmStatusPopover } from './OmStatusPopover'
+import { useSlashCommands, type SlashCommandEntry } from './slash-commands'
 
 const MODES = ['build', 'plan', 'fast'] as const
 const THINKING = ['off', 'low', 'medium', 'high', 'xhigh'] as const
@@ -44,9 +61,151 @@ export function ChatView({
     onSuccess: () => utils.invalidate()
   })
   const models = trpc.agent.listModels.useQuery({ subchatId }, { staleTime: 60_000 })
+  const runCommand = trpc.agent.runCommand.useMutation()
+  const invalidateThreads = (): void => {
+    utils.agent.listThreads.invalidate({ subchatId })
+  }
+  const newThread = trpc.agent.newThread.useMutation({ onSuccess: invalidateThreads })
+  const renameThread = trpc.agent.renameThread.useMutation({ onSuccess: invalidateThreads })
+  const cloneThread = trpc.agent.cloneThread.useMutation({ onSuccess: invalidateThreads })
+  const invalidateGoal = (): void => {
+    utils.agent.goalGet.invalidate({ subchatId })
+  }
+  const goalSet = trpc.agent.goalSet.useMutation({ onSuccess: invalidateGoal })
+  const goalClear = trpc.agent.goalClear.useMutation({ onSuccess: invalidateGoal })
+
+  const commands = useSlashCommands(subchatId)
+  const setMainTab = useSetAtom(mainTabAtom)
+  const setSettingsOpen = useSetAtom(settingsOpenAtom)
+  const setSettingsTab = useSetAtom(settingsTabAtom)
+  const setHelpOpen = useSetAtom(helpOpenAtom)
+  const setProjectSettingsOpen = useSetAtom(projectSettingsOpenAtom)
+  const setProjectSettingsTab = useSetAtom(projectSettingsTabAtom)
+  const [costOpen, setCostOpen] = useState(false)
+  const [threadsOpen, setThreadsOpen] = useState(false)
+  const [permissionsOpen, setPermissionsOpen] = useState(false)
+  const [omOpen, setOmOpen] = useState(false)
 
   const meta = state.meta
   const busy = send.isPending
+
+  function openSettings(tab: SettingsTab): void {
+    setSettingsTab(tab)
+    setSettingsOpen(true)
+  }
+
+  function openProjectSettings(tab: ProjectSettingsTab): void {
+    setProjectSettingsTab(tab)
+    setProjectSettingsOpen(true)
+  }
+
+  function handleSlashCommand(entry: SlashCommandEntry, args: string): string | void {
+    if (entry.kind === 'custom') {
+      runCommand.mutate({ subchatId, name: entry.name, args })
+      return
+    }
+    switch (entry.name) {
+      case 'plan':
+      case 'build':
+      case 'fast':
+        setMode.mutate({ subchatId, modeId: entry.name })
+        return
+      case 'mode':
+        if (!(MODES as readonly string[]).includes(args)) {
+          return `Usage: /mode <${MODES.join('|')}>`
+        }
+        setMode.mutate({ subchatId, modeId: args })
+        return
+      case 'model':
+      case 'models': {
+        if (!args) return 'Pick a model from the header dropdown, or use /model <model-id>.'
+        const match = (models.data ?? []).find((m) => m.id === args)
+        if (!match) return `Unknown model: ${args}. See the header dropdown for available ids.`
+        if (!match.hasApiKey) return `No API key for ${args} — add one under /api-keys.`
+        setModel.mutate({ subchatId, modelId: args })
+        return
+      }
+      case 'think':
+        if (!(THINKING as readonly string[]).includes(args)) {
+          return `Usage: /think <${THINKING.join('|')}>`
+        }
+        setThinking.mutate({ subchatId, level: args })
+        return
+      case 'yolo':
+        setYolo.mutate({ subchatId, yolo: !(meta.yolo ?? false) })
+        return
+      case 'new':
+        newThread.mutate({ subchatId })
+        return
+      case 'threads':
+      case 'thread':
+        setThreadsOpen(true)
+        return
+      case 'name':
+        if (!args.trim()) return 'Usage: /name <new thread title>'
+        renameThread.mutate({ subchatId, title: args.trim() })
+        return
+      case 'clone':
+        cloneThread.mutate({ subchatId })
+        return
+      case 'cost':
+        setCostOpen(true)
+        return
+      case 'diff':
+        setMainTab('changes')
+        return
+      case 'theme':
+      case 'settings':
+        openSettings('appearance')
+        return
+      case 'mcp':
+        openSettings('mcp')
+        return
+      case 'api-keys':
+      case 'login':
+      case 'logout':
+        openSettings('keys')
+        return
+      case 'custom-providers':
+        openSettings('providers')
+        return
+      case 'permissions':
+        setPermissionsOpen(true)
+        return
+      case 'hooks':
+        openProjectSettings('hooks')
+        return
+      case 'commands':
+        openProjectSettings('commands')
+        return
+      case 'resource':
+        openProjectSettings('resource')
+        return
+      case 'skills':
+        openProjectSettings('plugins')
+        return
+      case 'goal': {
+        const objective = args.trim()
+        if (!objective) {
+          return 'Usage: /goal <objective> — the judge evaluates it after each run. /goal clear removes it.'
+        }
+        if (objective === 'clear') {
+          goalClear.mutate({ subchatId })
+          return
+        }
+        goalSet.mutate({ subchatId, objective })
+        return
+      }
+      case 'om':
+        setOmOpen(true)
+        return
+      case 'help':
+        setHelpOpen(true)
+        return
+      default:
+        return `Not wired yet: /${entry.name}`
+    }
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -116,13 +275,23 @@ export function ChatView({
             {state.approvals.length + state.suspensions.length} pending
           </Badge>
         )}
-        {state.usage?.totalTokens != null && (
-          <span className="text-[10px] text-muted-foreground">
-            {Intl.NumberFormat().format(state.usage.totalTokens)} tok
-          </span>
-        )}
+        <ThreadsPopover subchatId={subchatId} open={threadsOpen} onOpenChange={setThreadsOpen} />
+        <OmStatusPopover
+          subchatId={subchatId}
+          omEvents={state.omEvents}
+          open={omOpen}
+          onOpenChange={setOmOpen}
+        />
+        <CostPopover
+          subchatId={subchatId}
+          usage={state.usage}
+          open={costOpen}
+          onOpenChange={setCostOpen}
+        />
         <Badge>{state.status}</Badge>
       </div>
+
+      <GoalBanner subchatId={subchatId} live={state.goal} />
 
       {/* Task list */}
       {state.tasks.length > 0 && (
@@ -208,13 +377,16 @@ export function ChatView({
         disabled={busy}
         running={state.running}
         projectRoot={projectRoot}
+        commands={commands}
         onSend={(content) => send.mutate({ subchatId, content })}
         onAbort={() => abort.mutate({ subchatId })}
-        onSlashCommand={(cmd) => {
-          if (cmd === 'plan' || cmd === 'build' || cmd === 'fast') {
-            setMode.mutate({ subchatId, modeId: cmd })
-          }
-        }}
+        onSlashCommand={handleSlashCommand}
+      />
+      <HelpDialog commands={commands} />
+      <PermissionsDialog
+        subchatId={subchatId}
+        open={permissionsOpen}
+        onOpenChange={setPermissionsOpen}
       />
     </div>
   )
