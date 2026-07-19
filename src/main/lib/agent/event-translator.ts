@@ -340,6 +340,12 @@ export class EventTranslator {
           break
         case 'tool_call': {
           const id = item.id as string
+          // Tool events that arrive before this content item map the call to
+          // the then-current assistant message (refreshToolPart fallback). If
+          // mastracode homes the call in a different message, drop the stale
+          // copy so the part doesn't render twice.
+          const prevMsgId = this.toolToMessage.get(id)
+          if (prevMsgId && prevMsgId !== msg.id) this.removeToolPart(prevMsgId, id)
           this.toolToMessage.set(id, msg.id)
           const meta = this.ensureTool(id, item.name as string, item.args)
           parts.push(this.toolPartFor(id, meta))
@@ -371,6 +377,21 @@ export class EventTranslator {
     this.messages.set(msg.id, stored)
     this.cb.emit({ type: 'message-upsert', message: stored })
     if (persist) this.cb.persistMessage(stored)
+  }
+
+  /** Drop a tool part from a message it no longer belongs to (re-homed call). */
+  private removeToolPart(msgId: string, toolCallId: string): void {
+    const stored = this.messages.get(msgId)
+    if (!stored) return
+    const next = stored.parts.filter(
+      (p) => !(p.type === 'tool-call' && p.toolCallId === toolCallId)
+    )
+    if (next.length === stored.parts.length) return
+    stored.parts = next
+    this.cb.emit({ type: 'message-upsert', message: stored })
+    // Re-persist in case a duplicate copy was already written to the DB, but
+    // never insert a now-empty synthesized message.
+    if (next.length > 0) this.cb.persistMessage(stored)
   }
 
   private toolPartFor(id: string, meta: ToolMeta): ToolCallPart {

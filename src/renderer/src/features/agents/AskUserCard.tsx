@@ -17,6 +17,21 @@ interface AskUserPayload {
   selectionMode?: 'single_select' | 'multi_select'
 }
 
+/**
+ * The agent is instructed to mark its preferred option by suffixing the label
+ * with "(Recommended)". Strip it for display and show a badge instead; the
+ * resume payload keeps the original label the model wrote.
+ */
+const RECOMMENDED_RE = /\s*\(recommended\)\s*$/i
+
+function RecommendedBadge(): React.JSX.Element {
+  return (
+    <span className="ml-1.5 inline-block rounded-full border border-violet-500/50 bg-violet-500/15 px-1.5 text-[9px] font-medium text-violet-400 align-middle">
+      Recommended
+    </span>
+  )
+}
+
 export function AskUserCard({
   suspension,
   onResume
@@ -56,6 +71,7 @@ export function AskUserCard({
         <div className="space-y-1">
           {options.map((o) => {
             const active = selected.includes(o.label)
+            const recommended = RECOMMENDED_RE.test(o.label)
             return (
               <button
                 key={o.label}
@@ -78,7 +94,8 @@ export function AskUserCard({
                   </span>
                 )}
                 <span className="min-w-0">
-                  <span className="text-xs">{o.label}</span>
+                  <span className="text-xs">{o.label.replace(RECOMMENDED_RE, '')}</span>
+                  {recommended && <RecommendedBadge />}
                   {o.description && (
                     <span className="block text-[10px] text-muted-foreground">{o.description}</span>
                   )}
@@ -147,7 +164,9 @@ export function AskUserAnswered({ part }: { part: ToolCallPart }): React.JSX.Ele
       : part.result != null
         ? JSON.stringify(part.result)
         : null
-  const answer = raw?.replace(/^User answered:\s*/, '') ?? null
+  // Strip the answer prefix and any trailing "(Recommended)" marker the
+  // agent may have put in the chosen option's label.
+  const answer = raw?.replace(/^User answered:\s*/, '').replace(RECOMMENDED_RE, '') ?? null
   const skipped = answer === '(skipped)'
 
   return (

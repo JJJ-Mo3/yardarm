@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Brain, ChevronDown, ChevronRight, RotateCcw } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { Markdown } from './Markdown'
@@ -119,11 +119,13 @@ function Part({
 function MessageItem({
   message,
   onRollback,
+  hiddenParts,
   suspensions,
   onRespondSuspension
 }: {
   message: StoredMessage
   onRollback?: (messageId: string) => void
+  hiddenParts?: Set<string>
 } & SuspensionProps): React.JSX.Element {
   if (message.role === 'user') {
     const text = message.parts
@@ -149,14 +151,16 @@ function MessageItem({
   }
   return (
     <div className="max-w-full">
-      {message.parts.map((part, i) => (
-        <Part
-          key={i}
-          part={part}
-          suspensions={suspensions}
-          onRespondSuspension={onRespondSuspension}
-        />
-      ))}
+      {message.parts.map((part, i) =>
+        hiddenParts?.has(`${message.id}:${i}`) ? null : (
+          <Part
+            key={i}
+            part={part}
+            suspensions={suspensions}
+            onRespondSuspension={onRespondSuspension}
+          />
+        )
+      )}
     </div>
   )
 }
@@ -175,6 +179,29 @@ export function MessageList({
   const bottomRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const stickToBottom = useRef(true)
+
+  // A streamed tool call can transiently exist in two messages (it attaches
+  // to the current assistant message before mastracode homes it elsewhere).
+  // Interactive cards must render exactly once, so hide every occurrence of
+  // an interactive toolCallId except the last one.
+  const hiddenParts = useMemo(() => {
+    const lastLoc = new Map<string, string>()
+    const locs: Array<[string, string]> = [] // [toolCallId, "msgId:partIdx"]
+    for (const m of messages) {
+      m.parts.forEach((p, i) => {
+        if (p.type === 'tool-call' && INTERACTIVE_TOOLS.has(p.toolName)) {
+          const key = `${m.id}:${i}`
+          lastLoc.set(p.toolCallId, key)
+          locs.push([p.toolCallId, key])
+        }
+      })
+    }
+    const hidden = new Set<string>()
+    for (const [toolCallId, key] of locs) {
+      if (lastLoc.get(toolCallId) !== key) hidden.add(key)
+    }
+    return hidden
+  }, [messages])
 
   useEffect(() => {
     if (stickToBottom.current) {
@@ -202,6 +229,7 @@ export function MessageList({
           key={m.id}
           message={m}
           onRollback={onRollback}
+          hiddenParts={hiddenParts}
           suspensions={suspensions}
           onRespondSuspension={onRespondSuspension}
         />

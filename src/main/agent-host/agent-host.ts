@@ -156,6 +156,17 @@ function mapGoal(record: {
   }
 }
 
+/**
+ * Yardarm-specific system-prompt guidance, injected via the SDK's
+ * pluginInstructions state (rendered under "# Plugin Instructions" by
+ * getDynamicInstructions on every request). The UI turns the marked option
+ * into a "Recommended" badge.
+ */
+const ASK_USER_GUIDANCE =
+  'When you call the ask_user tool with options and one option is clearly the best choice, ' +
+  'append " (Recommended)" to that option\'s label and list it first. ' +
+  'Mark at most one option per question.'
+
 async function main(): Promise<void> {
   const bootRaw = process.env.YARDARM_BOOT
   if (!bootRaw) {
@@ -266,6 +277,20 @@ async function main(): Promise<void> {
     } catch (err) {
       post({ t: 'log', level: 'error', msg: `model.switch failed: ${String(err)}` })
     }
+  }
+
+  // Append Yardarm's ask_user guidance to the plugin-instructions state so it
+  // reaches the system prompt. state.set merges partial updates; the includes
+  // guard keeps this idempotent whether or not state persists across boots.
+  try {
+    const st = (session.state.get() ?? {}) as { pluginInstructions?: string[] }
+    const existing = st.pluginInstructions ?? []
+    if (!existing.includes(ASK_USER_GUIDANCE)) {
+      await session.state.set({ pluginInstructions: [...existing, ASK_USER_GUIDANCE] } as never)
+    }
+  } catch (err) {
+    // Guidance is best-effort; never block boot on it.
+    post({ t: 'log', level: 'error', msg: `guidance state.set failed: ${String(err)}` })
   }
 
   post({
