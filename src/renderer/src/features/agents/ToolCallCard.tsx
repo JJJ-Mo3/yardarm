@@ -10,24 +10,8 @@ import {
   Wrench
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { summarizeArgs, ToolArgsView } from './ToolArgsView'
 import type { ToolCallPart } from '../../../../shared/ui-message'
-
-function summarizeArgs(args: unknown): string {
-  if (args == null) return ''
-  if (typeof args === 'string') return args
-  if (typeof args !== 'object') return String(args)
-  const obj = args as Record<string, unknown>
-  for (const key of ['command', 'file_path', 'path', 'pattern', 'query', 'url', 'description']) {
-    const v = obj[key]
-    if (typeof v === 'string' && v.length > 0) return v
-  }
-  try {
-    const s = JSON.stringify(args)
-    return s.length > 120 ? s.slice(0, 120) + '…' : s
-  } catch {
-    return ''
-  }
-}
 
 function resultText(result: unknown): string {
   if (result == null) return ''
@@ -83,9 +67,7 @@ export function ToolCallCard({ part }: { part: ToolCallPart }): React.JSX.Elemen
             <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
               Arguments
             </div>
-            <pre className="text-[11px] font-mono bg-muted rounded p-2 overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap">
-              {typeof part.args === 'string' ? part.args : JSON.stringify(part.args, null, 2)}
-            </pre>
+            <ToolArgsView toolName={part.toolName} args={part.args} />
           </div>
           {output && (
             <div>

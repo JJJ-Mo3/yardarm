@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { ShieldQuestion } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { Textarea } from '../../components/ui/textarea'
+import { ToolArgsView, toolHeadline } from './ToolArgsView'
 import type { PendingApproval } from '../../../../shared/ui-message'
 
 export function ApprovalCard({
@@ -16,18 +17,26 @@ export function ApprovalCard({
 }): React.JSX.Element {
   const [showFeedback, setShowFeedback] = useState(false)
   const [feedback, setFeedback] = useState('')
+  const headline = toolHeadline(approval.toolName, approval.args)
 
   return (
     <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-2">
-      <div className="flex items-center gap-2 text-[13px] font-medium">
-        <ShieldQuestion size={14} className="text-amber-500" />
-        Approve <span className="font-mono">{approval.toolName}</span>?
+      <div className="flex items-center gap-2 min-w-0">
+        <ShieldQuestion size={14} className="text-amber-500 shrink-0" />
+        <span className="text-[13px] font-medium shrink-0">{headline.title}?</span>
+        {headline.subtitle && (
+          <span
+            className="font-mono text-[11px] text-muted-foreground truncate"
+            title={headline.subtitle}
+          >
+            {headline.subtitle}
+          </span>
+        )}
+        <span className="ml-auto font-mono text-[10px] text-muted-foreground shrink-0">
+          {approval.toolName}
+        </span>
       </div>
-      <pre className="text-[11px] font-mono bg-muted rounded p-2 overflow-x-auto max-h-40 overflow-y-auto whitespace-pre-wrap selectable">
-        {typeof approval.args === 'string'
-          ? approval.args
-          : JSON.stringify(approval.args, null, 2)}
-      </pre>
+      <ToolArgsView toolName={approval.toolName} args={approval.args} />
       {showFeedback ? (
         <div className="space-y-2">
           <Textarea
