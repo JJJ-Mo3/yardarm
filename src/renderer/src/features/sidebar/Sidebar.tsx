@@ -237,7 +237,17 @@ export function Sidebar(): React.JSX.Element {
       </div>
 
       {/* New chat dialog */}
-      <Dialog open={newChatOpen} onOpenChange={setNewChatOpen}>
+      <Dialog
+        open={newChatOpen}
+        onOpenChange={(o) => {
+          setNewChatOpen(o)
+          if (!o) {
+            // Fresh form next time: drop the typed title and any stale error.
+            setNewChatTitle('')
+            createChat.reset()
+          }
+        }}
+      >
         <DialogContent>
           <DialogTitle>Chat Topic</DialogTitle>
           <div className="space-y-3">

@@ -181,15 +181,29 @@ export function checkpointStashSha(checkpointRef: string): string | null {
   }
 }
 
-/** Restore worktree files to a previously captured checkpoint. */
-export async function restoreCheckpoint(cwd: string, checkpointRef: string): Promise<void> {
+/**
+ * Restore worktree files to a previously captured checkpoint. Returns a
+ * warning when the restore was only partial (the snapshot's uncommitted
+ * changes could not be re-applied) so the UI can tell the user.
+ */
+export async function restoreCheckpoint(
+  cwd: string,
+  checkpointRef: string
+): Promise<{ warning: string | null }> {
   const { head, stash } = JSON.parse(checkpointRef) as { head: string; stash: string | null }
   const git = simpleGit(cwd)
   await git.raw(['reset', '--hard', head])
   await git.raw(['clean', '-fd'])
   if (stash) {
-    await git.raw(['stash', 'apply', stash]).catch((err) => {
+    try {
+      await git.raw(['stash', 'apply', stash])
+    } catch (err) {
       console.error('[checkpoint] stash apply failed', err)
-    })
+      const reason = (err instanceof Error ? err.message : String(err)).split('\n')[0]
+      return {
+        warning: `Committed files were restored, but the snapshot's uncommitted changes could not be re-applied (${reason}).`
+      }
+    }
   }
+  return { warning: null }
 }

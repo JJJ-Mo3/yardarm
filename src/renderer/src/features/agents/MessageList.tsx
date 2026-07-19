@@ -67,11 +67,12 @@ function MessageItem({
           {text}
           {onRollback && message.checkpointRef && (
             <button
-              title="Rollback to before this message"
+              title="Restore files and chat to the snapshot taken before this message"
               onClick={() => onRollback(message.id)}
-              className="absolute -left-6 top-2 hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
+              className="absolute right-full top-1.5 mr-1.5 hidden group-hover:flex items-center gap-1 whitespace-nowrap rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground shadow-sm hover:text-foreground cursor-pointer"
             >
-              <RotateCcw size={12} />
+              <RotateCcw size={10} />
+              Roll back
             </button>
           )}
         </div>

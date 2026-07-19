@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { existsSync } from 'node:fs'
 import { and, asc, desc, eq, gte, inArray, isNotNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb, schema } from '../../db'
@@ -210,8 +211,9 @@ export const chatsRouter = router({
       const chat = db.select().from(schema.chats).where(eq(schema.chats.id, subchat.chatId)).get()
       if (!chat) throw new Error('Chat not found')
 
-      // Stop the agent first so it isn't mid-write during reset.
-      agentSessionManager.stopHost(input.subchatId)
+      // Stop the agent and wait for the process to exit so it can't be
+      // mid-write while we hard-reset the working tree below.
+      await agentSessionManager.stopHostAndWait(input.subchatId)
 
       const project = db
         .select()
@@ -222,8 +224,12 @@ export const chatsRouter = router({
       // Restore at the same cwd checkpoints are captured (see subchatCwd in
       // agent.ts): no-worktree chats run at the project root.
       const cwd = chat.worktreePath ?? project?.path ?? null
+      let warning: string | null = null
       if (msg.checkpointRef && cwd) {
-        await restoreCheckpoint(cwd, msg.checkpointRef)
+        if (!existsSync(cwd)) {
+          throw new Error(`Cannot restore snapshot: folder no longer exists: ${cwd}`)
+        }
+        warning = (await restoreCheckpoint(cwd, msg.checkpointRef)).warning
       }
 
       // Unpin checkpoint stashes of the messages being deleted. The target's
@@ -257,6 +263,6 @@ export const chatsRouter = router({
         .where(eq(schema.subchats.id, input.subchatId))
         .run()
 
-      return { ok: true }
+      return { ok: true, warning }
     })
 })

@@ -958,6 +958,37 @@ export class AgentSessionManager {
     this.hosts.delete(subchatId)
   }
 
+  /**
+   * Stop a subchat's host and wait until the process has actually exited, so
+   * callers can safely rewrite its working tree (e.g. snapshot rollback).
+   * Never hangs: resolves after timeoutMs even if the exit event is lost.
+   */
+  async stopHostAndWait(subchatId: string, timeoutMs = 3000): Promise<void> {
+    const handle = this.hosts.get(subchatId)
+    this.hosts.delete(subchatId)
+    if (!handle || handle.killed) return
+
+    const exited = new Promise<void>((resolve) => {
+      handle.proc.once('exit', () => resolve())
+    })
+    try {
+      this.sendCommand(handle, { t: 'shutdown' })
+    } catch {
+      // ignore — the kill below covers it
+    }
+    // Escalate to a hard kill before the outer timeout gives up on waiting.
+    setTimeout(
+      () => {
+        if (!handle.killed) handle.proc.kill()
+      },
+      Math.max(500, timeoutMs - 1000)
+    )
+    await Promise.race([
+      exited,
+      new Promise<void>((resolve) => setTimeout(resolve, timeoutMs))
+    ])
+  }
+
   /** Restart hosts (e.g. after mcp.json change). */
   restartAll(): void {
     for (const id of [...this.hosts.keys()]) this.stopHost(id)

@@ -62,9 +62,24 @@ export function ChatView({
   const setModel = trpc.agent.setModel.useMutation()
   const setThinking = trpc.agent.setThinking.useMutation()
   const setYolo = trpc.agent.setYolo.useMutation()
+  // Post-rollback feedback: success confirmation or a partial-restore warning.
+  const [rollbackNotice, setRollbackNotice] = useState<{ text: string; warn: boolean } | null>(
+    null
+  )
   const rollback = trpc.chats.rollbackToMessage.useMutation({
-    onSuccess: () => utils.invalidate()
+    onSuccess: (res) => {
+      utils.invalidate()
+      setRollbackNotice(
+        res.warning
+          ? { text: res.warning, warn: true }
+          : {
+              text: 'Rolled back — files and chat history restored to the snapshot.',
+              warn: false
+            }
+      )
+    }
   })
+  useEffect(() => setRollbackNotice(null), [subchatId])
   const models = trpc.agent.listModels.useQuery({ subchatId }, { staleTime: 60_000 })
   const runCommand = trpc.agent.runCommand.useMutation()
   const runSkill = trpc.agent.runSkill.useMutation()
@@ -118,8 +133,8 @@ export function ChatView({
     ['new thread', newThread],
     ['rename', renameThread],
     ['clone', cloneThread],
-    ['goal', goalSet],
-    ['goal', goalClear]
+    ['set goal', goalSet],
+    ['clear goal', goalClear]
   ]
   const failedActions = actionMutations.filter(([, m]) => m.error)
 
@@ -411,9 +426,10 @@ export function ChatView({
         running={state.running}
         onRollback={(messageId) => {
           void confirmDialog({
-            title: 'Rollback to checkpoint?',
-            description: 'Files and chat history will be restored to before this message.',
-            confirmLabel: 'Rollback'
+            title: 'Roll back to snapshot?',
+            description:
+              'Your files will be restored to the snapshot taken just before this message, and this message and everything after it will be removed from the chat. The agent restarts with the shortened history.',
+            confirmLabel: 'Roll back'
           }).then((ok) => {
             if (ok) rollback.mutate({ subchatId, messageId })
           })
@@ -480,6 +496,27 @@ export function ChatView({
         </div>
       )}
 
+      {rollbackNotice && (
+        <div className="px-4 pb-2">
+          <div
+            className={
+              rollbackNotice.warn
+                ? 'flex items-start gap-2 rounded bg-amber-500/10 px-2 py-1.5 text-xs text-amber-500'
+                : 'flex items-start gap-2 rounded bg-accent px-2 py-1.5 text-xs text-muted-foreground'
+            }
+          >
+            <span className="min-w-0 flex-1 selectable">{rollbackNotice.text}</span>
+            <button
+              title="Dismiss"
+              className="shrink-0 cursor-pointer opacity-70 hover:opacity-100"
+              onClick={() => setRollbackNotice(null)}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       {failedActions.length > 0 && (
         <div className="px-4 pb-2 space-y-1">
           {failedActions.map(([label, m], i) => (
@@ -508,6 +545,7 @@ export function ChatView({
         projectRoot={projectRoot}
         commands={commands}
         onSend={(content, files) => {
+          setRollbackNotice(null)
           // followUp() queues behind the active run but doesn't accept files.
           if (state.running) followUp.mutate({ subchatId, content })
           else send.mutate({ subchatId, content, files })

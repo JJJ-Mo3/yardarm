@@ -108,7 +108,13 @@ export function ChangesView({ cwd }: { cwd: string }): React.JSX.Element {
       invalidate()
     }
   })
-  const createPr = trpc.git.createPr.useMutation()
+  const createPr = trpc.git.createPr.useMutation({
+    onSuccess: () => {
+      // The success screen shows the PR URL; clear the form for the next PR.
+      setPrTitle('')
+      setPrBody('')
+    }
+  })
 
   const files = status.data?.files ?? []
   const branchList = branches.data?.all ?? []
