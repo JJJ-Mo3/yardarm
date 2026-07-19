@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react'
 import { DiffModeEnum, DiffView } from '@git-diff-view/react'
 import { generateDiffFile } from '@git-diff-view/file'
-import { ChevronRight, FileCode2, Folder, Terminal, Trash2 } from 'lucide-react'
+import { ChevronRight, FileCode2, Folder, Trash2 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { useIsDark } from '../../lib/use-dark'
 import { Badge } from '../../components/ui/badge'
@@ -40,17 +40,20 @@ const HEADLINES: Record<string, string> = {
   ast_smart_edit: 'Edit file (AST)',
   kill_process: 'Kill process',
   get_process_output: 'Read process output',
-  subagent: 'Run subagent'
+  subagent: 'Run subagent',
+  find_files: 'Find files',
+  search_content: 'Search files',
+  view: 'Read file',
+  file_stat: 'Inspect file',
+  lsp_inspect: 'Inspect code',
+  'web-search': 'Search the web',
+  'web-extract': 'Fetch web pages',
+  notification_inbox: 'Check notifications'
 }
 
-/** Friendly action title + primary argument for headers. */
-export function toolHeadline(
-  toolName: string,
-  args: unknown
-): { title: string; subtitle?: string } {
-  const title = HEADLINES[toolName] ?? `Use ${toolName}`
-  const subtitle = summarizeArgs(args)
-  return subtitle ? { title, subtitle } : { title }
+/** Friendly action title for headers. */
+export function toolTitle(toolName: string): string {
+  return HEADLINES[toolName] ?? `Use ${toolName}`
 }
 
 /** String → parsed JSON when possible; plain objects pass through. */
@@ -245,19 +248,57 @@ function LabeledValue({ label, value }: { label: string; value: string }): React
   )
 }
 
-/** Default body: one-line summary + the JSON tucked behind "Details". */
+/**
+ * Default body: a readable labeled field list for object-shaped args (true
+ * flags become badges, long values become code blocks), with the exact raw
+ * payload behind a collapsed disclosure. Non-object args render as-is.
+ */
 function DefaultArgs({ args }: { args: unknown }): React.JSX.Element {
-  const summary = summarizeArgs(args)
+  const obj = asRecord(args)
+  if (!obj) return <CodeBlock text={rawText(args)} />
+
+  const entries = Object.entries(obj).filter(
+    ([, v]) => v !== null && v !== undefined && v !== '' && v !== false
+  )
+  const flags = entries.filter(([, v]) => v === true).map(([k]) => k)
+  const fields = entries.filter(([, v]) => v !== true)
+
   return (
     <div className="space-y-1.5">
-      {summary && (
-        <div className="font-mono text-[11px] text-muted-foreground truncate selectable">
-          {summary}
+      {fields.map(([key, value]) => {
+        if (typeof value === 'string' && (value.includes('\n') || value.length > 120)) {
+          return (
+            <div key={key}>
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                {key}
+              </div>
+              <CodeBlock text={value} />
+            </div>
+          )
+        }
+        if (typeof value === 'string' || typeof value === 'number') {
+          return <LabeledValue key={key} label={key} value={String(value)} />
+        }
+        if (Array.isArray(value) && value.every((v) => v === null || typeof v !== 'object')) {
+          return <LabeledValue key={key} label={key} value={value.map(String).join(', ')} />
+        }
+        return (
+          <div key={key}>
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+              {key}
+            </div>
+            <CodeBlock text={rawText(value)} />
+          </div>
+        )
+      })}
+      {flags.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {flags.map((f) => (
+            <Badge key={f}>{f}</Badge>
+          ))}
         </div>
       )}
-      <Disclosure label="Details">
-        <CodeBlock text={rawText(args)} />
-      </Disclosure>
+      <RawArgsDisclosure args={args} />
     </div>
   )
 }
@@ -277,15 +318,18 @@ export function ToolArgsView({
         if (typeof obj.command === 'string') {
           const meta: string[] = []
           if (typeof obj.cwd === 'string' && obj.cwd) meta.push(`cwd: ${obj.cwd}`)
-          if (typeof obj.timeout === 'number') meta.push(`timeout: ${obj.timeout} ms`)
+          if (typeof obj.timeout === 'number') {
+            meta.push(
+              obj.timeout >= 1000 && obj.timeout % 1000 === 0
+                ? `timeout: ${obj.timeout / 1000}s`
+                : `timeout: ${obj.timeout} ms`
+            )
+          }
           if (obj.background === true) meta.push('background')
           if (typeof obj.tail === 'number') meta.push(`tail: ${obj.tail}`)
           return (
             <div className="space-y-1.5">
-              <div className="flex items-start gap-1.5">
-                <Terminal size={13} className="text-muted-foreground shrink-0 mt-[3px]" />
-                <CodeBlock text={obj.command} className="flex-1 text-xs" />
-              </div>
+              <CodeBlock text={obj.command} className="text-xs" />
               <MetaRow items={meta} />
               <RawArgsDisclosure args={args} />
             </div>
