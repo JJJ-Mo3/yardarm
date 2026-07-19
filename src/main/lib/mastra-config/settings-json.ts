@@ -266,3 +266,67 @@ export function removeCustomProvider(name: string): Promise<MastraSettings> {
     s.customProviders = (s.customProviders ?? []).filter((p) => p.name !== name)
   })
 }
+
+/** Mirrors @mastra/code-sdk's ONBOARDING_VERSION — bump together. */
+export const ONBOARDING_VERSION = 1
+
+function onboarding(s: MastraSettings): NonNullable<MastraSettings['onboarding']> {
+  if (!s.onboarding) s.onboarding = {}
+  return s.onboarding
+}
+
+/**
+ * Persist the wizard's result in one atomic write, using the exact keys the
+ * mastracode CLI's onboarding writes so neither tool re-prompts the other.
+ *
+ * Pack semantics (matching the CLI):
+ * - modePackId 'custom'          → activeModelPackId: null + modeDefaults
+ * - modePackId 'custom:<name>'   → activeModelPackId: id  + modeDefaults
+ * - builtin modePackId           → activeModelPackId: id  + modeDefaults: {}
+ * - modePackId null              → models selections left untouched
+ * - omPackId 'custom'            → omModelOverride = omModel; else null
+ */
+export function completeOnboarding(opts: {
+  modePackId: string | null
+  modeModels?: Record<string, string>
+  omPackId: string | null
+  omModel?: string | null
+  yolo: boolean
+}): Promise<MastraSettings> {
+  return updateSettings((s) => {
+    const ob = onboarding(s)
+    ob.completedAt = new Date().toISOString()
+    ob.skippedAt ??= null
+    ob.version = ONBOARDING_VERSION
+    ob.modePackId = opts.modePackId
+    ob.omPackId = opts.omPackId
+
+    const m = models(s)
+    if (opts.modePackId === 'custom') {
+      m.activeModelPackId = null
+      m.modeDefaults = { ...(opts.modeModels ?? {}) }
+    } else if (opts.modePackId?.startsWith('custom:')) {
+      m.activeModelPackId = opts.modePackId
+      m.modeDefaults = { ...(opts.modeModels ?? {}) }
+    } else if (opts.modePackId) {
+      m.activeModelPackId = opts.modePackId
+      m.modeDefaults = {}
+    }
+    m.activeOmPackId = opts.omPackId
+    m.omModelOverride = opts.omPackId === 'custom' ? (opts.omModel ?? null) : null
+    m.observerModelOverride = null
+    m.reflectorModelOverride = null
+
+    if (!s.preferences) s.preferences = {}
+    s.preferences.yolo = opts.yolo
+  })
+}
+
+/** CLI skip semantics: mark skipped, change nothing else. */
+export function skipOnboarding(): Promise<MastraSettings> {
+  return updateSettings((s) => {
+    const ob = onboarding(s)
+    ob.skippedAt = new Date().toISOString()
+    ob.version = ONBOARDING_VERSION
+  })
+}

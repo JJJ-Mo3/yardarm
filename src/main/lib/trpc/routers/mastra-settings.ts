@@ -6,6 +6,7 @@
 import { z } from 'zod'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import {
+  completeOnboarding,
   deleteCustomPack,
   readSettings,
   removeCustomProvider,
@@ -19,6 +20,7 @@ import {
   setPreferences,
   setSubagentModel,
   setVoiceSettings,
+  skipOnboarding,
   upsertCustomProvider
 } from '../../mastra-config/settings-json'
 import { publicProcedure, router } from '../trpc'
@@ -199,6 +201,33 @@ export const mastraSettingsRouter = router({
   /** Restart all agent hosts so settings.json edits take effect. */
   applyRestart: publicProcedure.mutation(() => {
     agentSessionManager.restartAll()
+    return { ok: true }
+  }),
+
+  /**
+   * Persist the first-run wizard's result and restart hosts so the chosen
+   * packs/yolo take effect immediately (the wizard is a one-shot modal, so
+   * no batching via applyRestart).
+   */
+  completeOnboarding: publicProcedure
+    .input(
+      z.object({
+        modePackId: z.string().nullable(),
+        modeModels: z.record(z.string(), z.string().min(1)).optional(),
+        omPackId: z.string().nullable(),
+        omModel: z.string().nullable().optional(),
+        yolo: z.boolean()
+      })
+    )
+    .mutation(async ({ input }) => {
+      await completeOnboarding(input)
+      agentSessionManager.restartAll()
+      return { ok: true }
+    }),
+
+  /** Mark onboarding skipped; nothing hosts read changed, so no restart. */
+  skipOnboarding: publicProcedure.mutation(async () => {
+    await skipOnboarding()
     return { ok: true }
   })
 })

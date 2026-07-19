@@ -69,6 +69,8 @@ export type HostCommand =
   | { t: 'authList'; reqId: string }
   | { t: 'authSet'; reqId: string; provider: string; key: string }
   | { t: 'authRemove'; reqId: string; provider: string }
+  /** Credentials changed elsewhere — re-read auth.json and drop model caches. */
+  | { t: 'authReload'; reqId: string }
   | { t: 'oauthProviders'; reqId: string }
   | { t: 'oauthLogin'; reqId: string; provider: string; authMode?: string }
   /** Answer a pending onPrompt of the login flow identified by reqId. */

@@ -24,6 +24,8 @@ export const settingsTabAtom = atom<SettingsTab>('appearance')
 export const helpOpenAtom = atom(false)
 /** New-chat dialog in the Sidebar (also opened by Cmd+N). */
 export const newChatOpenAtom = atom(false)
+/** Add-project dialog: false = closed, otherwise the initial mode to show. */
+export const addProjectOpenAtom = atom<false | 'local' | 'clone'>(false)
 /** Threads popover in the active ChatView (also opened by Cmd+P). */
 export const threadsOpenAtom = atom(false)
 export type ProjectSettingsTab =
@@ -36,3 +38,5 @@ export type ProjectSettingsTab =
 export const projectSettingsOpenAtom = atom(false)
 export const projectSettingsTabAtom = atom<ProjectSettingsTab>('mcp')
 export const debugEventsAtom = atomWithStorage<boolean>('cz.debugEvents', false)
+/** Re-open the first-run onboarding wizard (Settings → About → Run setup again). */
+export const onboardingForceOpenAtom = atom(false)

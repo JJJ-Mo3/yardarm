@@ -4,6 +4,7 @@ import { FolderCog, FolderGit2, MessageSquarePlus, Plus, Settings, Trash2 } from
 import { trpc } from '../../lib/trpc'
 import { cn, timeAgo } from '../../lib/utils'
 import {
+  addProjectOpenAtom,
   newChatOpenAtom,
   projectSettingsOpenAtom,
   selectedChatIdAtom,
@@ -27,6 +28,7 @@ import {
 } from '../../components/ui/select'
 import { Switch } from '../../components/ui/switch'
 import { useConfirm } from '../../components/ConfirmDialog'
+import { AddProjectDialog } from './AddProjectDialog'
 import logo from '../../assets/logo.png'
 
 export function Sidebar(): React.JSX.Element {
@@ -36,6 +38,7 @@ export function Sidebar(): React.JSX.Element {
   const setSettingsOpen = useSetAtom(settingsOpenAtom)
   const setProjectSettingsOpen = useSetAtom(projectSettingsOpenAtom)
   const [newChatOpen, setNewChatOpen] = useAtom(newChatOpenAtom)
+  const setAddProjectOpen = useSetAtom(addProjectOpenAtom)
   const [newChatTitle, setNewChatTitle] = useState('')
   const [useWorktree, setUseWorktree] = useState(true)
   const confirmDialog = useConfirm()
@@ -47,12 +50,6 @@ export function Sidebar(): React.JSX.Element {
     { enabled: !!projectId }
   )
 
-  const addProject = trpc.projects.addViaDialog.useMutation({
-    onSuccess: (p) => {
-      utils.projects.list.invalidate()
-      if (p) setProjectId(p.id)
-    }
-  })
   const createChat = trpc.chats.create.useMutation({
     onSuccess: (chat) => {
       utils.chats.list.invalidate()
@@ -111,9 +108,8 @@ export function Sidebar(): React.JSX.Element {
         <Button
           size="icon"
           variant="ghost"
-          title="Add project folder"
-          disabled={addProject.isPending}
-          onClick={() => addProject.mutate()}
+          title="Add project (local folder or GitHub clone)"
+          onClick={() => setAddProjectOpen('local')}
         >
           <Plus size={14} />
         </Button>
@@ -237,6 +233,8 @@ export function Sidebar(): React.JSX.Element {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AddProjectDialog />
     </div>
   )
 }

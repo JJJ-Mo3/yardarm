@@ -55,6 +55,20 @@ export async function isGitRepo(dir: string): Promise<boolean> {
   }
 }
 
+/**
+ * True if the repo has at least one commit. A freshly `git init`ed repo has
+ * an unborn HEAD — worktrees can't be created from it ("invalid reference:
+ * HEAD"), so callers should fall back to running in the project root.
+ */
+export async function hasCommits(dir: string): Promise<boolean> {
+  try {
+    await simpleGit(dir).raw(['rev-parse', '--verify', 'HEAD'])
+    return true
+  } catch {
+    return false
+  }
+}
+
 async function uniqueBranch(projectPath: string, base: string): Promise<string> {
   const git = simpleGit(projectPath)
   let candidate = base

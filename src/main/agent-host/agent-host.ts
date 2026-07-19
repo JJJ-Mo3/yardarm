@@ -172,6 +172,15 @@ async function main(): Promise<void> {
 
   const { session, controller, authStorage } = mc
 
+  /**
+   * Drop the controller's ~10s model-catalog cache so the next listModels
+   * recomputes hasApiKey after credentials change. availableModelsCache is a
+   * plain property on the SDK's AgentController.
+   */
+  const bustModelCache = (): void => {
+    ;(controller as unknown as { availableModelsCache?: unknown }).availableModelsCache = null
+  }
+
   /** Project session state onto the wire-safe SessionStateInfo shape. */
   const stateInfo = (): Record<string, unknown> => {
     const st = (session.state.get() ?? {}) as Record<string, unknown>
@@ -688,6 +697,7 @@ async function main(): Promise<void> {
                 // Best effort — the key still lands in auth.json for next boot.
               }
               authStorage.setStoredApiKey(cmd.provider, cmd.key, envVar)
+              bustModelCache()
               return null
             })
             break
@@ -696,6 +706,15 @@ async function main(): Promise<void> {
               authStorage.reload()
               // API keys live under the `apikey:` prefix in auth.json.
               authStorage.remove(`apikey:${cmd.provider}`)
+              bustModelCache()
+              return null
+            })
+            break
+          case 'authReload':
+            await respond(cmd.reqId, async () => {
+              // Credentials changed in another host — pick them up here.
+              authStorage.reload()
+              bustModelCache()
               return null
             })
             break
@@ -754,6 +773,7 @@ async function main(): Promise<void> {
                       })
                     })
                 })
+                bustModelCache()
                 return { loggedIn: authStorage.isLoggedIn(cmd.provider) }
               } finally {
                 oauthFlows.delete(flowId)
@@ -779,6 +799,7 @@ async function main(): Promise<void> {
               // Bare provider name = the OAuth credential (API keys live
               // under the apikey: prefix and are left untouched).
               authStorage.logout(cmd.provider)
+              bustModelCache()
               return null
             })
             break

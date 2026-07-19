@@ -1,10 +1,20 @@
 import React, { useEffect } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { FileCode2, FolderGit2, GitCompare, MessageSquare, Plus, TerminalSquare } from 'lucide-react'
+import {
+  FileCode2,
+  FolderGit2,
+  GitCompare,
+  GitFork,
+  MessageSquare,
+  Plus,
+  TerminalSquare
+} from 'lucide-react'
 import { trpc } from './lib/trpc'
 import { cn } from './lib/utils'
 import {
+  addProjectOpenAtom,
   mainTabAtom,
+  onboardingForceOpenAtom,
   selectedChatIdAtom,
   selectedProjectIdAtom,
   selectedSubchatIdAtom,
@@ -15,6 +25,7 @@ import { useAppShortcuts } from './lib/shortcuts'
 import { Button } from './components/ui/button'
 import { Sidebar } from './features/sidebar/Sidebar'
 import { BootErrorScreen } from './features/boot/BootErrorScreen'
+import { OnboardingWizard } from './features/onboarding/OnboardingWizard'
 import { ChatView } from './features/agents/ChatView'
 import { ChangesView } from './features/changes/ChangesView'
 import { TerminalView } from './features/terminal/TerminalView'
@@ -48,28 +59,35 @@ function useThemeEffect(): void {
   }, [theme])
 }
 
+/** Shown in Changes/Terminal/Files when no project (and thus no cwd) is selected. */
+function SelectProjectPane(): React.JSX.Element {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
+      <FolderGit2 size={28} strokeWidth={1.5} />
+      <div className="text-sm">Select a project to use this tab</div>
+    </div>
+  )
+}
+
 export default function App(): React.JSX.Element {
   useThemeEffect()
   useAppShortcuts()
-  const setProjectId = useSetAtom(selectedProjectIdAtom)
   const projectId = useAtomValue(selectedProjectIdAtom)
+  const setAddProjectOpen = useSetAtom(addProjectOpenAtom)
   const chatId = useAtomValue(selectedChatIdAtom)
   const subchatId = useAtomValue(selectedSubchatIdAtom)
   const setSubchatId = useSetAtom(selectedSubchatIdAtom)
   const [tab, setTab] = useAtom(mainTabAtom)
+  const [forceOnboarding, setForceOnboarding] = useAtom(onboardingForceOpenAtom)
 
-  const utils = trpc.useUtils()
   const projects = trpc.projects.list.useQuery()
-  const addProject = trpc.projects.addViaDialog.useMutation({
-    onSuccess: (p) => {
-      utils.projects.list.invalidate()
-      if (p) setProjectId(p.id)
-    }
-  })
   const chat = trpc.chats.get.useQuery({ id: chatId ?? '' }, { enabled: !!chatId })
   const preflight = trpc.system.preflight.useQuery(undefined, {
     staleTime: Infinity,
     retry: false,
+    refetchOnWindowFocus: false
+  })
+  const mastraSettings = trpc.mastraSettings.get.useQuery(undefined, {
     refetchOnWindowFocus: false
   })
 
@@ -87,6 +105,15 @@ export default function App(): React.JSX.Element {
         retrying={preflight.isFetching}
       />
     )
+  }
+
+  // First-run onboarding: same gate as the mastracode CLI (shared settings.json).
+  const ob = mastraSettings.data?.onboarding
+  const needsOnboarding =
+    mastraSettings.data !== undefined &&
+    (!(ob?.completedAt || ob?.skippedAt) || (ob?.version ?? 0) < 1)
+  if (preflight.data?.ok && (needsOnboarding || forceOnboarding)) {
+    return <OnboardingWizard onDone={() => setForceOnboarding(false)} />
   }
 
   return (
@@ -131,53 +158,75 @@ export default function App(): React.JSX.Element {
                   project folder to start your first chat.
                 </div>
               </div>
-              <Button disabled={addProject.isPending} onClick={() => addProject.mutate()}>
-                <Plus size={14} />
-                Add project folder
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={() => setAddProjectOpen('local')}>
+                  <Plus size={14} />
+                  Add project folder
+                </Button>
+                <Button variant="outline" onClick={() => setAddProjectOpen('clone')}>
+                  <GitFork size={14} />
+                  Clone from GitHub
+                </Button>
+              </div>
               <div className="max-w-md text-[11px] leading-5 text-muted-foreground">
                 Each chat can run in an isolated git worktree · @-mention files · / for slash
                 commands · paste images into the composer · ⌘J toggles the terminal
               </div>
             </div>
-          ) : !chatId || !subchatId ? (
-            <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
-              <MessageSquare size={28} strokeWidth={1.5} />
-              <div className="text-sm">
-                {project ? 'Create or select a chat to get started' : 'Add a project to begin'}
-              </div>
-            </div>
           ) : (
             <>
+              {/* Chat tab — kept mounted (hidden) so the stream state survives tab switches. */}
               <div className={cn('flex h-full flex-col', tab !== 'chat' && 'hidden')}>
-                {/* Subchat tabs (created by the Threads UI "open in new tab") */}
-                {(chat.data?.subchats.length ?? 0) > 1 && (
-                  <div className="flex shrink-0 items-center gap-1 border-b border-border px-3 py-1">
-                    {chat.data!.subchats.map((sc, i) => (
-                      <button
-                        key={sc.id}
-                        onClick={() => setSubchatId(sc.id)}
-                        className={cn(
-                          'rounded px-2 py-0.5 text-[11px] cursor-pointer',
-                          subchatId === sc.id
-                            ? 'bg-accent font-medium'
-                            : 'text-muted-foreground hover:text-foreground'
-                        )}
-                      >
-                        Tab {i + 1}
-                      </button>
-                    ))}
+                {chatId && subchatId ? (
+                  <>
+                    {/* Subchat tabs (created by the Threads UI "open in new tab") */}
+                    {(chat.data?.subchats.length ?? 0) > 1 && (
+                      <div className="flex shrink-0 items-center gap-1 border-b border-border px-3 py-1">
+                        {chat.data!.subchats.map((sc, i) => (
+                          <button
+                            key={sc.id}
+                            onClick={() => setSubchatId(sc.id)}
+                            className={cn(
+                              'rounded px-2 py-0.5 text-[11px] cursor-pointer',
+                              subchatId === sc.id
+                                ? 'bg-accent font-medium'
+                                : 'text-muted-foreground hover:text-foreground'
+                            )}
+                          >
+                            Tab {i + 1}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <div className="min-h-0 flex-1">
+                      <ChatView subchatId={subchatId} projectRoot={cwd} />
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
+                    <MessageSquare size={28} strokeWidth={1.5} />
+                    <div className="text-sm">
+                      {project
+                        ? 'Create or select a chat to get started'
+                        : 'Select a project to begin'}
+                    </div>
                   </div>
                 )}
-                <div className="min-h-0 flex-1">
-                  <ChatView subchatId={subchatId} projectRoot={cwd} />
-                </div>
               </div>
-              {tab === 'changes' && cwd && <ChangesView cwd={cwd} />}
-              {tab === 'terminal' && cwd && (
-                <TerminalView id={`chat-${chatId}`} cwd={cwd} />
-              )}
-              {tab === 'files' && cwd && <FilesView root={cwd} />}
+              {/* Changes / Terminal / Files work at the project level too: they
+                  use the chat's worktree when one is open, else the project root. */}
+              {tab === 'changes' &&
+                (cwd ? <ChangesView cwd={cwd} /> : <SelectProjectPane />)}
+              {tab === 'terminal' &&
+                (cwd ? (
+                  <TerminalView
+                    id={chatId ? `chat-${chatId}` : `project-${projectId}`}
+                    cwd={cwd}
+                  />
+                ) : (
+                  <SelectProjectPane />
+                ))}
+              {tab === 'files' && (cwd ? <FilesView root={cwd} /> : <SelectProjectPane />)}
             </>
           )}
         </div>

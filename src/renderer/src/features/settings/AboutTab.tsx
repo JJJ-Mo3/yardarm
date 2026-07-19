@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { CheckCircle2, XCircle } from 'lucide-react'
+import { useSetAtom } from 'jotai'
+import { CheckCircle2, Wand2, XCircle } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
+import { onboardingForceOpenAtom, settingsOpenAtom } from '../../lib/atoms'
 import { Button } from '../../components/ui/button'
 
 // Strip CSI/OSC escape sequences and carriage returns from pty output.
@@ -20,6 +22,8 @@ export function AboutTab(): React.JSX.Element {
   const utils = trpc.useUtils()
   const preflight = trpc.system.preflight.useQuery(undefined, { staleTime: 60_000 })
   const cli = trpc.system.detectCli.useQuery()
+  const setSettingsOpen = useSetAtom(settingsOpenAtom)
+  const setForceOnboarding = useSetAtom(onboardingForceOpenAtom)
 
   const [termId, setTermId] = useState<string | null>(null)
   const [log, setLog] = useState('')
@@ -84,6 +88,21 @@ export function AboutTab(): React.JSX.Element {
             {p.error}
           </pre>
         )}
+      </div>
+
+      <div className="space-y-2 border-t border-border pt-3">
+        <div className="text-xs font-medium">Setup</div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setSettingsOpen(false)
+            setForceOnboarding(true)
+          }}
+        >
+          <Wand2 size={12} />
+          Run setup again
+        </Button>
       </div>
 
       <div className="space-y-2 border-t border-border pt-3">

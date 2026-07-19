@@ -837,11 +837,30 @@ export class AgentSessionManager {
   async authSet(provider: string, apiKey: string): Promise<void> {
     const handle = await this.ensureUtilityHost()
     await this.request(handle, { t: 'authSet', reqId: randomUUID(), provider, key: apiKey })
+    await this.broadcastAuthReload(handle)
   }
 
   async authRemove(provider: string): Promise<void> {
     const handle = await this.ensureUtilityHost()
     await this.request(handle, { t: 'authRemove', reqId: randomUUID(), provider })
+    await this.broadcastAuthReload(handle)
+  }
+
+  /**
+   * Credentials changed on one host — tell every other live host to re-read
+   * auth.json and drop its model-catalog cache, so hasApiKey is correct
+   * everywhere without a restart. Best-effort: failures are ignored.
+   */
+  private async broadcastAuthReload(exclude?: HostHandle): Promise<void> {
+    const handles = new Set<HostHandle>(this.hosts.values())
+    if (this.utilityHost) handles.add(this.utilityHost)
+    await Promise.all(
+      [...handles]
+        .filter((h) => h !== exclude && !h.killed && h.status === 'ready')
+        .map((h) =>
+          this.request(h, { t: 'authReload', reqId: randomUUID() }).catch(() => {})
+        )
+    )
   }
 
   // ---- OAuth login flows ---------------------------------------------------
@@ -883,7 +902,8 @@ export class AgentSessionManager {
       { t: 'oauthLogin', reqId: flowId, provider, authMode },
       10 * 60_000 // user completes the flow in a browser
     )
-      .then((res) => {
+      .then(async (res) => {
+        if (res.loggedIn) await this.broadcastAuthReload(handle)
         this.relayOauthStatus({
           flowId,
           kind: res.loggedIn ? 'done' : 'error',
@@ -920,6 +940,7 @@ export class AgentSessionManager {
   async oauthLogout(provider: string): Promise<void> {
     const handle = await this.ensureUtilityHost()
     await this.request(handle, { t: 'oauthLogout', reqId: randomUUID(), provider })
+    await this.broadcastAuthReload(handle)
   }
 
   /** Stop the host for a subchat (e.g. on chat delete or app quit). */

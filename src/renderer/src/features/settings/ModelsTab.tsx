@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
-import { Trash2 } from 'lucide-react'
+import { useSetAtom } from 'jotai'
+import { KeyRound, Trash2 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
+import { settingsTabAtom } from '../../lib/atoms'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Switch } from '../../components/ui/switch'
@@ -38,6 +40,7 @@ function ModelSelect({
 
 export function ModelsTab(): React.JSX.Element {
   const utils = trpc.useUtils()
+  const setSettingsTab = useSetAtom(settingsTabAtom)
   const settings = trpc.mastraSettings.get.useQuery()
   const models = trpc.agent.listModels.useQuery(undefined, { staleTime: 60_000 })
   const packs = trpc.mastraSettings.listPacks.useQuery(undefined, { staleTime: 60_000 })
@@ -93,6 +96,28 @@ export function ModelsTab(): React.JSX.Element {
         Global defaults stored in mastracode&apos;s <code>settings.json</code> (shared with the
         CLI). Changes apply to agents on restart.
       </div>
+
+      {models.error && (
+        <div className="flex items-center gap-2 rounded-md border border-destructive/40 px-3 py-2 text-[11px] text-destructive">
+          <span className="min-w-0 flex-1 selectable">
+            Could not load the model catalog: {models.error.message}
+          </span>
+          <Button size="sm" variant="outline" onClick={() => models.refetch()}>
+            Retry
+          </Button>
+        </div>
+      )}
+      {models.data && modelList.length > 0 && !modelList.some((mm) => mm.hasApiKey) && (
+        <div className="flex items-center gap-2 rounded-md border border-amber-600/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-500">
+          <KeyRound size={13} className="shrink-0" />
+          <span className="min-w-0 flex-1">
+            No provider is authenticated yet — add an API key or log in to enable models.
+          </span>
+          <Button size="sm" variant="outline" onClick={() => setSettingsTab('keys')}>
+            Open API Keys
+          </Button>
+        </div>
+      )}
 
       {/* Model packs */}
       <div>

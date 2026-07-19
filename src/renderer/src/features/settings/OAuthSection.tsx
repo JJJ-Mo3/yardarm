@@ -56,6 +56,8 @@ export function OAuthSection(): React.JSX.Element {
           resetFlow()
           utils.settings.oauthProviders.invalidate()
           utils.settings.authList.invalidate()
+          utils.agent.listModels.invalidate()
+          utils.mastraSettings.listPacks.invalidate()
           break
         case 'error':
           setError(ev.message ?? 'Login failed')
@@ -72,6 +74,8 @@ export function OAuthSection(): React.JSX.Element {
     onSuccess: () => {
       utils.settings.oauthProviders.invalidate()
       utils.settings.authList.invalidate()
+      utils.agent.listModels.invalidate()
+      utils.mastraSettings.listPacks.invalidate()
     }
   })
 

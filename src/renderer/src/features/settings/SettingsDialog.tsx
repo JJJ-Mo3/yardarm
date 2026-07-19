@@ -66,20 +66,31 @@ function AppearanceTab(): React.JSX.Element {
   )
 }
 
-function KeysTab(): React.JSX.Element {
+/** Also used by the first-run onboarding wizard's auth step. */
+export function KeysTab(): React.JSX.Element {
   const utils = trpc.useUtils()
   const auth = trpc.settings.authList.useQuery()
   const [provider, setProvider] = useState(PROVIDERS[0])
   const [apiKey, setApiKey] = useState('')
 
+  /** Credentials changed: hasApiKey flags and available packs are stale. */
+  const invalidateModelData = (): void => {
+    utils.agent.listModels.invalidate()
+    utils.mastraSettings.listPacks.invalidate()
+  }
+
   const setKey = trpc.settings.authSet.useMutation({
     onSuccess: () => {
       setApiKey('')
       utils.settings.authList.invalidate()
+      invalidateModelData()
     }
   })
   const removeKey = trpc.settings.authRemove.useMutation({
-    onSuccess: () => utils.settings.authList.invalidate()
+    onSuccess: () => {
+      utils.settings.authList.invalidate()
+      invalidateModelData()
+    }
   })
 
   const stored = auth.data ?? []

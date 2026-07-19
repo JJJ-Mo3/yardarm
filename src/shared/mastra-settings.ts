@@ -80,6 +80,19 @@ export interface CustomPackSetting {
   [key: string]: unknown
 }
 
+/**
+ * First-run onboarding state written by both the mastracode CLI and
+ * Yardarm's wizard — completing it in either tool satisfies both.
+ */
+export interface MastraOnboardingSettings {
+  completedAt?: string | null
+  skippedAt?: string | null
+  version?: number
+  modePackId?: string | null
+  omPackId?: string | null
+  [key: string]: unknown
+}
+
 export interface MastraSettings {
   models?: MastraModelsSettings
   preferences?: MastraPreferencesSettings
@@ -87,6 +100,7 @@ export interface MastraSettings {
   customModelPacks?: CustomPackSetting[]
   voice?: MastraVoiceSettings
   browser?: MastraBrowserSettings
+  onboarding?: MastraOnboardingSettings
   [key: string]: unknown
 }
 
