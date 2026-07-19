@@ -83,6 +83,15 @@ export function PromptInput({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefill])
 
+  // Grow the textarea with its content (including wrapped long lines, which a
+  // newline count alone misses) up to a cap, then scroll internally.
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 240)}px`
+  }, [value])
+
   useEffect(() => {
     setMentionIndex(0)
   }, [mentionQuery])
@@ -304,7 +313,7 @@ export function PromptInput({
       <div className="flex items-end gap-2">
         <textarea
           ref={textareaRef}
-          rows={Math.min(6, Math.max(1, value.split('\n').length))}
+          rows={3}
           value={value}
           disabled={disabled}
           placeholder="Message the agent… (@ to mention files, / for commands, paste images)"
@@ -321,7 +330,7 @@ export function PromptInput({
               void addFiles(files)
             }
           }}
-          className="flex-1 resize-none rounded-md border border-border bg-background px-3 py-2 text-[13px] placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+          className="max-h-[240px] min-h-[72px] flex-1 resize-none overflow-y-auto rounded-md border border-border bg-background px-3 py-2 text-[13px] placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
         />
         {running && !value.trim() ? (
           <Button size="icon" variant="destructive" title="Stop" onClick={onAbort}>
