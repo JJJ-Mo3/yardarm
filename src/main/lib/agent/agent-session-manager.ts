@@ -606,6 +606,25 @@ export class AgentSessionManager {
     return res
   }
 
+  /**
+   * Rollback support: delete the agent's memory of everything after the
+   * anchor (last surviving assistant message) and persist a system reminder
+   * explaining that the project files were reverted.
+   */
+  async rewindThread(
+    subchatId: string,
+    anchorMessageId: string,
+    note: string
+  ): Promise<{ deleted: number }> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<{ deleted: number }>(handle, {
+      t: 'rewindThread',
+      reqId: randomUUID(),
+      anchorMessageId,
+      note
+    })
+  }
+
   async deleteThread(subchatId: string, threadId: string): Promise<{ threadId: string }> {
     const handle = await this.ensureHost(subchatId)
     const res = await this.request<{ threadId: string | null }>(handle, {

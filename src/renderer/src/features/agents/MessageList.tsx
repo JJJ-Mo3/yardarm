@@ -20,6 +20,33 @@ import type {
  */
 export const INTERACTIVE_TOOLS = new Set(['ask_user', 'submit_plan', 'request_access'])
 
+/**
+ * Tools known to never change project files. Any other tool (write/edit/
+ * delete/mkdir/execute_command/subagent, MCP and plugin tools) is treated as
+ * change-capable, which decides whether a user message shows a rollback pill.
+ */
+const READONLY_TOOLS = new Set([
+  'view',
+  'find_files',
+  'file_stat',
+  'search_content',
+  'lsp_inspect',
+  'get_process_output',
+  'kill_process',
+  'web_search',
+  'web-search',
+  'web_extract',
+  'web-extract',
+  'notification_inbox',
+  'ask_user',
+  'submit_plan',
+  'request_access',
+  'task_write',
+  'task_update',
+  'task_complete',
+  'task_check'
+])
+
 interface SuspensionProps {
   suspensions?: PendingSuspension[]
   onRespondSuspension?: (toolCallId: string, resumeData: unknown) => void
@@ -119,12 +146,14 @@ function Part({
 function MessageItem({
   message,
   onRollback,
+  showRollback,
   hiddenParts,
   suspensions,
   onRespondSuspension
 }: {
   message: StoredMessage
   onRollback?: (messageId: string) => void
+  showRollback?: boolean
   hiddenParts?: Set<string>
 } & SuspensionProps): React.JSX.Element {
   if (message.role === 'user') {
@@ -135,7 +164,7 @@ function MessageItem({
       <div className="flex justify-end group">
         <div className="relative max-w-[85%] rounded-lg bg-accent border border-border px-3 py-2 selectable whitespace-pre-wrap text-[13px]">
           {text}
-          {onRollback && message.checkpointRef && (
+          {onRollback && message.checkpointRef && showRollback && (
             <button
               title="Restore files and chat to just before this message was sent — its text returns to the input for editing"
               onClick={() => onRollback(message.id)}
@@ -203,6 +232,25 @@ export function MessageList({
     return hidden
   }, [messages])
 
+  // A rollback pill is only meaningful when rolling back would revert
+  // something: show it on a user message iff a change-capable tool ran in
+  // any later message. Reverse scan: cheap and updates live as tools stream.
+  const rollbackEligible = useMemo(() => {
+    const eligible = new Set<string>()
+    let anyChangeAfter = false
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m.role === 'user') {
+        if (anyChangeAfter) eligible.add(m.id)
+      } else if (!anyChangeAfter) {
+        anyChangeAfter = m.parts.some(
+          (p) => p.type === 'tool-call' && !READONLY_TOOLS.has(p.toolName)
+        )
+      }
+    }
+    return eligible
+  }, [messages])
+
   useEffect(() => {
     if (stickToBottom.current) {
       bottomRef.current?.scrollIntoView({ block: 'end' })
@@ -229,6 +277,7 @@ export function MessageList({
           key={m.id}
           message={m}
           onRollback={onRollback}
+          showRollback={rollbackEligible.has(m.id)}
           hiddenParts={hiddenParts}
           suspensions={suspensions}
           onRespondSuspension={onRespondSuspension}

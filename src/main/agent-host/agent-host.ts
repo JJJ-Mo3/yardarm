@@ -435,6 +435,45 @@ async function main(): Promise<void> {
               return { threadId: session.thread.getId() }
             })
             break
+          case 'rewindThread':
+            await respond(cmd.reqId, async () => {
+              // Yardarm already truncated its own chat DB and restored the
+              // files; here we bring the agent's memory in line. Assistant
+              // message ids in Yardarm's DB are SDK message ids, so the last
+              // surviving assistant message anchors the cut.
+              const msgs = await session.thread.listActiveMessages()
+              const idx = msgs.findIndex((m) => m.id === cmd.anchorMessageId)
+              let deleted = 0
+              if (idx >= 0) {
+                const ids = msgs.slice(idx + 1).map((m) => m.id)
+                if (ids.length > 0) {
+                  // mc.memory is usually a dynamic factory ({requestContext})
+                  // => Memory; it tolerates an empty context (all state reads
+                  // are optional) and returns the storage-backed instance.
+                  type MemoryLike = { deleteMessages(ids: string[]): Promise<void> }
+                  const memRaw = mc.memory as unknown
+                  const mem =
+                    typeof memRaw === 'function'
+                      ? (
+                          memRaw as (args: {
+                            requestContext: { get(k: string): unknown }
+                          }) => MemoryLike
+                        )({ requestContext: { get: () => undefined } })
+                      : (memRaw as MemoryLike | undefined)
+                  if (!mem) throw new Error('memory instance unavailable')
+                  await mem.deleteMessages(ids)
+                  deleted = ids.length
+                }
+              }
+              // Inform the agent even when the anchor wasn't found — the
+              // reminder alone still explains the on-disk revert.
+              await session.saveSystemReminderMessage({
+                message: cmd.note,
+                reminderType: 'yardarm_rollback'
+              })
+              return { deleted }
+            })
+            break
           case 'getPermissions':
             await respond(cmd.reqId, async () => {
               const rules = session.permissions.getRules()

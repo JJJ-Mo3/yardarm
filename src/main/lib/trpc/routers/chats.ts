@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { and, asc, desc, eq, gte, inArray, isNotNull } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, isNotNull, lt } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb, schema } from '../../db'
 import { agentSessionManager } from '../../agent/agent-session-manager'
@@ -211,6 +211,40 @@ export const chatsRouter = router({
       const chat = db.select().from(schema.chats).where(eq(schema.chats.id, subchat.chatId)).get()
       if (!chat) throw new Error('Chat not found')
 
+      // Rewind-and-inform support: the last surviving assistant message
+      // anchors the agent-memory cut (assistant ids in our DB are SDK
+      // message ids), and the rolled-back user text goes into the note.
+      // Skip pure-info rows: transcript markers use role 'assistant' but
+      // local UUIDs the SDK thread has never seen.
+      const anchor = db
+        .select({ id: schema.messages.id, parts: schema.messages.parts })
+        .from(schema.messages)
+        .where(
+          and(
+            eq(schema.messages.subchatId, input.subchatId),
+            eq(schema.messages.role, 'assistant'),
+            lt(schema.messages.seq, msg.seq)
+          )
+        )
+        .orderBy(desc(schema.messages.seq))
+        .limit(20)
+        .all()
+        .find((row) => {
+          try {
+            const parts = JSON.parse(row.parts) as Array<{ type: string }>
+            return parts.some((p) => p.type !== 'info')
+          } catch {
+            return false
+          }
+        })
+      let rolledBackText = ''
+      try {
+        const parts = JSON.parse(msg.parts) as Array<{ type: string; text?: string }>
+        rolledBackText = parts.find((p) => p.type === 'text')?.text?.slice(0, 200) ?? ''
+      } catch {
+        // Unparseable parts — note simply omits the quoted text.
+      }
+
       // Stop the agent and wait for the process to exit so it can't be
       // mid-write while we hard-reset the working tree below.
       await agentSessionManager.stopHostAndWait(input.subchatId)
@@ -257,14 +291,37 @@ export const chatsRouter = router({
           and(eq(schema.messages.subchatId, input.subchatId), gte(schema.messages.seq, msg.seq))
         )
         .run()
-      // Fresh agent thread — old context no longer matches truncated history.
-      db.update(schema.subchats)
-        .set({ mastraThreadId: null })
-        .where(eq(schema.subchats.id, input.subchatId))
-        .run()
+      if (!anchor) {
+        // Rolled back to the very start: a fresh empty thread matches the
+        // now-empty chat, so there's nothing to remember or inform.
+        db.update(schema.subchats)
+          .set({ mastraThreadId: null })
+          .where(eq(schema.subchats.id, input.subchatId))
+          .run()
+      }
       // Live stream subscriptions are only seeded on connect, so push the
       // truncated history to any open chat view immediately.
       agentSessionManager.notifyMessagesReset(input.subchatId)
+
+      if (anchor) {
+        // Partial rollback: keep the agent's thread, delete its memory of
+        // the rolled-back exchanges and leave a note explaining the revert.
+        // Awaiting here (host reboot included) prevents racing the user's
+        // next message; the old flow paid the same boot cost anyway.
+        const note =
+          '[Rollback] The user rolled back this conversation and the project files. ' +
+          'Files on disk were restored to the snapshot taken before the user message: ' +
+          `"${rolledBackText}". All file changes and conversation turns after that point ` +
+          'were discarded. The current files on disk are authoritative — re-read files ' +
+          'before relying on earlier knowledge of them.'
+        try {
+          await agentSessionManager.rewindThread(input.subchatId, anchor.id, note)
+        } catch (err) {
+          // Files and chat DB are already restored — degrade to a warning.
+          const m = `Agent memory rewind failed: ${err instanceof Error ? err.message : String(err)}`
+          warning = warning ? `${warning}\n${m}` : m
+        }
+      }
 
       return { ok: true, warning }
     })

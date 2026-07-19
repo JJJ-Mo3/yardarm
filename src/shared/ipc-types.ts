@@ -28,6 +28,12 @@ export type HostCommand =
   | { t: 'threadRename'; reqId: string; title: string }
   | { t: 'threadClone'; reqId: string; sourceThreadId?: string; title?: string }
   | { t: 'threadDelete'; reqId: string; threadId: string }
+  /**
+   * Rollback support: delete the agent's memory of every thread message after
+   * the anchor (last surviving assistant message), then persist a system
+   * reminder telling the agent the project files were reverted.
+   */
+  | { t: 'rewindThread'; reqId: string; anchorMessageId: string; note: string }
   | { t: 'getPermissions'; reqId: string }
   | {
       t: 'setPermission'
