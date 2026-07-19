@@ -239,8 +239,12 @@ export function Sidebar(): React.JSX.Element {
       {/* New chat dialog */}
       <Dialog open={newChatOpen} onOpenChange={setNewChatOpen}>
         <DialogContent>
-          <DialogTitle>New chat</DialogTitle>
+          <DialogTitle>Chat Topic</DialogTitle>
           <div className="space-y-3">
+            <div className="text-[11px] text-muted-foreground">
+              Name the topic for this chat — you&apos;ll send messages to the agent after
+              it&apos;s created.
+            </div>
             <Input
               autoFocus
               placeholder="What are you working on?"
