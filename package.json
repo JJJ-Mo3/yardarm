@@ -20,6 +20,7 @@
     "dist": "npm run stage:agent-runtime && electron-vite build && electron-builder"
   },
   "dependencies": {
+    "@fontsource-variable/geist": "^5.3.0",
     "@trpc/server": "^11.18.0",
     "better-sqlite3": "^12.11.1",
     "drizzle-orm": "^0.45.2",

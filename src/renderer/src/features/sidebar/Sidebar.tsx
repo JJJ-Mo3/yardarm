@@ -96,7 +96,9 @@ export function Sidebar(): React.JSX.Element {
           title well below them) */}
       <div className="titlebar-drag h-[84px] shrink-0 flex items-end gap-2.5 px-3 pb-2.5">
         <Logo className="h-10 w-10 rounded-lg" />
-        <span className="text-xl font-semibold tracking-wide text-foreground">Yardarm</span>
+        <span className="font-geist text-3xl font-semibold tracking-wide lowercase text-foreground">
+          yardarm
+        </span>
       </div>
 
       {/* Project picker */}
