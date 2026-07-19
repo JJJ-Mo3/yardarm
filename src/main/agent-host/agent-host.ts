@@ -465,12 +465,6 @@ async function main(): Promise<void> {
                   deleted = ids.length
                 }
               }
-              // Inform the agent even when the anchor wasn't found — the
-              // reminder alone still explains the on-disk revert.
-              await session.saveSystemReminderMessage({
-                message: cmd.note,
-                reminderType: 'yardarm_rollback'
-              })
               return { deleted }
             })
             break

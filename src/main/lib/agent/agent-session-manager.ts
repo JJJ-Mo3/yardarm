@@ -459,6 +459,28 @@ export class AgentSessionManager {
   }
 
   /**
+   * One-time note (e.g. rollback) appended to the next model-bound prompt as
+   * a `<system-reminder>` suffix. Appended — never prepended — because the
+   * SDK treats a user message whose first text starts with `<system-reminder`
+   * as a reminder and filters it from later recalls, which would erase the
+   * user's actual prompt from agent memory.
+   */
+  private consumePendingNote(subchatId: string): string {
+    const db = getDb()
+    const row = db
+      .select({ pendingNote: schema.subchats.pendingNote })
+      .from(schema.subchats)
+      .where(eq(schema.subchats.id, subchatId))
+      .get()
+    if (!row?.pendingNote) return ''
+    db.update(schema.subchats)
+      .set({ pendingNote: null })
+      .where(eq(schema.subchats.id, subchatId))
+      .run()
+    return `\n\n<system-reminder>\n${row.pendingNote}\n</system-reminder>`
+  }
+
+  /**
    * Send a prompt to the agent. `displayText` (when set) is what the
    * transcript stores/shows — e.g. `/cmd args` — while `content` is the
    * expanded prompt actually sent to the model.
@@ -474,8 +496,9 @@ export class AgentSessionManager {
     const attachmentNote = files?.length
       ? `\n\n[${files.length} file${files.length === 1 ? '' : 's'} attached]`
       : ''
+    const noteSuffix = this.consumePendingNote(subchatId)
     this.recordUserMessage(subchatId, (displayText ?? content) + attachmentNote, checkpointRef)
-    this.sendCommand(handle, { t: 'send', text: content, files })
+    this.sendCommand(handle, { t: 'send', text: content + noteSuffix, files })
   }
 
   /**
@@ -484,8 +507,9 @@ export class AgentSessionManager {
    */
   async followUp(subchatId: string, content: string, checkpointRef?: string): Promise<void> {
     const handle = await this.ensureHost(subchatId)
+    const noteSuffix = this.consumePendingNote(subchatId)
     this.recordUserMessage(subchatId, content, checkpointRef)
-    this.sendCommand(handle, { t: 'followUp', text: content })
+    this.sendCommand(handle, { t: 'followUp', text: content + noteSuffix })
   }
 
   async approve(
@@ -608,20 +632,15 @@ export class AgentSessionManager {
 
   /**
    * Rollback support: delete the agent's memory of everything after the
-   * anchor (last surviving assistant message) and persist a system reminder
-   * explaining that the project files were reverted.
+   * anchor (last surviving assistant message). The revert note itself is
+   * stored on the subchat and delivered with the next message send.
    */
-  async rewindThread(
-    subchatId: string,
-    anchorMessageId: string,
-    note: string
-  ): Promise<{ deleted: number }> {
+  async rewindThread(subchatId: string, anchorMessageId: string): Promise<{ deleted: number }> {
     const handle = await this.ensureHost(subchatId)
     return this.request<{ deleted: number }>(handle, {
       t: 'rewindThread',
       reqId: randomUUID(),
-      anchorMessageId,
-      note
+      anchorMessageId
     })
   }
 

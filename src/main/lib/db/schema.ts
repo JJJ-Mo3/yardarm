@@ -44,6 +44,8 @@ export const subchats = sqliteTable(
     mode: text('mode').notNull().default('build'),
     modelId: text('model_id'),
     thinkingLevel: text('thinking_level'),
+    /** One-time note (e.g. rollback) appended to the next model-bound prompt. */
+    pendingNote: text('pending_note'),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull()
   },

@@ -259,11 +259,14 @@ export const chatsRouter = router({
       // agent.ts): no-worktree chats run at the project root.
       const cwd = chat.worktreePath ?? project?.path ?? null
       let warning: string | null = null
+      let changedFiles: string[] = []
       if (msg.checkpointRef && cwd) {
         if (!existsSync(cwd)) {
           throw new Error(`Cannot restore snapshot: folder no longer exists: ${cwd}`)
         }
-        warning = (await restoreCheckpoint(cwd, msg.checkpointRef)).warning
+        const restored = await restoreCheckpoint(cwd, msg.checkpointRef)
+        warning = restored.warning
+        changedFiles = restored.changedFiles
       }
 
       // Unpin checkpoint stashes of the messages being deleted. The target's
@@ -305,17 +308,31 @@ export const chatsRouter = router({
 
       if (anchor) {
         // Partial rollback: keep the agent's thread, delete its memory of
-        // the rolled-back exchanges and leave a note explaining the revert.
+        // the rolled-back exchanges, and store a note that the next message
+        // send appends to the model-bound prompt (SDK-persisted reminders
+        // are filtered out of recall, so we deliver the note ourselves).
         // Awaiting here (host reboot included) prevents racing the user's
         // next message; the old flow paid the same boot cost anyway.
+        const shown = changedFiles.slice(0, 20)
+        const filesSentence =
+          shown.length > 0
+            ? `Files affected by the revert: ${shown.join(', ')}` +
+              (changedFiles.length > shown.length
+                ? ` … and ${changedFiles.length - shown.length} more. `
+                : '. ')
+            : ''
         const note =
           '[Rollback] The user rolled back this conversation and the project files. ' +
           'Files on disk were restored to the snapshot taken before the user message: ' +
-          `"${rolledBackText}". All file changes and conversation turns after that point ` +
-          'were discarded. The current files on disk are authoritative — re-read files ' +
-          'before relying on earlier knowledge of them.'
+          `"${rolledBackText}". ${filesSentence}All file changes and conversation turns ` +
+          'after that point were discarded. The current files on disk are authoritative — ' +
+          're-read files before relying on earlier knowledge of them.'
+        db.update(schema.subchats)
+          .set({ pendingNote: note })
+          .where(eq(schema.subchats.id, input.subchatId))
+          .run()
         try {
-          await agentSessionManager.rewindThread(input.subchatId, anchor.id, note)
+          await agentSessionManager.rewindThread(input.subchatId, anchor.id)
         } catch (err) {
           // Files and chat DB are already restored — degrade to a warning.
           const m = `Agent memory rewind failed: ${err instanceof Error ? err.message : String(err)}`

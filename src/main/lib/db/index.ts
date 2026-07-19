@@ -65,7 +65,9 @@ const MIGRATIONS: string[] = [
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
   );
-  `
+  `,
+  // v2 — one-time note (e.g. rollback) delivered with the next message send
+  `ALTER TABLE subchats ADD COLUMN pending_note TEXT;`
 ]
 
 export function initDb(): DB {
