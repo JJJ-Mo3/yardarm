@@ -67,12 +67,12 @@ function MessageItem({
           {text}
           {onRollback && message.checkpointRef && (
             <button
-              title="Restore files and chat to the snapshot taken before this message"
+              title="Restore files and chat to just before this message was sent — its text returns to the input for editing"
               onClick={() => onRollback(message.id)}
-              className="absolute right-full top-1.5 mr-1.5 hidden group-hover:flex items-center gap-1 whitespace-nowrap rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground shadow-sm hover:text-foreground cursor-pointer"
+              className="absolute right-full top-1.5 mr-1.5 flex items-center gap-1 whitespace-nowrap rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground shadow-sm opacity-70 group-hover:opacity-100 hover:opacity-100 hover:text-foreground cursor-pointer"
             >
               <RotateCcw size={10} />
-              Roll back
+              Roll back to before this message
             </button>
           )}
         </div>

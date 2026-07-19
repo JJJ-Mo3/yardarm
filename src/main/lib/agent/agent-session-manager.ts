@@ -91,6 +91,14 @@ export class AgentSessionManager {
     return () => em.off('event', listener)
   }
 
+  /**
+   * Push a fresh full message list to any open stream subscriptions, e.g.
+   * after a rollback truncates history behind the subscription's back.
+   */
+  notifyMessagesReset(subchatId: string): void {
+    this.emitUI(subchatId, { type: 'messages-reset', messages: this.loadMessages(subchatId) })
+  }
+
   status(subchatId: string): AgentStatus {
     return this.hosts.get(subchatId)?.status ?? 'stopped'
   }

@@ -66,20 +66,28 @@ export function ChatView({
   const [rollbackNotice, setRollbackNotice] = useState<{ text: string; warn: boolean } | null>(
     null
   )
+  // Rolled-back message text, handed to the prompt input for edit + resend.
+  const [prefill, setPrefill] = useState<string | null>(null)
+  const pendingRollbackText = useRef<string | null>(null)
   const rollback = trpc.chats.rollbackToMessage.useMutation({
     onSuccess: (res) => {
       utils.invalidate()
+      setPrefill(pendingRollbackText.current)
+      pendingRollbackText.current = null
       setRollbackNotice(
         res.warning
           ? { text: res.warning, warn: true }
           : {
-              text: 'Rolled back — files and chat history restored to the snapshot.',
+              text: 'Rolled back — files and chat restored to just before that message. Your message is back in the input; edit it and resend.',
               warn: false
             }
       )
     }
   })
-  useEffect(() => setRollbackNotice(null), [subchatId])
+  useEffect(() => {
+    setRollbackNotice(null)
+    setPrefill(null)
+  }, [subchatId])
   const models = trpc.agent.listModels.useQuery({ subchatId }, { staleTime: 60_000 })
   const runCommand = trpc.agent.runCommand.useMutation()
   const runSkill = trpc.agent.runSkill.useMutation()
@@ -436,12 +444,17 @@ export function ChatView({
         running={state.running}
         onRollback={(messageId) => {
           void confirmDialog({
-            title: 'Roll back to snapshot?',
+            title: 'Roll back to before this message?',
             description:
-              'Your files will be restored to the snapshot taken just before this message, and this message and everything after it will be removed from the chat. The agent restarts with the shortened history.',
+              'Files and chat are restored to the snapshot taken just before this message was sent. This message and everything after it are removed, and its text is placed back in the input so you can edit and resend it.',
             confirmLabel: 'Roll back'
           }).then((ok) => {
-            if (ok) rollback.mutate({ subchatId, messageId })
+            if (!ok) return
+            const msg = state.messages.find((m) => m.id === messageId)
+            pendingRollbackText.current = msg
+              ? msg.parts.map((p) => (p.type === 'text' ? p.text : '')).join('')
+              : null
+            rollback.mutate({ subchatId, messageId })
           })
         }}
       />
@@ -562,6 +575,8 @@ export function ChatView({
         }}
         onAbort={() => abort.mutate({ subchatId })}
         onSlashCommand={handleSlashCommand}
+        prefill={prefill}
+        onPrefillConsumed={() => setPrefill(null)}
       />
       <HelpDialog commands={commands} />
       <PermissionsDialog

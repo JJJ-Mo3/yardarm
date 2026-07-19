@@ -38,7 +38,9 @@ export function PromptInput({
   commands,
   onSend,
   onAbort,
-  onSlashCommand
+  onSlashCommand,
+  prefill,
+  onPrefillConsumed
 }: {
   disabled: boolean
   running: boolean
@@ -48,6 +50,9 @@ export function PromptInput({
   onAbort: () => void
   /** Handle a slash command; return a string to show as an inline hint. */
   onSlashCommand: (entry: SlashCommandEntry, args: string) => string | void
+  /** One-shot text to place in the input (e.g. a rolled-back message). */
+  prefill?: string | null
+  onPrefillConsumed?: () => void
 }): React.JSX.Element {
   const [value, setValue] = useState('')
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([])
@@ -68,6 +73,15 @@ export function PromptInput({
   const slashMatches = slashActive
     ? commands.filter((c) => c.name.startsWith(slashQuery)).slice(0, 12)
     : []
+
+  useEffect(() => {
+    if (typeof prefill === 'string') {
+      setValue(prefill)
+      requestAnimationFrame(() => textareaRef.current?.focus())
+      onPrefillConsumed?.()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill])
 
   useEffect(() => {
     setMentionIndex(0)

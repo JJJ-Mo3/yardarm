@@ -262,6 +262,9 @@ export const chatsRouter = router({
         .set({ mastraThreadId: null })
         .where(eq(schema.subchats.id, input.subchatId))
         .run()
+      // Live stream subscriptions are only seeded on connect, so push the
+      // truncated history to any open chat view immediately.
+      agentSessionManager.notifyMessagesReset(input.subchatId)
 
       return { ok: true, warning }
     })
