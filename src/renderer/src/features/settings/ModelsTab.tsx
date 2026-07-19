@@ -10,6 +10,23 @@ import { Switch } from '../../components/ui/switch'
 const MODES = ['build', 'plan', 'fast'] as const
 const SUBAGENT_TYPES = ['explore', 'plan', 'general'] as const
 
+/**
+ * Floor for the OM observe/reflect thresholds. The SDK derives its working
+ * buffer as 20% of this value (and keeps a 2000-token activation window under
+ * it), so tiny values make Memory throw "bufferTokens must be > 0" on every
+ * message. SDK defaults are 30000 / 40000.
+ */
+const OM_THRESHOLD_MIN = 1000
+
+/** Parse an OM threshold input: empty → null (use default), else clamp to the floor. */
+function clampOmThreshold(raw: string): number | null {
+  const v = raw.trim()
+  if (!v) return null
+  const n = Math.round(Number(v))
+  if (!Number.isFinite(n) || n <= 0) return null
+  return Math.max(n, OM_THRESHOLD_MIN)
+}
+
 function ModelSelect({
   value,
   onChange,
@@ -318,32 +335,34 @@ export function ModelsTab(): React.JSX.Element {
             <span className="w-16 text-[11px] text-muted-foreground">Observe @</span>
             <Input
               type="number"
-              min={1}
+              min={OM_THRESHOLD_MIN}
+              step={1000}
               className="h-7 w-24 text-[11px]"
               defaultValue={m.omObservationThreshold ?? ''}
-              placeholder="default"
-              title="Observation token threshold"
+              placeholder="30000"
+              title={`Observation token threshold (min ${OM_THRESHOLD_MIN}; empty = default 30000)`}
               onBlur={(e) => {
-                const v = e.target.value.trim()
-                const n = v ? Number(v) : null
+                const n = clampOmThreshold(e.target.value)
+                if (n !== null) e.target.value = String(n)
                 if (n !== (m.omObservationThreshold ?? null)) {
-                  setOmDefaults.mutate({ omObservationThreshold: n && n > 0 ? n : null })
+                  setOmDefaults.mutate({ omObservationThreshold: n })
                 }
               }}
             />
             <span className="w-16 text-[11px] text-muted-foreground">Reflect @</span>
             <Input
               type="number"
-              min={1}
+              min={OM_THRESHOLD_MIN}
+              step={1000}
               className="h-7 w-24 text-[11px]"
               defaultValue={m.omReflectionThreshold ?? ''}
-              placeholder="default"
-              title="Reflection token threshold"
+              placeholder="40000"
+              title={`Reflection token threshold (min ${OM_THRESHOLD_MIN}; empty = default 40000)`}
               onBlur={(e) => {
-                const v = e.target.value.trim()
-                const n = v ? Number(v) : null
+                const n = clampOmThreshold(e.target.value)
+                if (n !== null) e.target.value = String(n)
                 if (n !== (m.omReflectionThreshold ?? null)) {
-                  setOmDefaults.mutate({ omReflectionThreshold: n && n > 0 ? n : null })
+                  setOmDefaults.mutate({ omReflectionThreshold: n })
                 }
               }}
             />

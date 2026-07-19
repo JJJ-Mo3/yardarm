@@ -213,18 +213,21 @@ export const chatsRouter = router({
       // Stop the agent first so it isn't mid-write during reset.
       agentSessionManager.stopHost(input.subchatId)
 
-      const cwd = chat.worktreePath
+      const project = db
+        .select()
+        .from(schema.projects)
+        .where(eq(schema.projects.id, chat.projectId))
+        .get()
+
+      // Restore at the same cwd checkpoints are captured (see subchatCwd in
+      // agent.ts): no-worktree chats run at the project root.
+      const cwd = chat.worktreePath ?? project?.path ?? null
       if (msg.checkpointRef && cwd) {
         await restoreCheckpoint(cwd, msg.checkpointRef)
       }
 
       // Unpin checkpoint stashes of the messages being deleted. The target's
       // own ref is included only now that its restore (if any) succeeded.
-      const project = db
-        .select()
-        .from(schema.projects)
-        .where(eq(schema.projects.id, chat.projectId))
-        .get()
       if (project) {
         const truncated = db
           .select({ checkpointRef: schema.messages.checkpointRef })

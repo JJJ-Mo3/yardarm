@@ -256,8 +256,10 @@ export const agentRouter = router({
         patch: z.object({
           observerModelId: z.string().optional(),
           reflectorModelId: z.string().optional(),
-          observationThreshold: z.number().positive().optional(),
-          reflectionThreshold: z.number().positive().optional(),
+          // Min 1000: the SDK sizes its OM buffer at 20% of the threshold (with a
+          // 2000-token activation window), so tiny values break Memory validation.
+          observationThreshold: z.number().int().min(1000).optional(),
+          reflectionThreshold: z.number().int().min(1000).optional(),
           cavemanObservations: z.boolean().optional()
         })
       })

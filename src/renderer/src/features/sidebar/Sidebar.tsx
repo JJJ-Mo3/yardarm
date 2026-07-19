@@ -65,6 +65,9 @@ export function Sidebar(): React.JSX.Element {
 
   function selectChat(id: string): void {
     setChatId(id)
+    // Clear immediately so the previous chat's subchat never renders against
+    // the new chat's cwd while the fetch is in flight.
+    setSubchatId(null)
     utils.chats.get.fetch({ id }).then((chat) => {
       setSubchatId(chat?.subchats[0]?.id ?? null)
     })
@@ -81,7 +84,17 @@ export function Sidebar(): React.JSX.Element {
 
       {/* Project picker */}
       <div className="flex items-center gap-1 px-2 py-2">
-        <Select value={projectId ?? ''} onValueChange={(v) => setProjectId(v)}>
+        <Select
+          value={projectId ?? ''}
+          onValueChange={(v) => {
+            if (v !== projectId) {
+              // The old project's chat must not leak into the new project's views.
+              setChatId(null)
+              setSubchatId(null)
+            }
+            setProjectId(v)
+          }}
+        >
           <SelectTrigger className="flex-1 h-8">
             <span className="flex items-center gap-1.5 truncate">
               <FolderGit2 size={13} className="shrink-0 text-muted-foreground" />

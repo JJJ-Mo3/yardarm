@@ -94,13 +94,14 @@ export default function App(): React.JSX.Element {
   const project = (projects.data ?? []).find((p) => p.id === projectId) ?? null
   const cwd = chat.data?.worktreePath ?? project?.path ?? null
 
-  // Hard gate: the app is useless if the bundled runtime can't boot.
-  if (preflight.data && !preflight.data.ok) {
+  // Hard gate: the app is useless if the bundled runtime can't boot. Covers
+  // both a failed preflight result and the query itself erroring.
+  if (preflight.error || (preflight.data && !preflight.data.ok)) {
     return (
       <BootErrorScreen
-        error={preflight.data.error}
-        mastracodeVersion={preflight.data.mastracodeVersion}
-        nodeVersion={preflight.data.nodeVersion}
+        error={preflight.data?.error ?? preflight.error?.message}
+        mastracodeVersion={preflight.data?.mastracodeVersion ?? null}
+        nodeVersion={preflight.data?.nodeVersion ?? null}
         onRetry={() => preflight.refetch()}
         retrying={preflight.isFetching}
       />

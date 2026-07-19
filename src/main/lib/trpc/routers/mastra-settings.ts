@@ -64,8 +64,10 @@ export const mastraSettingsRouter = router({
         observerModelOverride: z.string().nullable().optional(),
         reflectorModelOverride: z.string().nullable().optional(),
         omModelOverride: z.string().nullable().optional(),
-        omObservationThreshold: z.number().positive().nullable().optional(),
-        omReflectionThreshold: z.number().positive().nullable().optional(),
+        // Min 1000: the SDK sizes its OM buffer at 20% of the threshold (with a
+        // 2000-token activation window), so tiny values break Memory validation.
+        omObservationThreshold: z.number().int().min(1000).nullable().optional(),
+        omReflectionThreshold: z.number().int().min(1000).nullable().optional(),
         omCavemanObservations: z.boolean().nullable().optional()
       })
     )

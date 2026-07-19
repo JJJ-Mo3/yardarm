@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/button'
 interface BootErrorScreenProps {
   error?: string
   mastracodeVersion: string | null
-  nodeVersion: string
+  nodeVersion: string | null
   onRetry: () => void
   retrying: boolean
 }
@@ -33,7 +33,8 @@ export function BootErrorScreen({
         </pre>
       )}
       <div className="text-[11px] text-muted-foreground">
-        Bundled runtime: {mastracodeVersion ?? 'not found'} · Node {nodeVersion}
+        Bundled runtime: {mastracodeVersion ?? 'not found'}
+        {nodeVersion ? ` · Node ${nodeVersion}` : ''}
       </div>
       <Button size="sm" onClick={onRetry} disabled={retrying}>
         <RefreshCw size={12} className={retrying ? 'animate-spin' : ''} />

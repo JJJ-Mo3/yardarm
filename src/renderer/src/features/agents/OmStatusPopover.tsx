@@ -34,9 +34,18 @@ function ThresholdField({
     if (!focused) setDraft(value != null ? String(value) : '')
   }, [value, focused])
   const commit = (): void => {
-    const n = Number(draft)
-    if (Number.isFinite(n) && n > 0 && n !== value) onCommit(n)
-    else setDraft(value != null ? String(value) : '')
+    // Min 1000: the SDK sizes its OM buffer at 20% of the threshold, so tiny
+    // values make Memory validation throw on every message.
+    const n = Math.round(Number(draft))
+    if (Number.isFinite(n) && n > 0) {
+      const clamped = Math.max(n, 1000)
+      if (clamped !== value) {
+        onCommit(clamped)
+        setDraft(String(clamped))
+        return
+      }
+    }
+    setDraft(value != null ? String(value) : '')
   }
   return (
     <Input
