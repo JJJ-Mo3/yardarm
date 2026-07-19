@@ -25,10 +25,9 @@ import {
 import { Switch } from '../../components/ui/switch'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { useAgentStream } from './use-agent-stream'
-import { MessageList } from './MessageList'
+import { MessageList, INTERACTIVE_TOOLS } from './MessageList'
 import { ApprovalCard } from './ApprovalCard'
 import { PlanApprovalCard } from './PlanApprovalCard'
-import { AskUserCard } from './AskUserCard'
 import { PromptInput } from './PromptInput'
 import { HelpDialog } from './HelpDialog'
 import { CostPopover } from './CostPopover'
@@ -457,11 +456,17 @@ export function ChatView({
             rollback.mutate({ subchatId, messageId })
           })
         }}
+        suspensions={state.suspensions}
+        onRespondSuspension={(toolCallId, resumeData) =>
+          respondSuspension.mutate({ subchatId, toolCallId, resumeData })
+        }
       />
 
-      {/* Pending gates + errors */}
+      {/* Pending gates + errors. Interactive suspensions (ask_user /
+          submit_plan / request_access) render inline in the transcript, so
+          only unknown suspension tools fall back to this strip. */}
       {(state.approvals.length > 0 ||
-        state.suspensions.length > 0 ||
+        state.suspensions.some((s) => !INTERACTIVE_TOOLS.has(s.toolName)) ||
         state.infos.some((i) => i.level === 'error')) && (
         <div className="px-4 pb-2 space-y-2">
           {state.infos
@@ -487,16 +492,9 @@ export function ChatView({
               }
             />
           ))}
-          {state.suspensions.map((s) =>
-            s.toolName === 'ask_user' ? (
-              <AskUserCard
-                key={s.toolCallId}
-                suspension={s}
-                onResume={(resumeData) =>
-                  respondSuspension.mutate({ subchatId, toolCallId: s.toolCallId, resumeData })
-                }
-              />
-            ) : (
+          {state.suspensions
+            .filter((s) => !INTERACTIVE_TOOLS.has(s.toolName))
+            .map((s) => (
               <PlanApprovalCard
                 key={s.toolCallId}
                 suspension={s}
@@ -504,8 +502,7 @@ export function ChatView({
                   respondSuspension.mutate({ subchatId, toolCallId: s.toolCallId, resumeData })
                 }
               />
-            )
-          )}
+            ))}
         </div>
       )}
 

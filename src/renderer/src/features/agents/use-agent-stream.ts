@@ -65,8 +65,12 @@ function reducer(state: AgentStreamState, ev: AgentUIEvent): AgentStreamState {
     case 'run-started':
       return { ...state, running: true }
     case 'run-finished':
-      // The SDK flushes the follow-up queue when the run ends.
-      return { ...state, running: false, approvals: [], suspensions: [], queued: 0 }
+      // The SDK flushes the follow-up queue when the run ends. NOTE: a
+      // suspending tool (ask_user / submit_plan / request_access) ends the
+      // run while its suspension is still pending, so suspensions must
+      // survive run end — they're cleared by 'suspension-resolved' or
+      // 'messages-reset'.
+      return { ...state, running: false, approvals: [], queued: 0 }
     case 'approval-request':
       if (state.approvals.some((a) => a.toolCallId === ev.approval.toolCallId)) return state
       return { ...state, approvals: [...state.approvals, ev.approval] }

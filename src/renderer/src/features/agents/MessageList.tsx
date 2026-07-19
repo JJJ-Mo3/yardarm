@@ -3,7 +3,60 @@ import { Brain, ChevronDown, ChevronRight, RotateCcw } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { Markdown } from './Markdown'
 import { ToolCallCard } from './ToolCallCard'
-import type { MessagePart, StoredMessage } from '../../../../shared/ui-message'
+import { AskUserCard, AskUserAnswered } from './AskUserCard'
+import { PlanApprovalCard, PlanApprovalAnswered } from './PlanApprovalCard'
+import { SandboxAccessCard, SandboxAccessAnswered } from './SandboxAccessCard'
+import type {
+  MessagePart,
+  PendingSuspension,
+  StoredMessage,
+  ToolCallPart
+} from '../../../../shared/ui-message'
+
+/**
+ * Suspension-based tools rendered as interactive inline cards (pending) or
+ * readable Q&A summaries (answered) instead of the generic wrench row.
+ * ChatView uses this to keep such suspensions out of the bottom gates strip.
+ */
+export const INTERACTIVE_TOOLS = new Set(['ask_user', 'submit_plan', 'request_access'])
+
+interface SuspensionProps {
+  suspensions?: PendingSuspension[]
+  onRespondSuspension?: (toolCallId: string, resumeData: unknown) => void
+}
+
+function InteractiveToolPart({
+  part,
+  suspensions,
+  onRespondSuspension
+}: { part: ToolCallPart } & SuspensionProps): React.JSX.Element {
+  const live = suspensions?.find((s) => s.toolCallId === part.toolCallId)
+  if (live && onRespondSuspension) {
+    const respond = (resumeData: unknown): void => onRespondSuspension(live.toolCallId, resumeData)
+    return (
+      <div className="my-1">
+        {part.toolName === 'ask_user' ? (
+          <AskUserCard suspension={live} onResume={respond} />
+        ) : part.toolName === 'submit_plan' ? (
+          <PlanApprovalCard suspension={live} onResume={respond} />
+        ) : (
+          <SandboxAccessCard suspension={live} onResume={respond} />
+        )}
+      </div>
+    )
+  }
+  return (
+    <div className="my-1">
+      {part.toolName === 'ask_user' ? (
+        <AskUserAnswered part={part} />
+      ) : part.toolName === 'submit_plan' ? (
+        <PlanApprovalAnswered part={part} />
+      ) : (
+        <SandboxAccessAnswered part={part} />
+      )}
+    </div>
+  )
+}
 
 function ReasoningBlock({ text }: { text: string }): React.JSX.Element {
   const [open, setOpen] = useState(false)
@@ -26,13 +79,26 @@ function ReasoningBlock({ text }: { text: string }): React.JSX.Element {
   )
 }
 
-function Part({ part }: { part: MessagePart }): React.JSX.Element | null {
+function Part({
+  part,
+  suspensions,
+  onRespondSuspension
+}: { part: MessagePart } & SuspensionProps): React.JSX.Element | null {
   switch (part.type) {
     case 'text':
       return <Markdown text={part.text} />
     case 'reasoning':
       return <ReasoningBlock text={part.text} />
     case 'tool-call':
+      if (INTERACTIVE_TOOLS.has(part.toolName)) {
+        return (
+          <InteractiveToolPart
+            part={part}
+            suspensions={suspensions}
+            onRespondSuspension={onRespondSuspension}
+          />
+        )
+      }
       return <ToolCallCard part={part} />
     case 'info':
       return (
@@ -52,11 +118,13 @@ function Part({ part }: { part: MessagePart }): React.JSX.Element | null {
 
 function MessageItem({
   message,
-  onRollback
+  onRollback,
+  suspensions,
+  onRespondSuspension
 }: {
   message: StoredMessage
   onRollback?: (messageId: string) => void
-}): React.JSX.Element {
+} & SuspensionProps): React.JSX.Element {
   if (message.role === 'user') {
     const text = message.parts
       .map((p) => (p.type === 'text' ? p.text : ''))
@@ -82,7 +150,12 @@ function MessageItem({
   return (
     <div className="max-w-full">
       {message.parts.map((part, i) => (
-        <Part key={i} part={part} />
+        <Part
+          key={i}
+          part={part}
+          suspensions={suspensions}
+          onRespondSuspension={onRespondSuspension}
+        />
       ))}
     </div>
   )
@@ -91,12 +164,14 @@ function MessageItem({
 export function MessageList({
   messages,
   running,
-  onRollback
+  onRollback,
+  suspensions,
+  onRespondSuspension
 }: {
   messages: StoredMessage[]
   running: boolean
   onRollback?: (messageId: string) => void
-}): React.JSX.Element {
+} & SuspensionProps): React.JSX.Element {
   const bottomRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const stickToBottom = useRef(true)
@@ -123,7 +198,13 @@ export function MessageList({
         </div>
       )}
       {messages.map((m) => (
-        <MessageItem key={m.id} message={m} onRollback={onRollback} />
+        <MessageItem
+          key={m.id}
+          message={m}
+          onRollback={onRollback}
+          suspensions={suspensions}
+          onRespondSuspension={onRespondSuspension}
+        />
       ))}
       {running && (
         <div className="flex items-center gap-2 text-muted-foreground text-xs">

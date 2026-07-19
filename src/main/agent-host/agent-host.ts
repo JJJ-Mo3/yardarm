@@ -101,6 +101,38 @@ function sanitizeEvent(ev: Record<string, unknown>): Record<string, unknown> {
   return out
 }
 
+/**
+ * submit_plan suspends with only `{path}` — the plan markdown is not in the
+ * payload (the TUI reads it from disk too). Merge `{title, plan}` into the
+ * suspendPayload so the UI can show the plan without a second round-trip.
+ * Mirrors code-sdk's resolvePlanPath/readPlanFile.
+ */
+function enrichPlanSuspension(ev: Record<string, unknown>): void {
+  try {
+    const payload = ev.suspendPayload as Record<string, unknown> | undefined
+    const planPath = typeof payload?.path === 'string' ? payload.path : undefined
+    if (!payload || !planPath) return
+    const abs = path.isAbsolute(planPath) ? planPath : path.resolve(process.cwd(), planPath)
+    const raw = readFileSync(abs, 'utf-8')
+    const lines = raw.split(/\r?\n/)
+    const headingIndex = lines.findIndex((line) => line.trim().length > 0)
+    const heading = headingIndex >= 0 ? lines[headingIndex] : undefined
+    if (heading?.startsWith('# ')) {
+      payload.title = heading.slice(2).trim()
+      payload.plan = lines
+        .slice(headingIndex + 1)
+        .join('\n')
+        .replace(/^\n+/, '')
+        .trimEnd()
+    } else {
+      payload.title = ''
+      payload.plan = raw.trimEnd()
+    }
+  } catch {
+    // Plan file unreadable — leave the payload untouched; the UI falls back.
+  }
+}
+
 /** Project a GoalObjectiveRecord onto the wire-safe GoalInfo shape. */
 function mapGoal(record: {
   objective: string
@@ -208,7 +240,9 @@ async function main(): Promise<void> {
   session.subscribe((event) => {
     // The display_state_changed firehose is large and derivable; skip it.
     if ((event as { type: string }).type === 'display_state_changed') return
-    post({ t: 'event', ev: sanitizeEvent(event as unknown as Record<string, unknown>) as never })
+    const ev = sanitizeEvent(event as unknown as Record<string, unknown>)
+    if (ev.type === 'tool_suspended' && ev.toolName === 'submit_plan') enrichPlanSuspension(ev)
+    post({ t: 'event', ev: ev as never })
   })
 
   // Restore or select the thread before reporting ready.

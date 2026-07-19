@@ -1,9 +1,9 @@
 import React, { useState } from 'react'
-import { ClipboardList } from 'lucide-react'
+import { Check, ClipboardList } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { Textarea } from '../../components/ui/textarea'
 import { Markdown } from './Markdown'
-import type { PendingSuspension } from '../../../../shared/ui-message'
+import type { PendingSuspension, ToolCallPart } from '../../../../shared/ui-message'
 
 function extractPlanText(suspension: PendingSuspension): string | null {
   const sources = [suspension.suspendPayload, suspension.args]
@@ -61,7 +61,7 @@ export function PlanApprovalCard({
             <Button
               size="sm"
               variant="destructive"
-              onClick={() => onResume({ approved: false, feedback })}
+              onClick={() => onResume({ action: 'rejected', feedback })}
             >
               Request changes
             </Button>
@@ -100,7 +100,7 @@ export function PlanApprovalCard({
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={() => onResume({ approved: true })}>
+          <Button size="sm" onClick={() => onResume({ action: 'approved' })}>
             {isPlan ? 'Approve plan & build' : 'Approve'}
           </Button>
           <Button size="sm" variant="outline" onClick={() => setShowReject(true)}>
@@ -116,6 +116,41 @@ export function PlanApprovalCard({
           <summary className="cursor-pointer">Expected response schema</summary>
           <pre className="mt-1 overflow-auto max-h-32">{suspension.resumeSchema}</pre>
         </details>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Read-only history view of a resolved submit_plan tool call. Kept compact —
+ * the full plan lives in the plan file, not re-rendered here.
+ */
+export function PlanApprovalAnswered({ part }: { part: ToolCallPart }): React.JSX.Element {
+  const result = (part.result ?? {}) as {
+    content?: unknown
+    submittedPlan?: { title?: string; path?: string }
+  }
+  const approved = result.submittedPlan != null
+  const title = result.submittedPlan?.title
+  const content = typeof result.content === 'string' ? result.content : null
+
+  return (
+    <div className="rounded-lg border border-blue-500/40 bg-blue-500/5 p-3 space-y-1.5">
+      <div className="flex items-center gap-2 text-[13px] font-medium">
+        <ClipboardList size={14} className="text-blue-400" />
+        Plan review
+      </div>
+      {approved ? (
+        <div className="flex items-center gap-1.5 text-xs text-blue-400 selectable">
+          <Check size={13} />
+          Plan approved{title ? ` — ${title}` : ''}
+        </div>
+      ) : content ? (
+        <div className="text-xs text-muted-foreground selectable whitespace-pre-wrap">
+          {content}
+        </div>
+      ) : (
+        <div className="text-xs text-muted-foreground italic">No answer recorded</div>
       )}
     </div>
   )

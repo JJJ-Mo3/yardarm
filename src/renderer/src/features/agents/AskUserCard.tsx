@@ -4,12 +4,12 @@
  * per the SDK's AskUserAnswer contract.
  */
 import React, { useState } from 'react'
-import { MessageCircleQuestion } from 'lucide-react'
+import { Check, MessageCircleQuestion } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { Textarea } from '../../components/ui/textarea'
 import { cn } from '../../lib/utils'
 import { Markdown } from './Markdown'
-import type { PendingSuspension } from '../../../../shared/ui-message'
+import type { PendingSuspension, ToolCallPart } from '../../../../shared/ui-message'
 
 interface AskUserPayload {
   question?: string
@@ -127,6 +127,46 @@ export function AskUserCard({
           <Button size="sm" variant="ghost" onClick={() => setShowOther(true)}>
             Other…
           </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Read-only history view of a resolved ask_user tool call: the question plus
+ * the answer the user gave. The tool result is the string
+ * "User answered: <answer>" — strip the prefix for display.
+ */
+export function AskUserAnswered({ part }: { part: ToolCallPart }): React.JSX.Element {
+  const payload = (part.args ?? {}) as AskUserPayload
+  const question = payload.question ?? 'The agent had a question.'
+  const raw =
+    typeof part.result === 'string'
+      ? part.result
+      : part.result != null
+        ? JSON.stringify(part.result)
+        : null
+  const answer = raw?.replace(/^User answered:\s*/, '') ?? null
+  const skipped = answer === '(skipped)'
+
+  return (
+    <div className="rounded-lg border border-violet-500/40 bg-violet-500/5 p-3 space-y-2">
+      <div className="flex items-center gap-2 text-[13px] font-medium">
+        <MessageCircleQuestion size={14} className="text-violet-400" />
+        Question from the agent
+      </div>
+      <div className="max-h-60 overflow-y-auto selectable">
+        <Markdown text={question} />
+      </div>
+      {answer && !skipped ? (
+        <div className="flex items-start gap-1.5 text-xs text-violet-400 selectable">
+          <Check size={13} className="mt-0.5 shrink-0" />
+          <span className="whitespace-pre-wrap">{answer}</span>
+        </div>
+      ) : (
+        <div className="text-xs text-muted-foreground italic">
+          {skipped ? 'Skipped' : 'No answer recorded'}
         </div>
       )}
     </div>
