@@ -2,11 +2,14 @@ import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { BrowserWindow, dialog } from 'electron'
-import { desc, eq } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm'
 import { simpleGit } from 'simple-git'
 import { z } from 'zod'
 import { getDb, schema } from '../../db'
-import { detectDefaultBranch, isGitRepo } from '../../git/worktree'
+import { agentSessionManager } from '../../agent/agent-session-manager'
+import { checkpointStashSha, deleteCheckpointRefs } from '../../git/ops'
+import { detectDefaultBranch, isGitRepo, removeWorktree } from '../../git/worktree'
+import { ptyManager } from '../../terminal/pty-manager'
 import { publicProcedure, router } from '../trpc'
 
 async function pickDirectory(title: string): Promise<string | null> {
@@ -90,8 +93,77 @@ export const projectsRouter = router({
       return insertProject(target)
     }),
 
-  remove: publicProcedure.input(z.object({ id: z.string() })).mutation(({ input }) => {
-    getDb().delete(schema.projects).where(eq(schema.projects.id, input.id)).run()
+  /**
+   * Remove a project and everything attached to it: agent hosts, terminals,
+   * chat worktrees, and pinned checkpoint refs. DB rows cascade via FKs.
+   * Filesystem/git cleanup is best-effort — the folder may already be gone.
+   */
+  remove: publicProcedure.input(z.object({ id: z.string() })).mutation(async ({ input }) => {
+    const db = getDb()
+    const project = db
+      .select()
+      .from(schema.projects)
+      .where(eq(schema.projects.id, input.id))
+      .get()
+    if (!project) return { ok: true }
+
+    const chats = db
+      .select()
+      .from(schema.chats)
+      .where(eq(schema.chats.projectId, project.id))
+      .all()
+    const subchats =
+      chats.length > 0
+        ? db
+            .select()
+            .from(schema.subchats)
+            .where(
+              inArray(
+                schema.subchats.chatId,
+                chats.map((c) => c.id)
+              )
+            )
+            .all()
+        : []
+    for (const sc of subchats) agentSessionManager.stopHost(sc.id)
+
+    if (subchats.length > 0) {
+      const refs = db
+        .select({ checkpointRef: schema.messages.checkpointRef })
+        .from(schema.messages)
+        .where(
+          and(
+            inArray(
+              schema.messages.subchatId,
+              subchats.map((sc) => sc.id)
+            ),
+            isNotNull(schema.messages.checkpointRef)
+          )
+        )
+        .all()
+      const stashShas = refs
+        .map((r) => (r.checkpointRef ? checkpointStashSha(r.checkpointRef) : null))
+        .filter((sha): sha is string => sha !== null)
+      try {
+        await deleteCheckpointRefs(project.path, stashShas)
+      } catch {
+        // Repo may have been deleted from disk; removal must still succeed.
+      }
+    }
+
+    // Kills project-root terminals and (by prefix) any worktree terminals.
+    ptyManager.killByCwdPrefix(project.path)
+    for (const chat of chats) {
+      if (!chat.worktreePath) continue
+      ptyManager.killByCwdPrefix(chat.worktreePath)
+      try {
+        await removeWorktree(project.path, chat.worktreePath, chat.branch ?? undefined)
+      } catch {
+        // Best-effort: don't block project removal on a broken worktree.
+      }
+    }
+
+    db.delete(schema.projects).where(eq(schema.projects.id, project.id)).run()
     return { ok: true }
   }),
 

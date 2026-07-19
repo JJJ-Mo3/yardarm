@@ -4,7 +4,7 @@
  * Opened from the Sidebar gear or /hooks /commands /resource /skills.
  */
 import React, { useEffect, useState } from 'react'
-import { useAtom } from 'jotai'
+import { useAtom, useSetAtom } from 'jotai'
 import {
   BookOpenText,
   Database,
@@ -12,6 +12,7 @@ import {
   FileCode2,
   Puzzle,
   Server,
+  Settings2,
   Trash2,
   Webhook
 } from 'lucide-react'
@@ -20,6 +21,9 @@ import { cn } from '../../lib/utils'
 import {
   projectSettingsOpenAtom,
   projectSettingsTabAtom,
+  selectedChatIdAtom,
+  selectedProjectIdAtom,
+  selectedSubchatIdAtom,
   type ProjectSettingsTab
 } from '../../lib/atoms'
 import { Button } from '../../components/ui/button'
@@ -27,6 +31,104 @@ import { Input } from '../../components/ui/input'
 import { Textarea } from '../../components/ui/textarea'
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
 import { useConfirm } from '../../components/ConfirmDialog'
+
+function GeneralTab({
+  projectId,
+  projectName,
+  projectPath
+}: {
+  projectId: string
+  projectName: string | null
+  projectPath: string
+}): React.JSX.Element {
+  const utils = trpc.useUtils()
+  const setOpen = useSetAtom(projectSettingsOpenAtom)
+  const setSelectedProjectId = useSetAtom(selectedProjectIdAtom)
+  const setChatId = useSetAtom(selectedChatIdAtom)
+  const setSubchatId = useSetAtom(selectedSubchatIdAtom)
+  const confirmDialog = useConfirm()
+  const [name, setName] = useState(projectName ?? '')
+
+  // The dialog is shared across projects — resync when the target changes.
+  useEffect(() => {
+    setName(projectName ?? '')
+  }, [projectName])
+
+  const rename = trpc.projects.rename.useMutation({
+    onSuccess: () => utils.projects.list.invalidate()
+  })
+  const remove = trpc.projects.remove.useMutation({
+    onSuccess: () => {
+      utils.projects.list.invalidate()
+      setSelectedProjectId(null)
+      setChatId(null)
+      setSubchatId(null)
+      setOpen(false)
+    }
+  })
+
+  const trimmed = name.trim()
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <div className="text-xs font-medium">Name</div>
+        <div className="flex gap-2">
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && trimmed && trimmed !== projectName) {
+                rename.mutate({ id: projectId, name: trimmed })
+              }
+            }}
+          />
+          <Button
+            size="sm"
+            disabled={!trimmed || trimmed === projectName || rename.isPending}
+            onClick={() => rename.mutate({ id: projectId, name: trimmed })}
+          >
+            {rename.isPending ? 'Saving…' : 'Save'}
+          </Button>
+        </div>
+        {rename.error && (
+          <div className="text-xs text-destructive selectable">{rename.error.message}</div>
+        )}
+      </div>
+
+      <div className="space-y-1">
+        <div className="text-xs font-medium">Path</div>
+        <div className="font-mono text-[11px] text-muted-foreground selectable">{projectPath}</div>
+      </div>
+
+      <div className="space-y-2 rounded-md border border-destructive/40 p-3">
+        <div className="text-xs font-medium text-destructive">Danger zone</div>
+        <div className="text-[11px] text-muted-foreground">
+          Removing the project deletes all its chats and their git worktrees, and stops any
+          running agents and terminals. The project folder itself is not deleted.
+        </div>
+        <Button
+          size="sm"
+          variant="destructive"
+          disabled={remove.isPending}
+          onClick={() => {
+            void confirmDialog({
+              title: 'Remove project?',
+              description: `"${projectName ?? projectPath}" will be removed from Yardarm along with all its chats and worktrees. The folder on disk is kept.`,
+              confirmLabel: 'Remove project'
+            }).then((ok) => {
+              if (ok) remove.mutate({ id: projectId })
+            })
+          }}
+        >
+          {remove.isPending ? 'Removing…' : 'Remove project'}
+        </Button>
+        {remove.error && (
+          <div className="text-xs text-destructive selectable">{remove.error.message}</div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 function McpTab({ projectPath }: { projectPath: string }): React.JSX.Element {
   const utils = trpc.useUtils()
@@ -638,10 +740,12 @@ function PluginsTab({ subchatId }: { subchatId: string | null }): React.JSX.Elem
 }
 
 export function ProjectSettingsDialog({
+  projectId,
   projectPath,
   projectName,
   subchatId
 }: {
+  projectId: string | null
   projectPath: string | null
   projectName: string | null
   subchatId: string | null
@@ -650,6 +754,7 @@ export function ProjectSettingsDialog({
   const [tab, setTab] = useAtom(projectSettingsTabAtom)
 
   const tabs: Array<{ id: ProjectSettingsTab; label: string; icon: React.ReactNode }> = [
+    { id: 'general', label: 'General', icon: <Settings2 size={13} /> },
     { id: 'mcp', label: 'MCP Servers', icon: <Server size={13} /> },
     { id: 'hooks', label: 'Hooks', icon: <Webhook size={13} /> },
     { id: 'commands', label: 'Commands', icon: <FileCode2 size={13} /> },
@@ -682,6 +787,13 @@ export function ProjectSettingsDialog({
               ))}
             </div>
             <div className="min-h-64 max-h-[65vh] min-w-0 flex-1 overflow-y-auto pr-1">
+              {tab === 'general' && projectId && (
+                <GeneralTab
+                  projectId={projectId}
+                  projectName={projectName}
+                  projectPath={projectPath}
+                />
+              )}
               {tab === 'mcp' && <McpTab projectPath={projectPath} />}
               {tab === 'hooks' && <HooksTab projectPath={projectPath} subchatId={subchatId} />}
               {tab === 'commands' && <CommandsTab projectPath={projectPath} />}

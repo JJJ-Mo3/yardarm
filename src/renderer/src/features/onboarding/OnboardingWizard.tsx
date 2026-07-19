@@ -156,25 +156,33 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
   const next = (): void => setStep(STEPS[Math.min(STEPS.length - 1, stepIndex + 1)])
 
   async function doSkip(): Promise<void> {
-    await skip.mutateAsync()
+    try {
+      await skip.mutateAsync()
+    } catch {
+      return // surfaced via skip.error below
+    }
     await utils.mastraSettings.get.invalidate()
     onDone()
   }
 
   async function doFinish(): Promise<void> {
     const selectedPack = modePacks.find((p) => p.id === draft.modePackId)
-    await complete.mutateAsync({
-      modePackId: draft.modePackId,
-      modeModels:
-        draft.modePackId === 'custom'
-          ? draft.customModeModels
-          : draft.modePackId?.startsWith('custom:')
-            ? selectedPack?.models
-            : undefined,
-      omPackId: draft.omPackId,
-      omModel: draft.omPackId === 'custom' ? draft.omCustomModel : undefined,
-      yolo: draft.yolo
-    })
+    try {
+      await complete.mutateAsync({
+        modePackId: draft.modePackId,
+        modeModels:
+          draft.modePackId === 'custom'
+            ? draft.customModeModels
+            : draft.modePackId?.startsWith('custom:')
+              ? selectedPack?.models
+              : undefined,
+        omPackId: draft.omPackId,
+        omModel: draft.omPackId === 'custom' ? draft.omCustomModel : undefined,
+        yolo: draft.yolo
+      })
+    } catch {
+      return // surfaced via complete.error on the summary step
+    }
     await Promise.all([
       utils.mastraSettings.get.invalidate(),
       utils.agent.listModels.invalidate()

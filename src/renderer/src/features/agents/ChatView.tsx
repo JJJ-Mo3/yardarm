@@ -98,6 +98,31 @@ export function ChatView({
   const meta = state.meta
   const busy = send.isPending || followUp.isPending
 
+  // tRPC-level failures (host not booting, IPC errors, …) never reach the
+  // event stream, so surface them inline; × resets the mutation to dismiss.
+  const actionMutations: Array<
+    [string, { error: { message: string } | null; reset: () => void }]
+  > = [
+    ['send', send],
+    ['follow-up', followUp],
+    ['approval', approve],
+    ['response', respondSuspension],
+    ['abort', abort],
+    ['mode', setMode],
+    ['model', setModel],
+    ['thinking', setThinking],
+    ['auto-approve', setYolo],
+    ['rollback', rollback],
+    ['command', runCommand],
+    ['skill', runSkill],
+    ['new thread', newThread],
+    ['rename', renameThread],
+    ['clone', cloneThread],
+    ['goal', goalSet],
+    ['goal', goalClear]
+  ]
+  const failedActions = actionMutations.filter(([, m]) => m.error)
+
   // OS notification when a run finishes while the window is unfocused,
   // honoring the mastracode `notifications` session-state setting.
   const sessionState = trpc.agent.stateGet.useQuery({ subchatId }, { staleTime: 30_000 })
@@ -450,6 +475,28 @@ export function ChatView({
           {state.rawEvents.slice(-20).map((e, i) => (
             <div key={i} className="truncate">
               {JSON.stringify(e)}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {failedActions.length > 0 && (
+        <div className="px-4 pb-2 space-y-1">
+          {failedActions.map(([label, m], i) => (
+            <div
+              key={`${label}-${i}`}
+              className="flex items-start gap-2 rounded bg-destructive/10 px-2 py-1.5 text-xs text-destructive"
+            >
+              <span className="min-w-0 flex-1 selectable">
+                {label} failed: {m.error?.message}
+              </span>
+              <button
+                title="Dismiss"
+                className="shrink-0 cursor-pointer text-destructive/70 hover:text-destructive"
+                onClick={() => m.reset()}
+              >
+                ×
+              </button>
             </div>
           ))}
         </div>

@@ -234,6 +234,7 @@ export default function App(): React.JSX.Element {
       </div>
       <SettingsDialog />
       <ProjectSettingsDialog
+        projectId={project?.id ?? null}
         projectPath={project?.path ?? null}
         projectName={project?.name ?? null}
         subchatId={subchatId}

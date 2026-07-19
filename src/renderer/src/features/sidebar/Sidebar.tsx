@@ -1,6 +1,14 @@
 import React, { useState } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
-import { FolderCog, FolderGit2, MessageSquarePlus, Plus, Settings, Trash2 } from 'lucide-react'
+import {
+  FolderCog,
+  FolderGit2,
+  MessageSquarePlus,
+  Pencil,
+  Plus,
+  Settings,
+  Trash2
+} from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { cn, timeAgo } from '../../lib/utils'
 import {
@@ -41,6 +49,8 @@ export function Sidebar(): React.JSX.Element {
   const setAddProjectOpen = useSetAtom(addProjectOpenAtom)
   const [newChatTitle, setNewChatTitle] = useState('')
   const [useWorktree, setUseWorktree] = useState(true)
+  const [renameTarget, setRenameTarget] = useState<{ id: string; title: string } | null>(null)
+  const [renameTitle, setRenameTitle] = useState('')
   const confirmDialog = useConfirm()
 
   const utils = trpc.useUtils()
@@ -61,6 +71,13 @@ export function Sidebar(): React.JSX.Element {
   })
   const deleteChat = trpc.chats.delete.useMutation({
     onSuccess: () => utils.chats.list.invalidate()
+  })
+  const renameChat = trpc.chats.rename.useMutation({
+    onSuccess: (_res, vars) => {
+      utils.chats.list.invalidate()
+      utils.chats.get.invalidate({ id: vars.id })
+      setRenameTarget(null)
+    }
   })
 
   function selectChat(id: string): void {
@@ -160,6 +177,18 @@ export function Sidebar(): React.JSX.Element {
                 </div>
               </div>
               <button
+                title="Rename chat"
+                className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  renameChat.reset() // don't show a stale error from a previous attempt
+                  setRenameTitle(c.title)
+                  setRenameTarget({ id: c.id, title: c.title })
+                }}
+              >
+                <Pencil size={12} />
+              </button>
+              <button
                 title="Delete chat"
                 className="hidden group-hover:block text-muted-foreground hover:text-destructive cursor-pointer"
                 onClick={(e) => {
@@ -185,6 +214,11 @@ export function Sidebar(): React.JSX.Element {
         {projectId && (chats.data ?? []).filter((c) => !c.archived).length === 0 && (
           <div className="px-2 py-4 text-center text-[11px] text-muted-foreground">
             No chats yet
+          </div>
+        )}
+        {deleteChat.error && (
+          <div className="px-2 py-1 text-[11px] text-destructive selectable">
+            Delete failed: {deleteChat.error.message}
           </div>
         )}
       </div>
@@ -242,6 +276,44 @@ export function Sidebar(): React.JSX.Element {
             </div>
             {createChat.error && (
               <div className="text-xs text-destructive">{createChat.error.message}</div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename chat dialog */}
+      <Dialog open={renameTarget !== null} onOpenChange={(o) => !o && setRenameTarget(null)}>
+        <DialogContent>
+          <DialogTitle>Rename chat</DialogTitle>
+          <div className="space-y-3">
+            <Input
+              autoFocus
+              value={renameTitle}
+              onChange={(e) => setRenameTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && renameTitle.trim() && renameTarget) {
+                  renameChat.mutate({ id: renameTarget.id, title: renameTitle.trim() })
+                }
+              }}
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setRenameTarget(null)}>
+                Cancel
+              </Button>
+              <Button
+                disabled={!renameTitle.trim() || renameChat.isPending}
+                onClick={() =>
+                  renameTarget &&
+                  renameChat.mutate({ id: renameTarget.id, title: renameTitle.trim() })
+                }
+              >
+                {renameChat.isPending ? 'Renaming…' : 'Rename'}
+              </Button>
+            </div>
+            {renameChat.error && (
+              <div className="text-xs text-destructive selectable">
+                {renameChat.error.message}
+              </div>
             )}
           </div>
         </DialogContent>
