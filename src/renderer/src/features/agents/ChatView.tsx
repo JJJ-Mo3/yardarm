@@ -323,22 +323,34 @@ export function ChatView({
           </SelectContent>
         </Select>
 
-        <Select
-          value={meta.modelId ?? ''}
-          onValueChange={(modelId) => setModel.mutate({ subchatId, modelId })}
-        >
-          <SelectTrigger className="max-w-56">
-            <SelectValue placeholder="Model" />
-          </SelectTrigger>
-          <SelectContent>
-            {(models.data ?? []).map((m) => (
-              <SelectItem key={m.id} value={m.id} disabled={!m.hasApiKey}>
-                {m.id}
-                {!m.hasApiKey ? ' (no key)' : ''}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {(() => {
+          const usable = (models.data ?? []).filter((m) => m.hasApiKey)
+          const currentUnusable =
+            meta.modelId && !usable.some((m) => m.id === meta.modelId) ? meta.modelId : null
+          if (usable.length === 0 && !currentUnusable) return null
+          return (
+            <Select
+              value={meta.modelId ?? ''}
+              onValueChange={(modelId) => setModel.mutate({ subchatId, modelId })}
+            >
+              <SelectTrigger className="max-w-56">
+                <SelectValue placeholder="Model" />
+              </SelectTrigger>
+              <SelectContent>
+                {usable.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.id}
+                  </SelectItem>
+                ))}
+                {currentUnusable && (
+                  <SelectItem value={currentUnusable} disabled>
+                    {currentUnusable} (no key)
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          )
+        })()}
 
         {models.data && models.data.length > 0 && !models.data.some((m) => m.hasApiKey) && (
           <>

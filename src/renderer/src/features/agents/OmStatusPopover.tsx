@@ -130,12 +130,19 @@ export function OmStatusPopover({
                     <SelectValue placeholder="default" />
                   </SelectTrigger>
                   <SelectContent>
-                    {(models.data ?? []).map((m) => (
-                      <SelectItem key={m.id} value={m.id} disabled={!m.hasApiKey}>
-                        {m.id}
-                        {!m.hasApiKey ? ' (no key)' : ''}
-                      </SelectItem>
-                    ))}
+                    {(models.data ?? [])
+                      .filter((m) => m.hasApiKey)
+                      .map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.id}
+                        </SelectItem>
+                      ))}
+                    {info[field] &&
+                      !(models.data ?? []).some((m) => m.hasApiKey && m.id === info[field]) && (
+                        <SelectItem value={info[field]} disabled>
+                          {info[field]} (no key)
+                        </SelectItem>
+                      )}
                   </SelectContent>
                 </Select>
               </div>
