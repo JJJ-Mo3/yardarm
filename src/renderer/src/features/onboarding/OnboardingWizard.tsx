@@ -11,7 +11,7 @@ import { cn } from '../../lib/utils'
 import { Button } from '../../components/ui/button'
 import { Switch } from '../../components/ui/switch'
 import { KeysTab } from '../settings/SettingsDialog'
-import logo from '../../assets/logo.png'
+import { Logo } from '../../components/Logo'
 
 const STEPS = ['welcome', 'auth', 'modePack', 'omPack', 'yolo', 'summary'] as const
 type Step = (typeof STEPS)[number]
@@ -208,7 +208,7 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
         <div className="flex w-full max-w-lg flex-col gap-5 px-8 pb-10">
           {/* Header */}
           <div className="flex items-center gap-3">
-            <img src={logo} alt="" className="h-10 w-10 rounded-lg" />
+            <Logo className="h-10 w-10 rounded-lg" />
             <div>
               <div className="text-base font-semibold">
                 {step === 'welcome' && 'Welcome to Yardarm'}

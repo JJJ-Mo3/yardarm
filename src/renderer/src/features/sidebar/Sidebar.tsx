@@ -37,7 +37,7 @@ import {
 import { Switch } from '../../components/ui/switch'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { AddProjectDialog } from './AddProjectDialog'
-import logo from '../../assets/logo.png'
+import { Logo } from '../../components/Logo'
 
 export function Sidebar(): React.JSX.Element {
   const [projectId, setProjectId] = useAtom(selectedProjectIdAtom)
@@ -95,7 +95,7 @@ export function Sidebar(): React.JSX.Element {
       {/* Titlebar spacer (macOS traffic lights sit at y=14..28; keep the
           title well below them) */}
       <div className="titlebar-drag h-[84px] shrink-0 flex items-end gap-2.5 px-3 pb-2.5">
-        <img src={logo} alt="" className="h-10 w-10 rounded-lg" />
+        <Logo className="h-10 w-10 rounded-lg" />
         <span className="text-xl font-semibold tracking-wide text-foreground">Yardarm</span>
       </div>
 
