@@ -95,8 +95,8 @@ export function Sidebar(): React.JSX.Element {
       {/* Titlebar spacer (macOS traffic lights sit at y=14..28; keep the
           title well below them) */}
       <div className="titlebar-drag h-[84px] shrink-0 flex items-end gap-2.5 px-3 pb-2.5">
-        <Logo className="h-10 w-10 rounded-lg" />
-        <span className="font-geist text-3xl font-semibold tracking-wide lowercase text-foreground">
+        <Logo className="h-8 w-8 rounded-lg" />
+        <span className="font-geist text-2xl font-normal tracking-wide lowercase leading-none text-foreground">
           yardarm
         </span>
       </div>
