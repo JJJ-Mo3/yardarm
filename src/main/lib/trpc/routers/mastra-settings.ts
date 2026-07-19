@@ -23,6 +23,9 @@ import {
   skipOnboarding,
   upsertCustomProvider
 } from '../../mastra-config/settings-json'
+import { ollamaInstallStatus, startOllama } from '../../mastra-config/local-server'
+import { cancelPull, getPull, startPull } from '../../mastra-config/ollama-pull'
+import { probeOpenAiCompatible } from '../../mastra-config/probe-provider'
 import { publicProcedure, router } from '../trpc'
 
 const NEEDS_RESTART = { needsRestart: true as const }
@@ -199,6 +202,34 @@ export const mastraSettingsRouter = router({
       await removeCustomProvider(input.name)
       return NEEDS_RESTART
     }),
+
+  /** Test an OpenAI-compatible server and list its models (local LLM wizard). */
+  probeProvider: publicProcedure
+    .input(z.object({ url: z.string().min(1), apiKey: z.string().optional() }))
+    .query(({ input }) => probeOpenAiCompatible(input)),
+
+  /** Start an Ollama model download; poll pullStatus for progress. */
+  startModelPull: publicProcedure
+    .input(z.object({ url: z.string().min(1), model: z.string().min(1) }))
+    .mutation(({ input }) => ({ jobId: startPull(input.url, input.model) })),
+
+  pullStatus: publicProcedure
+    .input(z.object({ jobId: z.string() }))
+    .query(({ input }) => getPull(input.jobId)),
+
+  cancelModelPull: publicProcedure.input(z.object({ jobId: z.string() })).mutation(({ input }) => {
+    cancelPull(input.jobId)
+    return { ok: true }
+  }),
+
+  /** Is Ollama running / installed-but-stopped / absent on this machine? */
+  ollamaStatus: publicProcedure.query(() => ollamaInstallStatus()),
+
+  /** Launch Ollama (macOS app bundle or `ollama serve`); caller polls. */
+  startOllama: publicProcedure.mutation(() => {
+    startOllama()
+    return { ok: true }
+  }),
 
   /** Restart all agent hosts so settings.json edits take effect. */
   applyRestart: publicProcedure.mutation(() => {

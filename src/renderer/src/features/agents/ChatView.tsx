@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { CheckCircle2, Circle, CircleDot, KeyRound } from 'lucide-react'
+import { CheckCircle2, Circle, CircleDot, KeyRound, Server } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import {
   debugEventsAtom,
@@ -334,14 +334,24 @@ export function ChatView({
         </Select>
 
         {models.data && models.data.length > 0 && !models.data.some((m) => m.hasApiKey) && (
-          <button
-            title="No provider is authenticated — add an API key or log in"
-            className="flex items-center gap-1 rounded-md border border-amber-600/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-500 hover:bg-amber-500/20 cursor-pointer"
-            onClick={() => openSettings('keys')}
-          >
-            <KeyRound size={11} />
-            Add API key
-          </button>
+          <>
+            <button
+              title="No provider is authenticated — add an API key or log in"
+              className="flex items-center gap-1 rounded-md border border-amber-600/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-500 hover:bg-amber-500/20 cursor-pointer"
+              onClick={() => openSettings('keys')}
+            >
+              <KeyRound size={11} />
+              Add API key
+            </button>
+            <button
+              title="Run a model on your own machine with Ollama, LM Studio, and more"
+              className="flex items-center gap-1 rounded-md border border-amber-600/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-500 hover:bg-amber-500/20 cursor-pointer"
+              onClick={() => openSettings('providers')}
+            >
+              <Server size={11} />
+              Use a local model
+            </button>
+          </>
         )}
 
         <Select

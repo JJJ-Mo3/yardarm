@@ -12,6 +12,32 @@ export interface CustomProviderSetting {
   [key: string]: unknown
 }
 
+/** Result of probing an OpenAI-compatible server's /models endpoint. */
+export interface ProbeResult {
+  ok: boolean
+  /** Normalized URL that responded (or the input base on failure). */
+  url: string
+  models: string[]
+  error?: string
+}
+
+/** Snapshot of an in-flight Ollama model download (POST /api/pull). */
+export interface PullJob {
+  jobId: string
+  model: string
+  status: 'running' | 'done' | 'error' | 'cancelled'
+  /** Ollama's status line, e.g. "pulling manifest", "downloading". */
+  statusText: string
+  /** Bytes downloaded so far. */
+  completed: number
+  /** Total bytes (0 until known). */
+  total: number
+  error?: string
+}
+
+/** Whether a local Ollama install exists / its server is reachable. */
+export type OllamaInstallStatus = 'running' | 'installed' | 'not-installed'
+
 export interface MastraModelsSettings {
   /** Active model pack id; cleared when a mode default is set manually. */
   activeModelPackId?: string | null

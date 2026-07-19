@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { useConfirm } from '../../components/ConfirmDialog'
+import { AddLocalProviderDialog } from './AddLocalProviderDialog'
 
 interface Draft {
   name: string
@@ -20,6 +21,10 @@ export function ProvidersTab(): React.JSX.Element {
   const [draft, setDraft] = useState<Draft>(EMPTY)
   const [editing, setEditing] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
+  const [wizardOpen, setWizardOpen] = useState(false)
+  const [manualOpen, setManualOpen] = useState(false)
+  const [detecting, setDetecting] = useState(false)
+  const [detectError, setDetectError] = useState<string | null>(null)
   const confirmDialog = useConfirm()
 
   const onSaved = (): void => {
@@ -48,12 +53,51 @@ export function ProvidersTab(): React.JSX.Element {
 
   const error = settings.error ?? upsert.error ?? remove.error ?? applyRestart.error
 
+  const doDetect = async (): Promise<void> => {
+    setDetecting(true)
+    setDetectError(null)
+    try {
+      const res = await utils.client.mastraSettings.probeProvider.query({
+        url: draft.url.trim(),
+        apiKey: draft.apiKey.trim() || undefined
+      })
+      if (!res.ok) {
+        setDetectError(res.error ?? 'Could not reach server')
+        return
+      }
+      if (draft.models.trim()) {
+        const ok = await confirmDialog({
+          title: 'Replace model list?',
+          description: `Found ${res.models.length} model${res.models.length === 1 ? '' : 's'} on the server. Replace the current list?`,
+          confirmLabel: 'Replace'
+        })
+        if (!ok) return
+      }
+      setDraft((d) => ({ ...d, url: res.url, models: res.models.join(', ') }))
+    } catch (err) {
+      setDetectError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setDetecting(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="text-[11px] text-muted-foreground">
         Custom OpenAI-compatible providers, stored in mastracode&apos;s <code>settings.json</code>{' '}
         (shared with the CLI).
       </div>
+
+      <Button size="sm" onClick={() => setWizardOpen(true)}>
+        <Plus size={13} className="mr-1" />
+        Add local model
+      </Button>
+      <AddLocalProviderDialog
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        existingNames={providers.map((p) => p.name)}
+        onSaved={onSaved}
+      />
 
       <div className="space-y-1">
         {providers.map((p) => (
@@ -105,59 +149,81 @@ export function ProvidersTab(): React.JSX.Element {
         )}
       </div>
 
-      <div className="space-y-2 rounded border border-border p-2">
-        <div className="text-xs font-medium">{editing ? `Edit ${editing}` : 'Add provider'}</div>
-        <Input
-          placeholder="Name (e.g. my-llm)"
-          value={draft.name}
-          disabled={!!editing}
-          onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-        />
-        <Input
-          placeholder="Base URL (e.g. http://localhost:11434/v1)"
-          value={draft.url}
-          onChange={(e) => setDraft({ ...draft, url: e.target.value })}
-        />
-        <Input
-          type="password"
-          placeholder="API key (optional)"
-          value={draft.apiKey}
-          onChange={(e) => setDraft({ ...draft, apiKey: e.target.value })}
-        />
-        <Input
-          placeholder="Model ids, comma-separated"
-          value={draft.models}
-          onChange={(e) => setDraft({ ...draft, models: e.target.value })}
-        />
-        <div className="flex justify-end gap-2">
-          {editing && (
+      {!manualOpen && !editing ? (
+        <button
+          className="text-[11px] text-muted-foreground underline hover:text-foreground cursor-pointer"
+          onClick={() => setManualOpen(true)}
+        >
+          Add manually (advanced)
+        </button>
+      ) : (
+        <div className="space-y-2 rounded border border-border p-2">
+          <div className="text-xs font-medium">{editing ? `Edit ${editing}` : 'Add provider'}</div>
+          <Input
+            placeholder="Name (e.g. my-llm)"
+            value={draft.name}
+            disabled={!!editing}
+            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+          />
+          <div className="flex items-center gap-2">
+            <Input
+              className="flex-1"
+              placeholder="Base URL (e.g. http://localhost:11434/v1)"
+              value={draft.url}
+              onChange={(e) => setDraft({ ...draft, url: e.target.value })}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              title="Test the server and fill in its model list"
+              disabled={detecting || !draft.url.trim()}
+              onClick={() => void doDetect()}
+            >
+              {detecting ? 'Detecting…' : 'Detect'}
+            </Button>
+          </div>
+          {detectError && <div className="text-xs text-destructive selectable">{detectError}</div>}
+          <Input
+            type="password"
+            placeholder="API key (optional)"
+            value={draft.apiKey}
+            onChange={(e) => setDraft({ ...draft, apiKey: e.target.value })}
+          />
+          <Input
+            placeholder="Model ids, comma-separated"
+            value={draft.models}
+            onChange={(e) => setDraft({ ...draft, models: e.target.value })}
+          />
+          <div className="flex justify-end gap-2">
             <Button
               size="sm"
               variant="ghost"
               onClick={() => {
                 setEditing(null)
                 setDraft(EMPTY)
+                setManualOpen(false)
+                setDetectError(null)
               }}
             >
               Cancel
             </Button>
-          )}
-          <Button
-            size="sm"
-            disabled={!canSave || upsert.isPending}
-            onClick={() =>
-              upsert.mutate({
-                name: draft.name.trim(),
-                url: draft.url.trim(),
-                apiKey: draft.apiKey.trim() || undefined,
-                models: modelList
-              })
-            }
-          >
-            {editing ? 'Save' : 'Add'}
-          </Button>
+            <Button
+              size="sm"
+              disabled={!canSave || upsert.isPending}
+              onClick={() =>
+                upsert.mutate({
+                  name: draft.name.trim(),
+                  url: draft.url.trim(),
+                  apiKey: draft.apiKey.trim() || undefined,
+                  models: modelList
+                })
+              }
+            >
+              {editing ? 'Save' : 'Add'}
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       {error && <div className="text-xs text-destructive selectable">{error.message}</div>}
 
