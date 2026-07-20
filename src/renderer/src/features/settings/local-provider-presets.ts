@@ -80,29 +80,42 @@ export interface RecommendedModel {
   sizeLabel: string
 }
 
+// Tags and sizes verified against ollama.com/library (July 2026).
 export const RECOMMENDED_MODELS: RecommendedModel[] = [
   {
-    tag: 'qwen2.5-coder:32b',
-    label: 'Qwen 2.5 Coder 32B',
-    note: 'Best local coding model — recommended for agent use',
-    sizeLabel: '~20 GB'
+    tag: 'qwen3.6:27b',
+    label: 'Qwen3.6 27B',
+    note: 'Best local coding model (256K context) — recommended for agent use',
+    sizeLabel: '~17 GB'
   },
   {
-    tag: 'qwen2.5-coder:7b',
-    label: 'Qwen 2.5 Coder 7B',
-    note: 'Lighter coder for machines with less RAM',
-    sizeLabel: '~4.7 GB'
+    tag: 'qwen3.6:35b',
+    label: 'Qwen3.6 35B',
+    note: 'MoE with 3B active — faster responses at similar quality',
+    sizeLabel: '~24 GB'
   },
   {
-    tag: 'llama3.3:70b',
-    label: 'Llama 3.3 70B',
+    tag: 'devstral-small-2:24b',
+    label: 'Devstral Small 2 24B',
+    note: 'Built for coding agents — multi-file edits, 384K context',
+    sizeLabel: '~15 GB'
+  },
+  {
+    tag: 'gpt-oss:20b',
+    label: 'GPT-OSS 20B',
+    note: "OpenAI's open-weight reasoning model — fits 16 GB machines",
+    sizeLabel: '~14 GB'
+  },
+  {
+    tag: 'qwen3:8b',
+    label: 'Qwen 3 8B',
+    note: 'Small and fast, with tool calling — for machines with less RAM',
+    sizeLabel: '~5.2 GB'
+  },
+  {
+    tag: 'gpt-oss:120b',
+    label: 'GPT-OSS 120B',
     note: 'Strong general model — needs a big machine',
-    sizeLabel: '~43 GB'
-  },
-  {
-    tag: 'llama3.2:3b',
-    label: 'Llama 3.2 3B',
-    note: 'Small and fast — limited tool-calling ability',
-    sizeLabel: '~2 GB'
+    sizeLabel: '~65 GB'
   }
 ]
