@@ -11,6 +11,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 // Canonical command list from code.mastra.ai (TUI slash commands).
+// prettier-ignore
 const CANONICAL = [
   // modes & models
   'plan', 'build', 'fast', 'mode', 'model', 'models', 'think',
@@ -40,9 +41,7 @@ const registryPath = path.join(
 )
 const src = fs.readFileSync(registryPath, 'utf8')
 
-const registered = new Set(
-  [...src.matchAll(/name:\s*'([^']+)'/g)].map((m) => m[1])
-)
+const registered = new Set([...src.matchAll(/name:\s*'([^']+)'/g)].map((m) => m[1]))
 
 const missing = CANONICAL.filter((c) => !registered.has(c))
 const extra = [...registered].filter((c) => !CANONICAL.includes(c))
@@ -56,4 +55,6 @@ if (extra.length > 0) {
   for (const c of extra) console.warn(`  /${c}`)
 }
 if (missing.length > 0) process.exit(1)
-console.log(`OK: all ${CANONICAL.length} canonical commands accounted for (${registered.size} registered).`)
+console.log(
+  `OK: all ${CANONICAL.length} canonical commands accounted for (${registered.size} registered).`
+)
