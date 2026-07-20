@@ -19,14 +19,19 @@ const STATUS_STYLES: Record<string, string> = {
   done: 'text-green-500'
 }
 
+/** Mirrors @mastra/core DEFAULT_GOAL_MAX_RUNS — applied when no limit is set anywhere. */
+const SDK_DEFAULT_MAX_RUNS = 50
+
 /** Small max-runs field that commits on blur/Enter (positive integers only). */
 function MaxRunsField({
   value,
   disabled,
+  placeholder,
   onCommit
 }: {
   value: number | undefined
   disabled?: boolean
+  placeholder?: string
   onCommit: (n: number) => void
 }): React.JSX.Element {
   const [draft, setDraft] = useState(value != null ? String(value) : '')
@@ -47,6 +52,7 @@ function MaxRunsField({
     <Input
       value={draft}
       disabled={disabled}
+      placeholder={placeholder}
       onChange={(e) => setDraft(e.target.value)}
       onFocus={() => setFocused(true)}
       onBlur={() => {
@@ -56,7 +62,7 @@ function MaxRunsField({
       onKeyDown={(e) => {
         if (e.key === 'Enter') commit()
       }}
-      className="h-6 w-16 font-mono text-[11px]"
+      className="h-6 w-24 font-mono text-[11px]"
     />
   )
 }
@@ -77,6 +83,8 @@ export function GoalPopover({
   // Ungated: the trigger reflects goal state (shares the cache key with GoalBanner).
   const goal = trpc.agent.goalGet.useQuery({ subchatId })
   const models = trpc.agent.listModels.useQuery({ subchatId }, { enabled: open, staleTime: 60_000 })
+  // Global goal defaults (Settings → Models) — shown as resolved placeholders.
+  const settings = trpc.mastraSettings.get.useQuery(undefined, { enabled: open, staleTime: 30_000 })
   const invalidate = (): void => {
     void utils.agent.goalGet.invalidate({ subchatId })
   }
@@ -105,6 +113,14 @@ export function GoalPopover({
   const g = goal.data
   const busy = goalSet.isPending || goalUpdate.isPending || goalClear.isPending
   const mutationError = goalSet.error ?? goalUpdate.error ?? goalClear.error
+
+  // What "default" actually resolves to: Settings → Models overrides, then
+  // the chat's model (judge) / the SDK's built-in run limit.
+  const goalDefaults = settings.data?.models
+  const judgePlaceholder = goalDefaults?.goalJudgeModel
+    ? `default (${goalDefaults.goalJudgeModel})`
+    : 'default (chat model)'
+  const maxRunsPlaceholder = `default (${goalDefaults?.goalMaxTurns ?? SDK_DEFAULT_MAX_RUNS})`
 
   const submitNew = (): void => {
     const text = objective.trim()
@@ -178,7 +194,7 @@ export function GoalPopover({
                     value={judge}
                     onChange={setJudge}
                     models={models.data ?? []}
-                    placeholder="default"
+                    placeholder={judgePlaceholder}
                   />
                 </span>
               </Tip>
@@ -191,8 +207,8 @@ export function GoalPopover({
                     value={maxRuns}
                     disabled={busy}
                     onChange={(e) => setMaxRuns(e.target.value)}
-                    placeholder="default"
-                    className="h-6 w-16 font-mono text-[11px]"
+                    placeholder={maxRunsPlaceholder}
+                    className="h-6 w-24 font-mono text-[11px]"
                   />
                 </span>
               </Tip>
@@ -279,7 +295,7 @@ export function GoalPopover({
                       if (v) goalUpdate.mutate({ subchatId, judgeModelId: v })
                     }}
                     models={models.data ?? []}
-                    placeholder="default"
+                    placeholder={judgePlaceholder}
                   />
                 </span>
               </Tip>
@@ -291,6 +307,7 @@ export function GoalPopover({
                   <MaxRunsField
                     value={g.maxRuns}
                     disabled={busy}
+                    placeholder={maxRunsPlaceholder}
                     onCommit={(n) => goalUpdate.mutate({ subchatId, maxRuns: n })}
                   />
                 </span>
