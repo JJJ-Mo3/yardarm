@@ -4,13 +4,24 @@ import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { trpc } from '../../lib/trpc'
 
-export function TerminalView({ id, cwd }: { id: string; cwd: string }): React.JSX.Element {
+export function TerminalView({
+  id,
+  cwd,
+  kind = 'shell'
+}: {
+  id: string
+  cwd: string
+  kind?: 'shell' | 'mastracode'
+}): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
 
   const [attached, setAttached] = useState(false)
-  const create = trpc.terminal.create.useMutation({ onSuccess: () => setAttached(true) })
+  const create = trpc.terminal.create.useMutation({
+    onSuccess: () => setAttached(true),
+    onError: (e) => termRef.current?.write(`\r\n[failed to start: ${e.message}]\r\n`)
+  })
   const write = trpc.terminal.write.useMutation()
   const resize = trpc.terminal.resize.useMutation()
 
@@ -36,7 +47,7 @@ export function TerminalView({ id, cwd }: { id: string; cwd: string }): React.JS
     termRef.current = term
     fitRef.current = fit
 
-    create.mutate({ id, cwd, cols: term.cols, rows: term.rows })
+    create.mutate({ id, cwd, cols: term.cols, rows: term.rows, kind })
 
     const onDataDisposable = term.onData((data) => write.mutate({ id, data }))
 
@@ -53,7 +64,7 @@ export function TerminalView({ id, cwd }: { id: string; cwd: string }): React.JS
       termRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, cwd])
+  }, [id, cwd, kind])
 
   trpc.terminal.stream.useSubscription(
     { id },
@@ -61,7 +72,11 @@ export function TerminalView({ id, cwd }: { id: string; cwd: string }): React.JS
       enabled: attached,
       onData: (ev) => {
         if (ev.type === 'data') termRef.current?.write(ev.data)
-        else termRef.current?.write(`\r\n[process exited: ${ev.code}]\r\n`)
+        else {
+          termRef.current?.write(`\r\n[process exited: ${ev.code}]\r\n`)
+          if (kind === 'mastracode')
+            termRef.current?.write('[switch tabs and back to restart the Mastra CLI]\r\n')
+        }
       }
     }
   )

@@ -7,6 +7,7 @@ import {
   GitFork,
   MessageSquare,
   Plus,
+  SquareChevronRight,
   TerminalSquare
 } from 'lucide-react'
 import { trpc } from './lib/trpc'
@@ -58,6 +59,12 @@ const TABS: Array<{ id: MainTab; label: string; icon: React.ReactNode; tip: stri
     label: 'Files',
     icon: <FileCode2 size={13} />,
     tip: 'Browse and read files in the chat worktree (or project root)'
+  },
+  {
+    id: 'cli',
+    label: 'CLI',
+    icon: <SquareChevronRight size={13} />,
+    tip: 'Interactive Mastra Code CLI in the chat worktree — it sees the same threads as this chat. Avoid running the chat and the CLI on the same thread at once.'
   }
 ]
 
@@ -244,6 +251,16 @@ export default function App(): React.JSX.Element {
                   <SelectProjectPane />
                 ))}
               {tab === 'files' && (cwd ? <FilesView root={cwd} /> : <SelectProjectPane />)}
+              {tab === 'cli' &&
+                (cwd ? (
+                  <TerminalView
+                    id={chatId ? `cli-chat-${chatId}` : `cli-project-${projectId}`}
+                    cwd={cwd}
+                    kind="mastracode"
+                  />
+                ) : (
+                  <SelectProjectPane />
+                ))}
             </>
           )}
         </div>

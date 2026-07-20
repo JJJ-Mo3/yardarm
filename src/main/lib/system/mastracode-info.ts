@@ -4,7 +4,7 @@
  * only report on it — the agent host is what actually imports it.
  */
 import { spawn } from 'node:child_process'
-import { readFileSync, realpathSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import path from 'node:path'
 import { app } from 'electron'
 
@@ -29,6 +29,27 @@ export function getMastracodeVersion(): string | null {
     } catch {
       // try next candidate
     }
+  }
+  return null
+}
+
+/** Absolute path to the bundled mastracode CLI entry (dist/cli.js), or null if missing. */
+export function getMastracodeCliPath(): string | null {
+  const candidates = [
+    // Packaged: vendored runtime the agent host actually imports.
+    path.join(
+      process.resourcesPath ?? '',
+      'agent-runtime',
+      'node_modules',
+      'mastracode',
+      'dist',
+      'cli.js'
+    ),
+    // Dev: app root node_modules (mastracode is a devDependency).
+    path.join(app.getAppPath(), 'node_modules', 'mastracode', 'dist', 'cli.js')
+  ]
+  for (const p of candidates) {
+    if (p && existsSync(p)) return p
   }
   return null
 }

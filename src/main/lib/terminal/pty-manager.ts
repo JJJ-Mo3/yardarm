@@ -22,15 +22,45 @@ function defaultShell(): string {
   return process.env.SHELL ?? '/bin/zsh'
 }
 
+/**
+ * Single-quote a path for POSIX-ish shells. zsh, bash, and fish all accept
+ * this form for paths without embedded apostrophes; the `'\''` escape covers
+ * zsh/bash (fish differs there — acceptably rare for filesystem paths).
+ */
+function shellQuote(s: string): string {
+  return `'${s.replace(/'/g, `'\\''`)}'`
+}
+
+/**
+ * Shell command that execs the bundled mastracode TUI as plain Node.
+ * `exec` makes the pty exit exactly when the TUI exits; `env VAR=1 cmd`
+ * (rather than `VAR=1 exec cmd`) is portable to fish as $SHELL.
+ * ELECTRON_RUN_AS_NODE inherits into the TUI's children — harmless, since
+ * only Electron binaries read it.
+ */
+export function buildMastracodeCommand(execPath: string, cliJsPath: string): string {
+  return `exec env ELECTRON_RUN_AS_NODE=1 ${shellQuote(execPath)} ${shellQuote(cliJsPath)}`
+}
+
 export class PtyManager {
   private sessions = new Map<string, PtySession>()
 
-  create(id: string, cwd: string, cols = 80, rows = 24): void {
+  create(id: string, cwd: string, cols = 80, rows = 24, command?: string): void {
     if (this.sessions.has(id)) return
     // Login shell: GUI apps get a bare PATH on macOS, and homebrew / node
     // version managers only add themselves in login shells (~/.zprofile,
     // /etc/zprofile path_helper) — without -l, npm/node are often missing.
-    const shellArgs = process.platform === 'win32' ? [] : ['-l']
+    // With a command, `-l -c` gives it the login-shell PATH and the pty ends
+    // when the command exits. (win32 branch is best-effort; only mac-arm64
+    // builds are packaged.)
+    const shellArgs =
+      process.platform === 'win32'
+        ? command
+          ? ['-Command', command]
+          : []
+        : command
+          ? ['-l', '-c', command]
+          : ['-l']
     const proc = pty.spawn(defaultShell(), shellArgs, {
       name: 'xterm-256color',
       cols,

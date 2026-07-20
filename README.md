@@ -84,6 +84,9 @@ around the agent:
 - **Local models that just work** — Ollama auto-detect and auto-start,
   dropdowns filtered to models that will actually run, and no idle timeouts
   so a big local model can think for minutes without the run being cut off.
+- **The CLI itself, embedded** — a CLI tab runs the interactive Mastra Code
+  TUI inside the app, in the chat's worktree, seeing the same threads as the
+  chat.
 - **A gentler on-ramp** — a first-run wizard mirroring CLI onboarding, and a
   one-click global CLI install from Settings → About when you want the
   terminal too.
@@ -135,6 +138,8 @@ around the agent:
   together
 - Read-only file viewer (tree + Monaco) and an integrated terminal
   (node-pty + xterm) that opens in the chat's worktree
+- CLI tab that runs the interactive Mastra Code TUI in the chat's worktree,
+  sharing the chat's thread history
 
 **Providers & auth**
 
@@ -252,17 +257,20 @@ restored.
 push (uses the `gh` CLI when available for PR flows).
 
 **Terminal & files.** The Terminal tab is a real shell in the chat's
-worktree; the Files tab is a read-only tree + viewer of the same.
+worktree; the Files tab is a read-only tree + viewer of the same. The CLI
+tab runs the interactive Mastra Code TUI in the same worktree — it sees the
+same threads as the chat (avoid running the chat and the CLI on the same
+thread at once).
 
 **Keyboard shortcuts** (Cmd on macOS, Ctrl elsewhere):
 
-| Shortcut  | Action                                   |
-| --------- | ---------------------------------------- |
-| `Cmd+N`   | New chat                                 |
-| `Cmd+P`   | Thread switcher                          |
-| `Cmd+1–4` | Switch tab (chat/changes/terminal/files) |
-| `Cmd+J`   | Toggle terminal tab                      |
-| `Cmd+,`   | Settings                                 |
+| Shortcut  | Action                                       |
+| --------- | -------------------------------------------- |
+| `Cmd+N`   | New chat                                     |
+| `Cmd+P`   | Thread switcher                              |
+| `Cmd+1–5` | Switch tab (chat/changes/terminal/files/cli) |
+| `Cmd+J`   | Toggle terminal tab                          |
+| `Cmd+,`   | Settings                                     |
 
 ## Configuration paths (shared with the mastracode CLI)
 

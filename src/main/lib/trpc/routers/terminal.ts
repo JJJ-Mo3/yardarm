@@ -1,6 +1,7 @@
 import { observable } from '@trpc/server/observable'
 import { z } from 'zod'
-import { ptyManager } from '../../terminal/pty-manager'
+import { buildMastracodeCommand, ptyManager } from '../../terminal/pty-manager'
+import { getMastracodeCliPath } from '../../system/mastracode-info'
 import { publicProcedure, router } from '../trpc'
 
 export type TerminalStreamEvent = { type: 'data'; data: string } | { type: 'exit'; code: number }
@@ -12,11 +13,22 @@ export const terminalRouter = router({
         id: z.string(),
         cwd: z.string(),
         cols: z.number().int().positive().default(80),
-        rows: z.number().int().positive().default(24)
+        rows: z.number().int().positive().default(24),
+        kind: z.enum(['shell', 'mastracode']).default('shell')
       })
     )
     .mutation(({ input }) => {
-      ptyManager.create(input.id, input.cwd, input.cols, input.rows)
+      let command: string | undefined
+      if (input.kind === 'mastracode') {
+        // Interactive TUI in the given cwd. It resolves the same cwd-derived
+        // resourceId as the chat's agent-host, so it sees the same threads —
+        // but it takes no thread locks (unix-socket pubsub mode), so
+        // concurrent runs on the same thread are uncoordinated.
+        const cliPath = getMastracodeCliPath()
+        if (!cliPath) throw new Error('Bundled mastracode runtime not found')
+        command = buildMastracodeCommand(process.execPath, cliPath)
+      }
+      ptyManager.create(input.id, input.cwd, input.cols, input.rows, command)
       return { ok: true }
     }),
 

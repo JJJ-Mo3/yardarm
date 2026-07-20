@@ -1,7 +1,7 @@
 import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 
-export type MainTab = 'chat' | 'changes' | 'terminal' | 'files'
+export type MainTab = 'chat' | 'changes' | 'terminal' | 'files' | 'cli'
 export type Theme = 'light' | 'dark' | 'system'
 
 export const selectedProjectIdAtom = atomWithStorage<string | null>('cz.selectedProject', null)
