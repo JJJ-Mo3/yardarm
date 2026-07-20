@@ -31,7 +31,7 @@ export const LOCAL_PROVIDER_PRESETS: LocalProviderPreset[] = [
     downHint: 'Is Ollama running? Start it with `ollama serve` or open the Ollama app.',
     emptyHint: 'No models installed yet — download one below to get started.',
     contextHint:
-      'Agent use needs a large context window. Ollama defaults to ~4k tokens — set it to 32k+ in the Ollama app (Settings → Context length) or start with OLLAMA_CONTEXT_LENGTH=32768.',
+      "Agent use needs a big context window — the agent's base prompt alone is ~30k tokens. Set 64k minimum (128k+ if you have the RAM) in the Ollama app (Settings → Context length) or start with OLLAMA_CONTEXT_LENGTH=65536.",
     downloadUrl: 'https://ollama.com/download'
   },
   {
@@ -44,7 +44,7 @@ export const LOCAL_PROVIDER_PRESETS: LocalProviderPreset[] = [
     downHint: 'In LM Studio, enable the local server (Developer tab → Start Server).',
     emptyHint: 'No models loaded — download one in LM Studio (Discover tab) and load it.',
     contextHint:
-      'Agent use needs a large context window — set the context length to 32k+ when loading the model in LM Studio.',
+      "Agent use needs a big context window — the agent's base prompt alone is ~30k tokens. Set the context length to 64k minimum (128k+ if you have the RAM) when loading the model in LM Studio.",
     downloadUrl: 'https://lmstudio.ai'
   },
   {
@@ -56,7 +56,7 @@ export const LOCAL_PROVIDER_PRESETS: LocalProviderPreset[] = [
     apiKey: 'none',
     downHint: 'Start it with `llama-server -m model.gguf`.',
     contextHint:
-      'Agent use needs a large context window — start the server with `-c 32768` or higher.',
+      "Agent use needs a big context window — the agent's base prompt alone is ~30k tokens. Start the server with `-c 65536` or higher.",
     downloadUrl: 'https://github.com/ggml-org/llama.cpp'
   },
   {

@@ -37,7 +37,8 @@ export async function ollamaInstallStatus(): Promise<OllamaInstallStatus> {
  * responds. On macOS the Ollama.app menu-bar agent starts the server itself
  * (`open -a` cannot carry env, so its context length is set in the app's
  * own settings). When we spawn `ollama serve` directly, default the context
- * window to 32k — Ollama's ~4k default is far too small for agent use.
+ * window to 64k — the agent's base prompt alone is ~30k tokens, so Ollama's
+ * small defaults can't even fit the first request.
  */
 export function startOllama(): void {
   if (process.platform === 'darwin' && existsSync(OLLAMA_APP)) {
@@ -49,7 +50,7 @@ export function startOllama(): void {
     detached: true,
     env: {
       ...process.env,
-      OLLAMA_CONTEXT_LENGTH: process.env.OLLAMA_CONTEXT_LENGTH ?? '32768'
+      OLLAMA_CONTEXT_LENGTH: process.env.OLLAMA_CONTEXT_LENGTH ?? '65536'
     }
   })
   child.on('error', () => {
