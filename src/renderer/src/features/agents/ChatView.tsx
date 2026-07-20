@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { CheckCircle2, Circle, CircleDot, KeyRound, Server } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
@@ -86,6 +86,38 @@ export function ChatView({
     setRollbackNotice(null)
     setPrefill(null)
   }, [subchatId])
+  const confirmDialog = useConfirm()
+
+  // Stable callbacks for the memoized MessageList items: mutation objects
+  // change identity every render but `.mutate` is referentially stable, and
+  // the messages ref avoids depending on the streaming array.
+  const messagesRef = useRef(state.messages)
+  messagesRef.current = state.messages
+  const { mutate: rollbackMutate } = rollback
+  const { mutate: respondSuspensionMutate } = respondSuspension
+  const handleRollback = useCallback(
+    (messageId: string) => {
+      void confirmDialog({
+        title: 'Roll back to before this message?',
+        description:
+          'Files and chat are restored to the snapshot taken just before this message was sent. This message and everything after it are removed, and its text is placed back in the input so you can edit and resend it.',
+        confirmLabel: 'Roll back'
+      }).then((ok) => {
+        if (!ok) return
+        const msg = messagesRef.current.find((m) => m.id === messageId)
+        pendingRollbackText.current = msg
+          ? msg.parts.map((p) => (p.type === 'text' ? p.text : '')).join('')
+          : null
+        rollbackMutate({ subchatId, messageId })
+      })
+    },
+    [subchatId, confirmDialog, rollbackMutate]
+  )
+  const handleRespondSuspension = useCallback(
+    (toolCallId: string, resumeData: unknown) =>
+      respondSuspensionMutate({ subchatId, toolCallId, resumeData }),
+    [subchatId, respondSuspensionMutate]
+  )
   const models = trpc.agent.listModels.useQuery({ subchatId }, { staleTime: 60_000 })
   const runCommand = trpc.agent.runCommand.useMutation()
   const runSkill = trpc.agent.runSkill.useMutation()
@@ -114,7 +146,6 @@ export function ChatView({
   const [permissionsOpen, setPermissionsOpen] = useState(false)
   const [sandboxOpen, setSandboxOpen] = useState(false)
   const [omOpen, setOmOpen] = useState(false)
-  const confirmDialog = useConfirm()
 
   const meta = state.meta
   const busy = send.isPending || followUp.isPending
@@ -480,25 +511,10 @@ export function ChatView({
       <MessageList
         messages={state.messages}
         running={state.running}
-        onRollback={(messageId) => {
-          void confirmDialog({
-            title: 'Roll back to before this message?',
-            description:
-              'Files and chat are restored to the snapshot taken just before this message was sent. This message and everything after it are removed, and its text is placed back in the input so you can edit and resend it.',
-            confirmLabel: 'Roll back'
-          }).then((ok) => {
-            if (!ok) return
-            const msg = state.messages.find((m) => m.id === messageId)
-            pendingRollbackText.current = msg
-              ? msg.parts.map((p) => (p.type === 'text' ? p.text : '')).join('')
-              : null
-            rollback.mutate({ subchatId, messageId })
-          })
-        }}
+        onRollback={handleRollback}
+        resetKey={subchatId}
         suspensions={state.suspensions}
-        onRespondSuspension={(toolCallId, resumeData) =>
-          respondSuspension.mutate({ subchatId, toolCallId, resumeData })
-        }
+        onRespondSuspension={handleRespondSuspension}
       />
 
       {/* Pending gates + errors. Interactive suspensions (ask_user /

@@ -38,7 +38,8 @@ interface MastraMessageLike {
 
 export interface TranslatorCallbacks {
   emit: (event: AgentUIEvent) => void
-  persistMessage: (message: StoredMessage) => void
+  /** `final` marks a completed message that must be durable immediately. */
+  persistMessage: (message: StoredMessage, final?: boolean) => void
   onThreadChanged: (threadId: string) => void
   onMetaChanged: (meta: {
     mode?: string
@@ -381,7 +382,7 @@ export class EventTranslator {
     }
     this.messages.set(msg.id, stored)
     this.cb.emit({ type: 'message-upsert', message: stored })
-    if (persist) this.cb.persistMessage(stored)
+    if (persist) this.cb.persistMessage(stored, true)
   }
 
   /** Drop a tool part from a message it no longer belongs to (re-homed call). */

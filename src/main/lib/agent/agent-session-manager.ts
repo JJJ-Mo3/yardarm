@@ -12,6 +12,8 @@ import { eq, desc, sql } from 'drizzle-orm'
 import { getDb, schema } from '../db'
 import { EventTranslator } from './event-translator'
 import { clampMessageForStorage } from './message-clamp'
+import { MessageWriteBuffer } from './message-write-buffer'
+import { createUpsertThrottle } from './upsert-throttle'
 import type {
   AgentControllerEventLike,
   AuthEntry,
@@ -68,6 +70,8 @@ interface HostHandle {
 }
 
 const REQUEST_TIMEOUT_MS = 30_000
+/** Upper bound on the total JSON bytes a loadMessages seed may carry. */
+const SEED_BYTE_BUDGET = 24 * 1024 * 1024
 
 export class AgentSessionManager {
   private hosts = new Map<string, HostHandle>()
@@ -76,6 +80,8 @@ export class AgentSessionManager {
   private utilityHost: HostHandle | null = null
   /** Most recent boot-error from any host; cleared when a host boots cleanly. */
   private lastBootError: string | null = null
+  /** Debounces the per-tool-call full-row rewrites of streaming messages. */
+  private writeBuffer = new MessageWriteBuffer((sid, m) => this.writeMessageRow(sid, m))
 
   private emitterFor(subchatId: string): EventEmitter {
     let em = this.emitters.get(subchatId)
@@ -136,6 +142,8 @@ export class AgentSessionManager {
   }
 
   loadMessages(subchatId: string): StoredMessage[] {
+    // Reads must see everything that streamed so far, not stale rows.
+    this.writeBuffer.flush(subchatId)
     const db = getDb()
     // Bounded: only the most recent messages, so translator seeding and the
     // messages-reset renderer payload stay small as history grows.
@@ -146,8 +154,17 @@ export class AgentSessionManager {
       .orderBy(desc(schema.messages.seq))
       .limit(500)
       .all()
-      .reverse()
-    return rows.map((r) => ({
+    // Byte guard on top of the row cap: stop including older rows once the
+    // seed payload would get too large to ship over IPC comfortably.
+    const included: typeof rows = []
+    let bytes = 0
+    for (const r of rows) {
+      bytes += r.parts.length
+      if (included.length > 0 && bytes > SEED_BYTE_BUDGET) break
+      included.push(r)
+    }
+    included.reverse()
+    return included.map((r) => ({
       id: r.id,
       role: r.role as StoredMessage['role'],
       parts: JSON.parse(r.parts) as StoredMessage['parts'],
@@ -157,43 +174,38 @@ export class AgentSessionManager {
     }))
   }
 
-  private persistMessage(subchatId: string, rawMessage: StoredMessage): void {
+  /**
+   * Queue a message write. Streaming re-persists (once per tool call on a
+   * growing message) coalesce through the write buffer's short debounce;
+   * `flush` forces an immediate durable write for finalized messages.
+   */
+  private persistMessage(subchatId: string, rawMessage: StoredMessage, flush = false): void {
     // Clamp oversized tool payloads before they hit disk.
     const message = clampMessageForStorage(rawMessage)
+    this.writeBuffer.enqueue(subchatId, message, { flush })
+  }
+
+  /** Single-statement upsert: insert with the next seq, or refresh the row. */
+  private writeMessageRow(subchatId: string, message: StoredMessage): void {
     const db = getDb()
-    const existing = db
-      .select({ id: schema.messages.id })
-      .from(schema.messages)
-      .where(eq(schema.messages.id, message.id))
-      .get()
-    if (existing) {
-      db.update(schema.messages)
-        .set({
-          parts: JSON.stringify(message.parts),
-          usage: message.usage ? JSON.stringify(message.usage) : null
-        })
-        .where(eq(schema.messages.id, message.id))
-        .run()
-    } else {
-      const maxSeq =
-        db
-          .select({ max: sql<number | null>`max(${schema.messages.seq})` })
-          .from(schema.messages)
-          .where(eq(schema.messages.subchatId, subchatId))
-          .get()?.max ?? 0
-      db.insert(schema.messages)
-        .values({
-          id: message.id,
-          subchatId,
-          role: message.role,
-          parts: JSON.stringify(message.parts),
-          usage: message.usage ? JSON.stringify(message.usage) : null,
-          checkpointRef: message.checkpointRef ?? null,
-          seq: maxSeq + 1,
-          createdAt: message.createdAt
-        })
-        .run()
-    }
+    const parts = JSON.stringify(message.parts)
+    const usage = message.usage ? JSON.stringify(message.usage) : null
+    db.insert(schema.messages)
+      .values({
+        id: message.id,
+        subchatId,
+        role: message.role,
+        parts,
+        usage,
+        checkpointRef: message.checkpointRef ?? null,
+        seq: sql`(select coalesce(max(${schema.messages.seq}), 0) + 1 from ${schema.messages} where ${schema.messages.subchatId} = ${subchatId})`,
+        createdAt: message.createdAt
+      })
+      .onConflictDoUpdate({
+        target: schema.messages.id,
+        set: { parts, usage }
+      })
+      .run()
   }
 
   /** Ensure a host process exists for the subchat; boots one if needed. */
@@ -257,9 +269,12 @@ export class AgentSessionManager {
     // Avoid unhandled rejection if nobody awaits before failure.
     readyPromise.catch(() => {})
 
+    // Streaming deltas arrive far faster than the renderer needs; coalesce
+    // full-message upserts per message id before they cross IPC.
+    const throttle = createUpsertThrottle((ev) => this.emitUI(subchatId, ev))
     const translator = new EventTranslator({
-      emit: (ev) => this.emitUI(subchatId, ev),
-      persistMessage: (m) => this.persistMessage(subchatId, m),
+      emit: throttle.emit,
+      persistMessage: (m, final) => this.persistMessage(subchatId, m, final),
       onThreadChanged: (threadId) => {
         handle.meta.threadId = threadId
         getDb()
@@ -388,6 +403,8 @@ export class AgentSessionManager {
     proc.on('exit', (code) => {
       handle.killed = true
       handle.status = 'stopped'
+      throttle.dispose()
+      this.writeBuffer.flush(subchatId)
       for (const [, req] of handle.pending) {
         clearTimeout(req.timer)
         req.reject(new Error('Agent host exited'))
@@ -443,7 +460,7 @@ export class AgentSessionManager {
       checkpointRef: checkpointRef ?? null,
       createdAt: Date.now()
     }
-    this.persistMessage(subchatId, userMessage)
+    this.persistMessage(subchatId, userMessage, true)
     this.emitUI(subchatId, { type: 'message-upsert', message: userMessage })
     const db = getDb()
     const subchat = db
@@ -591,7 +608,7 @@ export class AgentSessionManager {
       parts: [{ type: 'info', level: 'info', text }],
       createdAt: Date.now()
     }
-    this.persistMessage(subchatId, marker)
+    this.persistMessage(subchatId, marker, true)
     this.emitUI(subchatId, { type: 'message-upsert', message: marker })
   }
 
@@ -994,6 +1011,7 @@ export class AgentSessionManager {
 
   /** Stop the host for a subchat (e.g. on chat delete or app quit). */
   stopHost(subchatId: string): void {
+    this.writeBuffer.flush(subchatId)
     const handle = this.hosts.get(subchatId)
     if (!handle) return
     try {
@@ -1013,6 +1031,7 @@ export class AgentSessionManager {
    * Never hangs: resolves after timeoutMs even if the exit event is lost.
    */
   async stopHostAndWait(subchatId: string, timeoutMs = 3000): Promise<void> {
+    this.writeBuffer.flush(subchatId)
     const handle = this.hosts.get(subchatId)
     this.hosts.delete(subchatId)
     if (!handle || handle.killed) return
@@ -1083,6 +1102,7 @@ export class AgentSessionManager {
   }
 
   shutdownAll(): void {
+    this.writeBuffer.flush()
     this.restartAll()
   }
 

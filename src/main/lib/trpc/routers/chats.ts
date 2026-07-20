@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { and, asc, desc, eq, gte, inArray, isNotNull, lt } from 'drizzle-orm'
 import { z } from 'zod'
-import { getDb, schema } from '../../db'
+import { getDb, maintainDb, schema } from '../../db'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import { checkpointStashSha, deleteCheckpointRefs, restoreCheckpoint } from '../../git/ops'
 import { createWorktree, ensureBaseCommit, isGitRepo, removeWorktree } from '../../git/worktree'
@@ -166,6 +166,8 @@ export const chatsRouter = router({
     }
 
     db.delete(schema.chats).where(eq(schema.chats.id, chat.id)).run()
+    // The cascade can free a lot of message pages — reclaim them promptly.
+    maintainDb()
     return { ok: true }
   }),
 
@@ -296,6 +298,8 @@ export const chatsRouter = router({
           and(eq(schema.messages.subchatId, input.subchatId), gte(schema.messages.seq, msg.seq))
         )
         .run()
+      // Truncating a long transcript frees pages — reclaim them promptly.
+      maintainDb()
       if (!anchor) {
         // Rolled back to the very start: a fresh empty thread matches the
         // now-empty chat, so there's nothing to remember or inform.
