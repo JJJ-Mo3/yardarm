@@ -42,4 +42,7 @@ jobs:
 
       - run: pnpm test
 
+      # The monaco-heavy renderer bundle blows Node's default ~2GB heap.
       - run: pnpm build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
