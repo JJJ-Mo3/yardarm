@@ -537,6 +537,21 @@ async function main(): Promise<void> {
               return null
             })
             break
+          case 'goalUpdate':
+            await respond(cmd.reqId, async () => {
+              const threadId = session.thread.getId()
+              if (!threadId) return null
+              const agent = controller.getCurrentAgent(session as never)
+              // No-ops (returns undefined) when the thread has no objective.
+              const record = await agent.updateObjectiveOptions({
+                threadId,
+                judgeModelId: cmd.judgeModelId,
+                maxRuns: cmd.maxRuns,
+                status: cmd.status
+              })
+              return record ? mapGoal(record) : null
+            })
+            break
           case 'omGet':
             await respond(cmd.reqId, async () => {
               const st = (session.state.get() ?? {}) as Record<string, unknown>

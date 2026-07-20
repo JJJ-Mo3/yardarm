@@ -3,7 +3,7 @@
  * progress and the latest evaluation; clears via the X button.
  */
 import React, { useEffect } from 'react'
-import { Target, X } from 'lucide-react'
+import { Pause, Play, Target, X } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
 import { Tip } from '../../components/ui/tooltip'
@@ -26,6 +26,9 @@ export function GoalBanner({
   const utils = trpc.useUtils()
   const goal = trpc.agent.goalGet.useQuery({ subchatId })
   const goalClear = trpc.agent.goalClear.useMutation({
+    onSuccess: () => utils.agent.goalGet.invalidate({ subchatId })
+  })
+  const goalUpdate = trpc.agent.goalUpdate.useMutation({
     onSuccess: () => utils.agent.goalGet.invalidate({ subchatId })
   })
 
@@ -55,14 +58,40 @@ export function GoalBanner({
             : ''}
         </div>
       </div>
-      <Tip content="Clear this goal — the judge stops evaluating runs against it">
-        <button
-          disabled={goalClear.isPending}
-          onClick={() => goalClear.mutate({ subchatId })}
-          className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground cursor-pointer"
+      {g.status !== 'done' && (
+        <Tip
+          content={
+            g.status === 'paused'
+              ? 'Resume this goal — the judge evaluates runs against it again'
+              : 'Pause this goal — the judge stops evaluating until you resume'
+          }
         >
-          <X size={12} />
-        </button>
+          <span className="inline-flex">
+            <button
+              disabled={goalUpdate.isPending}
+              onClick={() =>
+                goalUpdate.mutate({
+                  subchatId,
+                  status: g.status === 'paused' ? 'active' : 'paused'
+                })
+              }
+              className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground cursor-pointer"
+            >
+              {g.status === 'paused' ? <Play size={12} /> : <Pause size={12} />}
+            </button>
+          </span>
+        </Tip>
+      )}
+      <Tip content="Clear this goal — the judge stops evaluating runs against it">
+        <span className="inline-flex">
+          <button
+            disabled={goalClear.isPending}
+            onClick={() => goalClear.mutate({ subchatId })}
+            className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground cursor-pointer"
+          >
+            <X size={12} />
+          </button>
+        </span>
       </Tip>
     </div>
   )

@@ -248,6 +248,24 @@ export const agentRouter = router({
       return { ok: true }
     }),
 
+  /** Pause/resume the goal or adjust its judge model / max runs. */
+  goalUpdate: publicProcedure
+    .input(
+      z.object({
+        subchatId: z.string(),
+        judgeModelId: z.string().optional(),
+        maxRuns: z.number().int().positive().optional(),
+        status: z.enum(['active', 'paused']).optional()
+      })
+    )
+    .mutation(async ({ input }) => {
+      return agentSessionManager.goalUpdate(input.subchatId, {
+        judgeModelId: input.judgeModelId,
+        maxRuns: input.maxRuns,
+        status: input.status
+      })
+    }),
+
   /** Observational Memory runtime config from live session state. */
   omGet: publicProcedure.input(z.object({ subchatId: z.string() })).query(async ({ input }) => {
     return agentSessionManager.omGet(input.subchatId)

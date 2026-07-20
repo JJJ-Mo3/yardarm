@@ -748,6 +748,24 @@ export class AgentSessionManager {
     this.insertMarker(subchatId, 'Goal cleared')
   }
 
+  /** Adjust judge/max-runs or pause/resume the existing goal. */
+  async goalUpdate(
+    subchatId: string,
+    patch: { judgeModelId?: string; maxRuns?: number; status?: 'active' | 'paused' }
+  ): Promise<GoalInfo | null> {
+    const handle = await this.ensureHost(subchatId)
+    const goal = await this.request<GoalInfo | null>(handle, {
+      t: 'goalUpdate',
+      reqId: randomUUID(),
+      ...patch
+    })
+    // Markers only for status changes; config tweaks stay silent (omSet precedent).
+    if (patch.status && goal) {
+      this.insertMarker(subchatId, patch.status === 'paused' ? 'Goal paused' : 'Goal resumed')
+    }
+    return goal
+  }
+
   /** Observational Memory runtime config from live session state. */
   async omGet(subchatId: string): Promise<OmRuntimeInfo> {
     const handle = await this.ensureHost(subchatId)

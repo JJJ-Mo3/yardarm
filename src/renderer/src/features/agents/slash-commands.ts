@@ -41,8 +41,8 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
   { name: 'sandbox', description: 'Sandbox & session settings', kind: 'builtin' },
   {
     name: 'goal',
-    description: 'Set a goal with judge evaluation',
-    args: '<objective>',
+    description: 'Set or manage the goal (judge-evaluated objective)',
+    args: '[objective|pause|resume|clear]',
     kind: 'builtin'
   },
   { name: 'om', description: 'Observational Memory status', kind: 'builtin' },

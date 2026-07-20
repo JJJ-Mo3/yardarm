@@ -45,6 +45,14 @@ export type HostCommand =
   | { t: 'goalGet'; reqId: string }
   | { t: 'goalSet'; reqId: string; objective: string; judgeModelId?: string; maxRuns?: number }
   | { t: 'goalClear'; reqId: string }
+  /** Adjust judge/max-runs or pause/resume the existing goal (status 'done' is judge-only). */
+  | {
+      t: 'goalUpdate'
+      reqId: string
+      judgeModelId?: string
+      maxRuns?: number
+      status?: 'active' | 'paused'
+    }
   | { t: 'omGet'; reqId: string }
   | { t: 'omSet'; reqId: string; patch: OmRuntimePatch }
   | { t: 'listModels'; reqId: string }

@@ -36,6 +36,7 @@ import { ThreadsPopover } from './ThreadsPopover'
 import { PermissionsDialog } from './PermissionsDialog'
 import { SandboxDialog } from './SandboxDialog'
 import { GoalBanner } from './GoalBanner'
+import { GoalPopover } from './GoalPopover'
 import { OmStatusPopover } from './OmStatusPopover'
 import { useSlashCommands, type SlashCommandEntry } from './slash-commands'
 
@@ -133,6 +134,7 @@ export function ChatView({
   }
   const goalSet = trpc.agent.goalSet.useMutation({ onSuccess: invalidateGoal })
   const goalClear = trpc.agent.goalClear.useMutation({ onSuccess: invalidateGoal })
+  const goalUpdate = trpc.agent.goalUpdate.useMutation({ onSuccess: invalidateGoal })
 
   const commands = useSlashCommands(subchatId)
   const setMainTab = useSetAtom(mainTabAtom)
@@ -146,6 +148,7 @@ export function ChatView({
   const [permissionsOpen, setPermissionsOpen] = useState(false)
   const [sandboxOpen, setSandboxOpen] = useState(false)
   const [omOpen, setOmOpen] = useState(false)
+  const [goalOpen, setGoalOpen] = useState(false)
 
   const meta = state.meta
   const busy = send.isPending || followUp.isPending
@@ -170,7 +173,8 @@ export function ChatView({
       ['rename', renameThread],
       ['clone', cloneThread],
       ['set goal', goalSet],
-      ['clear goal', goalClear]
+      ['clear goal', goalClear],
+      ['update goal', goalUpdate]
     ]
   const failedActions = actionMutations.filter(([, m]) => m.error)
 
@@ -311,11 +315,19 @@ export function ChatView({
         return
       case 'goal': {
         const objective = args.trim()
-        if (!objective) {
-          return 'Usage: /goal <objective> — the judge evaluates it after each run. /goal clear removes it.'
+        if (!objective || objective === 'status') {
+          setGoalOpen(true)
+          return
         }
         if (objective === 'clear') {
           goalClear.mutate({ subchatId })
+          return
+        }
+        if (objective === 'pause' || objective === 'resume') {
+          goalUpdate.mutate({
+            subchatId,
+            status: objective === 'pause' ? 'paused' : 'active'
+          })
           return
         }
         goalSet.mutate({ subchatId, objective })
@@ -469,6 +481,12 @@ export function ChatView({
           </Tip>
         )}
         <ThreadsPopover subchatId={subchatId} open={threadsOpen} onOpenChange={setThreadsOpen} />
+        <GoalPopover
+          subchatId={subchatId}
+          live={state.goal}
+          open={goalOpen}
+          onOpenChange={setGoalOpen}
+        />
         <OmStatusPopover
           subchatId={subchatId}
           omEvents={state.omEvents}
