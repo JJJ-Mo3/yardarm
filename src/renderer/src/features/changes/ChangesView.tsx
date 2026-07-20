@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '../../components/ui/select'
+import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
 
 function statusColor(status: string): string {
@@ -131,9 +132,11 @@ export function ChangesView({ cwd }: { cwd: string }): React.JSX.Element {
               if (branch !== currentBranch) checkout.mutate({ cwd, branch })
             }}
           >
-            <SelectTrigger className="h-7 min-w-0 flex-1 font-mono text-[11px]">
-              <SelectValue placeholder="branch" />
-            </SelectTrigger>
+            <Tip content="Current git branch — select another to check it out">
+              <SelectTrigger className="h-7 min-w-0 flex-1 font-mono text-[11px]">
+                <SelectValue placeholder="branch" />
+              </SelectTrigger>
+            </Tip>
             <SelectContent>
               {(branchList.includes(currentBranch) || !currentBranch
                 ? branchList
@@ -150,30 +153,30 @@ export function ChangesView({ cwd }: { cwd: string }): React.JSX.Element {
               ↑{status.data.ahead}
             </span>
           )}
-          <Button
-            size="icon"
-            variant="ghost"
-            title="New branch"
-            onClick={() => setNewBranchOpen(true)}
-          >
-            <GitBranchPlus size={12} />
-          </Button>
-          {ghAvailable.data?.available && (
-            <Button
-              size="icon"
-              variant="ghost"
-              title="Create pull request (gh)"
-              onClick={() => {
-                createPr.reset()
-                setPrOpen(true)
-              }}
-            >
-              <GitPullRequestArrow size={12} />
+          <Tip content="Create a new branch from the current HEAD and check it out">
+            <Button size="icon" variant="ghost" onClick={() => setNewBranchOpen(true)}>
+              <GitBranchPlus size={12} />
             </Button>
+          </Tip>
+          {ghAvailable.data?.available && (
+            <Tip content="Open a pull request for this branch on GitHub (uses the gh CLI)">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => {
+                  createPr.reset()
+                  setPrOpen(true)
+                }}
+              >
+                <GitPullRequestArrow size={12} />
+              </Button>
+            </Tip>
           )}
-          <Button size="icon" variant="ghost" title="Refresh" onClick={() => invalidate()}>
-            <RefreshCw size={12} />
-          </Button>
+          <Tip content="Re-read git status, diffs, and branches">
+            <Button size="icon" variant="ghost" onClick={() => invalidate()}>
+              <RefreshCw size={12} />
+            </Button>
+          </Tip>
         </div>
         <div className="flex-1 overflow-y-auto p-1">
           {files.length === 0 && (
@@ -196,44 +199,47 @@ export function ChangesView({ cwd }: { cwd: string }): React.JSX.Element {
               <span className="min-w-0 flex-1 truncate font-mono text-[11px]">{f.path}</span>
               <span className="hidden group-hover:flex items-center gap-0.5">
                 {f.staged ? (
-                  <button
-                    title="Unstage"
-                    className="text-muted-foreground hover:text-foreground cursor-pointer"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      unstage.mutate({ cwd, paths: [f.path] })
-                    }}
-                  >
-                    <Minus size={11} />
-                  </button>
+                  <Tip content="Unstage — leave the change in place but drop it from the next commit">
+                    <button
+                      className="text-muted-foreground hover:text-foreground cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        unstage.mutate({ cwd, paths: [f.path] })
+                      }}
+                    >
+                      <Minus size={11} />
+                    </button>
+                  </Tip>
                 ) : (
+                  <Tip content="Stage this file for the next commit">
+                    <button
+                      className="text-muted-foreground hover:text-foreground cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        stage.mutate({ cwd, paths: [f.path] })
+                      }}
+                    >
+                      <Plus size={11} />
+                    </button>
+                  </Tip>
+                )}
+                <Tip content="Discard this file's changes — permanently reverts it">
                   <button
-                    title="Stage"
-                    className="text-muted-foreground hover:text-foreground cursor-pointer"
+                    className="text-muted-foreground hover:text-destructive cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation()
-                      stage.mutate({ cwd, paths: [f.path] })
+                      void confirmDialog({
+                        title: 'Discard changes?',
+                        description: `Changes to ${f.path} will be permanently lost.`,
+                        confirmLabel: 'Discard'
+                      }).then((ok) => {
+                        if (ok) discard.mutate({ cwd, paths: [f.path] })
+                      })
                     }}
                   >
-                    <Plus size={11} />
+                    <Undo2 size={11} />
                   </button>
-                )}
-                <button
-                  title="Discard changes"
-                  className="text-muted-foreground hover:text-destructive cursor-pointer"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    void confirmDialog({
-                      title: 'Discard changes?',
-                      description: `Changes to ${f.path} will be permanently lost.`,
-                      confirmLabel: 'Discard'
-                    }).then((ok) => {
-                      if (ok) discard.mutate({ cwd, paths: [f.path] })
-                    })
-                  }}
-                >
-                  <Undo2 size={11} />
-                </button>
+                </Tip>
               </span>
               {f.staged && <span className="h-1.5 w-1.5 rounded-full bg-green-500 shrink-0" />}
             </div>
@@ -247,24 +253,31 @@ export function ChangesView({ cwd }: { cwd: string }): React.JSX.Element {
             onChange={(e) => setCommitMsg(e.target.value)}
           />
           <div className="flex gap-2">
-            <Button
-              size="sm"
-              className="flex-1"
-              disabled={!commitMsg.trim() || files.length === 0 || commit.isPending}
-              onClick={() => commit.mutate({ cwd, message: commitMsg.trim(), stageAll: true })}
-            >
-              <GitCommitHorizontal size={13} />
-              Commit all
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              title="Push"
-              disabled={push.isPending}
-              onClick={() => push.mutate({ cwd })}
-            >
-              <Upload size={13} />
-            </Button>
+            <Tip content="Stage every changed file and commit with this message">
+              <span className="flex flex-1">
+                <Button
+                  size="sm"
+                  className="flex-1"
+                  disabled={!commitMsg.trim() || files.length === 0 || commit.isPending}
+                  onClick={() => commit.mutate({ cwd, message: commitMsg.trim(), stageAll: true })}
+                >
+                  <GitCommitHorizontal size={13} />
+                  Commit all
+                </Button>
+              </span>
+            </Tip>
+            <Tip content="Push commits to the remote (sets upstream if needed)">
+              <span className="inline-flex">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={push.isPending}
+                  onClick={() => push.mutate({ cwd })}
+                >
+                  <Upload size={13} />
+                </Button>
+              </span>
+            </Tip>
           </div>
           {(commit.error || push.error || checkout.error) && (
             <div className="text-[11px] text-destructive selectable">

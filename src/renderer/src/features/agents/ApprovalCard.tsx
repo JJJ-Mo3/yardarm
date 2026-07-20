@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { ShieldQuestion } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { Textarea } from '../../components/ui/textarea'
+import { Tip } from '../../components/ui/tooltip'
 import { ToolArgsView, toolTitle } from './ToolArgsView'
 import type { PendingApproval } from '../../../../shared/ui-message'
 
@@ -48,22 +49,30 @@ export function ApprovalCard({
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={() => onDecide('approve')}>
-            Allow once
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => onDecide('approve', { alwaysAllowToolName: approval.toolName })}
-          >
-            Always allow {approval.toolName}
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => onDecide('decline')}>
-            Deny
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => setShowFeedback(true)}>
-            Deny with feedback…
-          </Button>
+          <Tip content="Run this tool call one time — you'll be asked again next time">
+            <Button size="sm" onClick={() => onDecide('approve')}>
+              Allow once
+            </Button>
+          </Tip>
+          <Tip content={`Run it now and auto-approve every future ${approval.toolName} call in this project`}>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => onDecide('approve', { alwaysAllowToolName: approval.toolName })}
+            >
+              Always allow {approval.toolName}
+            </Button>
+          </Tip>
+          <Tip content="Block this tool call — the agent will continue without it">
+            <Button size="sm" variant="outline" onClick={() => onDecide('decline')}>
+              Deny
+            </Button>
+          </Tip>
+          <Tip content="Block this tool call and tell the agent why, so it can adjust">
+            <Button size="sm" variant="ghost" onClick={() => setShowFeedback(true)}>
+              Deny with feedback…
+            </Button>
+          </Tip>
         </div>
       )}
     </div>

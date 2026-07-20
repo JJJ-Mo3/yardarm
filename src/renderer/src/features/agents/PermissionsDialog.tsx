@@ -9,9 +9,15 @@ import { cn } from '../../lib/utils'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
+import { Tip } from '../../components/ui/tooltip'
 
 type Policy = 'allow' | 'ask' | 'deny'
 const POLICIES: Policy[] = ['allow', 'ask', 'deny']
+const POLICY_TIPS: Record<Policy, string> = {
+  allow: 'Run automatically without asking',
+  ask: 'Ask for approval before each use',
+  deny: 'Block — the agent cannot use it'
+}
 const CATEGORIES: Array<{ id: string; label: string; hint: string }> = [
   { id: 'read', label: 'Read', hint: 'File reads, searches, listings' },
   { id: 'edit', label: 'Edit', hint: 'File writes and edits' },
@@ -32,21 +38,22 @@ function PolicySegments({
   return (
     <div className="flex overflow-hidden rounded border border-border">
       {POLICIES.map((p) => (
-        <button
-          key={p}
-          disabled={disabled}
-          onClick={() => onChange(p)}
-          className={cn(
-            'px-2 py-0.5 text-[11px] capitalize cursor-pointer disabled:cursor-default',
-            value === p
-              ? p === 'deny'
-                ? 'bg-destructive/15 font-medium text-destructive'
-                : 'bg-accent font-medium'
-              : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          {p}
-        </button>
+        <Tip key={p} content={POLICY_TIPS[p]}>
+          <button
+            disabled={disabled}
+            onClick={() => onChange(p)}
+            className={cn(
+              'px-2 py-0.5 text-[11px] capitalize cursor-pointer disabled:cursor-default',
+              value === p
+                ? p === 'deny'
+                  ? 'bg-destructive/15 font-medium text-destructive'
+                  : 'bg-accent font-medium'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            {p}
+          </button>
+        </Tip>
       ))}
     </div>
   )
@@ -139,21 +146,25 @@ export function PermissionsDialog({
                     onChange={(e) => setNewTool(e.target.value)}
                     className="font-mono text-[11px]"
                   />
-                  <Button
-                    size="sm"
-                    disabled={!newTool.trim() || setPermission.isPending}
-                    onClick={() => {
-                      setPermission.mutate({
-                        subchatId,
-                        scope: 'tool',
-                        name: newTool.trim(),
-                        policy: 'allow'
-                      })
-                      setNewTool('')
-                    }}
-                  >
-                    Allow tool
-                  </Button>
+                  <Tip content="Add a per-tool override that auto-approves this tool">
+                    <span className="inline-flex">
+                      <Button
+                        size="sm"
+                        disabled={!newTool.trim() || setPermission.isPending}
+                        onClick={() => {
+                          setPermission.mutate({
+                            subchatId,
+                            scope: 'tool',
+                            name: newTool.trim(),
+                            policy: 'allow'
+                          })
+                          setNewTool('')
+                        }}
+                      >
+                        Allow tool
+                      </Button>
+                    </span>
+                  </Tip>
                 </div>
               </div>
 

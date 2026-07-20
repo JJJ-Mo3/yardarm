@@ -2,6 +2,7 @@ import React from 'react'
 import { Coins } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
+import { Tip } from '../../components/ui/tooltip'
 import type { UsageInfo } from '../../../../shared/ui-message'
 
 const KNOWN_LABELS: Record<string, string> = {
@@ -30,17 +31,16 @@ export function CostPopover({
   const threadRows = (threads.data ?? []).filter((t) => (t.totalTokens ?? 0) > 0)
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>
-        <button
-          title="Token usage (/cost)"
-          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
-        >
-          <Coins size={11} />
-          {usage?.totalTokens != null
-            ? `${Intl.NumberFormat().format(usage.totalTokens)} tok`
-            : 'usage'}
-        </button>
-      </PopoverTrigger>
+      <Tip content="Token usage for this session — click for a per-thread breakdown (/cost)">
+        <PopoverTrigger asChild>
+          <button className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer">
+            <Coins size={11} />
+            {usage?.totalTokens != null
+              ? `${Intl.NumberFormat().format(usage.totalTokens)} tok`
+              : 'usage'}
+          </button>
+        </PopoverTrigger>
+      </Tip>
       <PopoverContent align="end" className="w-60">
         <div className="mb-1.5 text-xs font-medium">Session usage</div>
         {entries.length === 0 ? (

@@ -35,6 +35,7 @@ import {
   SelectValue
 } from '../../components/ui/select'
 import { Switch } from '../../components/ui/switch'
+import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { AddProjectDialog } from './AddProjectDialog'
 import { Logo } from '../../components/Logo'
@@ -116,12 +117,14 @@ export function Sidebar(): React.JSX.Element {
             setProjectId(v)
           }}
         >
-          <SelectTrigger className="flex-1 h-8">
-            <span className="flex items-center gap-1.5 truncate">
-              <FolderGit2 size={13} className="shrink-0 text-muted-foreground" />
-              <SelectValue placeholder="Select project" />
-            </span>
-          </SelectTrigger>
+          <Tip content="Switch between your projects" side="bottom">
+            <SelectTrigger className="flex-1 h-8">
+              <span className="flex items-center gap-1.5 truncate">
+                <FolderGit2 size={13} className="shrink-0 text-muted-foreground" />
+                <SelectValue placeholder="Select project" />
+              </span>
+            </SelectTrigger>
+          </Tip>
           <SelectContent>
             {(projects.data ?? []).map((p) => (
               <SelectItem key={p.id} value={p.id}>
@@ -130,37 +133,40 @@ export function Sidebar(): React.JSX.Element {
             ))}
           </SelectContent>
         </Select>
-        <Button
-          size="icon"
-          variant="ghost"
-          title="Project settings"
-          disabled={!projectId}
-          onClick={() => setProjectSettingsOpen(true)}
-        >
-          <FolderCog size={14} />
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          title="Add project (local folder or GitHub clone)"
-          onClick={() => setAddProjectOpen('local')}
-        >
-          <Plus size={14} />
-        </Button>
+        <Tip content="Project settings — MCP servers, commands, instructions, plugins">
+          <span className="inline-flex">
+            <Button
+              size="icon"
+              variant="ghost"
+              disabled={!projectId}
+              onClick={() => setProjectSettingsOpen(true)}
+            >
+              <FolderCog size={14} />
+            </Button>
+          </span>
+        </Tip>
+        <Tip content="Add a project — local folder or GitHub clone">
+          <Button size="icon" variant="ghost" onClick={() => setAddProjectOpen('local')}>
+            <Plus size={14} />
+          </Button>
+        </Tip>
       </div>
 
       {/* Chats */}
       <div className="flex items-center justify-between px-3 py-1">
         <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Chats</span>
-        <Button
-          size="icon"
-          variant="ghost"
-          title="New chat"
-          disabled={!projectId}
-          onClick={() => setNewChatOpen(true)}
-        >
-          <MessageSquarePlus size={14} />
-        </Button>
+        <Tip content="Start a new chat in this project">
+          <span className="inline-flex">
+            <Button
+              size="icon"
+              variant="ghost"
+              disabled={!projectId}
+              onClick={() => setNewChatOpen(true)}
+            >
+              <MessageSquarePlus size={14} />
+            </Button>
+          </span>
+        </Tip>
       </div>
       <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
         {(chats.data ?? [])
@@ -180,39 +186,41 @@ export function Sidebar(): React.JSX.Element {
                   {c.branch ?? 'no worktree'} · {timeAgo(c.updatedAt)}
                 </div>
               </div>
-              <button
-                title="Rename chat"
-                className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  renameChat.reset() // don't show a stale error from a previous attempt
-                  setRenameTitle(c.title)
-                  setRenameTarget({ id: c.id, title: c.title })
-                }}
-              >
-                <Pencil size={12} />
-              </button>
-              <button
-                title="Delete chat"
-                className="hidden group-hover:block text-muted-foreground hover:text-destructive cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  void confirmDialog({
-                    title: 'Delete chat?',
-                    description: `"${c.title}" and its worktree will be permanently deleted.`,
-                    confirmLabel: 'Delete'
-                  }).then((ok) => {
-                    if (!ok) return
-                    if (chatId === c.id) {
-                      setChatId(null)
-                      setSubchatId(null)
-                    }
-                    deleteChat.mutate({ id: c.id })
-                  })
-                }}
-              >
-                <Trash2 size={12} />
-              </button>
+              <Tip content="Rename this chat">
+                <button
+                  className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    renameChat.reset() // don't show a stale error from a previous attempt
+                    setRenameTitle(c.title)
+                    setRenameTarget({ id: c.id, title: c.title })
+                  }}
+                >
+                  <Pencil size={12} />
+                </button>
+              </Tip>
+              <Tip content="Delete this chat and its worktree">
+                <button
+                  className="hidden group-hover:block text-muted-foreground hover:text-destructive cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    void confirmDialog({
+                      title: 'Delete chat?',
+                      description: `"${c.title}" and its worktree will be permanently deleted.`,
+                      confirmLabel: 'Delete'
+                    }).then((ok) => {
+                      if (!ok) return
+                      if (chatId === c.id) {
+                        setChatId(null)
+                        setSubchatId(null)
+                      }
+                      deleteChat.mutate({ id: c.id })
+                    })
+                  }}
+                >
+                  <Trash2 size={12} />
+                </button>
+              </Tip>
             </div>
           ))}
         {projectId && (chats.data ?? []).filter((c) => !c.archived).length === 0 && (
@@ -229,15 +237,17 @@ export function Sidebar(): React.JSX.Element {
 
       {/* Footer */}
       <div className="border-t border-border p-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start"
-          onClick={() => setSettingsOpen(true)}
-        >
-          <Settings size={13} />
-          Settings
-        </Button>
+        <Tip content="App settings — theme, API keys, models, providers" side="top">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <Settings size={13} />
+            Settings
+          </Button>
+        </Tip>
       </div>
 
       {/* New chat dialog */}
@@ -274,10 +284,12 @@ export function Sidebar(): React.JSX.Element {
                 }
               }}
             />
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Switch checked={useWorktree} onCheckedChange={setUseWorktree} />
-              Isolate in a git worktree
-            </label>
+            <Tip content="Runs the chat on its own branch in a separate working copy, so the agent's edits never touch your checked-out files until you merge">
+              <label className="flex w-fit items-center gap-2 text-xs text-muted-foreground">
+                <Switch checked={useWorktree} onCheckedChange={setUseWorktree} />
+                Isolate in a git worktree
+              </label>
+            </Tip>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setNewChatOpen(false)}>
                 Cancel

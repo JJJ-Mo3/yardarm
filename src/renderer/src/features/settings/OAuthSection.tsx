@@ -8,6 +8,7 @@ import { ExternalLink, LogIn, LogOut } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
+import { Tip } from '../../components/ui/tooltip'
 
 interface ActiveFlow {
   flowId: string
@@ -108,6 +109,7 @@ export function OAuthSection(): React.JSX.Element {
           >
             <span className="flex-1 text-xs font-medium">{p.name}</span>
             {(p.authModes?.length ?? 0) > 1 && !p.loggedIn && (
+              <Tip content="Which kind of account to log in with (e.g. subscription vs API billing)">
               <select
                 value={modeByProvider[p.id] ?? p.authModes![0].id}
                 onChange={(e) =>
@@ -121,30 +123,39 @@ export function OAuthSection(): React.JSX.Element {
                   </option>
                 ))}
               </select>
+              </Tip>
             )}
             {p.loggedIn ? (
               <>
                 <span className="text-[11px] text-green-500">Logged in</span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={logout.isPending}
-                  onClick={() => logout.mutate({ provider: p.id })}
-                >
-                  <LogOut size={12} />
-                  Log out
-                </Button>
+                <Tip content="Sign out and remove the stored credentials for this provider">
+                  <span className="inline-flex">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={logout.isPending}
+                      onClick={() => logout.mutate({ provider: p.id })}
+                    >
+                      <LogOut size={12} />
+                      Log out
+                    </Button>
+                  </span>
+                </Tip>
               </>
             ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={flow !== null || start.isPending}
-                onClick={() => login(p.id, p.name)}
-              >
-                <LogIn size={12} />
-                Log in
-              </Button>
+              <Tip content="Start the browser login flow for this provider">
+                <span className="inline-flex">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={flow !== null || start.isPending}
+                    onClick={() => login(p.id, p.name)}
+                  >
+                    <LogIn size={12} />
+                    Log in
+                  </Button>
+                </span>
+              </Tip>
             )}
           </div>
         ))}

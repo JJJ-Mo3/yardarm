@@ -17,6 +17,7 @@ import {
   SelectValue
 } from '../../components/ui/select'
 import { Switch } from '../../components/ui/switch'
+import { Tip } from '../../components/ui/tooltip'
 
 const NOTIFICATIONS = ['off', 'bell', 'system', 'both'] as const
 type NotificationsMode = (typeof NOTIFICATIONS)[number]
@@ -66,13 +67,17 @@ export function SandboxDialog({
                     Model-assisted recovery for failed file edits
                   </div>
                 </div>
-                <Switch
-                  checked={info.smartEditing ?? false}
-                  disabled={stateSet.isPending}
-                  onCheckedChange={(smartEditing) =>
-                    stateSet.mutate({ subchatId, patch: { smartEditing } })
-                  }
-                />
+                <Tip content="When a file edit fails to apply, let a model repair and retry it automatically">
+                  <span className="inline-flex">
+                    <Switch
+                      checked={info.smartEditing ?? false}
+                      disabled={stateSet.isPending}
+                      onCheckedChange={(smartEditing) =>
+                        stateSet.mutate({ subchatId, patch: { smartEditing } })
+                      }
+                    />
+                  </span>
+                </Tip>
               </div>
 
               <div className="flex items-center gap-2">
@@ -92,9 +97,11 @@ export function SandboxDialog({
                     })
                   }
                 >
-                  <SelectTrigger className="w-28">
-                    <SelectValue />
-                  </SelectTrigger>
+                  <Tip content="How to alert you when a run finishes: bell (in-app sound), system (macOS notification), or both">
+                    <SelectTrigger className="w-28">
+                      <SelectValue />
+                    </SelectTrigger>
+                  </Tip>
                   <SelectContent>
                     {NOTIFICATIONS.map((n) => (
                       <SelectItem key={n} value={n} className="capitalize">
@@ -117,19 +124,20 @@ export function SandboxDialog({
                       className="flex items-center gap-2 rounded border border-border px-2 py-1"
                     >
                       <span className="min-w-0 flex-1 truncate font-mono text-[11px]">{p}</span>
-                      <button
-                        title="Remove path"
-                        className="text-muted-foreground hover:text-destructive cursor-pointer"
-                        disabled={stateSet.isPending}
-                        onClick={() =>
-                          stateSet.mutate({
-                            subchatId,
-                            patch: { sandboxAllowedPaths: paths.filter((x) => x !== p) }
-                          })
-                        }
-                      >
-                        <Trash2 size={12} />
-                      </button>
+                      <Tip content="Remove this path — sandboxed commands can no longer write to it">
+                        <button
+                          className="text-muted-foreground hover:text-destructive cursor-pointer"
+                          disabled={stateSet.isPending}
+                          onClick={() =>
+                            stateSet.mutate({
+                              subchatId,
+                              patch: { sandboxAllowedPaths: paths.filter((x) => x !== p) }
+                            })
+                          }
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </Tip>
                     </div>
                   ))}
                   {paths.length === 0 && (
@@ -143,22 +151,26 @@ export function SandboxDialog({
                     onChange={(e) => setNewPath(e.target.value)}
                     className="font-mono text-[11px]"
                   />
-                  <Button
-                    size="sm"
-                    disabled={!newPath.trim() || stateSet.isPending}
-                    onClick={() => {
-                      const p = newPath.trim()
-                      if (!paths.includes(p)) {
-                        stateSet.mutate({
-                          subchatId,
-                          patch: { sandboxAllowedPaths: [...paths, p] }
-                        })
-                      }
-                      setNewPath('')
-                    }}
-                  >
-                    Add path
-                  </Button>
+                  <Tip content="Allow sandboxed shell commands to write inside this directory">
+                    <span className="inline-flex">
+                      <Button
+                        size="sm"
+                        disabled={!newPath.trim() || stateSet.isPending}
+                        onClick={() => {
+                          const p = newPath.trim()
+                          if (!paths.includes(p)) {
+                            stateSet.mutate({
+                              subchatId,
+                              patch: { sandboxAllowedPaths: [...paths, p] }
+                            })
+                          }
+                          setNewPath('')
+                        }}
+                      >
+                        Add path
+                      </Button>
+                    </span>
+                  </Tip>
                 </div>
               </div>
             </>

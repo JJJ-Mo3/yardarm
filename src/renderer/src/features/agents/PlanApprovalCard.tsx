@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Check, ClipboardList } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { Textarea } from '../../components/ui/textarea'
+import { Tip } from '../../components/ui/tooltip'
 import { Markdown } from './Markdown'
 import type { PendingSuspension, ToolCallPart } from '../../../../shared/ui-message'
 
@@ -100,15 +101,27 @@ export function PlanApprovalCard({
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={() => onResume({ action: 'approved' })}>
-            {isPlan ? 'Approve plan & build' : 'Approve'}
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setShowReject(true)}>
-            Request changes…
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => setShowRaw(true)}>
-            Raw response…
-          </Button>
+          <Tip
+            content={
+              isPlan
+                ? 'Accept this plan — the agent switches to build mode and starts implementing it'
+                : 'Approve and let the agent continue'
+            }
+          >
+            <Button size="sm" onClick={() => onResume({ action: 'approved' })}>
+              {isPlan ? 'Approve plan & build' : 'Approve'}
+            </Button>
+          </Tip>
+          <Tip content="Reject the plan and tell the agent what to revise">
+            <Button size="sm" variant="outline" onClick={() => setShowReject(true)}>
+              Request changes…
+            </Button>
+          </Tip>
+          <Tip content="Advanced: reply with hand-written resume JSON instead of the buttons">
+            <Button size="sm" variant="ghost" onClick={() => setShowRaw(true)}>
+              Raw response…
+            </Button>
+          </Tip>
         </div>
       )}
       {suspension.resumeSchema && (

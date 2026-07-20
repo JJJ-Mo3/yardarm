@@ -16,6 +16,7 @@ import { selectedChatIdAtom, selectedSubchatIdAtom } from '../../lib/atoms'
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
+import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
 
 export function ThreadsPopover({
@@ -84,28 +85,31 @@ export function ThreadsPopover({
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>
-        <button
-          title="Threads (/threads)"
-          className="flex min-w-0 max-w-48 items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
-        >
-          <MessagesSquare size={11} className="shrink-0" />
-          <span className="truncate">{active ? label(active) : 'threads'}</span>
-        </button>
-      </PopoverTrigger>
+      <Tip content="Threads — separate conversation histories in this chat; switch, clone, or open one in a new tab (/threads)">
+        <PopoverTrigger asChild>
+          <button className="flex min-w-0 max-w-48 items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer">
+            <MessagesSquare size={11} className="shrink-0" />
+            <span className="truncate">{active ? label(active) : 'threads'}</span>
+          </button>
+        </PopoverTrigger>
+      </Tip>
       <PopoverContent align="end" className="w-80">
         <div className="mb-2 flex items-center justify-between">
           <span className="text-xs font-medium">Threads</span>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-6 px-2 text-[11px]"
-            disabled={busy}
-            onClick={() => newThread.mutate({ subchatId })}
-          >
-            <Plus size={11} />
-            New thread
-          </Button>
+          <Tip content="Start a fresh conversation history in this chat (/new)">
+            <span className="inline-flex">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 px-2 text-[11px]"
+                disabled={busy}
+                onClick={() => newThread.mutate({ subchatId })}
+              >
+                <Plus size={11} />
+                New thread
+              </Button>
+            </span>
+          </Tip>
         </div>
 
         <div className="max-h-72 space-y-1 overflow-y-auto">
@@ -167,53 +171,57 @@ export function ThreadsPopover({
                 <span className="hidden items-center gap-1.5 group-hover:flex">
                   {t.active ? (
                     <>
-                      <button
-                        title="Rename thread (/name)"
-                        className="hover:text-foreground cursor-pointer"
-                        onClick={() => {
-                          setRenamingId(t.id)
-                          setTitle(t.title ?? '')
-                        }}
-                      >
-                        <Pencil size={11} />
-                      </button>
-                      <button
-                        title="Clone thread (/clone)"
-                        className="hover:text-foreground cursor-pointer"
-                        disabled={busy}
-                        onClick={() => cloneThread.mutate({ subchatId })}
-                      >
-                        <Copy size={11} />
-                      </button>
+                      <Tip content="Rename this thread (/name)">
+                        <button
+                          className="hover:text-foreground cursor-pointer"
+                          onClick={() => {
+                            setRenamingId(t.id)
+                            setTitle(t.title ?? '')
+                          }}
+                        >
+                          <Pencil size={11} />
+                        </button>
+                      </Tip>
+                      <Tip content="Duplicate this thread's history into a new thread (/clone)">
+                        <button
+                          className="hover:text-foreground cursor-pointer"
+                          disabled={busy}
+                          onClick={() => cloneThread.mutate({ subchatId })}
+                        >
+                          <Copy size={11} />
+                        </button>
+                      </Tip>
                     </>
                   ) : (
                     <>
-                      <button
-                        title="Open in a new tab (keeps transcripts separate)"
-                        className="hover:text-foreground cursor-pointer"
-                        disabled={busy || !chatId}
-                        onClick={() =>
-                          chatId &&
-                          createSubchat.mutate({ chatId, mastraThreadId: t.id })
-                        }
-                      >
-                        <ExternalLink size={11} />
-                      </button>
-                      <button
-                        title="Switch this chat to the thread"
-                        className="hover:text-foreground cursor-pointer"
-                        disabled={busy}
-                        onClick={() => switchThread.mutate({ subchatId, threadId: t.id })}
-                      >
-                        <ArrowLeftRight size={11} />
-                      </button>
+                      <Tip content="Open this thread in a new tab (keeps transcripts separate)">
+                        <button
+                          className="hover:text-foreground cursor-pointer"
+                          disabled={busy || !chatId}
+                          onClick={() =>
+                            chatId &&
+                            createSubchat.mutate({ chatId, mastraThreadId: t.id })
+                          }
+                        >
+                          <ExternalLink size={11} />
+                        </button>
+                      </Tip>
+                      <Tip content="Switch this chat to the thread">
+                        <button
+                          className="hover:text-foreground cursor-pointer"
+                          disabled={busy}
+                          onClick={() => switchThread.mutate({ subchatId, threadId: t.id })}
+                        >
+                          <ArrowLeftRight size={11} />
+                        </button>
+                      </Tip>
                     </>
                   )}
-                  <button
-                    title="Delete thread"
-                    className="hover:text-destructive cursor-pointer"
-                    disabled={busy}
-                    onClick={() => {
+                  <Tip content="Permanently delete this thread and its history">
+                    <button
+                      className="hover:text-destructive cursor-pointer"
+                      disabled={busy}
+                      onClick={() => {
                       void confirmDialog({
                         title: 'Delete thread?',
                         description: `"${label(t)}" will be permanently deleted. This cannot be undone.`,
@@ -222,9 +230,10 @@ export function ThreadsPopover({
                         if (ok) deleteThread.mutate({ subchatId, threadId: t.id })
                       })
                     }}
-                  >
-                    <Trash2 size={11} />
-                  </button>
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </Tip>
                 </span>
               </div>
             </div>

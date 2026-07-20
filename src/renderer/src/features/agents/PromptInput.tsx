@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { ArrowUp, Square, X } from 'lucide-react'
 import { Button } from '../../components/ui/button'
+import { Tip } from '../../components/ui/tooltip'
 import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
 import type { SlashCommandEntry } from './slash-commands'
@@ -299,13 +300,14 @@ export function PromptInput({
                 alt={a.filename ?? 'attachment'}
                 className="h-full w-full object-cover"
               />
-              <button
-                title="Remove attachment"
-                className="absolute right-0 top-0 hidden rounded-bl bg-background/80 p-0.5 group-hover:block cursor-pointer"
-                onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
-              >
-                <X size={10} />
-              </button>
+              <Tip content="Remove this attachment">
+                <button
+                  className="absolute right-0 top-0 hidden rounded-bl bg-background/80 p-0.5 group-hover:block cursor-pointer"
+                  onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
+                >
+                  <X size={10} />
+                </button>
+              </Tip>
             </div>
           ))}
         </div>
@@ -333,18 +335,29 @@ export function PromptInput({
           className="max-h-[240px] min-h-[72px] flex-1 resize-none overflow-y-auto rounded-md border border-border bg-background px-3 py-2 text-[13px] placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
         />
         {running && !value.trim() ? (
-          <Button size="icon" variant="destructive" title="Stop" onClick={onAbort}>
-            <Square size={13} />
-          </Button>
+          <Tip content="Stop the agent's current run">
+            <Button size="icon" variant="destructive" onClick={onAbort}>
+              <Square size={13} />
+            </Button>
+          </Tip>
         ) : (
-          <Button
-            size="icon"
-            title={running ? 'Queue message (runs after the current turn)' : 'Send'}
-            disabled={disabled || (!value.trim() && attachments.length === 0)}
-            onClick={submit}
+          <Tip
+            content={
+              running
+                ? 'Queue this message — it will be sent after the current run finishes'
+                : 'Send the message to the agent (Enter)'
+            }
           >
-            <ArrowUp size={14} />
-          </Button>
+            <span className="inline-flex">
+              <Button
+                size="icon"
+                disabled={disabled || (!value.trim() && attachments.length === 0)}
+                onClick={submit}
+              >
+                <ArrowUp size={14} />
+              </Button>
+            </span>
+          </Tip>
         )}
       </div>
     </div>

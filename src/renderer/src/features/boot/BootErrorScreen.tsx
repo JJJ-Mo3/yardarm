@@ -1,6 +1,7 @@
 import React from 'react'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { Button } from '../../components/ui/button'
+import { Tip } from '../../components/ui/tooltip'
 
 interface BootErrorScreenProps {
   error?: string
@@ -36,10 +37,14 @@ export function BootErrorScreen({
         Bundled runtime: {mastracodeVersion ?? 'not found'}
         {nodeVersion ? ` · Node ${nodeVersion}` : ''}
       </div>
-      <Button size="sm" onClick={onRetry} disabled={retrying}>
-        <RefreshCw size={12} className={retrying ? 'animate-spin' : ''} />
-        Retry
-      </Button>
+      <Tip content="Try booting the bundled Mastra Code runtime again">
+        <span className="inline-flex">
+          <Button size="sm" onClick={onRetry} disabled={retrying}>
+            <RefreshCw size={12} className={retrying ? 'animate-spin' : ''} />
+            Retry
+          </Button>
+        </span>
+      </Tip>
     </div>
   )
 }

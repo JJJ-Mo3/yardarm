@@ -8,6 +8,7 @@ import { Check, MessageCircleQuestion } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { Textarea } from '../../components/ui/textarea'
 import { cn } from '../../lib/utils'
+import { Tip } from '../../components/ui/tooltip'
 import { Markdown } from './Markdown'
 import type { PendingSuspension, ToolCallPart } from '../../../../shared/ui-message'
 
@@ -126,9 +127,11 @@ export function AskUserCard({
               Answer
             </Button>
             {showOther && (
-              <Button size="sm" variant="ghost" onClick={() => setShowOther(false)}>
-                Back to options
-              </Button>
+              <Tip content="Return to the agent's suggested options">
+                <Button size="sm" variant="ghost" onClick={() => setShowOther(false)}>
+                  Back to options
+                </Button>
+              </Tip>
             )}
           </div>
         </div>
@@ -141,9 +144,11 @@ export function AskUserCard({
               Answer{selected.length > 0 ? ` (${selected.length})` : ''}
             </Button>
           )}
-          <Button size="sm" variant="ghost" onClick={() => setShowOther(true)}>
-            Other…
-          </Button>
+          <Tip content="Answer in your own words instead of picking an option">
+            <Button size="sm" variant="ghost" onClick={() => setShowOther(true)}>
+              Other…
+            </Button>
+          </Tip>
         </div>
       )}
     </div>

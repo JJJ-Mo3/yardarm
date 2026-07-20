@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Brain, ChevronDown, ChevronRight, RotateCcw } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { Tip } from '../../components/ui/tooltip'
 import { Markdown } from './Markdown'
 import { ToolCallCard } from './ToolCallCard'
 import { AskUserCard, AskUserAnswered } from './AskUserCard'
@@ -89,14 +90,16 @@ function ReasoningBlock({ text }: { text: string }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   return (
     <div className="my-1">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
-      >
-        {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-        <Brain size={11} />
-        Thinking
-      </button>
+      <Tip content={open ? "Hide the model's reasoning" : "Show the model's step-by-step reasoning for this reply"}>
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
+        >
+          {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+          <Brain size={11} />
+          Thinking
+        </button>
+      </Tip>
       {open && (
         <div className="mt-1 border-l-2 border-border pl-3 text-muted-foreground selectable">
           <Markdown text={text} />
@@ -165,14 +168,15 @@ function MessageItem({
         <div className="relative max-w-[85%] rounded-lg bg-accent border border-border px-3 py-2 selectable whitespace-pre-wrap text-[13px]">
           {text}
           {onRollback && message.checkpointRef && showRollback && (
-            <button
-              title="Restore files and chat to just before this message was sent — its text returns to the input for editing"
-              onClick={() => onRollback(message.id)}
-              className="absolute right-full top-1.5 mr-1.5 flex items-center gap-1 whitespace-nowrap rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground shadow-sm opacity-70 group-hover:opacity-100 hover:opacity-100 hover:text-foreground cursor-pointer"
-            >
-              <RotateCcw size={10} />
-              Roll back to before this message
-            </button>
+            <Tip content="Restore files and chat to just before this message was sent — its text returns to the input for editing">
+              <button
+                onClick={() => onRollback(message.id)}
+                className="absolute right-full top-1.5 mr-1.5 flex items-center gap-1 whitespace-nowrap rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground shadow-sm opacity-70 group-hover:opacity-100 hover:opacity-100 hover:text-foreground cursor-pointer"
+              >
+                <RotateCcw size={10} />
+                Roll back to before this message
+              </button>
+            </Tip>
           )}
         </div>
       </div>

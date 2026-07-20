@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createTrpcClient, trpc } from './lib/trpc'
 import { ConfirmProvider } from './components/ConfirmDialog'
+import { TooltipProvider } from './components/ui/tooltip'
 import App from './App'
 import './styles/globals.css'
 
@@ -19,7 +20,9 @@ function Root(): React.JSX.Element {
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
         <ConfirmProvider>
-          <App />
+          <TooltipProvider delayDuration={400} skipDelayDuration={300}>
+            <App />
+          </TooltipProvider>
         </ConfirmProvider>
       </QueryClientProvider>
     </trpc.Provider>

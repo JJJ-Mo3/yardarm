@@ -10,6 +10,7 @@ import {
   Wrench
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { Tip } from '../../components/ui/tooltip'
 import { summarizeArgs, ToolArgsView } from './ToolArgsView'
 import type { ToolCallPart } from '../../../../shared/ui-message'
 
@@ -45,10 +46,11 @@ export function ToolCallCard({ part }: { part: ToolCallPart }): React.JSX.Elemen
 
   return (
     <div className="rounded-md border border-border bg-card my-1 overflow-hidden">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left hover:bg-accent cursor-pointer"
-      >
+      <Tip content={open ? 'Hide the arguments and output' : "Show this tool call's arguments and output"}>
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left hover:bg-accent cursor-pointer"
+        >
         {open ? (
           <ChevronDown size={12} className="text-muted-foreground shrink-0" />
         ) : (
@@ -56,11 +58,12 @@ export function ToolCallCard({ part }: { part: ToolCallPart }): React.JSX.Elemen
         )}
         <Wrench size={12} className="text-muted-foreground shrink-0" />
         <span className="font-medium text-xs shrink-0">{part.toolName}</span>
-        <span className="truncate font-mono text-[11px] text-muted-foreground flex-1">
-          {summary}
-        </span>
-        <StatusIcon status={part.status} />
-      </button>
+          <span className="truncate font-mono text-[11px] text-muted-foreground flex-1">
+            {summary}
+          </span>
+          <StatusIcon status={part.status} />
+        </button>
+      </Tip>
       {open && (
         <div className="border-t border-border px-2.5 py-2 space-y-2 selectable">
           <div>

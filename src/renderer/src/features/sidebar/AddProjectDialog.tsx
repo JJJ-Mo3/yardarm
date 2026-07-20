@@ -7,6 +7,7 @@ import { addProjectOpenAtom, selectedProjectIdAtom } from '../../lib/atoms'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
+import { Tip } from '../../components/ui/tooltip'
 
 /**
  * Add-project dialog: open an existing local folder (offering `git init`
@@ -81,23 +82,34 @@ export function AddProjectDialog(): React.JSX.Element {
           <div className="flex gap-0.5 rounded-md bg-accent/40 p-0.5">
             {(
               [
-                { id: 'local', label: 'Local folder', icon: <FolderOpen size={12} /> },
-                { id: 'clone', label: 'Clone from GitHub', icon: <GitFork size={12} /> }
+                {
+                  id: 'local',
+                  label: 'Local folder',
+                  icon: <FolderOpen size={12} />,
+                  tip: 'Use a folder already on this machine'
+                },
+                {
+                  id: 'clone',
+                  label: 'Clone from GitHub',
+                  icon: <GitFork size={12} />,
+                  tip: 'Download a repository from a git URL into a local folder'
+                }
               ] as const
             ).map((m) => (
-              <button
-                key={m.id}
-                onClick={() => setOpenMode(m.id)}
-                className={cn(
-                  'flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1 text-xs cursor-pointer',
-                  mode === m.id
-                    ? 'bg-background font-medium shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {m.icon}
-                {m.label}
-              </button>
+              <Tip key={m.id} content={m.tip}>
+                <button
+                  onClick={() => setOpenMode(m.id)}
+                  className={cn(
+                    'flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1 text-xs cursor-pointer',
+                    mode === m.id
+                      ? 'bg-background font-medium shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {m.icon}
+                  {m.label}
+                </button>
+              </Tip>
             ))}
           </div>
 
@@ -121,13 +133,17 @@ export function AddProjectDialog(): React.JSX.Element {
                     This folder isn&apos;t a git repository yet. Yardarm needs git for
                     checkpoints, worktrees, and the Changes view.
                   </div>
-                  <Button
-                    size="sm"
-                    disabled={add.isPending}
-                    onClick={() => add.mutate({ path: pickedPath, init: true })}
-                  >
-                    {add.isPending ? 'Initializing…' : 'Initialize git repository here'}
-                  </Button>
+                  <Tip content="Runs git init and creates an initial commit so chats can use isolated worktrees">
+                    <span className="inline-flex">
+                      <Button
+                        size="sm"
+                        disabled={add.isPending}
+                        onClick={() => add.mutate({ path: pickedPath, init: true })}
+                      >
+                        {add.isPending ? 'Initializing…' : 'Initialize git repository here'}
+                      </Button>
+                    </span>
+                  </Tip>
                 </div>
               )}
             </div>

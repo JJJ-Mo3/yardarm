@@ -3,6 +3,7 @@ import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
+import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { AddLocalProviderDialog } from './AddLocalProviderDialog'
 
@@ -88,10 +89,12 @@ export function ProvidersTab(): React.JSX.Element {
         (shared with the CLI).
       </div>
 
-      <Button size="sm" onClick={() => setWizardOpen(true)}>
-        <Plus size={13} className="mr-1" />
-        Add local model
-      </Button>
+      <Tip content="Guided setup for a model running on your machine (Ollama, LM Studio, and more)">
+        <Button size="sm" onClick={() => setWizardOpen(true)}>
+          <Plus size={13} className="mr-1" />
+          Add local model
+        </Button>
+      </Tip>
       <AddLocalProviderDialog
         open={wizardOpen}
         onOpenChange={setWizardOpen}
@@ -112,36 +115,38 @@ export function ProvidersTab(): React.JSX.Element {
                 {p.apiKey ? ' · key set' : ''}
               </div>
             </div>
-            <button
-              title="Edit provider"
-              className="text-muted-foreground hover:text-foreground cursor-pointer"
-              onClick={() => {
-                setEditing(p.name)
-                setDraft({
-                  name: p.name,
-                  url: p.url,
-                  apiKey: p.apiKey ?? '',
-                  models: p.models.join(', ')
-                })
-              }}
-            >
-              <Pencil size={12} />
-            </button>
-            <button
-              title="Remove provider"
-              className="text-muted-foreground hover:text-destructive cursor-pointer"
-              onClick={() => {
-                void confirmDialog({
-                  title: 'Remove provider?',
-                  description: `Custom provider "${p.name}" will be removed from settings.json.`,
-                  confirmLabel: 'Remove'
-                }).then((ok) => {
-                  if (ok) remove.mutate({ name: p.name })
-                })
-              }}
-            >
-              <Trash2 size={12} />
-            </button>
+            <Tip content="Edit this provider's URL, key, and model list">
+              <button
+                className="text-muted-foreground hover:text-foreground cursor-pointer"
+                onClick={() => {
+                  setEditing(p.name)
+                  setDraft({
+                    name: p.name,
+                    url: p.url,
+                    apiKey: p.apiKey ?? '',
+                    models: p.models.join(', ')
+                  })
+                }}
+              >
+                <Pencil size={12} />
+              </button>
+            </Tip>
+            <Tip content="Remove this provider — its models disappear from the model list">
+              <button
+                className="text-muted-foreground hover:text-destructive cursor-pointer"
+                onClick={() => {
+                  void confirmDialog({
+                    title: 'Remove provider?',
+                    description: `Custom provider "${p.name}" will be removed from settings.json.`,
+                    confirmLabel: 'Remove'
+                  }).then((ok) => {
+                    if (ok) remove.mutate({ name: p.name })
+                  })
+                }}
+              >
+                <Trash2 size={12} />
+              </button>
+            </Tip>
           </div>
         ))}
         {!settings.isLoading && providers.length === 0 && (
@@ -172,15 +177,18 @@ export function ProvidersTab(): React.JSX.Element {
               value={draft.url}
               onChange={(e) => setDraft({ ...draft, url: e.target.value })}
             />
-            <Button
-              size="sm"
-              variant="outline"
-              title="Test the server and fill in its model list"
-              disabled={detecting || !draft.url.trim()}
-              onClick={() => void doDetect()}
-            >
-              {detecting ? 'Detecting…' : 'Detect'}
-            </Button>
+            <Tip content="Test the server and fill in its model list">
+              <span className="inline-flex">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={detecting || !draft.url.trim()}
+                  onClick={() => void doDetect()}
+                >
+                  {detecting ? 'Detecting…' : 'Detect'}
+                </Button>
+              </span>
+            </Tip>
           </div>
           {detectError && <div className="text-xs text-destructive selectable">{detectError}</div>}
           <Input
@@ -230,14 +238,18 @@ export function ProvidersTab(): React.JSX.Element {
       {dirty && (
         <div className="flex items-center gap-2 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1.5">
           <span className="flex-1 text-[11px]">Saved. Restart agents to apply.</span>
-          <Button
-            size="sm"
-            className="h-6 px-2 text-[11px]"
-            disabled={applyRestart.isPending}
-            onClick={() => applyRestart.mutate()}
-          >
-            Restart agents
-          </Button>
+          <Tip content="Restart all agent processes now so the saved providers take effect">
+            <span className="inline-flex">
+              <Button
+                size="sm"
+                className="h-6 px-2 text-[11px]"
+                disabled={applyRestart.isPending}
+                onClick={() => applyRestart.mutate()}
+              >
+                Restart agents
+              </Button>
+            </span>
+          </Tip>
         </div>
       )}
     </div>

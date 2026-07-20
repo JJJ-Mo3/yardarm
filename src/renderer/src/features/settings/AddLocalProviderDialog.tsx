@@ -11,6 +11,7 @@ import { cn } from '../../lib/utils'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
+import { Tip } from '../../components/ui/tooltip'
 import type { ProbeResult, PullJob } from '../../../../shared/mastra-settings'
 import {
   LOCAL_PROVIDER_PRESETS,
@@ -409,14 +410,18 @@ export function AddLocalProviderDialog({
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
               />
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={probe.status === 'testing' || !url.trim()}
-                onClick={() => void runTest(url, apiKey)}
-              >
-                {probe.status === 'testing' ? 'Testing…' : 'Test connection'}
-              </Button>
+              <Tip content="Check that the server responds and list its installed models">
+                <span className="inline-flex">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={probe.status === 'testing' || !url.trim()}
+                    onClick={() => void runTest(url, apiKey)}
+                  >
+                    {probe.status === 'testing' ? 'Testing…' : 'Test connection'}
+                  </Button>
+                </span>
+              </Tip>
             </div>
             {preset.apiKey === 'optional' && (
               <Input
@@ -505,19 +510,20 @@ export function AddLocalProviderDialog({
                                 ? `${fmtBytes(job.completed)} / ${fmtBytes(job.total)}`
                                 : job.statusText}
                             </div>
-                            <button
-                              title="Cancel download"
-                              className="text-muted-foreground hover:text-destructive cursor-pointer"
-                              onClick={() => {
-                                cancelModelPull.mutate({ jobId: job.jobId })
-                                setPulls((prev) => ({
-                                  ...prev,
-                                  [r.tag]: { ...job, status: 'cancelled' }
-                                }))
-                              }}
-                            >
-                              <X size={12} />
-                            </button>
+                            <Tip content="Cancel this model download">
+                              <button
+                                className="text-muted-foreground hover:text-destructive cursor-pointer"
+                                onClick={() => {
+                                  cancelModelPull.mutate({ jobId: job.jobId })
+                                  setPulls((prev) => ({
+                                    ...prev,
+                                    [r.tag]: { ...job, status: 'cancelled' }
+                                  }))
+                                }}
+                              >
+                                <X size={12} />
+                              </button>
+                            </Tip>
                           </div>
                           <div className="mt-1 h-1 overflow-hidden rounded bg-accent">
                             <div
@@ -549,17 +555,19 @@ export function AddLocalProviderDialog({
                           </div>
                         </div>
                         {presetId === 'ollama' ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-6 px-2 text-[10px]"
-                            onClick={() => doPull(r.tag)}
-                          >
-                            <Download size={11} className="mr-1" />
-                            {job?.status === 'error' || job?.status === 'cancelled'
-                              ? 'Retry'
-                              : 'Download'}
-                          </Button>
+                          <Tip content={`Download ${r.tag} to your machine via Ollama (${r.sizeLabel})`}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-[10px]"
+                              onClick={() => doPull(r.tag)}
+                            >
+                              <Download size={11} className="mr-1" />
+                              {job?.status === 'error' || job?.status === 'cancelled'
+                                ? 'Retry'
+                                : 'Download'}
+                            </Button>
+                          </Tip>
                         ) : (
                           <span className="shrink-0 text-[10px] text-muted-foreground">
                             {presetId === 'lmstudio' ? 'Get it in LM Studio' : 'Not installed'}

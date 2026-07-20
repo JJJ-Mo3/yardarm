@@ -30,6 +30,7 @@ import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Textarea } from '../../components/ui/textarea'
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
+import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
 
 function GeneralTab({
@@ -82,13 +83,17 @@ function GeneralTab({
               }
             }}
           />
-          <Button
-            size="sm"
-            disabled={!trimmed || trimmed === projectName || rename.isPending}
-            onClick={() => rename.mutate({ id: projectId, name: trimmed })}
-          >
-            {rename.isPending ? 'Saving…' : 'Save'}
-          </Button>
+          <Tip content="Rename this project everywhere in the app (the folder on disk keeps its name)">
+            <span className="inline-flex">
+              <Button
+                size="sm"
+                disabled={!trimmed || trimmed === projectName || rename.isPending}
+                onClick={() => rename.mutate({ id: projectId, name: trimmed })}
+              >
+                {rename.isPending ? 'Saving…' : 'Save'}
+              </Button>
+            </span>
+          </Tip>
         </div>
         {rename.error && (
           <div className="text-xs text-destructive selectable">{rename.error.message}</div>
@@ -106,7 +111,9 @@ function GeneralTab({
           Removing the project deletes all its chats and their git worktrees, and stops any
           running agents and terminals. The project folder itself is not deleted.
         </div>
-        <Button
+        <Tip content="Remove this project from Yardarm — deletes its chats and worktrees, keeps the folder on disk">
+          <span className="inline-flex">
+            <Button
           size="sm"
           variant="destructive"
           disabled={remove.isPending}
@@ -121,7 +128,9 @@ function GeneralTab({
           }}
         >
           {remove.isPending ? 'Removing…' : 'Remove project'}
-        </Button>
+            </Button>
+          </span>
+        </Tip>
         {remove.error && (
           <div className="text-xs text-destructive selectable">{remove.error.message}</div>
         )}
@@ -166,20 +175,24 @@ function McpTab({ projectPath }: { projectPath: string }): React.JSX.Element {
         spellCheck={false}
       />
       <div className="flex items-center gap-2">
-        <Button
-          size="sm"
-          disabled={!dirty || save.isPending}
-          onClick={() => {
-            try {
-              const parsed = JSON.parse(text) as Record<string, Record<string, unknown>>
-              save.mutate({ servers: parsed, projectPath })
-            } catch {
-              setError('Invalid JSON')
-            }
-          }}
-        >
-          Save & restart agents
-        </Button>
+        <Tip content="Write .mastracode/mcp.json and restart this project's agents so the servers load">
+          <span className="inline-flex">
+            <Button
+              size="sm"
+              disabled={!dirty || save.isPending}
+              onClick={() => {
+                try {
+                  const parsed = JSON.parse(text) as Record<string, Record<string, unknown>>
+                  save.mutate({ servers: parsed, projectPath })
+                } catch {
+                  setError('Invalid JSON')
+                }
+              }}
+            >
+              Save & restart agents
+            </Button>
+          </span>
+        </Tip>
         {error && <span className="text-xs text-destructive">{error}</span>}
         {save.error && (
           <span className="text-xs text-destructive selectable">{save.error.message}</span>
@@ -231,22 +244,35 @@ function HooksTab({
         placeholder={'{\n  "PostToolUse": [{ "type": "command", "command": "..." }]\n}'}
       />
       <div className="flex items-center gap-2">
-        <Button
-          size="sm"
-          disabled={!dirty || save.isPending}
-          onClick={() => save.mutate({ projectPath, json: text })}
+        <Tip content="Write the hooks to .mastracode/hooks.json">
+          <span className="inline-flex">
+            <Button
+              size="sm"
+              disabled={!dirty || save.isPending}
+              onClick={() => save.mutate({ projectPath, json: text })}
+            >
+              Save
+            </Button>
+          </span>
+        </Tip>
+        <Tip
+          content={
+            subchatId
+              ? 'Apply the saved hooks to the running agent without a restart'
+              : 'Open a chat in this project to reload hooks live'
+          }
         >
-          Save
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!subchatId || reload.isPending}
-          title={subchatId ? 'Apply to the running agent' : 'Open a chat to reload live'}
-          onClick={() => subchatId && reload.mutate({ subchatId })}
-        >
-          {reload.isSuccess ? 'Reloaded' : 'Reload in agent'}
-        </Button>
+          <span className="inline-flex">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!subchatId || reload.isPending}
+              onClick={() => subchatId && reload.mutate({ subchatId })}
+            >
+              {reload.isSuccess ? 'Reloaded' : 'Reload in agent'}
+            </Button>
+          </span>
+        </Tip>
         {(save.error ?? reload.error) && (
           <span className="text-xs text-destructive selectable">
             {(save.error ?? reload.error)?.message}
@@ -328,32 +354,34 @@ function CommandsTab({ projectPath }: { projectPath: string }): React.JSX.Elemen
             <span className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground">
               {c.description ?? ''}
             </span>
-            <button
-              title="Open in editor"
-              className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
-              onClick={(e) => {
-                e.stopPropagation()
-                openInEditor.mutate({ path: c.path })
-              }}
-            >
-              <ExternalLink size={11} />
-            </button>
-            <button
-              title="Delete command"
-              className="hidden group-hover:block text-muted-foreground hover:text-destructive cursor-pointer"
-              onClick={(e) => {
-                e.stopPropagation()
-                void confirmDialog({
-                  title: `Delete /${c.name}?`,
-                  description: 'The command file will be removed from .mastracode/commands.',
-                  confirmLabel: 'Delete'
-                }).then((ok) => {
-                  if (ok) remove.mutate({ projectPath, relPath: c.relPath })
-                })
-              }}
-            >
-              <Trash2 size={11} />
-            </button>
+            <Tip content="Open this command file in your system editor">
+              <button
+                className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  openInEditor.mutate({ path: c.path })
+                }}
+              >
+                <ExternalLink size={11} />
+              </button>
+            </Tip>
+            <Tip content={`Delete this command — /${c.name} disappears from this project's chats`}>
+              <button
+                className="hidden group-hover:block text-muted-foreground hover:text-destructive cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  void confirmDialog({
+                    title: `Delete /${c.name}?`,
+                    description: 'The command file will be removed from .mastracode/commands.',
+                    confirmLabel: 'Delete'
+                  }).then((ok) => {
+                    if (ok) remove.mutate({ projectPath, relPath: c.relPath })
+                  })
+                }}
+              >
+                <Trash2 size={11} />
+              </button>
+            </Tip>
           </div>
         ))}
         {(list.data ?? []).length === 0 && (
@@ -367,13 +395,17 @@ function CommandsTab({ projectPath }: { projectPath: string }): React.JSX.Elemen
           onChange={(e) => setNewName(e.target.value)}
           className="font-mono text-[11px]"
         />
-        <Button
-          size="sm"
-          disabled={!newName.trim() || create.isPending}
-          onClick={() => create.mutate({ projectPath, name: newName.trim() })}
-        >
-          Create
-        </Button>
+        <Tip content="Create a new command file — it becomes a /slash command in this project's chats">
+          <span className="inline-flex">
+            <Button
+              size="sm"
+              disabled={!newName.trim() || create.isPending}
+              onClick={() => create.mutate({ projectPath, name: newName.trim() })}
+            >
+              Create
+            </Button>
+          </span>
+        </Tip>
       </div>
       {selected !== null && (
         <div className="space-y-2">
@@ -509,13 +541,17 @@ function ResourceTab({
           }}
           className="font-mono text-[11px]"
         />
-        <Button
-          size="sm"
-          disabled={!dirty || save.isPending}
-          onClick={() => save.mutate({ projectPath, resourceId: value.trim() || null })}
-        >
-          Save & restart
-        </Button>
+        <Tip content="Save the resource id and restart this project's agents so memory reattaches">
+          <span className="inline-flex">
+            <Button
+              size="sm"
+              disabled={!dirty || save.isPending}
+              onClick={() => save.mutate({ projectPath, resourceId: value.trim() || null })}
+            >
+              Save & restart
+            </Button>
+          </span>
+        </Tip>
       </div>
       {save.error && (
         <div className="text-xs text-destructive selectable">{save.error.message}</div>
@@ -617,42 +653,50 @@ function PluginsTab({ subchatId }: { subchatId: string | null }): React.JSX.Elem
         <code>.mastracode/plugins</code>; global to the shared app data dir.
       </div>
       <div className="flex gap-1.5">
-        <select
-          value={source}
-          onChange={(e) => setSource(e.target.value as 'local' | 'github')}
-          className="h-8 rounded-md border border-border bg-background px-2 text-xs"
-        >
-          <option value="local">local path</option>
-          <option value="github">github</option>
-        </select>
+        <Tip content="Where the plugin comes from — a folder on this machine or a GitHub repository">
+          <select
+            value={source}
+            onChange={(e) => setSource(e.target.value as 'local' | 'github')}
+            className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+          >
+            <option value="local">local path</option>
+            <option value="github">github</option>
+          </select>
+        </Tip>
         <Input
           placeholder={source === 'local' ? '/path/to/plugin' : 'https://github.com/org/repo'}
           value={pathOrUrl}
           onChange={(e) => setPathOrUrl(e.target.value)}
           className="font-mono text-[11px]"
         />
-        <select
-          value={installScope}
-          onChange={(e) => setInstallScope(e.target.value as 'global' | 'project')}
-          className="h-8 rounded-md border border-border bg-background px-2 text-xs"
-        >
-          <option value="project">project</option>
-          <option value="global">global</option>
-        </select>
-        <Button
-          size="sm"
-          disabled={!pathOrUrl.trim() || busy}
-          onClick={() =>
-            install.mutate({
-              subchatId,
-              source,
-              pathOrUrl: pathOrUrl.trim(),
-              scope: installScope
-            })
-          }
-        >
-          {install.isPending ? 'Installing…' : 'Install'}
-        </Button>
+        <Tip content="Install for this project only, or globally for every project on this machine">
+          <select
+            value={installScope}
+            onChange={(e) => setInstallScope(e.target.value as 'global' | 'project')}
+            className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+          >
+            <option value="project">project</option>
+            <option value="global">global</option>
+          </select>
+        </Tip>
+        <Tip content="Install the plugin and load its tools, skills, and commands into this chat's agent">
+          <span className="inline-flex">
+            <Button
+              size="sm"
+              disabled={!pathOrUrl.trim() || busy}
+              onClick={() =>
+                install.mutate({
+                  subchatId,
+                  source,
+                  pathOrUrl: pathOrUrl.trim(),
+                  scope: installScope
+                })
+              }
+            >
+              {install.isPending ? 'Installing…' : 'Install'}
+            </Button>
+          </span>
+        </Tip>
       </div>
       {plugins.isLoading && <div className="text-xs text-muted-foreground">Loading…</div>}
       {plugins.error && (
@@ -684,39 +728,48 @@ function PluginsTab({ subchatId }: { subchatId: string | null }): React.JSX.Elem
                   {p.status}
                 </span>
                 <span className="text-[10px] text-muted-foreground">{p.scope}</span>
-                <button
-                  title={enabled ? 'Disable plugin' : 'Enable plugin'}
-                  className="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
-                  disabled={busy}
-                  onClick={() =>
-                    setEnabled.mutate({ subchatId, pluginId: p.id, scope, enabled: !enabled })
+                <Tip
+                  content={
+                    enabled
+                      ? 'Disable this plugin — its tools, skills, and commands unload'
+                      : 'Enable this plugin — its tools, skills, and commands load'
                   }
                 >
-                  {enabled ? 'disable' : 'enable'}
-                </button>
-                <button
-                  title="Configure plugin"
-                  className="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
-                  onClick={() => setConfigFor(configFor === p.id ? null : p.id)}
-                >
-                  config
-                </button>
-                <button
-                  title="Uninstall plugin"
-                  className="text-muted-foreground hover:text-destructive cursor-pointer"
-                  disabled={busy}
-                  onClick={() => {
-                    void confirmDialog({
-                      title: 'Uninstall plugin?',
-                      description: `${p.name ?? p.id} will be removed (${scope} scope).`,
-                      confirmLabel: 'Uninstall'
-                    }).then((ok) => {
-                      if (ok) uninstall.mutate({ subchatId, pluginId: p.id, scope })
-                    })
-                  }}
-                >
-                  <Trash2 size={11} />
-                </button>
+                  <button
+                    className="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+                    disabled={busy}
+                    onClick={() =>
+                      setEnabled.mutate({ subchatId, pluginId: p.id, scope, enabled: !enabled })
+                    }
+                  >
+                    {enabled ? 'disable' : 'enable'}
+                  </button>
+                </Tip>
+                <Tip content="Set configuration key/value pairs for this plugin">
+                  <button
+                    className="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+                    onClick={() => setConfigFor(configFor === p.id ? null : p.id)}
+                  >
+                    config
+                  </button>
+                </Tip>
+                <Tip content="Uninstall this plugin and delete its files">
+                  <button
+                    className="text-muted-foreground hover:text-destructive cursor-pointer"
+                    disabled={busy}
+                    onClick={() => {
+                      void confirmDialog({
+                        title: 'Uninstall plugin?',
+                        description: `${p.name ?? p.id} will be removed (${scope} scope).`,
+                        confirmLabel: 'Uninstall'
+                      }).then((ok) => {
+                        if (ok) uninstall.mutate({ subchatId, pluginId: p.id, scope })
+                      })
+                    }}
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                </Tip>
               </div>
               {p.description && (
                 <div className="text-[10px] text-muted-foreground">{p.description}</div>
@@ -753,14 +806,54 @@ export function ProjectSettingsDialog({
   const [open, setOpen] = useAtom(projectSettingsOpenAtom)
   const [tab, setTab] = useAtom(projectSettingsTabAtom)
 
-  const tabs: Array<{ id: ProjectSettingsTab; label: string; icon: React.ReactNode }> = [
-    { id: 'general', label: 'General', icon: <Settings2 size={13} /> },
-    { id: 'mcp', label: 'MCP Servers', icon: <Server size={13} /> },
-    { id: 'hooks', label: 'Hooks', icon: <Webhook size={13} /> },
-    { id: 'commands', label: 'Commands', icon: <FileCode2 size={13} /> },
-    { id: 'instructions', label: 'Instructions', icon: <BookOpenText size={13} /> },
-    { id: 'resource', label: 'Resource', icon: <Database size={13} /> },
-    { id: 'plugins', label: 'Plugins', icon: <Puzzle size={13} /> }
+  const tabs: Array<{
+    id: ProjectSettingsTab
+    label: string
+    icon: React.ReactNode
+    tip: string
+  }> = [
+    {
+      id: 'general',
+      label: 'General',
+      icon: <Settings2 size={13} />,
+      tip: 'Rename or remove this project'
+    },
+    {
+      id: 'mcp',
+      label: 'MCP Servers',
+      icon: <Server size={13} />,
+      tip: 'External tool servers this project’s agents connect to'
+    },
+    {
+      id: 'hooks',
+      label: 'Hooks',
+      icon: <Webhook size={13} />,
+      tip: 'Shell commands run at agent lifecycle events'
+    },
+    {
+      id: 'commands',
+      label: 'Commands',
+      icon: <FileCode2 size={13} />,
+      tip: 'Custom /slash commands from markdown prompt files'
+    },
+    {
+      id: 'instructions',
+      label: 'Instructions',
+      icon: <BookOpenText size={13} />,
+      tip: 'Project-specific instructions prepended to the agent’s system prompt'
+    },
+    {
+      id: 'resource',
+      label: 'Resource',
+      icon: <Database size={13} />,
+      tip: 'Memory resource id — share agent memory across checkouts'
+    },
+    {
+      id: 'plugins',
+      label: 'Plugins',
+      icon: <Puzzle size={13} />,
+      tip: 'Install and manage plugins that add tools, skills, and commands'
+    }
   ]
 
   return (
@@ -773,17 +866,18 @@ export function ProjectSettingsDialog({
           <div className="flex gap-4">
             <div className="w-36 shrink-0 space-y-0.5">
               {tabs.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setTab(t.id)}
-                  className={cn(
-                    'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs cursor-pointer',
-                    tab === t.id ? 'bg-accent font-medium' : 'hover:bg-accent/50'
-                  )}
-                >
-                  {t.icon}
-                  {t.label}
-                </button>
+                <Tip key={t.id} content={t.tip} side="right">
+                  <button
+                    onClick={() => setTab(t.id)}
+                    className={cn(
+                      'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs cursor-pointer',
+                      tab === t.id ? 'bg-accent font-medium' : 'hover:bg-accent/50'
+                    )}
+                  >
+                    {t.icon}
+                    {t.label}
+                  </button>
+                </Tip>
               ))}
             </div>
             <div className="min-h-64 max-h-[65vh] min-w-0 flex-1 overflow-y-auto pr-1">

@@ -23,6 +23,7 @@ import {
 } from './lib/atoms'
 import { useAppShortcuts } from './lib/shortcuts'
 import { Button } from './components/ui/button'
+import { Tip } from './components/ui/tooltip'
 import { Sidebar } from './features/sidebar/Sidebar'
 import { BootErrorScreen } from './features/boot/BootErrorScreen'
 import { OnboardingWizard } from './features/onboarding/OnboardingWizard'
@@ -33,11 +34,31 @@ import { FilesView } from './features/file-viewer/FilesView'
 import { SettingsDialog } from './features/settings/SettingsDialog'
 import { ProjectSettingsDialog } from './features/project-settings/ProjectSettingsDialog'
 
-const TABS: Array<{ id: MainTab; label: string; icon: React.ReactNode }> = [
-  { id: 'chat', label: 'Chat', icon: <MessageSquare size={13} /> },
-  { id: 'changes', label: 'Changes', icon: <GitCompare size={13} /> },
-  { id: 'terminal', label: 'Terminal', icon: <TerminalSquare size={13} /> },
-  { id: 'files', label: 'Files', icon: <FileCode2 size={13} /> }
+const TABS: Array<{ id: MainTab; label: string; icon: React.ReactNode; tip: string }> = [
+  {
+    id: 'chat',
+    label: 'Chat',
+    icon: <MessageSquare size={13} />,
+    tip: 'Talk to the agent — send prompts, review its replies, and approve tool calls'
+  },
+  {
+    id: 'changes',
+    label: 'Changes',
+    icon: <GitCompare size={13} />,
+    tip: 'Review diffs of what the agent changed, then stage, commit, and push'
+  },
+  {
+    id: 'terminal',
+    label: 'Terminal',
+    icon: <TerminalSquare size={13} />,
+    tip: 'Shell in the chat worktree (or project root) — ⌘J toggles it'
+  },
+  {
+    id: 'files',
+    label: 'Files',
+    icon: <FileCode2 size={13} />,
+    tip: 'Browse and read files in the chat worktree (or project root)'
+  }
 ]
 
 function useThemeEffect(): void {
@@ -124,25 +145,28 @@ export default function App(): React.JSX.Element {
         {/* Tab bar / titlebar drag region */}
         <div className="titlebar-drag flex h-10 shrink-0 items-center gap-1 border-b border-border px-3">
           {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={cn(
-                'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs cursor-pointer',
-                tab === t.id
-                  ? 'bg-accent font-medium'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {t.icon}
-              {t.label}
-            </button>
+            <Tip key={t.id} content={t.tip} side="bottom">
+              <button
+                onClick={() => setTab(t.id)}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs cursor-pointer',
+                  tab === t.id
+                    ? 'bg-accent font-medium'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {t.icon}
+                {t.label}
+              </button>
+            </Tip>
           ))}
           <div className="flex-1" />
           {chat.data?.branch && (
-            <span className="truncate font-mono text-xs text-muted-foreground">
-              {chat.data.branch}
-            </span>
+            <Tip content="Git branch of this chat's isolated worktree" side="bottom">
+              <span className="truncate font-mono text-xs text-muted-foreground">
+                {chat.data.branch}
+              </span>
+            </Tip>
           )}
         </div>
 
@@ -183,18 +207,23 @@ export default function App(): React.JSX.Element {
                     {(chat.data?.subchats.length ?? 0) > 1 && (
                       <div className="flex shrink-0 items-center gap-1 border-b border-border px-3 py-1">
                         {chat.data!.subchats.map((sc, i) => (
-                          <button
+                          <Tip
                             key={sc.id}
-                            onClick={() => setSubchatId(sc.id)}
-                            className={cn(
-                              'rounded px-2 py-0.5 text-[11px] cursor-pointer',
-                              subchatId === sc.id
-                                ? 'bg-accent font-medium'
-                                : 'text-muted-foreground hover:text-foreground'
-                            )}
+                            content="Switch to this conversation tab (each tab has its own transcript)"
+                            side="bottom"
                           >
-                            Tab {i + 1}
-                          </button>
+                            <button
+                              onClick={() => setSubchatId(sc.id)}
+                              className={cn(
+                                'rounded px-2 py-0.5 text-[11px] cursor-pointer',
+                                subchatId === sc.id
+                                  ? 'bg-accent font-medium'
+                                  : 'text-muted-foreground hover:text-foreground'
+                              )}
+                            >
+                              Tab {i + 1}
+                            </button>
+                          </Tip>
                         ))}
                       </div>
                     )}

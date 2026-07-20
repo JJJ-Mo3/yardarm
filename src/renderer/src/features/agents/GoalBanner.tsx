@@ -6,6 +6,7 @@ import React, { useEffect } from 'react'
 import { Target, X } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
+import { Tip } from '../../components/ui/tooltip'
 import type { GoalEvaluationInfo } from '../../../../shared/ui-message'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -54,14 +55,15 @@ export function GoalBanner({
             : ''}
         </div>
       </div>
-      <button
-        title="Clear goal"
-        disabled={goalClear.isPending}
-        onClick={() => goalClear.mutate({ subchatId })}
-        className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground cursor-pointer"
-      >
-        <X size={12} />
-      </button>
+      <Tip content="Clear this goal — the judge stops evaluating runs against it">
+        <button
+          disabled={goalClear.isPending}
+          onClick={() => goalClear.mutate({ subchatId })}
+          className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground cursor-pointer"
+        >
+          <X size={12} />
+        </button>
+      </Tip>
     </div>
   )
 }

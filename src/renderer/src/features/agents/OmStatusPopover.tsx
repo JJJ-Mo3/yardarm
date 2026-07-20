@@ -9,6 +9,7 @@ import { trpc } from '../../lib/trpc'
 import { Input } from '../../components/ui/input'
 import { Switch } from '../../components/ui/switch'
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
+import { Tip } from '../../components/ui/tooltip'
 import {
   Select,
   SelectContent,
@@ -99,15 +100,14 @@ export function OmStatusPopover({
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>
-        <button
-          title="Observational Memory (/om)"
-          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
-        >
-          <Brain size={11} />
-          om
-        </button>
-      </PopoverTrigger>
+      <Tip content="Observational Memory — the agent's long-term memory of this project; click to view status and tune models/thresholds (/om)">
+        <PopoverTrigger asChild>
+          <button className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer">
+            <Brain size={11} />
+            om
+          </button>
+        </PopoverTrigger>
+      </Tip>
       <PopoverContent align="end" className="w-80">
         <div className="mb-1.5 text-xs font-medium">Observational Memory</div>
         {om.isLoading && <div className="text-[11px] text-muted-foreground">Loading…</div>}
@@ -126,9 +126,17 @@ export function OmStatusPopover({
                   disabled={busy}
                   onValueChange={(v) => omSet.mutate({ subchatId, patch: { [field]: v } })}
                 >
-                  <SelectTrigger className="h-6 max-w-44 text-[11px]">
-                    <SelectValue placeholder="default" />
-                  </SelectTrigger>
+                  <Tip
+                    content={
+                      field === 'observerModelId'
+                        ? 'Model that watches the conversation and records observations'
+                        : 'Model that condenses accumulated observations into reflections'
+                    }
+                  >
+                    <SelectTrigger className="h-6 max-w-44 text-[11px]">
+                      <SelectValue placeholder="default" />
+                    </SelectTrigger>
+                  </Tip>
                   <SelectContent>
                     {(models.data ?? [])
                       .filter((m) => m.hasApiKey)
@@ -149,27 +157,41 @@ export function OmStatusPopover({
             ))}
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11px] text-muted-foreground">Observation threshold</span>
-              <ThresholdField
-                value={info.observationThreshold}
-                disabled={busy}
-                onCommit={(n) => omSet.mutate({ subchatId, patch: { observationThreshold: n } })}
-              />
+              <Tip content="Token count that triggers an observation pass (minimum 1000)">
+                <span className="inline-flex">
+                  <ThresholdField
+                    value={info.observationThreshold}
+                    disabled={busy}
+                    onCommit={(n) => omSet.mutate({ subchatId, patch: { observationThreshold: n } })}
+                  />
+                </span>
+              </Tip>
             </div>
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11px] text-muted-foreground">Reflection threshold</span>
-              <ThresholdField
-                value={info.reflectionThreshold}
-                disabled={busy}
-                onCommit={(n) => omSet.mutate({ subchatId, patch: { reflectionThreshold: n } })}
-              />
+              <Tip content="Observation token count that triggers a reflection pass (minimum 1000)">
+                <span className="inline-flex">
+                  <ThresholdField
+                    value={info.reflectionThreshold}
+                    disabled={busy}
+                    onCommit={(n) => omSet.mutate({ subchatId, patch: { reflectionThreshold: n } })}
+                  />
+                </span>
+              </Tip>
             </div>
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11px] text-muted-foreground">Caveman observations</span>
-              <Switch
-                checked={info.cavemanObservations ?? false}
-                disabled={busy}
-                onCheckedChange={(v) => omSet.mutate({ subchatId, patch: { cavemanObservations: v } })}
-              />
+              <Tip content="Store observations in terse shorthand to use fewer tokens">
+                <span className="inline-flex">
+                  <Switch
+                    checked={info.cavemanObservations ?? false}
+                    disabled={busy}
+                    onCheckedChange={(v) =>
+                      omSet.mutate({ subchatId, patch: { cavemanObservations: v } })
+                    }
+                  />
+                </span>
+              </Tip>
             </div>
             {info.omScope && (
               <div className="text-[10px] text-muted-foreground">scope: {info.omScope}</div>

@@ -27,6 +27,7 @@ import { Input } from '../../components/ui/input'
 import { Textarea } from '../../components/ui/textarea'
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
 import { Switch } from '../../components/ui/switch'
+import { Tip } from '../../components/ui/tooltip'
 import { AboutTab } from './AboutTab'
 import { BrowserTab } from './BrowserTab'
 import { ModelsTab } from './ModelsTab'
@@ -46,22 +47,32 @@ function AppearanceTab(): React.JSX.Element {
         <div className="mb-2 text-xs font-medium">Theme</div>
         <div className="flex gap-2">
           {(['light', 'dark', 'system'] as Theme[]).map((t) => (
-            <Button
+            <Tip
               key={t}
-              size="sm"
-              variant={theme === t ? 'default' : 'outline'}
-              className="capitalize"
-              onClick={() => setTheme(t)}
+              content={
+                t === 'system'
+                  ? 'Follow the macOS light/dark appearance automatically'
+                  : `Always use the ${t} theme`
+              }
             >
-              {t}
-            </Button>
+              <Button
+                size="sm"
+                variant={theme === t ? 'default' : 'outline'}
+                className="capitalize"
+                onClick={() => setTheme(t)}
+              >
+                {t}
+              </Button>
+            </Tip>
           ))}
         </div>
       </div>
-      <label className="flex items-center gap-2 text-xs">
-        <Switch checked={debug} onCheckedChange={setDebug} />
-        Show raw agent event debug pane
-      </label>
+      <Tip content="Show a developer pane in chats with the raw event stream from the agent process">
+        <label className="flex w-fit items-center gap-2 text-xs">
+          <Switch checked={debug} onCheckedChange={setDebug} />
+          Show raw agent event debug pane
+        </label>
+      </Tip>
     </div>
   )
 }
@@ -113,13 +124,14 @@ export function KeysTab(): React.JSX.Element {
           >
             <span className="flex-1 text-xs font-medium capitalize">{entry.provider}</span>
             <span className="font-mono text-[11px] text-muted-foreground">••••••••</span>
-            <button
-              title="Remove key"
-              className="text-muted-foreground hover:text-destructive cursor-pointer"
-              onClick={() => removeKey.mutate({ provider: entry.provider })}
-            >
-              <Trash2 size={12} />
-            </button>
+            <Tip content="Delete this API key — models from this provider become unavailable">
+              <button
+                className="text-muted-foreground hover:text-destructive cursor-pointer"
+                onClick={() => removeKey.mutate({ provider: entry.provider })}
+              >
+                <Trash2 size={12} />
+              </button>
+            </Tip>
           </div>
         ))}
         {!auth.isLoading && stored.length === 0 && (
@@ -144,13 +156,17 @@ export function KeysTab(): React.JSX.Element {
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
         />
-        <Button
-          size="sm"
-          disabled={!apiKey.trim() || setKey.isPending}
-          onClick={() => setKey.mutate({ provider, apiKey: apiKey.trim() })}
-        >
-          Save
-        </Button>
+        <Tip content="Store this API key and unlock the provider's models">
+          <span className="inline-flex">
+            <Button
+              size="sm"
+              disabled={!apiKey.trim() || setKey.isPending}
+              onClick={() => setKey.mutate({ provider, apiKey: apiKey.trim() })}
+            >
+              Save
+            </Button>
+          </span>
+        </Tip>
       </div>
       {setKey.error && (
         <div className="text-xs text-destructive selectable">{setKey.error.message}</div>
@@ -200,20 +216,24 @@ function McpTab(): React.JSX.Element {
         spellCheck={false}
       />
       <div className="flex items-center gap-2">
-        <Button
-          size="sm"
-          disabled={!dirty || save.isPending}
-          onClick={() => {
-            try {
-              const parsed = JSON.parse(text) as Record<string, Record<string, unknown>>
-              save.mutate({ servers: parsed })
-            } catch {
-              setError('Invalid JSON')
-            }
-          }}
-        >
-          Save & restart agents
-        </Button>
+        <Tip content="Write mcp.json and restart agent processes so the new servers load">
+          <span className="inline-flex">
+            <Button
+              size="sm"
+              disabled={!dirty || save.isPending}
+              onClick={() => {
+                try {
+                  const parsed = JSON.parse(text) as Record<string, Record<string, unknown>>
+                  save.mutate({ servers: parsed })
+                } catch {
+                  setError('Invalid JSON')
+                }
+              }}
+            >
+              Save & restart agents
+            </Button>
+          </span>
+        </Tip>
         {error && <span className="text-xs text-destructive">{error}</span>}
         {save.error && (
           <span className="text-xs text-destructive selectable">{save.error.message}</span>
@@ -227,16 +247,56 @@ export function SettingsDialog(): React.JSX.Element {
   const [open, setOpen] = useAtom(settingsOpenAtom)
   const [tab, setTab] = useAtom(settingsTabAtom)
 
-  const tabs: Array<{ id: SettingsTab; label: string; icon: React.ReactNode }> = [
-    { id: 'appearance', label: 'Appearance', icon: <Palette size={13} /> },
-    { id: 'preferences', label: 'Preferences', icon: <SlidersHorizontal size={13} /> },
-    { id: 'keys', label: 'API Keys', icon: <KeyRound size={13} /> },
-    { id: 'models', label: 'Models', icon: <Boxes size={13} /> },
-    { id: 'providers', label: 'Providers', icon: <Plug size={13} /> },
-    { id: 'voice', label: 'Voice', icon: <Mic size={13} /> },
-    { id: 'browser', label: 'Browser', icon: <Globe size={13} /> },
-    { id: 'mcp', label: 'MCP Servers', icon: <Server size={13} /> },
-    { id: 'about', label: 'About', icon: <Info size={13} /> }
+  const tabs: Array<{ id: SettingsTab; label: string; icon: React.ReactNode; tip: string }> = [
+    {
+      id: 'appearance',
+      label: 'Appearance',
+      icon: <Palette size={13} />,
+      tip: 'Theme and debug pane'
+    },
+    {
+      id: 'preferences',
+      label: 'Preferences',
+      icon: <SlidersHorizontal size={13} />,
+      tip: 'Agent behavior — approvals, notifications, output limits'
+    },
+    {
+      id: 'keys',
+      label: 'API Keys',
+      icon: <KeyRound size={13} />,
+      tip: 'Provider API keys and OAuth logins'
+    },
+    {
+      id: 'models',
+      label: 'Models',
+      icon: <Boxes size={13} />,
+      tip: 'Default models per mode, model packs, and thresholds'
+    },
+    {
+      id: 'providers',
+      label: 'Providers',
+      icon: <Plug size={13} />,
+      tip: 'Local model providers like Ollama and LM Studio'
+    },
+    { id: 'voice', label: 'Voice', icon: <Mic size={13} />, tip: 'Voice input settings' },
+    {
+      id: 'browser',
+      label: 'Browser',
+      icon: <Globe size={13} />,
+      tip: 'Browser automation settings for web tools'
+    },
+    {
+      id: 'mcp',
+      label: 'MCP Servers',
+      icon: <Server size={13} />,
+      tip: 'External tool servers (Model Context Protocol) available to agents'
+    },
+    {
+      id: 'about',
+      label: 'About',
+      icon: <Info size={13} />,
+      tip: 'Versions, runtime status, and diagnostics'
+    }
   ]
 
   return (
@@ -246,17 +306,18 @@ export function SettingsDialog(): React.JSX.Element {
         <div className="flex gap-4">
           <div className="w-36 shrink-0 space-y-0.5">
             {tabs.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className={cn(
-                  'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs cursor-pointer',
-                  tab === t.id ? 'bg-accent font-medium' : 'hover:bg-accent/50'
-                )}
-              >
-                {t.icon}
-                {t.label}
-              </button>
+              <Tip key={t.id} content={t.tip} side="right">
+                <button
+                  onClick={() => setTab(t.id)}
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs cursor-pointer',
+                    tab === t.id ? 'bg-accent font-medium' : 'hover:bg-accent/50'
+                  )}
+                >
+                  {t.icon}
+                  {t.label}
+                </button>
+              </Tip>
             ))}
           </div>
           <div className="min-h-72 flex-1">

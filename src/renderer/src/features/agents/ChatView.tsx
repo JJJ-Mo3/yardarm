@@ -23,6 +23,7 @@ import {
   SelectValue
 } from '../../components/ui/select'
 import { Switch } from '../../components/ui/switch'
+import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { useAgentStream } from './use-agent-stream'
 import { MessageList, INTERACTIVE_TOOLS } from './MessageList'
@@ -311,9 +312,11 @@ export function ChatView({
           value={meta.mode ?? 'build'}
           onValueChange={(modeId) => setMode.mutate({ subchatId, modeId })}
         >
-          <SelectTrigger className="w-20 capitalize">
-            <SelectValue />
-          </SelectTrigger>
+          <Tip content="Agent mode — build edits files and runs tools; plan researches and proposes a plan first" side="bottom">
+            <SelectTrigger className="w-20 capitalize">
+              <SelectValue />
+            </SelectTrigger>
+          </Tip>
           <SelectContent>
             {MODES.map((m) => (
               <SelectItem key={m} value={m} className="capitalize">
@@ -333,9 +336,11 @@ export function ChatView({
               value={meta.modelId ?? ''}
               onValueChange={(modelId) => setModel.mutate({ subchatId, modelId })}
             >
-              <SelectTrigger className="max-w-56">
-                <SelectValue placeholder="Model" />
-              </SelectTrigger>
+              <Tip content="Model used for this chat (configure more in Settings → Models)" side="bottom">
+                <SelectTrigger className="max-w-56">
+                  <SelectValue placeholder="Model" />
+                </SelectTrigger>
+              </Tip>
               <SelectContent>
                 {usable.map((m) => (
                   <SelectItem key={m.id} value={m.id}>
@@ -354,22 +359,24 @@ export function ChatView({
 
         {models.data && models.data.length > 0 && !models.data.some((m) => m.hasApiKey) && (
           <>
-            <button
-              title="No provider is authenticated — add an API key or log in"
-              className="flex items-center gap-1 rounded-md border border-amber-600/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-500 hover:bg-amber-500/20 cursor-pointer"
-              onClick={() => openSettings('keys')}
-            >
-              <KeyRound size={11} />
-              Add API key
-            </button>
-            <button
-              title="Run a model on your own machine with Ollama, LM Studio, and more"
-              className="flex items-center gap-1 rounded-md border border-amber-600/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-500 hover:bg-amber-500/20 cursor-pointer"
-              onClick={() => openSettings('providers')}
-            >
-              <Server size={11} />
-              Use a local model
-            </button>
+            <Tip content="No provider is authenticated — add an API key or log in" side="bottom">
+              <button
+                className="flex items-center gap-1 rounded-md border border-amber-600/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-500 hover:bg-amber-500/20 cursor-pointer"
+                onClick={() => openSettings('keys')}
+              >
+                <KeyRound size={11} />
+                Add API key
+              </button>
+            </Tip>
+            <Tip content="Run a model on your own machine with Ollama, LM Studio, and more" side="bottom">
+              <button
+                className="flex items-center gap-1 rounded-md border border-amber-600/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-500 hover:bg-amber-500/20 cursor-pointer"
+                onClick={() => openSettings('providers')}
+              >
+                <Server size={11} />
+                Use a local model
+              </button>
+            </Tip>
           </>
         )}
 
@@ -377,9 +384,11 @@ export function ChatView({
           value={meta.thinkingLevel ?? 'off'}
           onValueChange={(level) => setThinking.mutate({ subchatId, level })}
         >
-          <SelectTrigger className="w-24">
-            <SelectValue placeholder="Thinking" />
-          </SelectTrigger>
+          <Tip content="Extended thinking — higher levels let the model reason longer before answering (slower, better on hard problems)" side="bottom">
+            <SelectTrigger className="w-24">
+              <SelectValue placeholder="Thinking" />
+            </SelectTrigger>
+          </Tip>
           <SelectContent>
             {THINKING.map((t) => (
               <SelectItem key={t} value={t}>
@@ -389,28 +398,29 @@ export function ChatView({
           </SelectContent>
         </Select>
 
-        <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground ml-1">
-          <Switch
-            checked={meta.yolo ?? false}
-            onCheckedChange={(yolo) => setYolo.mutate({ subchatId, yolo })}
-          />
-          auto-approve
-        </label>
+        <Tip content="Let the agent run tools and edit files without asking for approval each time" side="bottom">
+          <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground ml-1">
+            <Switch
+              checked={meta.yolo ?? false}
+              onCheckedChange={(yolo) => setYolo.mutate({ subchatId, yolo })}
+            />
+            auto-approve
+          </label>
+        </Tip>
 
         <div className="flex-1" />
 
         {state.approvals.length + state.suspensions.length > 0 && (
-          <Badge className="border-amber-500/50 text-amber-500">
-            {state.approvals.length + state.suspensions.length} pending
-          </Badge>
+          <Tip content="Requests waiting for your approval below" side="bottom">
+            <Badge className="border-amber-500/50 text-amber-500">
+              {state.approvals.length + state.suspensions.length} pending
+            </Badge>
+          </Tip>
         )}
         {state.queued > 0 && (
-          <Badge
-            className="border-sky-500/50 text-sky-500"
-            title="Messages queued behind the active run"
-          >
-            {state.queued} queued
-          </Badge>
+          <Tip content="Messages queued behind the active run — they'll be sent when it finishes" side="bottom">
+            <Badge className="border-sky-500/50 text-sky-500">{state.queued} queued</Badge>
+          </Tip>
         )}
         <ThreadsPopover subchatId={subchatId} open={threadsOpen} onOpenChange={setThreadsOpen} />
         <OmStatusPopover
@@ -538,13 +548,14 @@ export function ChatView({
             }
           >
             <span className="min-w-0 flex-1 selectable">{rollbackNotice.text}</span>
-            <button
-              title="Dismiss"
-              className="shrink-0 cursor-pointer opacity-70 hover:opacity-100"
-              onClick={() => setRollbackNotice(null)}
-            >
-              ×
-            </button>
+            <Tip content="Dismiss this notice">
+              <button
+                className="shrink-0 cursor-pointer opacity-70 hover:opacity-100"
+                onClick={() => setRollbackNotice(null)}
+              >
+                ×
+              </button>
+            </Tip>
           </div>
         </div>
       )}
@@ -559,13 +570,14 @@ export function ChatView({
               <span className="min-w-0 flex-1 selectable">
                 {label} failed: {m.error?.message}
               </span>
-              <button
-                title="Dismiss"
-                className="shrink-0 cursor-pointer text-destructive/70 hover:text-destructive"
-                onClick={() => m.reset()}
-              >
-                ×
-              </button>
+              <Tip content="Dismiss this error">
+                <button
+                  className="shrink-0 cursor-pointer text-destructive/70 hover:text-destructive"
+                  onClick={() => m.reset()}
+                >
+                  ×
+                </button>
+              </Tip>
             </div>
           ))}
         </div>

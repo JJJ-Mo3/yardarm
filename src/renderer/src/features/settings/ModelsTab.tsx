@@ -6,6 +6,7 @@ import { settingsTabAtom } from '../../lib/atoms'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Switch } from '../../components/ui/switch'
+import { Tip } from '../../components/ui/tooltip'
 
 const MODES = ['build', 'plan', 'fast'] as const
 const SUBAGENT_TYPES = ['explore', 'plan', 'general'] as const
@@ -172,20 +173,24 @@ export function ModelsTab(): React.JSX.Element {
               value={packName}
               onChange={(e) => setPackName(e.target.value)}
             />
-            <Button
-              size="sm"
-              className="h-7 px-2 text-[11px]"
-              disabled={
-                !packName.trim() ||
-                !Object.keys(m.modeDefaults ?? {}).length ||
-                saveCustomPack.isPending
-              }
-              onClick={() =>
-                saveCustomPack.mutate({ name: packName.trim(), models: m.modeDefaults ?? {} })
-              }
-            >
-              Save pack
-            </Button>
+            <Tip content="Save the current per-mode defaults as a reusable custom pack">
+              <span className="inline-flex">
+                <Button
+                  size="sm"
+                  className="h-7 px-2 text-[11px]"
+                  disabled={
+                    !packName.trim() ||
+                    !Object.keys(m.modeDefaults ?? {}).length ||
+                    saveCustomPack.isPending
+                  }
+                  onClick={() =>
+                    saveCustomPack.mutate({ name: packName.trim(), models: m.modeDefaults ?? {} })
+                  }
+                >
+                  Save pack
+                </Button>
+              </span>
+            </Tip>
           </div>
           {customPacks.map((p) => (
             <div
@@ -196,13 +201,14 @@ export function ModelsTab(): React.JSX.Element {
               <span className="text-[10px] text-muted-foreground">
                 {Object.keys(p.models).length} models
               </span>
-              <button
-                title="Delete custom pack"
-                className="text-muted-foreground hover:text-destructive cursor-pointer"
-                onClick={() => deleteCustomPack.mutate({ name: p.name })}
-              >
-                <Trash2 size={12} />
-              </button>
+              <Tip content="Delete this custom pack">
+                <button
+                  className="text-muted-foreground hover:text-destructive cursor-pointer"
+                  onClick={() => deleteCustomPack.mutate({ name: p.name })}
+                >
+                  <Trash2 size={12} />
+                </button>
+              </Tip>
             </div>
           ))}
         </div>
@@ -267,6 +273,7 @@ export function ModelsTab(): React.JSX.Element {
           </div>
           <div className="flex items-center gap-2">
             <span className="w-16 text-[11px] text-muted-foreground">Max turns</span>
+            <Tip content="Maximum agent runs before a goal pauses (empty = default)">
             <Input
               type="number"
               min={1}
@@ -281,6 +288,7 @@ export function ModelsTab(): React.JSX.Element {
                 }
               }}
             />
+            </Tip>
           </div>
         </div>
       </div>
@@ -333,47 +341,51 @@ export function ModelsTab(): React.JSX.Element {
           </div>
           <div className="flex items-center gap-2">
             <span className="w-16 text-[11px] text-muted-foreground">Observe @</span>
-            <Input
-              type="number"
-              min={OM_THRESHOLD_MIN}
-              step={1000}
-              className="h-7 w-24 text-[11px]"
-              defaultValue={m.omObservationThreshold ?? ''}
-              placeholder="30000"
-              title={`Observation token threshold (min ${OM_THRESHOLD_MIN}; empty = default 30000)`}
-              onBlur={(e) => {
-                const n = clampOmThreshold(e.target.value)
-                if (n !== null) e.target.value = String(n)
-                if (n !== (m.omObservationThreshold ?? null)) {
-                  setOmDefaults.mutate({ omObservationThreshold: n })
-                }
-              }}
-            />
+            <Tip content={`Observation token threshold (min ${OM_THRESHOLD_MIN}; empty = default 30000)`}>
+              <Input
+                type="number"
+                min={OM_THRESHOLD_MIN}
+                step={1000}
+                className="h-7 w-24 text-[11px]"
+                defaultValue={m.omObservationThreshold ?? ''}
+                placeholder="30000"
+                onBlur={(e) => {
+                  const n = clampOmThreshold(e.target.value)
+                  if (n !== null) e.target.value = String(n)
+                  if (n !== (m.omObservationThreshold ?? null)) {
+                    setOmDefaults.mutate({ omObservationThreshold: n })
+                  }
+                }}
+              />
+            </Tip>
             <span className="w-16 text-[11px] text-muted-foreground">Reflect @</span>
-            <Input
-              type="number"
-              min={OM_THRESHOLD_MIN}
-              step={1000}
-              className="h-7 w-24 text-[11px]"
-              defaultValue={m.omReflectionThreshold ?? ''}
-              placeholder="40000"
-              title={`Reflection token threshold (min ${OM_THRESHOLD_MIN}; empty = default 40000)`}
-              onBlur={(e) => {
-                const n = clampOmThreshold(e.target.value)
-                if (n !== null) e.target.value = String(n)
-                if (n !== (m.omReflectionThreshold ?? null)) {
-                  setOmDefaults.mutate({ omReflectionThreshold: n })
-                }
-              }}
-            />
+            <Tip content={`Reflection token threshold (min ${OM_THRESHOLD_MIN}; empty = default 40000)`}>
+              <Input
+                type="number"
+                min={OM_THRESHOLD_MIN}
+                step={1000}
+                className="h-7 w-24 text-[11px]"
+                defaultValue={m.omReflectionThreshold ?? ''}
+                placeholder="40000"
+                onBlur={(e) => {
+                  const n = clampOmThreshold(e.target.value)
+                  if (n !== null) e.target.value = String(n)
+                  if (n !== (m.omReflectionThreshold ?? null)) {
+                    setOmDefaults.mutate({ omReflectionThreshold: n })
+                  }
+                }}
+              />
+            </Tip>
           </div>
-          <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            <Switch
-              checked={m.omCavemanObservations ?? false}
-              onCheckedChange={(v) => setOmDefaults.mutate({ omCavemanObservations: v })}
-            />
-            Terse (caveman-style) observations
-          </label>
+          <Tip content="Store observations in terse shorthand to use fewer tokens">
+            <label className="flex w-fit items-center gap-2 text-[11px] text-muted-foreground">
+              <Switch
+                checked={m.omCavemanObservations ?? false}
+                onCheckedChange={(v) => setOmDefaults.mutate({ omCavemanObservations: v })}
+              />
+              Terse (caveman-style) observations
+            </label>
+          </Tip>
         </div>
       </div>
 
@@ -382,14 +394,18 @@ export function ModelsTab(): React.JSX.Element {
       {dirty && (
         <div className="flex items-center gap-2 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1.5">
           <span className="flex-1 text-[11px]">Saved. Restart agents to apply.</span>
-          <Button
-            size="sm"
-            className="h-6 px-2 text-[11px]"
-            disabled={applyRestart.isPending}
-            onClick={() => applyRestart.mutate()}
-          >
-            Restart agents
-          </Button>
+          <Tip content="Restart all agent processes now so the saved defaults take effect">
+            <span className="inline-flex">
+              <Button
+                size="sm"
+                className="h-6 px-2 text-[11px]"
+                disabled={applyRestart.isPending}
+                onClick={() => applyRestart.mutate()}
+              >
+                Restart agents
+              </Button>
+            </span>
+          </Tip>
         </div>
       )}
     </div>
