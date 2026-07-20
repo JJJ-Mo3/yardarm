@@ -160,14 +160,6 @@ export default function App(): React.JSX.Element {
               </button>
             </Tip>
           ))}
-          <div className="flex-1" />
-          {chat.data?.branch && (
-            <Tip content="Git branch of this chat's isolated worktree" side="bottom">
-              <span className="truncate font-mono text-xs text-muted-foreground">
-                {chat.data.branch}
-              </span>
-            </Tip>
-          )}
         </div>
 
         <div className="min-h-0 flex-1">

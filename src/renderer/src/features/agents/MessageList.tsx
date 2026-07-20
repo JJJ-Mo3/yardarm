@@ -323,7 +323,7 @@ export function MessageList({
         if (!el) return
         stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60
       }}
-      className="flex-1 overflow-y-auto px-4 py-3 space-y-3"
+      className="flex-1 overflow-y-auto px-8 py-3 space-y-3"
     >
       {messages.length === 0 && !running && (
         <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
