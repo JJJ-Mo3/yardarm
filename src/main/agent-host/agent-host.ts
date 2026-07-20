@@ -355,12 +355,32 @@ async function main(): Promise<void> {
           case 'alwaysAllowTool':
             await session.permissions.setForTool({ toolName: cmd.toolName, policy: 'allow' })
             break
-          case 'suspension':
+          case 'suspension': {
+            // SDK quirk: resumeToolCall re-enters the tool-approval gate with
+            // requireToolApproval on, and only exempts ask_user/request_access.
+            // submit_plan resumes ({action: 'approved'|'rejected', ...}) carry no
+            // `approved` key, so the gate auto-denies them ("Tool call was not
+            // approved by the user") and the plan decision/feedback never reaches
+            // the tool. Spread in `approved: true` (approve the tool-call
+            // execution — the plan verdict itself is carried by `action`); the
+            // tool's zod resume schema strips the extra key.
+            let resumeData = cmd.resumeData
+            const pending = session.displayState.get().pendingSuspensions.get(cmd.toolCallId)
+            if (
+              pending?.toolName === 'submit_plan' &&
+              resumeData !== null &&
+              typeof resumeData === 'object' &&
+              !Array.isArray(resumeData) &&
+              !('approved' in resumeData)
+            ) {
+              resumeData = { ...(resumeData as Record<string, unknown>), approved: true }
+            }
             await session.respondToToolSuspension({
-              resumeData: cmd.resumeData,
+              resumeData,
               toolCallId: cmd.toolCallId
             })
             break
+          }
           case 'abort':
             session.abort()
             break
