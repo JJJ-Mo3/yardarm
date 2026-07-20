@@ -4,7 +4,15 @@ import path from 'node:path'
 import { z } from 'zod'
 import { publicProcedure, router } from '../trpc'
 
-const IGNORED = new Set(['.git', 'node_modules', '.DS_Store', 'dist', 'out', '.next', '__pycache__'])
+const IGNORED = new Set([
+  '.git',
+  'node_modules',
+  '.DS_Store',
+  'dist',
+  'out',
+  '.next',
+  '__pycache__'
+])
 const MAX_FILE_BYTES = 2 * 1024 * 1024
 
 export interface FileNode {
@@ -43,7 +51,12 @@ async function readTree(root: string, rel: string, depth: number): Promise<FileN
   return nodes
 }
 
-async function listAllFiles(root: string, rel = '', acc: string[] = [], limit = 5000): Promise<string[]> {
+async function listAllFiles(
+  root: string,
+  rel = '',
+  acc: string[] = [],
+  limit = 5000
+): Promise<string[]> {
   if (acc.length >= limit) return acc
   const abs = path.join(root, rel)
   let entries: Dirent[]
@@ -71,7 +84,13 @@ function resolveWithin(root: string, relPath: string): string {
 
 export const filesRouter = router({
   tree: publicProcedure
-    .input(z.object({ root: z.string(), dir: z.string().default(''), depth: z.number().int().min(0).max(3).default(0) }))
+    .input(
+      z.object({
+        root: z.string(),
+        dir: z.string().default(''),
+        depth: z.number().int().min(0).max(3).default(0)
+      })
+    )
     .query(({ input }) => {
       resolveWithin(input.root, input.dir || '.')
       return readTree(input.root, input.dir, input.depth)
@@ -92,7 +111,9 @@ export const filesRouter = router({
 
   /** Substring/fuzzy filename search for @-mentions. */
   search: publicProcedure
-    .input(z.object({ root: z.string(), query: z.string(), limit: z.number().int().max(50).default(20) }))
+    .input(
+      z.object({ root: z.string(), query: z.string(), limit: z.number().int().max(50).default(20) })
+    )
     .query(async ({ input }) => {
       const all = await listAllFiles(input.root)
       const q = input.query.toLowerCase()

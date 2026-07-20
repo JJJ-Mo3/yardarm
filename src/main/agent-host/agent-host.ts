@@ -671,9 +671,10 @@ async function main(): Promise<void> {
               if (skill['user-invocable'] === false) {
                 throw new Error(`Skill is not user-invocable: ${cmd.name}`)
               }
-              const ws = await runtimeImport<typeof import('@mastra/core/workspace')>(
-                '@mastra/core/workspace'
-              )
+              const ws =
+                await runtimeImport<typeof import('@mastra/core/workspace')>(
+                  '@mastra/core/workspace'
+                )
               let content = ws.formatSkillActivation(skill)
               const args = cmd.args.trim()
               if (args) content += `\n\nARGUMENTS: ${args}`
@@ -734,9 +735,9 @@ async function main(): Promise<void> {
             break
           case 'sttRegistry':
             await respond(cmd.reqId, async () => {
-              const stt = await runtimeImport<
-                typeof import('@mastra/code-sdk/voice/stt-registry')
-              >('@mastra/code-sdk/voice/stt-registry')
+              const stt = await runtimeImport<typeof import('@mastra/code-sdk/voice/stt-registry')>(
+                '@mastra/code-sdk/voice/stt-registry'
+              )
               return stt.STT_MODELS.map((m) => ({
                 provider: m.provider,
                 model: m.model,
@@ -908,6 +909,9 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  post({ t: 'boot-error', error: err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err) })
+  post({
+    t: 'boot-error',
+    error: err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err)
+  })
   process.exit(1)
 })

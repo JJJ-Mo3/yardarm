@@ -40,7 +40,12 @@ export interface TranslatorCallbacks {
   emit: (event: AgentUIEvent) => void
   persistMessage: (message: StoredMessage) => void
   onThreadChanged: (threadId: string) => void
-  onMetaChanged: (meta: { mode?: string; modelId?: string; yolo?: boolean; thinkingLevel?: string }) => void
+  onMetaChanged: (meta: {
+    mode?: string
+    modelId?: string
+    yolo?: boolean
+    thinkingLevel?: string
+  }) => void
   onRunStateChanged: (running: boolean) => void
 }
 

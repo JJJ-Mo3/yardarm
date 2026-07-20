@@ -12,7 +12,13 @@ import { app } from 'electron'
 export function getMastracodeVersion(): string | null {
   const candidates = [
     // Packaged: vendored runtime the agent host actually imports.
-    path.join(process.resourcesPath ?? '', 'agent-runtime', 'node_modules', 'mastracode', 'package.json'),
+    path.join(
+      process.resourcesPath ?? '',
+      'agent-runtime',
+      'node_modules',
+      'mastracode',
+      'package.json'
+    ),
     // Dev: app root node_modules (mastracode is a devDependency).
     path.join(app.getAppPath(), 'node_modules', 'mastracode', 'package.json')
   ]

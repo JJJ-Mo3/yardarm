@@ -180,9 +180,7 @@ export function ChangesView({ cwd }: { cwd: string }): React.JSX.Element {
         </div>
         <div className="flex-1 overflow-y-auto p-1">
           {files.length === 0 && (
-            <div className="p-4 text-center text-[11px] text-muted-foreground">
-              No changes
-            </div>
+            <div className="p-4 text-center text-[11px] text-muted-foreground">No changes</div>
           )}
           {files.map((f) => (
             <div

@@ -144,7 +144,9 @@ export function PromptInput({
     const images = files.filter((f) => f.type.startsWith('image/'))
     if (images.length === 0) return
     if (running) {
-      setHint('Attachments are unavailable while the agent is running — wait for the run to finish.')
+      setHint(
+        'Attachments are unavailable while the agent is running — wait for the run to finish.'
+      )
       return
     }
     const converted = await Promise.all(images.map(fileToAttachment))

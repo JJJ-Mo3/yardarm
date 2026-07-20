@@ -178,8 +178,8 @@ export default function App(): React.JSX.Element {
               <div className="space-y-1">
                 <div className="text-lg font-semibold">Welcome to Yardarm</div>
                 <div className="max-w-sm text-sm text-muted-foreground">
-                  Yardarm runs Mastra Code agents against your local git repositories. Add a
-                  project folder to start your first chat.
+                  Yardarm runs Mastra Code agents against your local git repositories. Add a project
+                  folder to start your first chat.
                 </div>
               </div>
               <div className="flex gap-2">
@@ -244,14 +244,10 @@ export default function App(): React.JSX.Element {
               </div>
               {/* Changes / Terminal / Files work at the project level too: they
                   use the chat's worktree when one is open, else the project root. */}
-              {tab === 'changes' &&
-                (cwd ? <ChangesView cwd={cwd} /> : <SelectProjectPane />)}
+              {tab === 'changes' && (cwd ? <ChangesView cwd={cwd} /> : <SelectProjectPane />)}
               {tab === 'terminal' &&
                 (cwd ? (
-                  <TerminalView
-                    id={chatId ? `chat-${chatId}` : `project-${projectId}`}
-                    cwd={cwd}
-                  />
+                  <TerminalView id={chatId ? `chat-${chatId}` : `project-${projectId}`} cwd={cwd} />
                 ) : (
                   <SelectProjectPane />
                 ))}

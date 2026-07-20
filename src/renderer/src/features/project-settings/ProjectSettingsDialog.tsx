@@ -108,26 +108,26 @@ function GeneralTab({
       <div className="space-y-2 rounded-md border border-destructive/40 p-3">
         <div className="text-xs font-medium text-destructive">Danger zone</div>
         <div className="text-[11px] text-muted-foreground">
-          Removing the project deletes all its chats and their git worktrees, and stops any
-          running agents and terminals. The project folder itself is not deleted.
+          Removing the project deletes all its chats and their git worktrees, and stops any running
+          agents and terminals. The project folder itself is not deleted.
         </div>
         <Tip content="Remove this project from Yardarm — deletes its chats and worktrees, keeps the folder on disk">
           <span className="inline-flex">
             <Button
-          size="sm"
-          variant="destructive"
-          disabled={remove.isPending}
-          onClick={() => {
-            void confirmDialog({
-              title: 'Remove project?',
-              description: `"${projectName ?? projectPath}" will be removed from Yardarm along with all its chats and worktrees. The folder on disk is kept.`,
-              confirmLabel: 'Remove project'
-            }).then((ok) => {
-              if (ok) remove.mutate({ id: projectId })
-            })
-          }}
-        >
-          {remove.isPending ? 'Removing…' : 'Remove project'}
+              size="sm"
+              variant="destructive"
+              disabled={remove.isPending}
+              onClick={() => {
+                void confirmDialog({
+                  title: 'Remove project?',
+                  description: `"${projectName ?? projectPath}" will be removed from Yardarm along with all its chats and worktrees. The folder on disk is kept.`,
+                  confirmLabel: 'Remove project'
+                }).then((ok) => {
+                  if (ok) remove.mutate({ id: projectId })
+                })
+              }}
+            >
+              {remove.isPending ? 'Removing…' : 'Remove project'}
             </Button>
           </span>
         </Tip>
@@ -160,8 +160,8 @@ function McpTab({ projectPath }: { projectPath: string }): React.JSX.Element {
   return (
     <div className="space-y-2">
       <div className="text-[11px] text-muted-foreground">
-        Edits <code>.mastracode/mcp.json</code> in this project (merged over global servers).
-        This project&apos;s agents restart on save.
+        Edits <code>.mastracode/mcp.json</code> in this project (merged over global servers). This
+        project&apos;s agents restart on save.
       </div>
       <Textarea
         rows={14}
@@ -229,8 +229,8 @@ function HooksTab({
   return (
     <div className="space-y-2">
       <div className="text-[11px] text-muted-foreground">
-        Edits <code>.mastracode/hooks.json</code> — shell commands run at lifecycle events
-        (global hooks run first). Events: {hooks.data?.validEvents.join(', ')}
+        Edits <code>.mastracode/hooks.json</code> — shell commands run at lifecycle events (global
+        hooks run first). Events: {hooks.data?.validEvents.join(', ')}
       </div>
       <Textarea
         rows={12}
@@ -521,9 +521,9 @@ function ResourceTab({
   return (
     <div className="space-y-3">
       <div className="text-[11px] text-muted-foreground">
-        The resource id tags this project&apos;s memory (threads, observations). Set the same id
-        in two checkouts to share memory between them. Stored in{' '}
-        <code>.mastracode/database.json</code>; this project&apos;s agents restart on save.
+        The resource id tags this project&apos;s memory (threads, observations). Set the same id in
+        two checkouts to share memory between them. Stored in <code>.mastracode/database.json</code>
+        ; this project&apos;s agents restart on save.
       </div>
       {live.data && (
         <div className="text-[11px]">

@@ -61,7 +61,11 @@ function reducer(state: AgentStreamState, ev: AgentUIEvent): AgentStreamState {
       return { ...state, messages }
     }
     case 'status':
-      return { ...state, status: ev.status, running: ev.status === 'stopped' ? false : state.running }
+      return {
+        ...state,
+        status: ev.status,
+        running: ev.status === 'stopped' ? false : state.running
+      }
     case 'run-started':
       return { ...state, running: true }
     case 'run-finished':

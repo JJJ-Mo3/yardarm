@@ -90,7 +90,13 @@ function ReasoningBlock({ text }: { text: string }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   return (
     <div className="my-1">
-      <Tip content={open ? "Hide the model's reasoning" : "Show the model's step-by-step reasoning for this reply"}>
+      <Tip
+        content={
+          open
+            ? "Hide the model's reasoning"
+            : "Show the model's step-by-step reasoning for this reply"
+        }
+      >
         <button
           onClick={() => setOpen((o) => !o)}
           className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
@@ -160,9 +166,7 @@ function MessageItem({
   hiddenParts?: Set<string>
 } & SuspensionProps): React.JSX.Element {
   if (message.role === 'user') {
-    const text = message.parts
-      .map((p) => (p.type === 'text' ? p.text : ''))
-      .join('')
+    const text = message.parts.map((p) => (p.type === 'text' ? p.text : '')).join('')
     return (
       <div className="flex justify-end group">
         <div className="relative max-w-[85%] rounded-lg bg-accent border border-border px-3 py-2 selectable whitespace-pre-wrap text-[13px]">

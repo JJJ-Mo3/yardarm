@@ -199,8 +199,7 @@ export function ThreadsPopover({
                           className="hover:text-foreground cursor-pointer"
                           disabled={busy || !chatId}
                           onClick={() =>
-                            chatId &&
-                            createSubchat.mutate({ chatId, mastraThreadId: t.id })
+                            chatId && createSubchat.mutate({ chatId, mastraThreadId: t.id })
                           }
                         >
                           <ExternalLink size={11} />
@@ -222,14 +221,14 @@ export function ThreadsPopover({
                       className="hover:text-destructive cursor-pointer"
                       disabled={busy}
                       onClick={() => {
-                      void confirmDialog({
-                        title: 'Delete thread?',
-                        description: `"${label(t)}" will be permanently deleted. This cannot be undone.`,
-                        confirmLabel: 'Delete'
-                      }).then((ok) => {
-                        if (ok) deleteThread.mutate({ subchatId, threadId: t.id })
-                      })
-                    }}
+                        void confirmDialog({
+                          title: 'Delete thread?',
+                          description: `"${label(t)}" will be permanently deleted. This cannot be undone.`,
+                          confirmLabel: 'Delete'
+                        }).then((ok) => {
+                          if (ok) deleteThread.mutate({ subchatId, threadId: t.id })
+                        })
+                      }}
                     >
                       <Trash2 size={11} />
                     </button>

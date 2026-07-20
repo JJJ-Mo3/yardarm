@@ -22,11 +22,7 @@ import {
 } from '../../lib/atoms'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle
-} from '../../components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -56,10 +52,7 @@ export function Sidebar(): React.JSX.Element {
 
   const utils = trpc.useUtils()
   const projects = trpc.projects.list.useQuery()
-  const chats = trpc.chats.list.useQuery(
-    { projectId: projectId ?? '' },
-    { enabled: !!projectId }
-  )
+  const chats = trpc.chats.list.useQuery({ projectId: projectId ?? '' }, { enabled: !!projectId })
 
   const createChat = trpc.chats.create.useMutation({
     onSuccess: (chat) => {
@@ -266,8 +259,8 @@ export function Sidebar(): React.JSX.Element {
           <DialogTitle>Chat Topic</DialogTitle>
           <div className="space-y-3">
             <div className="text-[11px] text-muted-foreground">
-              Name the topic for this chat — you&apos;ll send messages to the agent after
-              it&apos;s created.
+              Name the topic for this chat — you&apos;ll send messages to the agent after it&apos;s
+              created.
             </div>
             <Input
               autoFocus
@@ -341,9 +334,7 @@ export function Sidebar(): React.JSX.Element {
               </Button>
             </div>
             {renameChat.error && (
-              <div className="text-xs text-destructive selectable">
-                {renameChat.error.message}
-              </div>
+              <div className="text-xs text-destructive selectable">{renameChat.error.message}</div>
             )}
           </div>
         </DialogContent>

@@ -70,7 +70,9 @@ function OptionCard({
         <div className="text-xs font-medium">{title}</div>
         {badge}
       </div>
-      {subtitle && <div className="mt-0.5 pl-5.5 text-[11px] text-muted-foreground">{subtitle}</div>}
+      {subtitle && (
+        <div className="mt-0.5 pl-5.5 text-[11px] text-muted-foreground">{subtitle}</div>
+      )}
     </div>
   )
 }
@@ -345,8 +347,8 @@ export function AddLocalProviderDialog({
         {step === 'choose' && (
           <div className="space-y-3">
             <div className="text-[11px] text-muted-foreground">
-              Run models on your own machine — private and free. Which server do you use (or want
-              to use)?
+              Run models on your own machine — private and free. Which server do you use (or want to
+              use)?
             </div>
             <div className="space-y-1.5">
               {[...LOCAL_PROVIDER_PRESETS]
@@ -555,7 +557,9 @@ export function AddLocalProviderDialog({
                           </div>
                         </div>
                         {presetId === 'ollama' ? (
-                          <Tip content={`Download ${r.tag} to your machine via Ollama (${r.sizeLabel})`}>
+                          <Tip
+                            content={`Download ${r.tag} to your machine via Ollama (${r.sizeLabel})`}
+                          >
                             <Button
                               size="sm"
                               variant="outline"
@@ -578,8 +582,8 @@ export function AddLocalProviderDialog({
                   })}
                   {anyPullRunning && (
                     <div className="text-[10px] text-muted-foreground">
-                      Keep this dialog open while downloading — the model is selected
-                      automatically when it finishes.
+                      Keep this dialog open while downloading — the model is selected automatically
+                      when it finishes.
                     </div>
                   )}
                 </div>

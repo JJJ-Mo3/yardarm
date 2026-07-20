@@ -46,18 +46,22 @@ export function ToolCallCard({ part }: { part: ToolCallPart }): React.JSX.Elemen
 
   return (
     <div className="rounded-md border border-border bg-card my-1 overflow-hidden">
-      <Tip content={open ? 'Hide the arguments and output' : "Show this tool call's arguments and output"}>
+      <Tip
+        content={
+          open ? 'Hide the arguments and output' : "Show this tool call's arguments and output"
+        }
+      >
         <button
           onClick={() => setOpen((o) => !o)}
           className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left hover:bg-accent cursor-pointer"
         >
-        {open ? (
-          <ChevronDown size={12} className="text-muted-foreground shrink-0" />
-        ) : (
-          <ChevronRight size={12} className="text-muted-foreground shrink-0" />
-        )}
-        <Wrench size={12} className="text-muted-foreground shrink-0" />
-        <span className="font-medium text-xs shrink-0">{part.toolName}</span>
+          {open ? (
+            <ChevronDown size={12} className="text-muted-foreground shrink-0" />
+          ) : (
+            <ChevronRight size={12} className="text-muted-foreground shrink-0" />
+          )}
+          <Wrench size={12} className="text-muted-foreground shrink-0" />
+          <span className="font-medium text-xs shrink-0">{part.toolName}</span>
           <span className="truncate font-mono text-[11px] text-muted-foreground flex-1">
             {summary}
           </span>

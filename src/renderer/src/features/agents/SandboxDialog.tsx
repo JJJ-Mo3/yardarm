@@ -49,8 +49,8 @@ export function SandboxDialog({
         <DialogTitle>Sandbox &amp; session settings</DialogTitle>
         <div className="max-h-[65vh] space-y-4 overflow-y-auto pr-1">
           <div className="text-[11px] text-muted-foreground">
-            These settings persist with this agent session&apos;s state (shared with the
-            mastracode CLI for the same thread).
+            These settings persist with this agent session&apos;s state (shared with the mastracode
+            CLI for the same thread).
           </div>
 
           {state.isLoading && <div className="text-xs text-muted-foreground">Loading…</div>}

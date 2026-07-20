@@ -8,7 +8,12 @@ import { z } from 'zod'
 import { getDb, schema } from '../../db'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import { checkpointStashSha, deleteCheckpointRefs } from '../../git/ops'
-import { detectDefaultBranch, ensureBaseCommit, isGitRepo, removeWorktree } from '../../git/worktree'
+import {
+  detectDefaultBranch,
+  ensureBaseCommit,
+  isGitRepo,
+  removeWorktree
+} from '../../git/worktree'
 import { ptyManager } from '../../terminal/pty-manager'
 import { publicProcedure, router } from '../trpc'
 
@@ -102,18 +107,10 @@ export const projectsRouter = router({
    */
   remove: publicProcedure.input(z.object({ id: z.string() })).mutation(async ({ input }) => {
     const db = getDb()
-    const project = db
-      .select()
-      .from(schema.projects)
-      .where(eq(schema.projects.id, input.id))
-      .get()
+    const project = db.select().from(schema.projects).where(eq(schema.projects.id, input.id)).get()
     if (!project) return { ok: true }
 
-    const chats = db
-      .select()
-      .from(schema.chats)
-      .where(eq(schema.chats.projectId, project.id))
-      .all()
+    const chats = db.select().from(schema.chats).where(eq(schema.chats.projectId, project.id)).all()
     const subchats =
       chats.length > 0
         ? db

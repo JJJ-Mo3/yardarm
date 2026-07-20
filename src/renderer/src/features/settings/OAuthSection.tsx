@@ -110,19 +110,17 @@ export function OAuthSection(): React.JSX.Element {
             <span className="flex-1 text-xs font-medium">{p.name}</span>
             {(p.authModes?.length ?? 0) > 1 && !p.loggedIn && (
               <Tip content="Which kind of account to log in with (e.g. subscription vs API billing)">
-              <select
-                value={modeByProvider[p.id] ?? p.authModes![0].id}
-                onChange={(e) =>
-                  setModeByProvider((m) => ({ ...m, [p.id]: e.target.value }))
-                }
-                className="h-6 rounded border border-border bg-background px-1 text-[11px]"
-              >
-                {p.authModes!.map((m) => (
-                  <option key={m.id} value={m.id} title={m.description}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
+                <select
+                  value={modeByProvider[p.id] ?? p.authModes![0].id}
+                  onChange={(e) => setModeByProvider((m) => ({ ...m, [p.id]: e.target.value }))}
+                  className="h-6 rounded border border-border bg-background px-1 text-[11px]"
+                >
+                  {p.authModes!.map((m) => (
+                    <option key={m.id} value={m.id} title={m.description}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
               </Tip>
             )}
             {p.loggedIn ? (

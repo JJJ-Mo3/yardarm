@@ -63,9 +63,7 @@ export function ChatView({
   const setThinking = trpc.agent.setThinking.useMutation()
   const setYolo = trpc.agent.setYolo.useMutation()
   // Post-rollback feedback: success confirmation or a partial-restore warning.
-  const [rollbackNotice, setRollbackNotice] = useState<{ text: string; warn: boolean } | null>(
-    null
-  )
+  const [rollbackNotice, setRollbackNotice] = useState<{ text: string; warn: boolean } | null>(null)
   // Rolled-back message text, handed to the prompt input for edit + resend.
   const [prefill, setPrefill] = useState<string | null>(null)
   const pendingRollbackText = useRef<string | null>(null)
@@ -123,27 +121,26 @@ export function ChatView({
 
   // tRPC-level failures (host not booting, IPC errors, …) never reach the
   // event stream, so surface them inline; × resets the mutation to dismiss.
-  const actionMutations: Array<
-    [string, { error: { message: string } | null; reset: () => void }]
-  > = [
-    ['send', send],
-    ['follow-up', followUp],
-    ['approval', approve],
-    ['response', respondSuspension],
-    ['abort', abort],
-    ['mode', setMode],
-    ['model', setModel],
-    ['thinking', setThinking],
-    ['auto-approve', setYolo],
-    ['rollback', rollback],
-    ['command', runCommand],
-    ['skill', runSkill],
-    ['new thread', newThread],
-    ['rename', renameThread],
-    ['clone', cloneThread],
-    ['set goal', goalSet],
-    ['clear goal', goalClear]
-  ]
+  const actionMutations: Array<[string, { error: { message: string } | null; reset: () => void }]> =
+    [
+      ['send', send],
+      ['follow-up', followUp],
+      ['approval', approve],
+      ['response', respondSuspension],
+      ['abort', abort],
+      ['mode', setMode],
+      ['model', setModel],
+      ['thinking', setThinking],
+      ['auto-approve', setYolo],
+      ['rollback', rollback],
+      ['command', runCommand],
+      ['skill', runSkill],
+      ['new thread', newThread],
+      ['rename', renameThread],
+      ['clone', cloneThread],
+      ['set goal', goalSet],
+      ['clear goal', goalClear]
+    ]
   const failedActions = actionMutations.filter(([, m]) => m.error)
 
   // OS notification when a run finishes while the window is unfocused,
@@ -312,7 +309,10 @@ export function ChatView({
           value={meta.mode ?? 'build'}
           onValueChange={(modeId) => setMode.mutate({ subchatId, modeId })}
         >
-          <Tip content="Agent mode — build edits files and runs tools; plan researches and proposes a plan first" side="bottom">
+          <Tip
+            content="Agent mode — build edits files and runs tools; plan researches and proposes a plan first"
+            side="bottom"
+          >
             <SelectTrigger className="w-20 capitalize">
               <SelectValue />
             </SelectTrigger>
@@ -336,7 +336,10 @@ export function ChatView({
               value={meta.modelId ?? ''}
               onValueChange={(modelId) => setModel.mutate({ subchatId, modelId })}
             >
-              <Tip content="Model used for this chat (configure more in Settings → Models)" side="bottom">
+              <Tip
+                content="Model used for this chat (configure more in Settings → Models)"
+                side="bottom"
+              >
                 <SelectTrigger className="max-w-56">
                   <SelectValue placeholder="Model" />
                 </SelectTrigger>
@@ -368,7 +371,10 @@ export function ChatView({
                 Add API key
               </button>
             </Tip>
-            <Tip content="Run a model on your own machine with Ollama, LM Studio, and more" side="bottom">
+            <Tip
+              content="Run a model on your own machine with Ollama, LM Studio, and more"
+              side="bottom"
+            >
               <button
                 className="flex items-center gap-1 rounded-md border border-amber-600/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-500 hover:bg-amber-500/20 cursor-pointer"
                 onClick={() => openSettings('providers')}
@@ -384,7 +390,10 @@ export function ChatView({
           value={meta.thinkingLevel ?? 'off'}
           onValueChange={(level) => setThinking.mutate({ subchatId, level })}
         >
-          <Tip content="Extended thinking — higher levels let the model reason longer before answering (slower, better on hard problems)" side="bottom">
+          <Tip
+            content="Extended thinking — higher levels let the model reason longer before answering (slower, better on hard problems)"
+            side="bottom"
+          >
             <SelectTrigger className="w-24">
               <SelectValue placeholder="Thinking" />
             </SelectTrigger>
@@ -398,7 +407,10 @@ export function ChatView({
           </SelectContent>
         </Select>
 
-        <Tip content="Let the agent run tools and edit files without asking for approval each time" side="bottom">
+        <Tip
+          content="Let the agent run tools and edit files without asking for approval each time"
+          side="bottom"
+        >
           <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground ml-1">
             <Switch
               checked={meta.yolo ?? false}
@@ -418,7 +430,10 @@ export function ChatView({
           </Tip>
         )}
         {state.queued > 0 && (
-          <Tip content="Messages queued behind the active run — they'll be sent when it finishes" side="bottom">
+          <Tip
+            content="Messages queued behind the active run — they'll be sent when it finishes"
+            side="bottom"
+          >
             <Badge className="border-sky-500/50 text-sky-500">{state.queued} queued</Badge>
           </Tip>
         )}
@@ -452,7 +467,9 @@ export function ChatView({
               ) : (
                 <Circle size={11} className="text-muted-foreground shrink-0" />
               )}
-              <span className={t.status === 'completed' ? 'text-muted-foreground line-through' : ''}>
+              <span
+                className={t.status === 'completed' ? 'text-muted-foreground line-through' : ''}
+              >
                 {t.content ?? ''}
               </span>
             </div>
@@ -495,7 +512,10 @@ export function ChatView({
             .filter((i) => i.level === 'error')
             .slice(-1)
             .map((i) => (
-              <div key={i.ts} className="text-xs text-destructive bg-destructive/10 rounded px-2 py-1.5 selectable">
+              <div
+                key={i.ts}
+                className="text-xs text-destructive bg-destructive/10 rounded px-2 py-1.5 selectable"
+              >
                 {i.text}
               </div>
             ))}

@@ -130,8 +130,8 @@ export function AddProjectDialog(): React.JSX.Element {
               {needsInit && pickedPath && (
                 <div className="space-y-2 rounded-md border border-border bg-accent/30 p-3 text-xs">
                   <div>
-                    This folder isn&apos;t a git repository yet. Yardarm needs git for
-                    checkpoints, worktrees, and the Changes view.
+                    This folder isn&apos;t a git repository yet. Yardarm needs git for checkpoints,
+                    worktrees, and the Changes view.
                   </div>
                   <Tip content="Runs git init and creates an initial commit so chats can use isolated worktrees">
                     <span className="inline-flex">
@@ -182,9 +182,7 @@ export function AddProjectDialog(): React.JSX.Element {
               <div className="flex justify-end">
                 <Button
                   disabled={!url.trim() || !parentDir || busy}
-                  onClick={() =>
-                    parentDir && clone.mutate({ url: url.trim(), parentDir })
-                  }
+                  onClick={() => parentDir && clone.mutate({ url: url.trim(), parentDir })}
                 >
                   {clone.isPending ? 'Cloning…' : 'Clone'}
                 </Button>

@@ -53,7 +53,13 @@ export type HostCommand =
   | { t: 'reloadHooks'; reqId: string }
   | { t: 'resourceInfo'; reqId: string }
   | { t: 'listPlugins'; reqId: string }
-  | { t: 'pluginInstall'; reqId: string; source: 'local' | 'github'; pathOrUrl: string; scope: PluginScope }
+  | {
+      t: 'pluginInstall'
+      reqId: string
+      source: 'local' | 'github'
+      pathOrUrl: string
+      scope: PluginScope
+    }
   | { t: 'pluginUninstall'; reqId: string; pluginId: string; scope: PluginScope }
   | { t: 'pluginSetEnabled'; reqId: string; pluginId: string; scope: PluginScope; enabled: boolean }
   | {

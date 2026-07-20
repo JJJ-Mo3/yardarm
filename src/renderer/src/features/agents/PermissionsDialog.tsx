@@ -181,7 +181,10 @@ export function PermissionsDialog({
                       </span>
                     ))}
                     {snapshot.grantedTools.map((t) => (
-                      <span key={t} className="rounded bg-accent px-1.5 py-0.5 font-mono text-[10px]">
+                      <span
+                        key={t}
+                        className="rounded bg-accent px-1.5 py-0.5 font-mono text-[10px]"
+                      >
                         {t}
                       </span>
                     ))}

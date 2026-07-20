@@ -27,8 +27,8 @@ export function PreferencesTab(): React.JSX.Element {
   return (
     <div className="space-y-4">
       <div className="text-[11px] text-muted-foreground">
-        mastracode preferences stored in <code>settings.json</code> (shared with the CLI). These
-        set defaults for new agent sessions; the app theme above is separate.
+        mastracode preferences stored in <code>settings.json</code> (shared with the CLI). These set
+        defaults for new agent sessions; the app theme above is separate.
       </div>
 
       <Tip content="New sessions start with every tool call auto-approved — the agent never asks for permission">

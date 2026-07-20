@@ -58,8 +58,7 @@ body,
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   font-size: 13px;
   -webkit-font-smoothing: antialiased;
   user-select: none;
@@ -71,7 +70,11 @@ body {
 
 /* App wordmark: Geist variable, self-hosted for offline use. */
 .font-geist {
-  font-family: 'Geist Variable', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family:
+    'Geist Variable',
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
 }
 
 .titlebar-drag {

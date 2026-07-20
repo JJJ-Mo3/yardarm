@@ -3,9 +3,7 @@ import { z } from 'zod'
 import { ptyManager } from '../../terminal/pty-manager'
 import { publicProcedure, router } from '../trpc'
 
-export type TerminalStreamEvent =
-  | { type: 'data'; data: string }
-  | { type: 'exit'; code: number }
+export type TerminalStreamEvent = { type: 'data'; data: string } | { type: 'exit'; code: number }
 
 export const terminalRouter = router({
   create: publicProcedure
@@ -44,7 +42,13 @@ export const terminalRouter = router({
     }),
 
   resize: publicProcedure
-    .input(z.object({ id: z.string(), cols: z.number().int().positive(), rows: z.number().int().positive() }))
+    .input(
+      z.object({
+        id: z.string(),
+        cols: z.number().int().positive(),
+        rows: z.number().int().positive()
+      })
+    )
     .mutation(({ input }) => {
       ptyManager.resize(input.id, input.cols, input.rows)
       return { ok: true }

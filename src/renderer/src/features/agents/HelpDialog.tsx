@@ -33,21 +33,14 @@ function CommandGroup({
   )
 }
 
-export function HelpDialog({
-  commands
-}: {
-  commands: SlashCommandEntry[]
-}): React.JSX.Element {
+export function HelpDialog({ commands }: { commands: SlashCommandEntry[] }): React.JSX.Element {
   const [open, setOpen] = useAtom(helpOpenAtom)
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-w-2xl">
         <DialogTitle>Slash commands</DialogTitle>
         <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
-          <CommandGroup
-            title="In-app"
-            commands={commands.filter((c) => c.kind === 'builtin')}
-          />
+          <CommandGroup title="In-app" commands={commands.filter((c) => c.kind === 'builtin')} />
           <CommandGroup
             title="Custom commands"
             note="Markdown commands from .mastracode/commands/ in this worktree (and ~/.mastracode/commands/)."

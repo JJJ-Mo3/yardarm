@@ -148,8 +148,7 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
   ])
 
   const customModeComplete = MODES.every((m) => !!draft.customModeModels[m])
-  const canContinue =
-    step !== 'modePack' || draft.modePackId !== 'custom' || customModeComplete
+  const canContinue = step !== 'modePack' || draft.modePackId !== 'custom' || customModeComplete
 
   const stepIndex = STEPS.indexOf(step)
   const back = (): void => setStep(STEPS[Math.max(0, stepIndex - 1)])
@@ -183,10 +182,7 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
     } catch {
       return // surfaced via complete.error on the summary step
     }
-    await Promise.all([
-      utils.mastraSettings.get.invalidate(),
-      utils.agent.listModels.invalidate()
-    ])
+    await Promise.all([utils.mastraSettings.get.invalidate(), utils.agent.listModels.invalidate()])
     onDone()
   }
 
@@ -234,8 +230,8 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
                   same onboarding the mastracode CLI runs, sharing the same configuration.
                 </p>
                 <p className="text-[11px] text-muted-foreground">
-                  You can re-run this any time from Settings → About, and change everything later
-                  in Settings.
+                  You can re-run this any time from Settings → About, and change everything later in
+                  Settings.
                 </p>
               </div>
             )}
@@ -273,8 +269,8 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
                     <AlertTriangle size={13} className="mt-0.5 shrink-0" />
                     <div className="space-y-1.5">
                       <div>
-                        No packs are available because no provider is connected yet. Go back to
-                        sign in, pick custom models below, or continue and set this up later.
+                        No packs are available because no provider is connected yet. Go back to sign
+                        in, pick custom models below, or continue and set this up later.
                       </div>
                       <Button size="sm" variant="outline" onClick={() => setStep('auth')}>
                         Back to sign-in
@@ -403,14 +399,19 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
                   [
                     {
                       label: 'Providers',
-                      value:
-                        connected.size > 0
-                          ? [...connected].join(', ')
-                          : 'None connected',
+                      value: connected.size > 0 ? [...connected].join(', ') : 'None connected',
                       target: 'auth' as Step
                     },
-                    { label: 'Model pack', value: packName(draft.modePackId), target: 'modePack' as Step },
-                    { label: 'Observational Memory', value: omPackName(draft.omPackId), target: 'omPack' as Step },
+                    {
+                      label: 'Model pack',
+                      value: packName(draft.modePackId),
+                      target: 'modePack' as Step
+                    },
+                    {
+                      label: 'Observational Memory',
+                      value: omPackName(draft.omPackId),
+                      target: 'omPack' as Step
+                    },
                     { label: 'YOLO mode', value: draft.yolo ? 'On' : 'Off', target: 'yolo' as Step }
                   ] as Array<{ label: string; value: string; target: Step }>
                 ).map((row) => (

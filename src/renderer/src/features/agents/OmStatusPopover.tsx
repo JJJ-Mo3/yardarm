@@ -87,10 +87,7 @@ export function OmStatusPopover({
 }): React.JSX.Element {
   const utils = trpc.useUtils()
   const om = trpc.agent.omGet.useQuery({ subchatId }, { enabled: open })
-  const models = trpc.agent.listModels.useQuery(
-    { subchatId },
-    { enabled: open, staleTime: 60_000 }
-  )
+  const models = trpc.agent.listModels.useQuery({ subchatId }, { enabled: open, staleTime: 60_000 })
   const omSet = trpc.agent.omSet.useMutation({
     onSuccess: (info) => utils.agent.omGet.setData({ subchatId }, info)
   })
@@ -162,7 +159,9 @@ export function OmStatusPopover({
                   <ThresholdField
                     value={info.observationThreshold}
                     disabled={busy}
-                    onCommit={(n) => omSet.mutate({ subchatId, patch: { observationThreshold: n } })}
+                    onCommit={(n) =>
+                      omSet.mutate({ subchatId, patch: { observationThreshold: n } })
+                    }
                   />
                 </span>
               </Tip>

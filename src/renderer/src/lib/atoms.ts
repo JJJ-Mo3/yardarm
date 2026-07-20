@@ -29,13 +29,7 @@ export const addProjectOpenAtom = atom<false | 'local' | 'clone'>(false)
 /** Threads popover in the active ChatView (also opened by Cmd+P). */
 export const threadsOpenAtom = atom(false)
 export type ProjectSettingsTab =
-  | 'general'
-  | 'mcp'
-  | 'hooks'
-  | 'commands'
-  | 'instructions'
-  | 'resource'
-  | 'plugins'
+  'general' | 'mcp' | 'hooks' | 'commands' | 'instructions' | 'resource' | 'plugins'
 export const projectSettingsOpenAtom = atom(false)
 export const projectSettingsTabAtom = atom<ProjectSettingsTab>('general')
 export const debugEventsAtom = atomWithStorage<boolean>('cz.debugEvents', false)

@@ -244,9 +244,7 @@ export function ModelsTab(): React.JSX.Element {
         <div className="space-y-1.5">
           {SUBAGENT_TYPES.map((agentType) => (
             <div key={agentType} className="flex items-center gap-2">
-              <span className="w-16 text-[11px] capitalize text-muted-foreground">
-                {agentType}
-              </span>
+              <span className="w-16 text-[11px] capitalize text-muted-foreground">{agentType}</span>
               <ModelSelect
                 value={m.subagentModels?.[agentType] ?? ''}
                 onChange={(v) => setSubagentModel.mutate({ agentType, modelId: v || null })}
@@ -274,20 +272,20 @@ export function ModelsTab(): React.JSX.Element {
           <div className="flex items-center gap-2">
             <span className="w-16 text-[11px] text-muted-foreground">Max turns</span>
             <Tip content="Maximum agent runs before a goal pauses (empty = default)">
-            <Input
-              type="number"
-              min={1}
-              className="h-7 w-24 text-[11px]"
-              defaultValue={m.goalMaxTurns ?? ''}
-              placeholder="default"
-              onBlur={(e) => {
-                const v = e.target.value.trim()
-                const n = v ? Number(v) : null
-                if (n !== (m.goalMaxTurns ?? null)) {
-                  setGoalDefaults.mutate({ maxTurns: n && n > 0 ? Math.floor(n) : null })
-                }
-              }}
-            />
+              <Input
+                type="number"
+                min={1}
+                className="h-7 w-24 text-[11px]"
+                defaultValue={m.goalMaxTurns ?? ''}
+                placeholder="default"
+                onBlur={(e) => {
+                  const v = e.target.value.trim()
+                  const n = v ? Number(v) : null
+                  if (n !== (m.goalMaxTurns ?? null)) {
+                    setGoalDefaults.mutate({ maxTurns: n && n > 0 ? Math.floor(n) : null })
+                  }
+                }}
+              />
             </Tip>
           </div>
         </div>
@@ -341,7 +339,9 @@ export function ModelsTab(): React.JSX.Element {
           </div>
           <div className="flex items-center gap-2">
             <span className="w-16 text-[11px] text-muted-foreground">Observe @</span>
-            <Tip content={`Observation token threshold (min ${OM_THRESHOLD_MIN}; empty = default 30000)`}>
+            <Tip
+              content={`Observation token threshold (min ${OM_THRESHOLD_MIN}; empty = default 30000)`}
+            >
               <Input
                 type="number"
                 min={OM_THRESHOLD_MIN}
@@ -359,7 +359,9 @@ export function ModelsTab(): React.JSX.Element {
               />
             </Tip>
             <span className="w-16 text-[11px] text-muted-foreground">Reflect @</span>
-            <Tip content={`Reflection token threshold (min ${OM_THRESHOLD_MIN}; empty = default 40000)`}>
+            <Tip
+              content={`Reflection token threshold (min ${OM_THRESHOLD_MIN}; empty = default 40000)`}
+            >
               <Input
                 type="number"
                 min={OM_THRESHOLD_MIN}

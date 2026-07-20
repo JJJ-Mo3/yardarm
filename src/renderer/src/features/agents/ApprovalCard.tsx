@@ -39,7 +39,11 @@ export function ApprovalCard({
             onChange={(e) => setFeedback(e.target.value)}
           />
           <div className="flex gap-2">
-            <Button size="sm" variant="destructive" onClick={() => onDecide('decline', { feedback })}>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => onDecide('decline', { feedback })}
+            >
               Deny with feedback
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setShowFeedback(false)}>
@@ -54,7 +58,9 @@ export function ApprovalCard({
               Allow once
             </Button>
           </Tip>
-          <Tip content={`Run it now and auto-approve every future ${approval.toolName} call in this project`}>
+          <Tip
+            content={`Run it now and auto-approve every future ${approval.toolName} call in this project`}
+          >
             <Button
               size="sm"
               variant="secondary"

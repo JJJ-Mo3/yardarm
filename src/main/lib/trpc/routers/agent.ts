@@ -109,7 +109,11 @@ export const agentRouter = router({
   respondSuspension: publicProcedure
     .input(z.object({ subchatId: z.string(), toolCallId: z.string(), resumeData: z.unknown() }))
     .mutation(async ({ input }) => {
-      await agentSessionManager.respondSuspension(input.subchatId, input.toolCallId, input.resumeData)
+      await agentSessionManager.respondSuspension(
+        input.subchatId,
+        input.toolCallId,
+        input.resumeData
+      )
       return { ok: true }
     }),
 

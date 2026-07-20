@@ -54,7 +54,13 @@ interface HostHandle {
   status: AgentStatus
   translator: EventTranslator
   pending: Map<string, PendingRequest>
-  meta: { threadId?: string; mode?: string; modelId?: string; yolo?: boolean; thinkingLevel?: string }
+  meta: {
+    threadId?: string
+    mode?: string
+    modelId?: string
+    yolo?: boolean
+    thinkingLevel?: string
+  }
   readyPromise: Promise<void>
   readyResolve: () => void
   readyReject: (err: Error) => void
@@ -199,11 +205,7 @@ export class AgentSessionManager {
     }
 
     const db = getDb()
-    const subchat = db
-      .select()
-      .from(schema.subchats)
-      .where(eq(schema.subchats.id, subchatId))
-      .get()
+    const subchat = db.select().from(schema.subchats).where(eq(schema.subchats.id, subchatId)).get()
     if (!subchat) throw new Error(`Subchat not found: ${subchatId}`)
     const chat = db.select().from(schema.chats).where(eq(schema.chats.id, subchat.chatId)).get()
     if (!chat) throw new Error(`Chat not found: ${subchat.chatId}`)
@@ -316,8 +318,7 @@ export class AgentSessionManager {
             modelId: msg.modelId,
             yolo: (msg.state as Record<string, unknown> | undefined)?.yolo as boolean | undefined,
             thinkingLevel: (msg.state as Record<string, unknown> | undefined)?.thinkingLevel as
-              | string
-              | undefined
+              string | undefined
           }
           {
             // Seed the task list from boot state so the panel reflects
@@ -527,7 +528,11 @@ export class AgentSessionManager {
     this.sendCommand(handle, { t: 'alwaysAllowTool', toolName })
   }
 
-  async respondSuspension(subchatId: string, toolCallId: string, resumeData: unknown): Promise<void> {
+  async respondSuspension(
+    subchatId: string,
+    toolCallId: string,
+    resumeData: unknown
+  ): Promise<void> {
     const handle = await this.ensureHost(subchatId)
     this.sendCommand(handle, { t: 'suspension', toolCallId, resumeData })
   }
@@ -903,9 +908,7 @@ export class AgentSessionManager {
     await Promise.all(
       [...handles]
         .filter((h) => h !== exclude && !h.killed && h.status === 'ready')
-        .map((h) =>
-          this.request(h, { t: 'authReload', reqId: randomUUID() }).catch(() => {})
-        )
+        .map((h) => this.request(h, { t: 'authReload', reqId: randomUUID() }).catch(() => {}))
     )
   }
 
@@ -1029,10 +1032,7 @@ export class AgentSessionManager {
       },
       Math.max(500, timeoutMs - 1000)
     )
-    await Promise.race([
-      exited,
-      new Promise<void>((resolve) => setTimeout(resolve, timeoutMs))
-    ])
+    await Promise.race([exited, new Promise<void>((resolve) => setTimeout(resolve, timeoutMs))])
   }
 
   /** Restart hosts (e.g. after mcp.json change). */
