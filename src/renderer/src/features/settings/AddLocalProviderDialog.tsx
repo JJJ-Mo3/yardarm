@@ -490,6 +490,11 @@ export function AddLocalProviderDialog({
 
             {probe.status === 'ok' && (
               <div className="space-y-3">
+                {preset.contextHint && (
+                  <div className="rounded border border-border bg-accent/40 px-2 py-1.5 text-[11px] text-muted-foreground">
+                    {preset.contextHint}
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   <div className="text-xs font-medium">Recommended models</div>
                   {RECOMMENDED_MODELS.map((r) => {

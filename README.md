@@ -337,6 +337,15 @@ No. Yardarm disables HTTP idle timeouts for agent traffic specifically so
 big local models can sit silent through long prompt-processing phases. You
 can always stop a run manually.
 
+**What context window do I need for a local model?**
+32k tokens or more. Coding agents carry a large system prompt, tool
+definitions, and a growing conversation, so small context windows fill up
+fast — and some servers (Ollama) also silently truncate the prompt to fit,
+which degrades the agent well before it fails outright. Ollama defaults to
+~4k: raise it in the Ollama app (Settings → Context length) or start the
+server with `OLLAMA_CONTEXT_LENGTH=32768 ollama serve`. In LM Studio, set
+the context length when loading the model; for llama.cpp, pass `-c 32768`.
+
 **Why does a chat get its own branch/worktree?**
 Isolation: the agent can edit, build, and commit without touching your
 checked-out branch, and parallel chats can't conflict. You can merge or PR
@@ -370,6 +379,11 @@ onboarding if config is the culprit.
 The dropdown lists only usable models — connect a provider (Settings →
 API Keys) or add a local one (Settings → Providers). For Ollama, make sure
 the server is running (`ollama serve`) and at least one model is pulled.
+
+**"The model stopped because it reached its maximum output length before finishing."**
+The local server's context window is too small for agent use. Raise it to
+32k+ — see [What context window do I need for a local model?](#faq) — then
+retry the task.
 
 **A run ended with a network-ish error mid-task.**
 Check the local model server's own logs (e.g. `ollama serve` output) — the

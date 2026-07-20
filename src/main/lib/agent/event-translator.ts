@@ -14,6 +14,7 @@ import type {
   ToolCallPart,
   UsageInfo
 } from '../../../shared/ui-message'
+import { withMaxOutputHint } from './max-output-hint'
 
 interface ToolMeta {
   status: ToolCallPart['status']
@@ -246,7 +247,7 @@ export class EventTranslator {
         this.cb.emit({
           type: 'info',
           level: 'error',
-          text: error?.message ?? String(ev.error ?? 'Unknown agent error')
+          text: withMaxOutputHint(error?.message ?? String(ev.error ?? 'Unknown agent error'))
         })
         break
       }

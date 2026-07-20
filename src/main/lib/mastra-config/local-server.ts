@@ -34,14 +34,24 @@ export async function ollamaInstallStatus(): Promise<OllamaInstallStatus> {
 
 /**
  * Fire-and-forget start; the renderer polls the probe until the server
- * responds. On macOS the Ollama.app menu-bar agent starts the server itself.
+ * responds. On macOS the Ollama.app menu-bar agent starts the server itself
+ * (`open -a` cannot carry env, so its context length is set in the app's
+ * own settings). When we spawn `ollama serve` directly, default the context
+ * window to 32k — Ollama's ~4k default is far too small for agent use.
  */
 export function startOllama(): void {
   if (process.platform === 'darwin' && existsSync(OLLAMA_APP)) {
     spawn('open', ['-a', 'Ollama'], { stdio: 'ignore' }).unref()
     return
   }
-  const child = spawn('ollama', ['serve'], { stdio: 'ignore', detached: true })
+  const child = spawn('ollama', ['serve'], {
+    stdio: 'ignore',
+    detached: true,
+    env: {
+      ...process.env,
+      OLLAMA_CONTEXT_LENGTH: process.env.OLLAMA_CONTEXT_LENGTH ?? '32768'
+    }
+  })
   child.on('error', () => {
     // Binary missing or not executable — the wizard's poll will time out and
     // show the preset hint instead.
