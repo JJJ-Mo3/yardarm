@@ -77,7 +77,7 @@ export function VoiceTab(): React.JSX.Element {
               onChange={(e) => setVoice.mutate({ model: e.target.value || null })}
               className="h-7 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-[11px]"
             >
-              <option value="">(provider default)</option>
+              <option value="">(default: {providerModels[0]?.label ?? 'provider default'})</option>
               {providerModels.map((m) => (
                 <option key={m.model} value={m.model}>
                   {m.label}

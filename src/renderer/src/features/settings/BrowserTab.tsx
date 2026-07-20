@@ -2,6 +2,7 @@ import React from 'react'
 import { trpc } from '../../lib/trpc'
 import { Input } from '../../components/ui/input'
 import { Switch } from '../../components/ui/switch'
+import { Tip } from '../../components/ui/tooltip'
 import { useRestartBanner } from './restart-banner'
 
 /** A text field that saves on blur; empty clears the key (null). */
@@ -87,17 +88,19 @@ export function BrowserTab(): React.JSX.Element {
 
       <div className="flex items-center gap-2">
         <span className="w-28 shrink-0 text-[11px] text-muted-foreground">Session scope</span>
-        <select
-          value={b.scope ?? ''}
-          onChange={(e) =>
-            setBrowser.mutate({ scope: (e.target.value || null) as 'shared' | 'thread' | null })
-          }
-          className="h-7 rounded-md border border-border bg-background px-2 text-[11px]"
-        >
-          <option value="">(default)</option>
-          <option value="shared">Shared across threads</option>
-          <option value="thread">Per thread</option>
-        </select>
+        <Tip content="Default is a new browser per thread; a CDP URL or profile forces one shared browser">
+          <select
+            value={b.scope ?? ''}
+            onChange={(e) =>
+              setBrowser.mutate({ scope: (e.target.value || null) as 'shared' | 'thread' | null })
+            }
+            className="h-7 rounded-md border border-border bg-background px-2 text-[11px]"
+          >
+            <option value="">(default: {b.cdpUrl || b.profile ? 'shared' : 'per thread'})</option>
+            <option value="shared">Shared across threads</option>
+            <option value="thread">Per thread</option>
+          </select>
+        </Tip>
       </div>
 
       <div className="flex items-center gap-2">

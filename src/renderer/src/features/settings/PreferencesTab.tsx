@@ -99,7 +99,7 @@ export function PreferencesTab(): React.JSX.Element {
             min={0}
             className="h-7 w-24 text-[11px]"
             defaultValue={p.quietModeMaxToolPreviewLines ?? ''}
-            placeholder="default"
+            placeholder="2 (default)"
             onBlur={(e) => {
               const v = e.target.value.trim()
               const n = v ? Math.max(0, Math.floor(Number(v))) : undefined

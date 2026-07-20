@@ -9,8 +9,13 @@ import { Button } from '../../components/ui/button'
  */
 export function useRestartBanner(): { markDirty: () => void; banner: React.ReactNode } {
   const [dirty, setDirty] = useState(false)
+  const utils = trpc.useUtils()
   const applyRestart = trpc.mastraSettings.applyRestart.useMutation({
-    onSuccess: () => setDirty(false)
+    onSuccess: () => {
+      setDirty(false)
+      // Fresh hosts re-read settings.json at boot — refetch the model catalog.
+      utils.agent.listModels.invalidate()
+    }
   })
   const banner = dirty ? (
     <div className="flex items-center gap-2 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1.5">

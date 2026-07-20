@@ -12,6 +12,7 @@ import { Button } from '../../components/ui/button'
 import { Switch } from '../../components/ui/switch'
 import { KeysTab } from '../settings/SettingsDialog'
 import { Logo } from '../../components/Logo'
+import { ModelSelect } from '../../components/ModelSelect'
 
 const STEPS = ['welcome', 'auth', 'modePack', 'omPack', 'yolo', 'summary'] as const
 type Step = (typeof STEPS)[number]
@@ -24,34 +25,6 @@ interface Draft {
   omPackId: string | null
   omCustomModel: string | null
   yolo: boolean
-}
-
-function ModelSelect({
-  value,
-  onChange,
-  models,
-  placeholder
-}: {
-  value: string
-  onChange: (v: string) => void
-  models: Array<{ id: string; hasApiKey: boolean }>
-  placeholder: string
-}): React.JSX.Element {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-7 w-full min-w-0 rounded-md border border-border bg-background px-2 text-[11px]"
-    >
-      <option value="">{placeholder}</option>
-      {models.map((m) => (
-        <option key={m.id} value={m.id} disabled={!m.hasApiKey}>
-          {m.id}
-          {!m.hasApiKey ? ' (no key)' : ''}
-        </option>
-      ))}
-    </select>
-  )
 }
 
 function OptionCard({
@@ -346,7 +319,7 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
                   selected={draft.omPackId === null}
                   onClick={() => setDraft((d) => ({ ...d, omPackId: null }))}
                   title="None (default)"
-                  subtitle="Use mastracode's default behavior."
+                  subtitle="Observational Memory stays off unless a pack or model is set."
                 />
                 {omPacks
                   .filter((p) => p.id !== 'custom')

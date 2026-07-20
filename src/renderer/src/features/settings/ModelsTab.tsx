@@ -7,9 +7,24 @@ import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Switch } from '../../components/ui/switch'
 import { Tip } from '../../components/ui/tooltip'
+import { ModelSelect } from '../../components/ModelSelect'
 
 const MODES = ['build', 'plan', 'fast'] as const
 const SUBAGENT_TYPES = ['explore', 'plan', 'general'] as const
+
+/** Mirrors vendored @mastra/code-sdk dist/agents/modes/{build,plan,explore}.js defaultModelId. */
+const BUILTIN_MODE_DEFAULTS: Record<string, string> = {
+  build: 'openai/gpt-5.5',
+  plan: 'openai/gpt-5.5',
+  fast: 'openai/gpt-5.4-mini'
+}
+
+/** Which mode's default each subagent type inherits when unset. */
+const SUBAGENT_MODE: Record<(typeof SUBAGENT_TYPES)[number], string> = {
+  explore: 'fast',
+  plan: 'plan',
+  general: 'build'
+}
 
 /**
  * Floor for the OM observe/reflect thresholds. The SDK derives its working
@@ -26,34 +41,6 @@ function clampOmThreshold(raw: string): number | null {
   const n = Math.round(Number(v))
   if (!Number.isFinite(n) || n <= 0) return null
   return Math.max(n, OM_THRESHOLD_MIN)
-}
-
-function ModelSelect({
-  value,
-  onChange,
-  models,
-  placeholder
-}: {
-  value: string
-  onChange: (v: string) => void
-  models: Array<{ id: string; hasApiKey: boolean }>
-  placeholder: string
-}): React.JSX.Element {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-7 w-full min-w-0 rounded-md border border-border bg-background px-2 text-[11px]"
-    >
-      <option value="">{placeholder}</option>
-      {models.map((m) => (
-        <option key={m.id} value={m.id} disabled={!m.hasApiKey}>
-          {m.id}
-          {!m.hasApiKey ? ' (no key)' : ''}
-        </option>
-      ))}
-    </select>
-  )
 }
 
 export function ModelsTab(): React.JSX.Element {
@@ -86,7 +73,11 @@ export function ModelsTab(): React.JSX.Element {
   })
   const deleteCustomPack = trpc.mastraSettings.deleteCustomPack.useMutation({ onSuccess: onSaved })
   const applyRestart = trpc.mastraSettings.applyRestart.useMutation({
-    onSuccess: () => setDirty(false)
+    onSuccess: () => {
+      setDirty(false)
+      // Fresh hosts re-read settings.json at boot — refetch the model catalog.
+      utils.agent.listModels.invalidate()
+    }
   })
 
   const s = settings.data ?? {}
@@ -95,6 +86,13 @@ export function ModelsTab(): React.JSX.Element {
   const modePacks = packs.data?.modePacks ?? []
   const omPacks = packs.data?.omPacks ?? []
   const customPacks = s.customModelPacks ?? []
+
+  // Resolved defaults shown in placeholders: active pack model, else SDK built-in.
+  const activePack = modePacks.find((p) => p.id === m.activeModelPackId)
+  const modeDefaultFor = (mode: string): string =>
+    activePack?.models[mode] ?? BUILTIN_MODE_DEFAULTS[mode] ?? 'built-in'
+  const activeOmPack = omPacks.find((p) => p.id === m.activeOmPackId)
+  const omDefault = activeOmPack?.modelId ?? m.omModelOverride ?? null
 
   const error =
     settings.error ??
@@ -231,7 +229,7 @@ export function ModelsTab(): React.JSX.Element {
                 value={m.modeDefaults?.[mode] ?? ''}
                 onChange={(v) => setModeDefault.mutate({ mode, modelId: v || null })}
                 models={modelList}
-                placeholder="(pack / built-in default)"
+                placeholder={`(default: ${modeDefaultFor(mode)})`}
               />
             </div>
           ))}
@@ -249,7 +247,7 @@ export function ModelsTab(): React.JSX.Element {
                 value={m.subagentModels?.[agentType] ?? ''}
                 onChange={(v) => setSubagentModel.mutate({ agentType, modelId: v || null })}
                 models={modelList}
-                placeholder="(inherit)"
+                placeholder={`(default: ${modeDefaultFor(SUBAGENT_MODE[agentType])})`}
               />
             </div>
           ))}
@@ -266,18 +264,18 @@ export function ModelsTab(): React.JSX.Element {
               value={m.goalJudgeModel ?? ''}
               onChange={(v) => setGoalDefaults.mutate({ judgeModel: v || null })}
               models={modelList}
-              placeholder="(default)"
+              placeholder="(default: chat model)"
             />
           </div>
           <div className="flex items-center gap-2">
             <span className="w-16 text-[11px] text-muted-foreground">Max turns</span>
-            <Tip content="Maximum agent runs before a goal pauses (empty = default)">
+            <Tip content="Maximum agent runs before a goal pauses (empty = default 50)">
               <Input
                 type="number"
                 min={1}
                 className="h-7 w-24 text-[11px]"
                 defaultValue={m.goalMaxTurns ?? ''}
-                placeholder="default"
+                placeholder="50 (default)"
                 onBlur={(e) => {
                   const v = e.target.value.trim()
                   const n = v ? Number(v) : null
@@ -316,7 +314,7 @@ export function ModelsTab(): React.JSX.Element {
               value={m.omModelOverride ?? ''}
               onChange={(v) => setOmDefaults.mutate({ omModelOverride: v || null })}
               models={modelList}
-              placeholder="(pack / default)"
+              placeholder={omDefault ? `(default: ${omDefault})` : '(off — no OM model set)'}
             />
           </div>
           <div className="flex items-center gap-2">
@@ -325,7 +323,7 @@ export function ModelsTab(): React.JSX.Element {
               value={m.observerModelOverride ?? ''}
               onChange={(v) => setOmDefaults.mutate({ observerModelOverride: v || null })}
               models={modelList}
-              placeholder="(pack / default)"
+              placeholder={omDefault ? `(default: ${omDefault})` : '(off — no OM model set)'}
             />
           </div>
           <div className="flex items-center gap-2">
@@ -334,7 +332,7 @@ export function ModelsTab(): React.JSX.Element {
               value={m.reflectorModelOverride ?? ''}
               onChange={(v) => setOmDefaults.mutate({ reflectorModelOverride: v || null })}
               models={modelList}
-              placeholder="(pack / default)"
+              placeholder={omDefault ? `(default: ${omDefault})` : '(off — no OM model set)'}
             />
           </div>
           <div className="flex items-center gap-2">

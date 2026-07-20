@@ -115,13 +115,11 @@ function ModelRow({
 export function AddLocalProviderDialog({
   open,
   onOpenChange,
-  existingNames,
-  onSaved
+  existingNames
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   existingNames: string[]
-  onSaved: () => void
 }): React.JSX.Element {
   const utils = trpc.useUtils()
   const [step, setStep] = useState<Step>('choose')
@@ -143,12 +141,26 @@ export function AddLocalProviderDialog({
   const startModelPull = trpc.mastraSettings.startModelPull.useMutation()
   const cancelModelPull = trpc.mastraSettings.cancelModelPull.useMutation()
   const startOllamaMut = trpc.mastraSettings.startOllama.useMutation()
-  const upsert = trpc.mastraSettings.upsertCustomProvider.useMutation({
-    onSuccess: () => {
-      onSaved()
-      onOpenChange(false)
+  const upsert = trpc.mastraSettings.upsertCustomProvider.useMutation()
+  const applyRestart = trpc.mastraSettings.applyRestart.useMutation()
+
+  // Save, then restart agent hosts (they read settings.json at boot) and
+  // refresh the cached model catalog so the new models are usable immediately.
+  const doSave = async (provider: {
+    name: string
+    url: string
+    apiKey?: string
+    models: string[]
+  }): Promise<void> => {
+    try {
+      await upsert.mutateAsync(provider)
+      await applyRestart.mutateAsync()
+    } catch {
+      return
     }
-  })
+    await Promise.all([utils.mastraSettings.get.invalidate(), utils.agent.listModels.invalidate()])
+    onOpenChange(false)
+  }
 
   const probeUrl = useCallback(
     (u: string, key: string): Promise<ProbeResult> =>
@@ -667,8 +679,10 @@ export function AddLocalProviderDialog({
                 {chosenModels.join(', ')}
               </div>
             </div>
-            {upsert.error && (
-              <div className="text-xs text-destructive selectable">{upsert.error.message}</div>
+            {(upsert.error ?? applyRestart.error) && (
+              <div className="text-xs text-destructive selectable">
+                {(upsert.error ?? applyRestart.error)?.message}
+              </div>
             )}
             <div className="flex justify-between">
               <Button size="sm" variant="ghost" onClick={() => setStep('connect')}>
@@ -676,9 +690,14 @@ export function AddLocalProviderDialog({
               </Button>
               <Button
                 size="sm"
-                disabled={!name.trim() || chosenModels.length === 0 || upsert.isPending}
+                disabled={
+                  !name.trim() ||
+                  chosenModels.length === 0 ||
+                  upsert.isPending ||
+                  applyRestart.isPending
+                }
                 onClick={() =>
-                  upsert.mutate({
+                  void doSave({
                     name: name.trim(),
                     url: probe.url || url.trim(),
                     apiKey: apiKey.trim() || undefined,
@@ -686,7 +705,7 @@ export function AddLocalProviderDialog({
                   })
                 }
               >
-                {upsert.isPending ? 'Saving…' : 'Save'}
+                {upsert.isPending ? 'Saving…' : applyRestart.isPending ? 'Applying…' : 'Save'}
               </Button>
             </div>
           </div>

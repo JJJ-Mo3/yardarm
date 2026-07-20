@@ -12,6 +12,8 @@ import { eq, desc, sql } from 'drizzle-orm'
 import { getDb, schema } from '../db'
 import { EventTranslator } from './event-translator'
 import { clampMessageForStorage } from './message-clamp'
+import { markCustomProviderModels } from './custom-provider-models'
+import { readSettings } from '../mastra-config/settings-json'
 import { MessageWriteBuffer } from './message-write-buffer'
 import { createUpsertThrottle } from './upsert-throttle'
 import type {
@@ -894,7 +896,11 @@ export class AgentSessionManager {
 
   async listModels(subchatId?: string): Promise<ModelInfo[]> {
     const handle = subchatId ? await this.ensureHost(subchatId) : await this.ensureUtilityHost()
-    return this.request<ModelInfo[]>(handle, { t: 'listModels', reqId: randomUUID() })
+    const models = await this.request<ModelInfo[]>(handle, { t: 'listModels', reqId: randomUUID() })
+    // The SDK marks keyless custom providers (local Ollama etc.) as unusable
+    // even though it runs them keyless — override from settings.json.
+    const settings = await readSettings()
+    return markCustomProviderModels(models, settings.customProviders ?? [])
   }
 
   async authList(): Promise<AuthEntry[]> {

@@ -42,7 +42,11 @@ export function ProvidersTab(): React.JSX.Element {
     }
   })
   const applyRestart = trpc.mastraSettings.applyRestart.useMutation({
-    onSuccess: () => setDirty(false)
+    onSuccess: () => {
+      setDirty(false)
+      // Fresh hosts re-read settings.json at boot — refetch the model catalog.
+      utils.agent.listModels.invalidate()
+    }
   })
 
   const providers = settings.data?.customProviders ?? []
@@ -99,7 +103,6 @@ export function ProvidersTab(): React.JSX.Element {
         open={wizardOpen}
         onOpenChange={setWizardOpen}
         existingNames={providers.map((p) => p.name)}
-        onSaved={onSaved}
       />
 
       <div className="space-y-1">
