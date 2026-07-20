@@ -4,7 +4,8 @@
  * to the renderer as AgentUIEvent chunks (whole-message upserts).
  */
 
-export type Mode = 'build' | 'plan' | 'fast'
+export const MODES = ['build', 'plan', 'fast'] as const
+export type Mode = (typeof MODES)[number]
 export type ThinkingLevel = 'off' | 'low' | 'medium' | 'high' | 'xhigh'
 
 export interface TextPart {

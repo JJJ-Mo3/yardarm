@@ -38,9 +38,10 @@ import { SandboxDialog } from './SandboxDialog'
 import { GoalBanner } from './GoalBanner'
 import { GoalPopover } from './GoalPopover'
 import { OmStatusPopover } from './OmStatusPopover'
+import { ModeSelector } from './ModeSelector'
 import { useSlashCommands, type SlashCommandEntry } from './slash-commands'
+import { MODES, type Mode } from '../../../../shared/ui-message'
 
-const MODES = ['build', 'plan', 'fast'] as const
 const THINKING = ['off', 'low', 'medium', 'high', 'xhigh'] as const
 
 export function ChatView({
@@ -63,6 +64,9 @@ export function ChatView({
   const setModel = trpc.agent.setModel.useMutation()
   const setThinking = trpc.agent.setThinking.useMutation()
   const setYolo = trpc.agent.setYolo.useMutation()
+  // Optimistic mode switching: show the requested mode immediately (pulsing)
+  // until the session-meta round-trip confirms it or the mutation fails.
+  const [pendingMode, setPendingMode] = useState<Mode | null>(null)
   // Post-rollback feedback: success confirmation or a partial-restore warning.
   const [rollbackNotice, setRollbackNotice] = useState<{ text: string; warn: boolean } | null>(null)
   // Rolled-back message text, handed to the prompt input for edit + resend.
@@ -86,6 +90,7 @@ export function ChatView({
   useEffect(() => {
     setRollbackNotice(null)
     setPrefill(null)
+    setPendingMode(null)
   }, [subchatId])
   const confirmDialog = useConfirm()
 
@@ -153,6 +158,21 @@ export function ChatView({
   const meta = state.meta
   const busy = send.isPending || followUp.isPending
 
+  const currentMode: Mode = (MODES as readonly string[]).includes(meta.mode ?? '')
+    ? (meta.mode as Mode)
+    : 'build'
+  function changeMode(modeId: Mode): void {
+    if (modeId === currentMode) return
+    setPendingMode(modeId)
+    setMode.mutate({ subchatId, modeId })
+  }
+  useEffect(() => {
+    if (pendingMode && meta.mode === pendingMode) setPendingMode(null)
+  }, [meta.mode, pendingMode])
+  useEffect(() => {
+    if (setMode.isError) setPendingMode(null)
+  }, [setMode.isError])
+
   // tRPC-level failures (host not booting, IPC errors, …) never reach the
   // event stream, so surface them inline; × resets the mutation to dismiss.
   const actionMutations: Array<[string, { error: { message: string } | null; reset: () => void }]> =
@@ -216,13 +236,13 @@ export function ChatView({
       case 'plan':
       case 'build':
       case 'fast':
-        setMode.mutate({ subchatId, modeId: entry.name })
+        changeMode(entry.name as Mode)
         return
       case 'mode':
         if (!(MODES as readonly string[]).includes(args)) {
           return `Usage: /mode <${MODES.join('|')}>`
         }
-        setMode.mutate({ subchatId, modeId: args })
+        changeMode(args as Mode)
         return
       case 'model':
       case 'models': {
@@ -348,26 +368,7 @@ export function ChatView({
     <div className="flex h-full flex-col">
       {/* Header controls */}
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <Select
-          value={meta.mode ?? 'build'}
-          onValueChange={(modeId) => setMode.mutate({ subchatId, modeId })}
-        >
-          <Tip
-            content="Agent mode — build edits files and runs tools; plan researches and proposes a plan first"
-            side="bottom"
-          >
-            <SelectTrigger className="w-20 capitalize">
-              <SelectValue />
-            </SelectTrigger>
-          </Tip>
-          <SelectContent>
-            {MODES.map((m) => (
-              <SelectItem key={m} value={m} className="capitalize">
-                {m}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <ModeSelector value={currentMode} pending={pendingMode} onChange={changeMode} />
 
         {(() => {
           const usable = (models.data ?? []).filter((m) => m.hasApiKey)

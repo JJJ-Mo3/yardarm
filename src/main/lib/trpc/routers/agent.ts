@@ -5,7 +5,7 @@ import { getDb, schema } from '../../db'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import { captureCheckpoint } from '../../git/ops'
 import { readSettings } from '../../mastra-config/settings-json'
-import type { AgentUIEvent } from '../../../../shared/ui-message'
+import { MODES, type AgentUIEvent } from '../../../../shared/ui-message'
 import { publicProcedure, router } from '../trpc'
 
 function subchatCwd(subchatId: string): string | null {
@@ -32,8 +32,14 @@ export const agentRouter = router({
       // Seed: full history, status, meta, and any pending gates.
       emit.next({ type: 'messages-reset', messages: agentSessionManager.loadMessages(subchatId) })
       emit.next({ type: 'status', status: agentSessionManager.status(subchatId) })
-      const meta = agentSessionManager.meta(subchatId)
-      if (meta) emit.next({ type: 'session-meta', meta })
+      // Always seed meta: DB row as the base, live host values (minus undefined
+      // keys, which would clobber the base on spread) on top.
+      const live = agentSessionManager.meta(subchatId) ?? {}
+      const defined = Object.fromEntries(Object.entries(live).filter(([, v]) => v !== undefined))
+      emit.next({
+        type: 'session-meta',
+        meta: { ...agentSessionManager.persistedMeta(subchatId), ...defined }
+      })
       const tasks = agentSessionManager.tasks(subchatId)
       if (tasks.length > 0) emit.next({ type: 'task-list', tasks })
       if (agentSessionManager.isRunning(subchatId)) emit.next({ type: 'run-started' })
@@ -123,7 +129,7 @@ export const agentRouter = router({
   }),
 
   setMode: publicProcedure
-    .input(z.object({ subchatId: z.string(), modeId: z.string() }))
+    .input(z.object({ subchatId: z.string(), modeId: z.enum(MODES) }))
     .mutation(async ({ input }) => {
       await agentSessionManager.setMode(input.subchatId, input.modeId)
       return { ok: true }

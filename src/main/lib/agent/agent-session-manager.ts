@@ -45,7 +45,13 @@ import type {
   SttModelInfo,
   ThreadInfo
 } from '../../../shared/ipc-types'
-import type { AgentStatus, AgentUIEvent, StoredMessage, TaskItem } from '../../../shared/ui-message'
+import type {
+  AgentStatus,
+  AgentUIEvent,
+  SessionMeta,
+  StoredMessage,
+  TaskItem
+} from '../../../shared/ui-message'
 
 const HOST_ENTRY = path.join(__dirname, 'agent-host.js')
 
@@ -126,6 +132,29 @@ export class AgentSessionManager {
 
   meta(subchatId: string): HostHandle['meta'] | null {
     return this.hosts.get(subchatId)?.meta ?? null
+  }
+
+  /** Session meta from the DB row, for seeding streams when no host is live. */
+  persistedMeta(subchatId: string): SessionMeta {
+    const row = getDb()
+      .select({
+        mode: schema.subchats.mode,
+        modelId: schema.subchats.modelId,
+        thinkingLevel: schema.subchats.thinkingLevel,
+        mastraThreadId: schema.subchats.mastraThreadId
+      })
+      .from(schema.subchats)
+      .where(eq(schema.subchats.id, subchatId))
+      .get()
+    if (!row) return {}
+    return {
+      mode: row.mode ?? undefined,
+      modelId: row.modelId ?? undefined,
+      thinkingLevel: row.thinkingLevel ?? undefined,
+      threadId: row.mastraThreadId ?? undefined,
+      // Boot always starts hosts with yolo off (see ensureHost), so this is accurate.
+      yolo: false
+    }
   }
 
   /** Latest agent task list, for seeding new stream subscribers. */
@@ -574,8 +603,25 @@ export class AgentSessionManager {
   }
 
   async setMode(subchatId: string, modeId: string): Promise<void> {
-    const handle = await this.ensureHost(subchatId)
-    this.sendCommand(handle, { t: 'setMode', mode: modeId })
+    // Persist first so the mode survives with no host running — the next boot
+    // applies it via HostBootConfig.mode and the SDK enforces it per message.
+    getDb()
+      .update(schema.subchats)
+      .set({ mode: modeId })
+      .where(eq(schema.subchats.id, subchatId))
+      .run()
+    // Optimistic UI update; a live host re-confirms via mode_changed.
+    this.emitUI(subchatId, { type: 'session-meta', meta: { mode: modeId } })
+    const handle = this.hosts.get(subchatId)
+    if (!handle || handle.killed) return
+    handle.meta.mode = modeId
+    try {
+      // Wait for boot so our switch lands after the (possibly stale) boot mode.
+      await handle.readyPromise
+      this.sendCommand(handle, { t: 'setMode', mode: modeId })
+    } catch {
+      // Host failed to boot — the DB write already covers the next boot.
+    }
   }
 
   async setModel(subchatId: string, modelId: string): Promise<void> {

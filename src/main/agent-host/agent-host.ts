@@ -365,7 +365,21 @@ async function main(): Promise<void> {
             session.abort()
             break
           case 'setMode':
-            await session.mode.switch({ modeId: cmd.mode })
+            try {
+              await session.mode.switch({ modeId: cmd.mode })
+            } catch (err) {
+              post({ t: 'log', level: 'error', msg: `mode.switch failed: ${String(err)}` })
+              post({
+                t: 'event',
+                ev: { type: 'error', error: { message: `Mode switch failed: ${String(err)}` } }
+              })
+              // The manager persisted the requested mode optimistically; emit
+              // the session's true mode so DB and UI revert to reality.
+              post({
+                t: 'event',
+                ev: { type: 'mode_changed', modeId: session.mode.get() }
+              })
+            }
             break
           case 'setModel':
             await session.model.switch({ modelId: cmd.modelId })
