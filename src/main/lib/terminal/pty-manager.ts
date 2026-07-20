@@ -37,9 +37,14 @@ function shellQuote(s: string): string {
  * (rather than `VAR=1 exec cmd`) is portable to fish as $SHELL.
  * ELECTRON_RUN_AS_NODE inherits into the TUI's children — harmless, since
  * only Electron binaries read it.
+ *
+ * The update check is disabled: the embedded TUI is version-locked to the
+ * app's vendored runtime (its self-update would npm-install a global copy
+ * without touching the bundle), and its version self-detection misreads
+ * @mastra/code-sdk's version, producing a false "new version" prompt.
  */
 export function buildMastracodeCommand(execPath: string, cliJsPath: string): string {
-  return `exec env ELECTRON_RUN_AS_NODE=1 ${shellQuote(execPath)} ${shellQuote(cliJsPath)}`
+  return `exec env ELECTRON_RUN_AS_NODE=1 MASTRACODE_DISABLE_UPDATE_CHECK=1 ${shellQuote(execPath)} ${shellQuote(cliJsPath)}`
 }
 
 export class PtyManager {
