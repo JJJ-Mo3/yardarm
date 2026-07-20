@@ -69,6 +69,31 @@ export async function hasCommits(dir: string): Promise<boolean> {
   }
 }
 
+/**
+ * Guarantee the repo has a base commit so `git worktree add` can work.
+ * Repos with an unborn HEAD get an empty bootstrap commit; repos with
+ * history are left untouched. Retries with a local identity so it also
+ * works when user.name/user.email are not configured.
+ */
+export async function ensureBaseCommit(dir: string): Promise<void> {
+  if (await hasCommits(dir)) return
+  const git = simpleGit(dir)
+  try {
+    await git.raw(['commit', '--allow-empty', '-m', 'Initial commit'])
+  } catch {
+    await git.raw([
+      '-c',
+      'user.name=Yardarm',
+      '-c',
+      'user.email=yardarm@localhost',
+      'commit',
+      '--allow-empty',
+      '-m',
+      'Initial commit'
+    ])
+  }
+}
+
 async function uniqueBranch(projectPath: string, base: string): Promise<string> {
   const git = simpleGit(projectPath)
   let candidate = base

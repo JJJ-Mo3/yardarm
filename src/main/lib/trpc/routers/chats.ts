@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { getDb, schema } from '../../db'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import { checkpointStashSha, deleteCheckpointRefs, restoreCheckpoint } from '../../git/ops'
-import { createWorktree, hasCommits, removeWorktree } from '../../git/worktree'
+import { createWorktree, ensureBaseCommit, isGitRepo, removeWorktree } from '../../git/worktree'
 import { ptyManager } from '../../terminal/pty-manager'
 import { publicProcedure, router } from '../trpc'
 
@@ -55,9 +55,11 @@ export const chatsRouter = router({
 
       let worktreePath: string | null = null
       let branch: string | null = null
-      // Worktrees need a base commit; a freshly-initialized repo has none, so
-      // fall back to running the chat at the project root ("no worktree").
-      if (input.useWorktree && (await hasCommits(project.path))) {
+      // Worktrees need a base commit; bootstrap one for repos with an unborn
+      // HEAD so isolation works even for freshly-initialized projects. Only
+      // non-git project dirs fall back to running at the project root.
+      if (input.useWorktree && (await isGitRepo(project.path))) {
+        await ensureBaseCommit(project.path)
         const wt = await createWorktree(project.id, project.path, chatId, input.title, base)
         worktreePath = wt.worktreePath
         branch = wt.branch

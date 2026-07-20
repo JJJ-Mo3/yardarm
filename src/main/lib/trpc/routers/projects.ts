@@ -8,7 +8,7 @@ import { z } from 'zod'
 import { getDb, schema } from '../../db'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import { checkpointStashSha, deleteCheckpointRefs } from '../../git/ops'
-import { detectDefaultBranch, isGitRepo, removeWorktree } from '../../git/worktree'
+import { detectDefaultBranch, ensureBaseCommit, isGitRepo, removeWorktree } from '../../git/worktree'
 import { ptyManager } from '../../terminal/pty-manager'
 import { publicProcedure, router } from '../trpc'
 
@@ -65,6 +65,8 @@ export const projectsRouter = router({
       if (!(await isGitRepo(input.path))) {
         if (!input.init) return { ok: false as const, reason: 'not-git' as const }
         await simpleGit(input.path).init()
+        // A repo with an unborn HEAD can't host worktrees; bootstrap it.
+        await ensureBaseCommit(input.path)
       }
       return { ok: true as const, project: await insertProject(input.path) }
     }),
