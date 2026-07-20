@@ -11,6 +11,7 @@ import { cn } from '../../lib/utils'
 import { Button } from '../../components/ui/button'
 import { Switch } from '../../components/ui/switch'
 import { KeysTab } from '../settings/SettingsDialog'
+import { OAuthSection } from '../settings/OAuthSection'
 import { Logo } from '../../components/Logo'
 import { ModelSelect } from '../../components/ModelSelect'
 
@@ -225,6 +226,9 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
                     : 'No providers connected yet — add an API key or log in below.'}
                 </div>
                 <KeysTab />
+                <div className="border-t border-border pt-3">
+                  <OAuthSection />
+                </div>
               </div>
             )}
 

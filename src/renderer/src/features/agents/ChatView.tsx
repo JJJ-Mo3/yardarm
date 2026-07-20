@@ -290,9 +290,12 @@ export function ChatView({
         openSettings('mcp')
         return
       case 'api-keys':
+        openSettings('keys')
+        return
       case 'login':
       case 'logout':
-        openSettings('keys')
+        // OAuth logins live on the Providers tab.
+        openSettings('providers')
         return
       case 'custom-providers':
         openSettings('providers')
@@ -406,7 +409,10 @@ export function ChatView({
 
         {models.data && models.data.length > 0 && !models.data.some((m) => m.hasApiKey) && (
           <>
-            <Tip content="No provider is authenticated — add an API key or log in" side="bottom">
+            <Tip
+              content="No provider is authenticated — add an API key (OAuth logins are under Providers)"
+              side="bottom"
+            >
               <button
                 className="flex items-center gap-1 rounded-md border border-amber-600/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-500 hover:bg-amber-500/20 cursor-pointer"
                 onClick={() => openSettings('keys')}

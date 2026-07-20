@@ -31,7 +31,6 @@ import { Tip } from '../../components/ui/tooltip'
 import { AboutTab } from './AboutTab'
 import { BrowserTab } from './BrowserTab'
 import { ModelsTab } from './ModelsTab'
-import { OAuthSection } from './OAuthSection'
 import { PreferencesTab } from './PreferencesTab'
 import { ProvidersTab } from './ProvidersTab'
 import { VoiceTab } from './VoiceTab'
@@ -171,9 +170,6 @@ export function KeysTab(): React.JSX.Element {
       {setKey.error && (
         <div className="text-xs text-destructive selectable">{setKey.error.message}</div>
       )}
-      <div className="border-t border-border pt-3">
-        <OAuthSection />
-      </div>
     </div>
   )
 }
@@ -264,7 +260,7 @@ export function SettingsDialog(): React.JSX.Element {
       id: 'keys',
       label: 'API Keys',
       icon: <KeyRound size={13} />,
-      tip: 'Provider API keys and OAuth logins'
+      tip: 'Provider API keys'
     },
     {
       id: 'models',
@@ -276,7 +272,7 @@ export function SettingsDialog(): React.JSX.Element {
       id: 'providers',
       label: 'Providers',
       icon: <Plug size={13} />,
-      tip: 'Local model providers like Ollama and LM Studio'
+      tip: 'OAuth logins and local model providers like Ollama and LM Studio'
     },
     { id: 'voice', label: 'Voice', icon: <Mic size={13} />, tip: 'Voice input settings' },
     {

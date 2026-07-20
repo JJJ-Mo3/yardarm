@@ -129,9 +129,16 @@ export function ModelsTab(): React.JSX.Element {
           <span className="min-w-0 flex-1">
             No provider is authenticated yet — add an API key or log in to enable models.
           </span>
-          <Button size="sm" variant="outline" onClick={() => setSettingsTab('keys')}>
-            Open API Keys
-          </Button>
+          <Tip content="Store a provider API key under Settings → API Keys">
+            <Button size="sm" variant="outline" onClick={() => setSettingsTab('keys')}>
+              API Keys
+            </Button>
+          </Tip>
+          <Tip content="Log in with a provider subscription under Settings → Providers">
+            <Button size="sm" variant="outline" onClick={() => setSettingsTab('providers')}>
+              Log in
+            </Button>
+          </Tip>
         </div>
       )}
 

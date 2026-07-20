@@ -6,6 +6,7 @@ import { Input } from '../../components/ui/input'
 import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { AddLocalProviderDialog } from './AddLocalProviderDialog'
+import { OAuthSection } from './OAuthSection'
 
 interface Draft {
   name: string
@@ -88,9 +89,14 @@ export function ProvidersTab(): React.JSX.Element {
 
   return (
     <div className="space-y-4">
-      <div className="text-[11px] text-muted-foreground">
-        Custom OpenAI-compatible providers, stored in mastracode&apos;s <code>settings.json</code>{' '}
-        (shared with the CLI).
+      <OAuthSection />
+
+      <div className="space-y-1 border-t border-border pt-3">
+        <div className="text-xs font-medium">Local & custom providers</div>
+        <div className="text-[11px] text-muted-foreground">
+          Custom OpenAI-compatible providers, stored in mastracode&apos;s <code>settings.json</code>{' '}
+          (shared with the CLI).
+        </div>
       </div>
 
       <Tip content="Guided setup for a model running on your machine (Ollama, LM Studio, and more)">
