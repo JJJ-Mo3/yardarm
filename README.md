@@ -20,6 +20,7 @@ click away (Settings → About).
 ## Contents
 
 - [Why Mastra Code](#why-mastra-code)
+- [What Yardarm adds](#what-yardarm-adds-over-the-cli)
 - [Features](#features)
 - [Install](#install)
 - [First run](#first-run)
@@ -53,6 +54,39 @@ Yardarm exists because Mastra Code is a genuinely different coding agent:
   globally or per project.
 - **Open source and local-first** — configuration is plain files on disk,
   shared between the CLI, ACP editors, and this app.
+
+## What Yardarm adds over the CLI
+
+Everything Mastra Code can do, the CLI can do — Yardarm is about what happens
+around the agent:
+
+- **Parallel agents on one repo** — the CLI works in your checkout; Yardarm
+  gives every chat its own git worktree on a `yardarm/…` branch, so several
+  agents can build, test, and commit on the same project at once without
+  touching your working copy or each other.
+- **One-click rollback of code + conversation** — every user message pins a
+  checkpoint (a real git ref). Roll back and both the transcript and the
+  working tree return to that moment, with the agent told what happened.
+- **Review and ship without leaving the app** — side-by-side Monaco diffs of
+  exactly what the agent changed, staging, commit, and push (with `gh` for PR
+  flows), plus a real terminal and file viewer scoped to the chat's worktree.
+- **Persistent, organized history** — projects and chats with full
+  transcripts survive restarts in a local SQLite database, independent of any
+  terminal session or scrollback.
+- **Everything visible at a glance** — tool calls as expandable cards,
+  plan-approval and tool-approval prompts as buttons, a live goal banner, and
+  Observational Memory activity/token budgets as status UI instead of
+  terminal output that scrolls away.
+- **Configuration without hand-editing JSON** — dialogs for API keys and
+  OAuth, per-mode/subagent/judge/memory models, custom providers, MCP
+  servers, hooks, permissions, and per-project settings — all written back
+  to the same files the CLI reads.
+- **Local models that just work** — Ollama auto-detect and auto-start,
+  dropdowns filtered to models that will actually run, and no idle timeouts
+  so a big local model can think for minutes without the run being cut off.
+- **A gentler on-ramp** — a first-run wizard mirroring CLI onboarding, and a
+  one-click global CLI install from Settings → About when you want the
+  terminal too.
 
 ## Features
 
