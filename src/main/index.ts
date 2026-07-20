@@ -3,6 +3,7 @@ import { createIPCHandler } from 'trpc-electron/main'
 import { initDb, closeDb, maintainDb } from './lib/db'
 import { appRouter } from './lib/trpc/routers'
 import { agentSessionManager } from './lib/agent/agent-session-manager'
+import { normalizeModelIdsInSettings } from './lib/mastra-config/normalize-model-ids'
 import { ptyManager } from './lib/terminal/pty-manager'
 import { createWindow, setIpcHandler } from './windows/window-manager'
 import { initUpdater } from './lib/updater'
@@ -44,11 +45,16 @@ app.whenReady().then(() => {
   createWindow()
   initUpdater()
 
-  // Warm up + verify the bundled mastracode runtime; renderer preflight
-  // queries reuse the booted utility host.
-  agentSessionManager.preflight().then((res) => {
-    if (!res.ok) console.error('[preflight] mastracode boot failed:', res.error)
-  })
+  // Heal gateway-prefixed model ids saved before catalog normalization, then
+  // warm up + verify the bundled mastracode runtime (hosts read settings.json
+  // at boot, so the migration runs before the first host spawns); renderer
+  // preflight queries reuse the booted utility host.
+  normalizeModelIdsInSettings()
+    .catch(() => {})
+    .then(() => agentSessionManager.preflight())
+    .then((res) => {
+      if (!res.ok) console.error('[preflight] mastracode boot failed:', res.error)
+    })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

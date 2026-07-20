@@ -12,7 +12,10 @@ import { eq, desc, sql } from 'drizzle-orm'
 import { getDb, schema } from '../db'
 import { EventTranslator } from './event-translator'
 import { clampMessageForStorage } from './message-clamp'
-import { markCustomProviderModels } from './custom-provider-models'
+import {
+  normalizeCustomProviderModelId,
+  normalizeCustomProviderModels
+} from './custom-provider-models'
 import { readSettings } from '../mastra-config/settings-json'
 import { MessageWriteBuffer } from './message-write-buffer'
 import { createUpsertThrottle } from './upsert-throttle'
@@ -231,11 +234,20 @@ export class AgentSessionManager {
     if (!project) throw new Error(`Project not found: ${chat.projectId}`)
 
     const cwd = chat.worktreePath ?? project.path
+    // Stored ids may predate catalog-id normalization (gateway-prefixed custom
+    // provider ids the SDK can't resolve) — normalize before handing to the host.
+    // The resulting model_changed event persists the normalized id back.
+    const modelId = subchat.modelId
+      ? normalizeCustomProviderModelId(
+          subchat.modelId,
+          (await readSettings()).customProviders ?? []
+        )
+      : undefined
     const boot: HostBootConfig = {
       cwd,
       threadId: subchat.mastraThreadId ?? undefined,
       mode: subchat.mode ?? undefined,
-      modelId: subchat.modelId ?? undefined,
+      modelId,
       thinkingLevel: subchat.thinkingLevel ?? undefined,
       yolo: false
     }
@@ -568,7 +580,12 @@ export class AgentSessionManager {
 
   async setModel(subchatId: string, modelId: string): Promise<void> {
     const handle = await this.ensureHost(subchatId)
-    this.sendCommand(handle, { t: 'setModel', modelId })
+    // Defensive: strip gateway-prefixed custom-provider ids the SDK can't resolve.
+    const settings = await readSettings()
+    this.sendCommand(handle, {
+      t: 'setModel',
+      modelId: normalizeCustomProviderModelId(modelId, settings.customProviders ?? [])
+    })
   }
 
   async setYolo(subchatId: string, yolo: boolean): Promise<void> {
@@ -897,10 +914,11 @@ export class AgentSessionManager {
   async listModels(subchatId?: string): Promise<ModelInfo[]> {
     const handle = subchatId ? await this.ensureHost(subchatId) : await this.ensureUtilityHost()
     const models = await this.request<ModelInfo[]>(handle, { t: 'listModels', reqId: randomUUID() })
-    // The SDK marks keyless custom providers (local Ollama etc.) as unusable
-    // even though it runs them keyless — override from settings.json.
+    // The SDK's catalog emits gateway-prefixed ids its own resolver can't parse,
+    // and marks keyless custom providers (local Ollama etc.) as unusable even
+    // though it runs them keyless — normalize both from settings.json.
     const settings = await readSettings()
-    return markCustomProviderModels(models, settings.customProviders ?? [])
+    return normalizeCustomProviderModels(models, settings.customProviders ?? [])
   }
 
   async authList(): Promise<AuthEntry[]> {
