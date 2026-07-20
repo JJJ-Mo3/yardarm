@@ -117,7 +117,9 @@ export function AboutTab(): React.JSX.Element {
             cli.isLoading
               ? 'checking…'
               : cli.data?.found
-                ? `installed (${cli.data.version})`
+                ? cli.data.version
+                  ? `installed (${cli.data.version})`
+                  : 'installed'
                 : 'not installed'
           }
         />

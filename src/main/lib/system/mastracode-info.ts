@@ -4,7 +4,7 @@
  * only report on it — the agent host is what actually imports it.
  */
 import { spawn } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readFileSync, realpathSync } from 'node:fs'
 import path from 'node:path'
 import { app } from 'electron'
 
@@ -38,7 +38,42 @@ export interface CliDetectResult {
   version?: string
 }
 
-/** Check whether a global `mastracode` CLI is on PATH (best-effort, 5s cap). */
+/**
+ * Best-effort version of a resolved CLI binary: follow symlinks (npm global
+ * bins are symlinks into .../node_modules/mastracode), then walk up to the
+ * package's own package.json.
+ */
+function readCliVersion(binPath: string): string | undefined {
+  try {
+    let dir = path.dirname(realpathSync(binPath))
+    // Windows npm shims (.cmd) sit next to node_modules rather than inside it.
+    const candidates = [path.join(dir, 'node_modules', 'mastracode', 'package.json')]
+    for (let i = 0; i < 6 && path.dirname(dir) !== dir; i++) {
+      candidates.push(path.join(dir, 'package.json'))
+      dir = path.dirname(dir)
+    }
+    for (const p of candidates) {
+      try {
+        const pkg = JSON.parse(readFileSync(p, 'utf8')) as { name?: string; version?: string }
+        if (pkg.name === 'mastracode' && typeof pkg.version === 'string') return pkg.version
+      } catch {
+        // try next candidate
+      }
+    }
+  } catch {
+    // fall through
+  }
+  return undefined
+}
+
+/**
+ * Check whether a global `mastracode` CLI is on PATH (best-effort, 5s cap).
+ *
+ * Locates the binary with `command -v` via the user's login+interactive
+ * shell — GUI apps get a bare PATH, and homebrew (~/.zprofile) / nvm
+ * (~/.zshrc) additions only apply there. The CLI has no --version flag
+ * (and reads stdin when piped), so the version comes from its package.json.
+ */
 export function detectGlobalCli(): Promise<CliDetectResult> {
   return new Promise((resolve) => {
     let settled = false
@@ -49,8 +84,12 @@ export function detectGlobalCli(): Promise<CliDetectResult> {
       }
     }
     try {
-      // shell:true so login-shell PATH additions (nvm, volta, homebrew) apply.
-      const child = spawn('mastracode', ['--version'], { shell: true })
+      const child =
+        process.platform === 'win32'
+          ? spawn('where', ['mastracode'], { shell: true, stdio: ['ignore', 'pipe', 'ignore'] })
+          : spawn(process.env.SHELL ?? '/bin/zsh', ['-ilc', 'command -v mastracode'], {
+              stdio: ['ignore', 'pipe', 'ignore']
+            })
       let out = ''
       const timer = setTimeout(() => {
         try {
@@ -67,10 +106,17 @@ export function detectGlobalCli(): Promise<CliDetectResult> {
         clearTimeout(timer)
         finish({ found: false })
       })
-      child.on('close', (code) => {
+      child.on('close', () => {
         clearTimeout(timer)
-        const version = out.trim().split('\n')[0]?.trim()
-        if (code === 0 && version) finish({ found: true, version })
+        // Shell rc files and interactive zsh can emit banners / escape
+        // sequences around the real answer, so pick the path-looking line.
+        const binPath = out
+          .split('\n')
+          .map((l) => l.trim())
+          .find((l) =>
+            process.platform === 'win32' ? /\\mastracode(\.\w+)?$/i.test(l) : l.startsWith('/')
+          )
+        if (binPath) finish({ found: true, version: readCliVersion(binPath) })
         else finish({ found: false })
       })
     } catch {
