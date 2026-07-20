@@ -20,7 +20,7 @@ click away (Settings → About).
 ## Contents
 
 - [Why Mastra Code](#why-mastra-code)
-- [What Yardarm adds](#what-yardarm-adds-over-the-cli)
+- [What Yardarm adds](#what-yardarm-adds)
 - [Features](#features)
 - [Install](#install)
 - [First run](#first-run)
@@ -55,41 +55,38 @@ Yardarm exists because Mastra Code is a genuinely different coding agent:
 - **Open source and local-first** — configuration is plain files on disk,
   shared between the CLI, ACP editors, and this app.
 
-## What Yardarm adds over the CLI
+## What Yardarm adds
 
-Everything Mastra Code can do, the CLI can do — Yardarm is about what happens
-around the agent:
+Yardarm puts a desktop workspace around the agent:
 
-- **Parallel agents on one repo** — the CLI works in your checkout; Yardarm
-  gives every chat its own git worktree on a `yardarm/…` branch, so several
-  agents can build, test, and commit on the same project at once without
-  touching your working copy or each other.
+- **Parallel agents on one repo** — every chat gets its own git worktree on
+  a `yardarm/…` branch, so several agents can build, test, and commit on the
+  same project at once without touching your working copy or each other.
 - **One-click rollback of code + conversation** — every user message pins a
   checkpoint (a real git ref). Roll back and both the transcript and the
   working tree return to that moment, with the agent told what happened.
-- **Review and ship without leaving the app** — side-by-side Monaco diffs of
-  exactly what the agent changed, staging, commit, and push (with `gh` for PR
+- **Review and ship in one place** — side-by-side Monaco diffs of exactly
+  what the agent changed, staging, commit, and push (with `gh` for PR
   flows), plus a real terminal and file viewer scoped to the chat's worktree.
 - **Persistent, organized history** — projects and chats with full
-  transcripts survive restarts in a local SQLite database, independent of any
-  terminal session or scrollback.
-- **Everything visible at a glance** — tool calls as expandable cards,
-  plan-approval and tool-approval prompts as buttons, a goal popover with
-  live progress and pause/resume, and Observational Memory activity/token
-  budgets as status UI instead of terminal output that scrolls away.
-- **Configuration without hand-editing JSON** — dialogs for API keys and
-  OAuth, per-mode/subagent/judge/memory models, custom providers, MCP
-  servers, hooks, permissions, and per-project settings — all written back
-  to the same files the CLI reads.
-- **Local models that just work** — Ollama auto-detect and auto-start,
+  transcripts survive restarts in a local SQLite database.
+- **Everything visible at a glance** — a color-coded mode selector, tool
+  calls as expandable cards, plan-approval and tool-approval prompts as
+  buttons, a goal popover with live progress and pause/resume, and
+  Observational Memory activity/token budgets as status UI.
+- **Configuration dialogs** — API keys, OAuth logins,
+  per-mode/subagent/judge/memory models, custom providers, MCP servers,
+  hooks, permissions, and per-project settings — all written back to the
+  same files the CLI reads.
+- **Local model conveniences** — Ollama auto-detect and auto-start,
   dropdowns filtered to models that will actually run, and no idle timeouts
   so a big local model can think for minutes without the run being cut off.
-- **The CLI itself, embedded** — a CLI tab runs the interactive Mastra Code
-  TUI inside the app, in the chat's worktree, seeing the same threads as the
+- **The CLI, embedded** — a CLI tab runs the interactive Mastra Code TUI
+  inside the app, in the chat's worktree, seeing the same threads as the
   chat.
-- **A gentler on-ramp** — a first-run wizard mirroring CLI onboarding, and a
-  one-click global CLI install from Settings → About when you want the
-  terminal too.
+- **Setup included** — a first-run wizard that writes the same
+  `settings.json` the CLI onboarding does, and a one-click global CLI
+  install from Settings → About when you want the terminal too.
 
 ## Features
 
@@ -97,8 +94,9 @@ around the agent:
 
 - Streaming agent chat with tool-call cards, plan approval, and tool-approval
   prompts (allow once / always / deny)
-- Plan / Build / Fast modes, per-mode model selection, extended-thinking
-  toggle, and yolo mode
+- Color-coded Plan / Build / Fast mode selector in the chat header — modes
+  switch instantly, persist per chat, and are restored on relaunch — plus
+  per-mode model selection, an extended-thinking toggle, and yolo mode
 - Session permissions panel (`/permissions`): per-category and per-tool
   allow / ask / deny
 - Goals (`/goal`) with a live goal banner and a header popover to set,
@@ -147,10 +145,10 @@ around the agent:
 **Providers & auth**
 
 - OAuth login for Anthropic (Claude subscriptions), OpenAI Codex, and GitHub
-  Copilot — the browser flow runs inside the bundled runtime and credentials
-  land in mastracode's `auth.json`
-- API keys for any supported provider, plus custom OpenAI-compatible
-  providers in Settings → Providers
+  Copilot in Settings → Providers — the browser flow runs inside the bundled
+  runtime and credentials land in mastracode's `auth.json`
+- API keys for any supported provider in Settings → API Keys, plus custom
+  OpenAI-compatible providers in Settings → Providers
 - Model defaults per mode, subagent, goal judge, and OM roles in
   Settings → Models — written to the shared `settings.json`
 
@@ -239,8 +237,10 @@ No API key, no network egress — prompts go to `localhost` only.
 ## Using the app
 
 **Modes.** Plan mode explores and proposes before touching files; Build mode
-edits; Fast mode is a lighter model for quick tasks. Switch via the composer
-or `/plan`, `/build`, `/fast`. Each mode can have its own default model.
+edits; Fast mode is a lighter model for quick tasks. Switch with the
+color-coded selector in the chat header (blue = plan, green = build,
+amber = fast) or `/plan`, `/build`, `/fast`. Each chat keeps its own mode
+across restarts, and each mode can have its own default model.
 
 **Worktrees.** New chats get an isolated git worktree under the app's data
 directory on a `yardarm/…` branch, so parallel chats can't trample your
@@ -391,9 +391,10 @@ and the full error if mastracode failed to load. "Run setup again" re-runs
 onboarding if config is the culprit.
 
 **No models appear in the dropdown.**
-The dropdown lists only usable models — connect a provider (Settings →
-API Keys) or add a local one (Settings → Providers). For Ollama, make sure
-the server is running (`ollama serve`) and at least one model is pulled.
+The dropdown lists only usable models — add an API key (Settings →
+API Keys), log in with a provider subscription (Settings → Providers), or
+add a local model (Settings → Providers). For Ollama, make sure the server
+is running (`ollama serve`) and at least one model is pulled.
 
 **"The model stopped because it reached its maximum output length before finishing."**
 The conversation filled the local server's context window. Raise it to 64k
