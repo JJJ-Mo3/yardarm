@@ -9,6 +9,11 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { HostBootConfig, HostCommand, HostMessage } from '../../shared/ipc-types'
+import { installNoTimeoutFetch } from './no-timeout-fetch'
+
+// The SDK drives model requests through globalThis.fetch; disable undici's
+// ~300s idle timeouts so slow local models can't die with "terminated".
+installNoTimeoutFetch()
 
 /**
  * Packaged builds: root of the vendored mastracode runtime
