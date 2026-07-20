@@ -139,10 +139,9 @@ export default function App(): React.JSX.Element {
             </button>
           ))}
           <div className="flex-1" />
-          {chat.data && (
-            <span className="truncate text-xs text-muted-foreground">
-              {chat.data.title}
-              {chat.data.branch ? ` · ${chat.data.branch}` : ''}
+          {chat.data?.branch && (
+            <span className="truncate font-mono text-xs text-muted-foreground">
+              {chat.data.branch}
             </span>
           )}
         </div>
