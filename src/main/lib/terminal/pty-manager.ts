@@ -27,7 +27,11 @@ export class PtyManager {
 
   create(id: string, cwd: string, cols = 80, rows = 24): void {
     if (this.sessions.has(id)) return
-    const proc = pty.spawn(defaultShell(), [], {
+    // Login shell: GUI apps get a bare PATH on macOS, and homebrew / node
+    // version managers only add themselves in login shells (~/.zprofile,
+    // /etc/zprofile path_helper) — without -l, npm/node are often missing.
+    const shellArgs = process.platform === 'win32' ? [] : ['-l']
+    const proc = pty.spawn(defaultShell(), shellArgs, {
       name: 'xterm-256color',
       cols,
       rows,

@@ -28,11 +28,25 @@ export const systemRouter = router({
     const id = CLI_INSTALL_TERMINAL_ID
     ptyManager.kill(id)
     ptyManager.create(id, os.homedir())
+    // Wait for the shell to draw its prompt before typing — writing during
+    // zsh startup races the line editor and garbles the echoed command.
     // `exit` ends the shell so subscribers get a terminal exit event.
-    ptyManager.write(
-      id,
-      'npm install -g mastracode && echo "[yardarm] CLI install complete"; exit\r'
-    )
+    let sent = false
+    const send = (): void => {
+      if (sent) return
+      sent = true
+      offData()
+      clearTimeout(fallback)
+      ptyManager.write(
+        id,
+        'npm install -g mastracode && echo "[yardarm] CLI install complete"; exit\r'
+      )
+    }
+    const offData = ptyManager.onData(id, () => {
+      offData()
+      setTimeout(send, 250)
+    })
+    const fallback = setTimeout(send, 2000)
     return { terminalId: id }
   })
 })
