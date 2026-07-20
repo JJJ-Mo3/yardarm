@@ -74,9 +74,9 @@ around the agent:
   transcripts survive restarts in a local SQLite database, independent of any
   terminal session or scrollback.
 - **Everything visible at a glance** — tool calls as expandable cards,
-  plan-approval and tool-approval prompts as buttons, a live goal banner, and
-  Observational Memory activity/token budgets as status UI instead of
-  terminal output that scrolls away.
+  plan-approval and tool-approval prompts as buttons, a goal popover with
+  live progress and pause/resume, and Observational Memory activity/token
+  budgets as status UI instead of terminal output that scrolls away.
 - **Configuration without hand-editing JSON** — dialogs for API keys and
   OAuth, per-mode/subagent/judge/memory models, custom providers, MCP
   servers, hooks, permissions, and per-project settings — all written back
@@ -101,8 +101,11 @@ around the agent:
   toggle, and yolo mode
 - Session permissions panel (`/permissions`): per-category and per-tool
   allow / ask / deny
-- Goals (`/goal`) with a live goal banner, and Observational Memory status
-  (`/om`) showing observer/reflector activity and token budgets
+- Goals (`/goal`) with a live goal banner and a header popover to set,
+  pause/resume, or clear the goal and tune the judge model and run limit —
+  no slash command needed
+- Observational Memory status (`/om`) showing observer/reflector activity
+  and token budgets
 - Threads (`/threads`): switch, rename, clone, delete, open in a new subchat,
   with per-thread token usage in the cost popover (`/cost`)
 - Multiple subchats per chat, each with its own agent process
