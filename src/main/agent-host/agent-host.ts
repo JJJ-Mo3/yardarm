@@ -5,7 +5,7 @@
  * the interactive Session API to the main process over parentPort messages.
  * This is the single integration point with the mastracode SDK.
  */
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { HostBootConfig, HostCommand, HostMessage, SttModelInfo } from '../../shared/ipc-types'
@@ -199,6 +199,13 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
+  if (!existsSync(boot.cwd)) {
+    post({
+      t: 'boot-error',
+      error: `Working directory no longer exists: ${boot.cwd}. Re-add the project or delete this chat.`
+    })
+    process.exit(1)
+  }
   process.chdir(boot.cwd)
 
   let sdk: typeof import('mastracode')

@@ -30,6 +30,11 @@ describe('pickMacZipAsset', () => {
     expect(pickMacZipAsset([asset('Yardarm-darwin.zip')], 'arm64')?.name).toBe('Yardarm-darwin.zip')
   })
 
+  it('prefers the arch match over a loose mac match on mixed releases', () => {
+    const assets = [asset('Yardarm-1.0.0-x64-mac.zip'), asset('Yardarm-1.0.0-arm64.zip')]
+    expect(pickMacZipAsset(assets, 'arm64')?.name).toBe('Yardarm-1.0.0-arm64.zip')
+  })
+
   it('ignores non-zip assets and wrong arch', () => {
     expect(pickMacZipAsset([asset('Yardarm-0.1.1-arm64.dmg')], 'arm64')).toBeNull()
     expect(pickMacZipAsset([asset('Yardarm-0.1.1-x64.zip')], 'arm64')).toBeNull()

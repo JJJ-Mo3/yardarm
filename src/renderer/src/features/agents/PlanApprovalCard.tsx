@@ -33,6 +33,7 @@ export function PlanApprovalCard({
   const [showReject, setShowReject] = useState(false)
   const [rawJson, setRawJson] = useState('')
   const [showRaw, setShowRaw] = useState(false)
+  const [jsonError, setJsonError] = useState<string | null>(null)
 
   return (
     <div className="rounded-lg border border-blue-500/40 bg-blue-500/5 p-3 space-y-2">
@@ -78,23 +79,36 @@ export function PlanApprovalCard({
             rows={3}
             placeholder='Raw resume JSON, e.g. {"approved": true}'
             value={rawJson}
-            onChange={(e) => setRawJson(e.target.value)}
+            onChange={(e) => {
+              setRawJson(e.target.value)
+              setJsonError(null)
+            }}
             className="font-mono text-[11px]"
           />
+          {jsonError && (
+            <div className="text-xs text-destructive selectable">Invalid JSON: {jsonError}</div>
+          )}
           <div className="flex gap-2">
             <Button
               size="sm"
               onClick={() => {
                 try {
                   onResume(JSON.parse(rawJson))
-                } catch {
-                  // invalid JSON — ignore
+                } catch (err) {
+                  setJsonError(err instanceof Error ? err.message : String(err))
                 }
               }}
             >
               Send
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setShowRaw(false)}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setShowRaw(false)
+                setJsonError(null)
+              }}
+            >
               Cancel
             </Button>
           </div>

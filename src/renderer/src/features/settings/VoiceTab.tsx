@@ -109,35 +109,41 @@ export function VoiceTab(): React.JSX.Element {
           )}
           <div className="flex items-center gap-2">
             <span className="w-24 text-[11px] text-muted-foreground">Provider</span>
-            <select
-              value={provider}
-              onChange={(e) => setVoice.mutate({ provider: e.target.value, model: null })}
-              className="h-7 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-[11px]"
-            >
-              {providers.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                  {keysKnown && !models.some((m) => m.provider === p && m.hasKey)
-                    ? ' — no key'
-                    : ''}
-                </option>
-              ))}
-            </select>
+            <Tip content="Cloud STT provider used for dictation (needs its API key)">
+              <select
+                value={provider}
+                onChange={(e) => setVoice.mutate({ provider: e.target.value, model: null })}
+                className="h-7 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-[11px]"
+              >
+                {providers.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                    {keysKnown && !models.some((m) => m.provider === p && m.hasKey)
+                      ? ' — no key'
+                      : ''}
+                  </option>
+                ))}
+              </select>
+            </Tip>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-24 text-[11px] text-muted-foreground">Model</span>
-            <select
-              value={v.model ?? ''}
-              onChange={(e) => setVoice.mutate({ model: e.target.value || null })}
-              className="h-7 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-[11px]"
-            >
-              <option value="">(default: {providerModels[0]?.label ?? 'provider default'})</option>
-              {providerModels.map((m) => (
-                <option key={m.model} value={m.model}>
-                  {m.label}
+            <Tip content="Transcription model — leave on default unless the provider offers a better fit">
+              <select
+                value={v.model ?? ''}
+                onChange={(e) => setVoice.mutate({ model: e.target.value || null })}
+                className="h-7 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-[11px]"
+              >
+                <option value="">
+                  (default: {providerModels[0]?.label ?? 'provider default'})
                 </option>
-              ))}
-            </select>
+                {providerModels.map((m) => (
+                  <option key={m.model} value={m.model}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </Tip>
           </div>
           <div className="text-[11px] text-muted-foreground">
             Cloud transcription uses the provider&apos;s API key from the API Keys tab.

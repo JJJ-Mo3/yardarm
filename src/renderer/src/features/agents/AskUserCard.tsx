@@ -123,9 +123,17 @@ export function AskUserCard({
             }}
           />
           <div className="flex gap-2">
-            <Button size="sm" disabled={!freeText.trim()} onClick={() => onResume(freeText.trim())}>
-              Answer
-            </Button>
+            <Tip content="Send this answer to the agent">
+              <span className="inline-flex">
+                <Button
+                  size="sm"
+                  disabled={!freeText.trim()}
+                  onClick={() => onResume(freeText.trim())}
+                >
+                  Answer
+                </Button>
+              </span>
+            </Tip>
             {showOther && (
               <Tip content="Return to the agent's suggested options">
                 <Button size="sm" variant="ghost" onClick={() => setShowOther(false)}>
@@ -140,9 +148,17 @@ export function AskUserCard({
       {options.length > 0 && !showOther && (
         <div className="flex gap-2">
           {multi && (
-            <Button size="sm" disabled={selected.length === 0} onClick={() => onResume(selected)}>
-              Answer{selected.length > 0 ? ` (${selected.length})` : ''}
-            </Button>
+            <Tip content="Send the selected option(s) to the agent">
+              <span className="inline-flex">
+                <Button
+                  size="sm"
+                  disabled={selected.length === 0}
+                  onClick={() => onResume(selected)}
+                >
+                  Answer{selected.length > 0 ? ` (${selected.length})` : ''}
+                </Button>
+              </span>
+            </Tip>
           )}
           <Tip content="Answer in your own words instead of picking an option">
             <Button size="sm" variant="ghost" onClick={() => setShowOther(true)}>
