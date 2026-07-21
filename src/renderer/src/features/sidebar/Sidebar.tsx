@@ -27,6 +27,7 @@ import {
   unseenChatsAtom
 } from '../../lib/atoms'
 import { useIsDark } from '../../lib/use-dark'
+import { useSelectChat } from '../../lib/use-select-chat'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
@@ -125,15 +126,7 @@ export function Sidebar(): React.JSX.Element {
     }
   })
 
-  function selectChat(id: string): void {
-    setChatId(id)
-    // Clear immediately so the previous chat's subchat never renders against
-    // the new chat's cwd while the fetch is in flight.
-    setSubchatId(null)
-    utils.chats.get.fetch({ id }).then((chat) => {
-      setSubchatId(chat?.subchats[0]?.id ?? null)
-    })
-  }
+  const selectChat = useSelectChat()
 
   return (
     <div className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-card">

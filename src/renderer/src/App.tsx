@@ -8,6 +8,7 @@ import {
   MessageSquare,
   Plus,
   SquareChevronRight,
+  SquareKanban,
   TerminalSquare
 } from 'lucide-react'
 import { trpc } from './lib/trpc'
@@ -33,6 +34,7 @@ import { useChatStatusTracker } from './features/agents/use-chat-status-tracker'
 import { ChangesView } from './features/changes/ChangesView'
 import { TerminalView } from './features/terminal/TerminalView'
 import { FilesView } from './features/file-viewer/FilesView'
+import { KanbanView } from './features/kanban/KanbanView'
 import { SettingsDialog } from './features/settings/SettingsDialog'
 import { ProjectSettingsDialog } from './features/project-settings/ProjectSettingsDialog'
 
@@ -66,6 +68,12 @@ const TABS: Array<{ id: MainTab; label: string; icon: React.ReactNode; tip: stri
     label: 'CLI',
     icon: <SquareChevronRight size={13} />,
     tip: 'Interactive Mastra Code CLI in the chat worktree — it sees the same threads as this chat. Avoid running the chat and the CLI on the same thread at once.'
+  },
+  {
+    id: 'kanban',
+    label: 'Kanban',
+    icon: <SquareKanban size={13} />,
+    tip: 'Board of this project’s chats grouped by live agent status — click a card to open it'
   }
 ]
 
@@ -263,6 +271,8 @@ export default function App(): React.JSX.Element {
                 ) : (
                   <SelectProjectPane />
                 ))}
+              {tab === 'kanban' &&
+                (projectId ? <KanbanView projectId={projectId} /> : <SelectProjectPane />)}
             </>
           )}
         </div>

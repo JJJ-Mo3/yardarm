@@ -6,7 +6,7 @@
  *   Cmd+N     new chat
  *   Cmd+P     thread switcher
  *   Cmd+J     toggle terminal tab
- *   Cmd+1–5   main tabs (chat / changes / terminal / files / cli)
+ *   Cmd+1–6   main tabs (chat / changes / terminal / files / cli / kanban)
  *   Cmd+,     settings
  */
 import { useEffect } from 'react'
@@ -19,7 +19,7 @@ import {
   type MainTab
 } from './atoms'
 
-const TAB_ORDER: MainTab[] = ['chat', 'changes', 'terminal', 'files', 'cli']
+const TAB_ORDER: MainTab[] = ['chat', 'changes', 'terminal', 'files', 'cli', 'kanban']
 
 export function useAppShortcuts(): void {
   const setTab = useSetAtom(mainTabAtom)
@@ -52,6 +52,8 @@ export function useAppShortcuts(): void {
         case '2':
         case '3':
         case '4':
+        case '5':
+        case '6':
           e.preventDefault()
           setTab(TAB_ORDER[Number(e.key) - 1])
           break

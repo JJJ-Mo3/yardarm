@@ -2,7 +2,7 @@ import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import type { SubchatStatusInfo } from '../../../shared/ui-message'
 
-export type MainTab = 'chat' | 'changes' | 'terminal' | 'files' | 'cli'
+export type MainTab = 'chat' | 'changes' | 'terminal' | 'files' | 'cli' | 'kanban'
 export type Theme = 'light' | 'dark' | 'system'
 
 export const selectedProjectIdAtom = atomWithStorage<string | null>('cz.selectedProject', null)
