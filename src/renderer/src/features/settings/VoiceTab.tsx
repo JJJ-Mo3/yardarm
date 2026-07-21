@@ -4,8 +4,9 @@ import { Switch } from '../../components/ui/switch'
 import { useRestartBanner } from './restart-banner'
 
 /**
- * Voice (speech-to-text) settings in settings.json. Configuration only —
- * push-to-talk audio capture runs in the mastracode CLI.
+ * Voice (speech-to-text) settings in settings.json, shared with the mastracode
+ * CLI. With the Cloud engine the composer mic button dictates into the prompt;
+ * macOS native dictation runs only in the CLI (/voice).
  */
 export function VoiceTab(): React.JSX.Element {
   const utils = trpc.useUtils()
@@ -30,8 +31,9 @@ export function VoiceTab(): React.JSX.Element {
   return (
     <div className="space-y-4">
       <div className="text-[11px] text-muted-foreground">
-        Hold-space dictation settings stored in <code>settings.json</code>. Audio capture itself
-        runs in the mastracode CLI (<code>/voice</code>); this app only edits the shared config.
+        Dictation settings stored in <code>settings.json</code>, shared with the mastracode CLI.
+        With the Cloud engine, the mic button in the composer dictates into the prompt; macOS native
+        dictation runs only in the CLI (<code>/voice</code>).
       </div>
 
       <label className="flex items-center gap-2 text-xs">

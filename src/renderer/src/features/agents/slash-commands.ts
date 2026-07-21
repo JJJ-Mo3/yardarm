@@ -15,6 +15,8 @@ export interface SlashCommandEntry {
   /** Usage hint shown in autocomplete/help, e.g. '<model-id>' */
   args?: string
   kind: CommandKind
+  /** cli-only: custom hint shown when run, replacing the generic CLI pointer. */
+  hint?: string
 }
 
 export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
@@ -72,7 +74,12 @@ export const CLI_ONLY_COMMANDS: SlashCommandEntry[] = [
   { name: 'review', description: 'Code review workflow', kind: 'cli-only' },
   { name: 'github', description: 'GitHub integration', kind: 'cli-only' },
   { name: 'observability', description: 'Observability integration', kind: 'cli-only' },
-  { name: 'voice', description: 'Voice input', kind: 'cli-only' },
+  {
+    name: 'voice',
+    description: 'Voice input',
+    kind: 'cli-only',
+    hint: 'Use the mic button in the composer to dictate (Cloud engine — see Settings → Voice). macOS native dictation runs in the mastracode CLI.'
+  },
   { name: 'browser', description: 'Browser tool', kind: 'cli-only' },
   { name: 'setup', description: 'Onboarding wizard', kind: 'cli-only' },
   { name: 'update', description: 'Update the CLI', kind: 'cli-only' },

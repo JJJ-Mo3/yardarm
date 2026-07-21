@@ -84,6 +84,21 @@ export type HostCommand =
   | { t: 'runSkill'; reqId: string; name: string; args: string }
   | { t: 'listPacks'; reqId: string }
   | { t: 'sttRegistry'; reqId: string }
+  /**
+   * Cloud STT: transcribe a recorded audio clip. provider/model are the
+   * current voice settings, read by main at call time (hosts read
+   * settings.json only at boot, but dictation must honor live edits).
+   */
+  | {
+      t: 'transcribe'
+      reqId: string
+      /** Base64 audio (no data: prefix). */
+      audioBase64: string
+      /** e.g. 'audio/webm;codecs=opus' */
+      mimeType: string
+      provider?: string
+      model?: string
+    }
   | { t: 'authList'; reqId: string }
   | { t: 'authSet'; reqId: string; provider: string; key: string }
   | { t: 'authRemove'; reqId: string; provider: string }

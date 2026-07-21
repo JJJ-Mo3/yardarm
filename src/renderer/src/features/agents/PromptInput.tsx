@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { ArrowUp, Paperclip, Square, X } from 'lucide-react'
+import { ArrowUp, Loader2, Mic, Paperclip, Square, X } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { Tip } from '../../components/ui/tooltip'
 import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
 import type { SlashCommandEntry } from './slash-commands'
+import { formatElapsed, micReleaseAction, useVoiceRecorder } from './use-voice-recorder'
 
 const KIND_LABEL: Record<SlashCommandEntry['kind'], string | null> = {
   builtin: null,
@@ -70,6 +71,17 @@ export function PromptInput({
   )
   const files = mentionQuery !== null ? (mentionResults.data ?? []) : []
 
+  // Voice dictation (Cloud engine only — recording is independent of runs).
+  const utils = trpc.useUtils()
+  const mastraSettings = trpc.mastraSettings.get.useQuery()
+  const micStatus = trpc.voice.micAccessStatus.useQuery(undefined, { staleTime: 30_000 })
+  const requestMicAccess = trpc.voice.requestMicAccess.useMutation()
+  const voiceSettings = mastraSettings.data?.voice ?? {}
+  const voiceEnabled = voiceSettings.enabled ?? false
+  const voiceCloud = (voiceSettings.engine ?? 'macos-native') === 'cloud'
+  const micDenied = micStatus.data === 'denied' || micStatus.data === 'restricted'
+  const micPressRef = useRef<{ startedRecording: boolean; downAt: number } | null>(null)
+
   const slashActive = value.startsWith('/') && !/\s/.test(value)
   const slashQuery = slashActive ? value.slice(1) : ''
   const slashMatches = slashActive
@@ -118,10 +130,61 @@ export function PromptInput({
     requestAnimationFrame(() => el.focus())
   }
 
+  /** Insert transcribed text at the caret (replacing any selection). */
+  function insertAtCursor(text: string): void {
+    const el = textareaRef.current
+    if (!el) {
+      setValue((prev) => (prev && !/\s$/.test(prev) ? `${prev} ${text}` : prev + text))
+      return
+    }
+    const start = el.selectionStart
+    const end = el.selectionEnd
+    const before = value.slice(0, start)
+    const insert = before && !/\s$/.test(before) ? ` ${text}` : text
+    setValue(before + insert + value.slice(end))
+    const caret = start + insert.length
+    requestAnimationFrame(() => {
+      el.focus()
+      el.setSelectionRange(caret, caret)
+    })
+  }
+
+  const voice = useVoiceRecorder({ onTranscript: insertAtCursor, onError: setHint })
+
+  /** Press: second press while recording stops; otherwise start recording. */
+  async function onMicPointerDown(e: React.PointerEvent): Promise<void> {
+    // Keep focus (and the caret) in the textarea while dictating.
+    e.preventDefault()
+    if (voice.state === 'transcribing') return
+    micPressRef.current = { startedRecording: voice.state === 'idle', downAt: Date.now() }
+    if (voice.state !== 'idle') return
+    if (micStatus.data === 'not-determined') {
+      // Trigger the macOS TCC prompt from the main process first.
+      try {
+        await requestMicAccess.mutateAsync()
+      } catch {}
+      void utils.voice.micAccessStatus.invalidate()
+    }
+    await voice.start()
+  }
+
+  /** Release: quick click arms the toggle; a ≥400ms hold is push-to-talk. */
+  function onMicPointerUp(): void {
+    const press = micPressRef.current
+    micPressRef.current = null
+    if (!press || voice.state !== 'recording') return
+    const action = micReleaseAction({
+      pressStartedRecording: press.startedRecording,
+      heldMs: Date.now() - press.downAt
+    })
+    if (action === 'stop') voice.stop()
+  }
+
   function runSlash(entry: SlashCommandEntry, args: string): void {
     if (entry.kind === 'cli-only') {
       setHint(
-        `/${entry.name} isn't wired into the app yet — run it in the mastracode CLI. See /help.`
+        entry.hint ??
+          `/${entry.name} isn't wired into the app yet — run it in the mastracode CLI. See /help.`
       )
       return
     }
@@ -348,6 +411,55 @@ export function PromptInput({
               onClick={() => fileInputRef.current?.click()}
             >
               <Paperclip size={14} />
+            </Button>
+          </span>
+        </Tip>
+        <Tip
+          content={
+            !voice.supported
+              ? "Audio recording isn't available in this environment."
+              : !voiceEnabled
+                ? 'Voice input is turned off — enable it in Settings → Voice.'
+                : !voiceCloud
+                  ? 'macOS native dictation runs in the mastracode CLI — switch the engine to Cloud in Settings → Voice to dictate here.'
+                  : micDenied
+                    ? 'Microphone access is blocked — allow Yardarm in System Settings → Privacy & Security → Microphone.'
+                    : voice.state === 'recording'
+                      ? 'Stop recording and transcribe (Esc cancels).'
+                      : voice.state === 'transcribing'
+                        ? 'Transcribing…'
+                        : 'Dictate into the prompt — click to start/stop recording, or hold to talk. Esc cancels.'
+          }
+        >
+          <span className="inline-flex items-center gap-1.5">
+            {voice.state === 'recording' && (
+              <span className="text-[11px] tabular-nums text-destructive">
+                {formatElapsed(voice.elapsedMs)}
+              </span>
+            )}
+            <Button
+              size="icon"
+              variant={voice.state === 'recording' ? 'destructive' : 'ghost'}
+              className={voice.state === 'recording' ? 'animate-pulse' : undefined}
+              disabled={
+                !voice.supported ||
+                !voiceEnabled ||
+                !voiceCloud ||
+                micDenied ||
+                voice.state === 'transcribing'
+              }
+              onPointerDown={(e) => void onMicPointerDown(e)}
+              onPointerUp={onMicPointerUp}
+              onPointerLeave={onMicPointerUp}
+              onPointerCancel={onMicPointerUp}
+            >
+              {voice.state === 'recording' ? (
+                <Square size={13} />
+              ) : voice.state === 'transcribing' ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Mic size={14} />
+              )}
             </Button>
           </span>
         </Tip>

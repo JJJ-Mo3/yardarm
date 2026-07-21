@@ -48,6 +48,9 @@ mac:
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   notarize: false
+  extendInfo:
+    # Required for composer voice dictation (getUserMedia in the renderer).
+    NSMicrophoneUsageDescription: Yardarm uses the microphone to dictate prompts into the composer.
 
 win:
   target:

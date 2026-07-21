@@ -35,7 +35,16 @@ import { PreferencesTab } from './PreferencesTab'
 import { ProvidersTab } from './ProvidersTab'
 import { VoiceTab } from './VoiceTab'
 
-const PROVIDERS = ['anthropic', 'openai', 'google', 'openrouter', 'xai', 'groq', 'mistral']
+const PROVIDERS = [
+  'anthropic',
+  'openai',
+  'google',
+  'openrouter',
+  'xai',
+  'groq',
+  'mistral',
+  'deepgram'
+]
 
 function AppearanceTab(): React.JSX.Element {
   const [theme, setTheme] = useAtom(themeAtom)

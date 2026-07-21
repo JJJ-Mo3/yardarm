@@ -11,6 +11,7 @@ import { settingsRouter } from './settings'
 import { systemRouter } from './system'
 import { terminalRouter } from './terminal'
 import { updatesRouter } from './updates'
+import { voiceRouter } from './voice'
 
 export const appRouter = router({
   ping: publicProcedure.query(() => 'pong'),
@@ -25,7 +26,8 @@ export const appRouter = router({
   mcp: mcpRouter,
   projectConfig: projectConfigRouter,
   system: systemRouter,
-  updates: updatesRouter
+  updates: updatesRouter,
+  voice: voiceRouter
 })
 
 export type AppRouter = typeof appRouter

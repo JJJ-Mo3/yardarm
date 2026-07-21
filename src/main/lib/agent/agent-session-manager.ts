@@ -1155,6 +1155,22 @@ export class AgentSessionManager {
     return this.request<SttModelInfo[]>(handle, { t: 'sttRegistry', reqId: randomUUID() })
   }
 
+  /** Cloud STT — runs in the shared utility host; independent of any agent run. */
+  async transcribe(input: {
+    audioBase64: string
+    mimeType: string
+    provider?: string
+    model?: string
+  }): Promise<{ text: string }> {
+    const handle = await this.ensureUtilityHost()
+    // Long timeout: cloud transcription of a multi-minute clip can take a while.
+    return this.request<{ text: string }>(
+      handle,
+      { t: 'transcribe', reqId: randomUUID(), ...input },
+      120_000
+    )
+  }
+
   async listModels(subchatId?: string): Promise<ModelInfo[]> {
     const handle = subchatId ? await this.ensureHost(subchatId) : await this.ensureUtilityHost()
     const models = await this.request<ModelInfo[]>(handle, { t: 'listModels', reqId: randomUUID() })

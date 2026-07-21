@@ -11,6 +11,14 @@ import { pathToFileURL } from 'node:url'
 import type { HostBootConfig, HostCommand, HostMessage } from '../../shared/ipc-types'
 import { patchApprovalRunBudget } from './approval-run-budget'
 import { installNoTimeoutFetch } from './no-timeout-fetch'
+import {
+  buildSttRequest,
+  httpErrorMessage,
+  missingKeyMessage,
+  parseDeepgramTranscription,
+  parseOpenAiTranscription,
+  resolveSttApiKey
+} from './stt-transcribe'
 import { shouldAutoApprove } from './task-auto-approve'
 
 // The SDK drives model requests through globalThis.fetch; disable undici's
@@ -818,6 +826,41 @@ async function main(): Promise<void> {
                 model: m.model,
                 label: m.label
               }))
+            })
+            break
+          case 'transcribe':
+            await respond(cmd.reqId, async () => {
+              const stt = await runtimeImport<typeof import('@mastra/code-sdk/voice/stt-registry')>(
+                '@mastra/code-sdk/voice/stt-registry'
+              )
+              const entry = stt.resolveSTTModel(cmd.provider, cmd.model)
+              // Pick up keys saved in other hosts / the CLI since boot.
+              authStorage.reload()
+              const apiKey = resolveSttApiKey(entry.provider, process.env, (p) =>
+                authStorage.getStoredApiKey(p)
+              )
+              if (!apiKey) throw new Error(missingKeyMessage(entry.provider))
+              const audio = Buffer.from(cmd.audioBase64, 'base64')
+              const spec = buildSttRequest(entry, cmd.mimeType, apiKey)
+              let body: FormData | Uint8Array
+              if (spec.bodyKind === 'multipart') {
+                const form = new FormData()
+                form.append('file', new Blob([audio], { type: cmd.mimeType }), 'audio.webm')
+                form.append('model', entry.model)
+                body = form
+              } else {
+                body = audio
+              }
+              const res = await fetch(spec.url, { method: 'POST', headers: spec.headers, body })
+              if (!res.ok) {
+                throw new Error(httpErrorMessage(entry.provider, res.status, await res.text()))
+              }
+              const json = (await res.json()) as unknown
+              const text =
+                entry.resolver === 'deepgram'
+                  ? parseDeepgramTranscription(json)
+                  : parseOpenAiTranscription(json)
+              return { text }
             })
             break
           case 'listModels':
