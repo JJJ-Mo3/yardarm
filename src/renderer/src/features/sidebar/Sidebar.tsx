@@ -4,9 +4,11 @@ import {
   FolderCog,
   FolderGit2,
   MessageSquarePlus,
+  Moon,
   Pencil,
   Plus,
   Settings,
+  Sun,
   Trash2
 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
@@ -18,8 +20,10 @@ import {
   selectedChatIdAtom,
   selectedProjectIdAtom,
   selectedSubchatIdAtom,
-  settingsOpenAtom
+  settingsOpenAtom,
+  themeAtom
 } from '../../lib/atoms'
+import { useIsDark } from '../../lib/use-dark'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
@@ -41,6 +45,8 @@ export function Sidebar(): React.JSX.Element {
   const [chatId, setChatId] = useAtom(selectedChatIdAtom)
   const setSubchatId = useSetAtom(selectedSubchatIdAtom)
   const setSettingsOpen = useSetAtom(settingsOpenAtom)
+  const setTheme = useSetAtom(themeAtom)
+  const isDark = useIsDark()
   const setProjectSettingsOpen = useSetAtom(projectSettingsOpenAtom)
   const [newChatOpen, setNewChatOpen] = useAtom(newChatOpenAtom)
   const setAddProjectOpen = useSetAtom(addProjectOpenAtom)
@@ -229,16 +235,21 @@ export function Sidebar(): React.JSX.Element {
       </div>
 
       {/* Footer */}
-      <div className="border-t border-border p-2">
+      <div className="flex items-center gap-1 border-t border-border p-2">
         <Tip content="App settings — theme, API keys, models, providers" side="top">
           <Button
             variant="ghost"
             size="sm"
-            className="w-full justify-start"
+            className="flex-1 justify-start"
             onClick={() => setSettingsOpen(true)}
           >
             <Settings size={13} />
             Settings
+          </Button>
+        </Tip>
+        <Tip content={isDark ? 'Switch to the light theme' : 'Switch to the dark theme'} side="top">
+          <Button variant="ghost" size="icon" onClick={() => setTheme(isDark ? 'light' : 'dark')}>
+            {isDark ? <Sun size={13} /> : <Moon size={13} />}
           </Button>
         </Tip>
       </div>
