@@ -270,9 +270,10 @@ async function main(): Promise<void> {
     if ((event as { type: string }).type === 'display_state_changed') return
     const ev = sanitizeEvent(event as unknown as Record<string, unknown>)
     if (ev.type === 'tool_suspended' && ev.toolName === 'submit_plan') enrichPlanSuspension(ev)
-    // Task-list tools shouldn't need user approval (see task-auto-approve.ts).
-    // Approve in-process and skip the event so no approval card flashes; on
-    // any failure fall through so the run can't hang invisibly.
+    // The SDK's always-allow tools (task list + interactive/planning tools)
+    // shouldn't need user approval (see task-auto-approve.ts). Approve
+    // in-process and skip the event so no approval card flashes; on any
+    // failure fall through so the run can't hang invisibly.
     if (
       ev.type === 'tool_approval_required' &&
       typeof ev.toolName === 'string' &&
