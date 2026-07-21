@@ -7,6 +7,7 @@ import { ToolCallCard } from './ToolCallCard'
 import { AskUserCard, AskUserAnswered } from './AskUserCard'
 import { PlanApprovalCard, PlanApprovalAnswered } from './PlanApprovalCard'
 import { SandboxAccessCard, SandboxAccessAnswered } from './SandboxAccessCard'
+import { computeRollbackEligible } from './rollback-eligibility'
 import type {
   MessagePart,
   PendingSuspension,
@@ -20,33 +21,6 @@ import type {
  * ChatView uses this to keep such suspensions out of the bottom gates strip.
  */
 export const INTERACTIVE_TOOLS = new Set(['ask_user', 'submit_plan', 'request_access'])
-
-/**
- * Tools known to never change project files. Any other tool (write/edit/
- * delete/mkdir/execute_command/subagent, MCP and plugin tools) is treated as
- * change-capable, which decides whether a user message shows a rollback pill.
- */
-const READONLY_TOOLS = new Set([
-  'view',
-  'find_files',
-  'file_stat',
-  'search_content',
-  'lsp_inspect',
-  'get_process_output',
-  'kill_process',
-  'web_search',
-  'web-search',
-  'web_extract',
-  'web-extract',
-  'notification_inbox',
-  'ask_user',
-  'submit_plan',
-  'request_access',
-  'task_write',
-  'task_update',
-  'task_complete',
-  'task_check'
-])
 
 interface SuspensionProps {
   suspensions?: PendingSuspension[]
@@ -196,10 +170,9 @@ const MessageItem = React.memo(function MessageItem({
             <Tip content="Restore files and chat to just before this message was sent — its text returns to the input for editing">
               <button
                 onClick={() => onRollback(message.id)}
-                className="absolute right-full top-1.5 mr-1.5 flex items-center gap-1 whitespace-nowrap rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground shadow-sm opacity-70 group-hover:opacity-100 hover:opacity-100 hover:text-foreground cursor-pointer"
+                className="absolute right-full top-1.5 mr-1.5 flex items-center rounded-md border border-border bg-background p-1 text-muted-foreground shadow-sm opacity-70 group-hover:opacity-100 hover:opacity-100 hover:text-foreground cursor-pointer"
               >
-                <RotateCcw size={10} />
-                Roll back to before this message
+                <RotateCcw size={12} />
               </button>
             </Tip>
           )}
@@ -286,24 +259,9 @@ export function MessageList({
   )
 
   // A rollback pill is only meaningful when rolling back would revert
-  // something: show it on a user message iff a change-capable tool ran in
-  // any later message. Reverse scan: cheap and updates live as tools stream.
+  // something — see rollback-eligibility.ts. Recomputed as tools stream.
   const rollbackEligible = useStableSet(
-    useMemo(() => {
-      const eligible = new Set<string>()
-      let anyChangeAfter = false
-      for (let i = messages.length - 1; i >= 0; i--) {
-        const m = messages[i]
-        if (m.role === 'user') {
-          if (anyChangeAfter) eligible.add(m.id)
-        } else if (!anyChangeAfter) {
-          anyChangeAfter = m.parts.some(
-            (p) => p.type === 'tool-call' && !READONLY_TOOLS.has(p.toolName)
-          )
-        }
-      }
-      return eligible
-    }, [messages])
+    useMemo(() => computeRollbackEligible(messages), [messages])
   )
 
   useEffect(() => {
