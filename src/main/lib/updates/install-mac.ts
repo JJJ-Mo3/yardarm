@@ -22,6 +22,15 @@ import type { ReleaseAsset } from './github-release'
 
 const execFileAsync = promisify(execFile)
 
+/**
+ * Recursive delete via /bin/rm. Electron patches fs in the main process to
+ * treat *.asar files as directories, so fs.rm on anything containing an
+ * app.asar fails partway through; an external rm has no asar semantics.
+ */
+async function rmrf(target: string): Promise<void> {
+  await execFileAsync('rm', ['-rf', '--', target])
+}
+
 /** Resolves Contents/MacOS/<bin> → the .app bundle root, with sanity checks. */
 export function getBundlePath(): string {
   const execPath = process.execPath
@@ -88,12 +97,12 @@ export async function downloadAndStage(
     // Stage next to the installed bundle so the final swap is a same-volume
     // rename; ditto (not fs.rename) because the temp dir may be on another volume.
     const staged = `${bundle}.new`
-    await fs.rm(staged, { recursive: true, force: true })
+    await rmrf(staged)
     await execFileAsync('ditto', [extractedApp, staged])
     await assertLooksLikeApp(staged)
     return staged
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true }).catch(() => {})
+    await rmrf(tmp).catch(() => {})
   }
 }
 
@@ -109,7 +118,7 @@ export async function swapBundle(stagedPath: string): Promise<void> {
     await fs.rename(old, bundle).catch(() => {})
     throw err
   }
-  await fs.rm(old, { recursive: true, force: true }).catch(() => {})
+  await rmrf(old).catch(() => {})
 }
 
 /** Removes leftovers from interrupted installs (best-effort, run at startup). */
@@ -120,7 +129,7 @@ export async function cleanupStaleBundles(): Promise<void> {
     const base = path.basename(bundle)
     for (const entry of await fs.readdir(dir)) {
       if (entry === `${base}.new` || entry.startsWith(`${base}.old-`)) {
-        await fs.rm(path.join(dir, entry), { recursive: true, force: true }).catch(() => {})
+        await rmrf(path.join(dir, entry)).catch(() => {})
       }
     }
   } catch {}
