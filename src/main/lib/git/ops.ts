@@ -1,7 +1,9 @@
 /**
  * Git operations for the Changes view and git client: status vs base,
- * per-file diffs, stage/unstage/discard, commit, push, branches, and
- * checkpoints (HEAD sha capture / hard reset for rollback).
+ * per-file diffs, stage/unstage/discard, commit, push, pull, branches,
+ * merging a worktree branch into the base branch at the project root,
+ * commit history (per-commit files + diffs), and checkpoints (HEAD sha
+ * capture / hard reset for rollback).
  */
 import { simpleGit } from 'simple-git'
 
@@ -126,6 +128,138 @@ export async function gitLog(
     author: c.author_name,
     date: c.date
   }))
+}
+
+/**
+ * Pull the current branch from its upstream. Conflicted pulls are aborted so
+ * the working tree is never left mid-merge.
+ */
+export async function pull(cwd: string): Promise<void> {
+  const git = simpleGit(cwd)
+  const s = await git.status()
+  if (!s.current) throw new Error('Not on a branch')
+  if (!s.tracking) throw new Error(`No upstream configured for ${s.current} — push it first`)
+  try {
+    await git.pull()
+  } catch (err) {
+    // Abort any half-applied merge or rebase, best-effort.
+    const hasMergeHead = await git
+      .raw(['rev-parse', '--verify', '-q', 'MERGE_HEAD'])
+      .then(() => true)
+      .catch(() => false)
+    if (hasMergeHead) await git.raw(['merge', '--abort']).catch(() => {})
+    else await git.raw(['rebase', '--abort']).catch(() => {})
+    const msg = err instanceof Error ? err.message : String(err)
+    throw new Error(`Pull failed (any partial merge was aborted): ${msg}`)
+  }
+}
+
+/**
+ * Merge a worktree branch into the base branch. Runs at the PROJECT ROOT,
+ * where the base branch is checked out (git forbids checking it out in the
+ * chat worktree). Conflicted merges are aborted so the base stays unchanged.
+ */
+export async function mergeIntoBase(
+  projectPath: string,
+  branch: string,
+  baseBranch: string,
+  opts: { squash: boolean; message?: string }
+): Promise<{ sha: string }> {
+  const git = simpleGit(projectPath)
+  const s = await git.status()
+  if (s.current !== baseBranch) {
+    throw new Error(
+      `Cannot merge: the project folder has '${s.current ?? '(detached)'}' checked out, not base '${baseBranch}'`
+    )
+  }
+  const hasTrackedChanges = s.files.some((f) => f.working_dir !== '?' || f.index !== '?')
+  if (hasTrackedChanges) {
+    throw new Error(
+      `Cannot merge: uncommitted changes on base '${baseBranch}' — commit or stash first`
+    )
+  }
+  await git.raw(['rev-parse', '--verify', `refs/heads/${branch}`]).catch(() => {
+    throw new Error(`Branch '${branch}' not found`)
+  })
+  const count = (await git.raw(['rev-list', '--count', `${baseBranch}..${branch}`])).trim()
+  if (count === '0')
+    throw new Error(`Nothing to merge: '${branch}' has no commits ahead of '${baseBranch}'`)
+  const message = opts.message?.trim() || `Merge ${branch}`
+  try {
+    if (opts.squash) {
+      await git.raw(['merge', '--squash', branch])
+      await git.commit(message)
+    } else {
+      await git.raw(['merge', '--no-ff', '-m', message, branch])
+    }
+  } catch (err) {
+    // Squash conflicts leave no MERGE_HEAD, so try both cleanups best-effort.
+    await git.raw(['merge', '--abort']).catch(() => {})
+    await git.raw(['reset', '--merge']).catch(() => {})
+    const msg = err instanceof Error ? err.message : String(err)
+    throw new Error(`Merge failed and was aborted — '${baseBranch}' is unchanged. ${msg}`)
+  }
+  const sha = (await git.revparse(['HEAD'])).trim()
+  return { sha }
+}
+
+export interface CommitFileChange {
+  path: string
+  /** One-letter status: M, A, D, R, C, T... */
+  status: string
+}
+
+/** Parse `git show --name-status` output into per-file changes. */
+export function parseNameStatus(out: string): CommitFileChange[] {
+  const changes: CommitFileChange[] = []
+  for (const line of out.split('\n')) {
+    if (!line.trim()) continue
+    const parts = line.split('\t')
+    if (parts.length < 2) continue
+    const status = parts[0][0]
+    // Renames/copies list old\tnew — report the new path.
+    const path = parts[parts.length - 1]
+    changes.push({ path, status })
+  }
+  return changes
+}
+
+/** Files changed by a commit (first parent for merges; handles root commits). */
+export async function commitFiles(cwd: string, hash: string): Promise<CommitFileChange[]> {
+  const out = await simpleGit(cwd).raw([
+    'show',
+    hash,
+    '--name-status',
+    '--format=',
+    '--first-parent',
+    '-m',
+    '--root'
+  ])
+  return parseNameStatus(out)
+}
+
+/** Diff of one file within a commit: parent's version vs the commit's. */
+export async function commitFileDiff(
+  cwd: string,
+  hash: string,
+  filePath: string
+): Promise<FileDiff> {
+  const git = simpleGit(cwd)
+  let oldContent = ''
+  try {
+    oldContent = await git.show([`${hash}^:${filePath}`])
+  } catch {
+    // added in this commit, or root commit
+  }
+  let newContent = ''
+  try {
+    newContent = await git.show([`${hash}:${filePath}`])
+  } catch {
+    // deleted in this commit
+  }
+  const binary = oldContent.includes('\u0000') || newContent.includes('\u0000')
+  if (binary) return { path: filePath, oldContent: '', newContent: '', binary }
+  return { path: filePath, oldContent, newContent, binary }
 }
 
 // ---- Checkpoints ----------------------------------------------------------

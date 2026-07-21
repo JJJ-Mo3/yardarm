@@ -253,7 +253,27 @@ export default function App(): React.JSX.Element {
               </div>
               {/* Changes / Terminal / Files work at the project level too: they
                   use the chat's worktree when one is open, else the project root. */}
-              {tab === 'changes' && (cwd ? <ChangesView cwd={cwd} /> : <SelectProjectPane />)}
+              {tab === 'changes' &&
+                (cwd ? (
+                  <ChangesView
+                    cwd={cwd}
+                    merge={
+                      chat.data?.worktreePath &&
+                      chat.data.branch &&
+                      chat.data.baseBranch &&
+                      chat.data.branch !== chat.data.baseBranch &&
+                      project
+                        ? {
+                            projectPath: project.path,
+                            branch: chat.data.branch,
+                            baseBranch: chat.data.baseBranch
+                          }
+                        : null
+                    }
+                  />
+                ) : (
+                  <SelectProjectPane />
+                ))}
               {tab === 'terminal' &&
                 (cwd ? (
                   <TerminalView id={chatId ? `chat-${chatId}` : `project-${projectId}`} cwd={cwd} />

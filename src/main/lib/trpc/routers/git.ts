@@ -2,12 +2,16 @@ import { z } from 'zod'
 import {
   checkoutBranch,
   commit,
+  commitFileDiff,
+  commitFiles,
   createBranch,
   discardFiles,
   fileDiff,
   gitLog,
   gitStatus,
   listBranches,
+  mergeIntoBase,
+  pull,
   push,
   stageFiles,
   unstageFiles
@@ -96,5 +100,36 @@ export const gitRouter = router({
 
   log: publicProcedure
     .input(cwdInput.extend({ limit: z.number().int().positive().max(200).default(50) }))
-    .query(({ input }) => gitLog(input.cwd, input.limit))
+    .query(({ input }) => gitLog(input.cwd, input.limit)),
+
+  pull: publicProcedure.input(cwdInput).mutation(async ({ input }) => {
+    await pull(input.cwd)
+    return { ok: true }
+  }),
+
+  /** Merge a worktree branch into the base branch at the project root. */
+  mergeIntoBase: publicProcedure
+    .input(
+      z.object({
+        projectPath: z.string(),
+        branch: z.string().min(1),
+        baseBranch: z.string().min(1),
+        squash: z.boolean().default(false),
+        message: z.string().optional()
+      })
+    )
+    .mutation(({ input }) =>
+      mergeIntoBase(input.projectPath, input.branch, input.baseBranch, {
+        squash: input.squash,
+        message: input.message
+      })
+    ),
+
+  commitFiles: publicProcedure
+    .input(cwdInput.extend({ hash: z.string().min(1) }))
+    .query(({ input }) => commitFiles(input.cwd, input.hash)),
+
+  commitFileDiff: publicProcedure
+    .input(cwdInput.extend({ hash: z.string().min(1), path: z.string().min(1) }))
+    .query(({ input }) => commitFileDiff(input.cwd, input.hash, input.path))
 })
