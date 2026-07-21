@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { ArrowUp, Square, X } from 'lucide-react'
+import { ArrowUp, Paperclip, Square, X } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { Tip } from '../../components/ui/tooltip'
 import { trpc } from '../../lib/trpc'
@@ -62,6 +62,7 @@ export function PromptInput({
   const [mentionIndex, setMentionIndex] = useState(0)
   const [slashIndex, setSlashIndex] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const mentionResults = trpc.files.search.useQuery(
     { root: projectRoot ?? '', query: mentionQuery ?? '', limit: 8 },
@@ -320,7 +321,7 @@ export function PromptInput({
           rows={3}
           value={value}
           disabled={disabled}
-          placeholder="Message the agent… (@ to mention files, / for commands, paste images)"
+          placeholder="Message the agent… (@ to mention files, / for commands, paste or drag & drop images)"
           onChange={(e) => {
             setValue(e.target.value)
             setHint(null)
@@ -336,6 +337,36 @@ export function PromptInput({
           }}
           className="max-h-[240px] min-h-[72px] flex-1 resize-none overflow-y-auto rounded-md border border-border bg-background px-3 py-2 text-[13px] placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
         />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files?.length) void addFiles(Array.from(e.target.files))
+            // Reset so picking the same file again re-fires onChange.
+            e.target.value = ''
+          }}
+        />
+        <Tip
+          content={
+            running
+              ? 'Attachments are unavailable while the agent is running'
+              : 'Attach images to your message — or paste or drag & drop them'
+          }
+        >
+          <span className="inline-flex">
+            <Button
+              size="icon"
+              variant="ghost"
+              disabled={disabled || running}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Paperclip size={14} />
+            </Button>
+          </span>
+        </Tip>
         {running && !value.trim() ? (
           <Tip content="Stop the agent's current run">
             <Button size="icon" variant="destructive" onClick={onAbort}>
