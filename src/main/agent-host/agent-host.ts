@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { HostBootConfig, HostCommand, HostMessage } from '../../shared/ipc-types'
+import { patchApprovalRunBudget } from './approval-run-budget'
 import { installNoTimeoutFetch } from './no-timeout-fetch'
 
 // The SDK drives model requests through globalThis.fetch; disable undici's
@@ -219,6 +220,16 @@ async function main(): Promise<void> {
   }
 
   const { session, controller, authStorage } = mc
+
+  // SDK quirk: the tool-approval resume path omits the shared run budget
+  // (maxSteps), capping the resumed run at the loop default of 5 steps — the
+  // agent silently stops mid-task after an approval. Re-supply it at runtime.
+  // Best-effort: if SDK internals change, degrade to the old behavior.
+  try {
+    patchApprovalRunBudget(session as unknown as Parameters<typeof patchApprovalRunBudget>[0])
+  } catch (err) {
+    post({ t: 'log', level: 'error', msg: `approval run-budget patch failed: ${String(err)}` })
+  }
 
   /**
    * Drop the controller's ~10s model-catalog cache so the next listModels
