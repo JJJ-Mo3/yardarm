@@ -17,6 +17,9 @@ click away (Settings → About).
 > Yardarm is an independent project that builds on Mastra Code. It is not
 > affiliated with, endorsed by, or sponsored by Mastra.
 
+New here? The **[Getting Started guide](docs/getting-started.md)** walks
+through installation, first-run setup, and every part of the app.
+
 ## Contents
 
 - [Why Mastra Code](#why-mastra-code)
@@ -107,6 +110,12 @@ Yardarm puts a desktop workspace around the agent:
 - Threads (`/threads`): switch, rename, clone, delete, open in a new subchat,
   with per-thread token usage in the cost popover (`/cost`)
 - Multiple subchats per chat, each with its own agent process
+- Prompts sent while the agent is running are queued and delivered in order
+  when the run finishes
+- Image attachments (picker, paste, or drag-and-drop) and `@` file mentions
+  in the composer
+- Voice dictation via a composer mic button — cloud STT (OpenAI Whisper /
+  GPT-4o Transcribe, Groq, Deepgram, …) using your own API key
 
 **Slash commands**
 
@@ -141,6 +150,10 @@ Yardarm puts a desktop workspace around the agent:
   (node-pty + xterm) that opens in the chat's worktree
 - CLI tab that runs the interactive Mastra Code TUI in the chat's worktree,
   sharing the chat's thread history
+- Kanban board of every chat in the project (needs input / in progress /
+  ready to review / idle), with matching activity dots on sidebar chat rows
+- In-app updates from GitHub Releases (Settings → About), with optional
+  automatic staging and a restart-to-finish banner on macOS
 
 **Providers & auth**
 
@@ -162,7 +175,15 @@ Yardarm puts a desktop workspace around the agent:
 
 ## Install
 
-### From source (recommended)
+### Download a release (macOS, Apple Silicon)
+
+Pre-built dmg/zip bundles are on the
+[Releases page](https://github.com/JJJ-Mo3/yardarm/releases). Install the
+dmg (or drag `Yardarm.app` into `/Applications`), then see
+[Unsigned builds on macOS](#unsigned-builds-on-macos) for the first launch.
+Release builds can update themselves from Settings → About.
+
+### From source (all platforms)
 
 Requirements: [Node](https://nodejs.org) 22+, [pnpm](https://pnpm.io) 10,
 and git.
@@ -236,6 +257,10 @@ No API key, no network egress — prompts go to `localhost` only.
 
 ## Using the app
 
+This is the short version — the
+[Getting Started guide](docs/getting-started.md) covers every screen and
+workflow in detail.
+
 **Modes.** Plan mode explores and proposes before touching files; Build mode
 edits; Fast mode is a lighter model for quick tasks. Switch with the
 color-coded selector in the chat header (blue = plan, green = build,
@@ -267,13 +292,13 @@ thread at once).
 
 **Keyboard shortcuts** (Cmd on macOS, Ctrl elsewhere):
 
-| Shortcut  | Action                                       |
-| --------- | -------------------------------------------- |
-| `Cmd+N`   | New chat                                     |
-| `Cmd+P`   | Thread switcher                              |
-| `Cmd+1–5` | Switch tab (chat/changes/terminal/files/cli) |
-| `Cmd+J`   | Toggle terminal tab                          |
-| `Cmd+,`   | Settings                                     |
+| Shortcut  | Action                                              |
+| --------- | --------------------------------------------------- |
+| `Cmd+N`   | New chat                                            |
+| `Cmd+P`   | Thread switcher                                     |
+| `Cmd+1–6` | Switch tab (chat/changes/terminal/files/cli/kanban) |
+| `Cmd+J`   | Toggle terminal tab                                 |
+| `Cmd+,`   | Settings                                            |
 
 ## Configuration paths (shared with the mastracode CLI)
 
@@ -326,8 +351,10 @@ authenticate with the model providers you choose to use.
 Prompts and code context go to whichever model endpoints you configure —
 and nowhere else. With a local provider (Ollama, LM Studio, …) inference
 traffic stays on `localhost`. Mastra Code's cloud gateway is only contacted
-if you use models served through it. Auto-update is inert unless the app was
-built with a publish feed (the default build config has none).
+if you use models served through it. Voice dictation sends audio to the STT
+provider you selected, only while you record. The only network traffic from
+Yardarm itself is the update check against this repo's GitHub Releases —
+Settings → About lets you turn automatic checks off.
 
 **Can I use the CLI and the app at the same time?**
 Yes — that's the point. They share `settings.json`, `auth.json`, MCP/hooks
