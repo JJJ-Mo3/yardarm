@@ -11,6 +11,7 @@ import { pathToFileURL } from 'node:url'
 import type { HostBootConfig, HostCommand, HostMessage } from '../../shared/ipc-types'
 import { patchApprovalRunBudget } from './approval-run-budget'
 import { installNoTimeoutFetch } from './no-timeout-fetch'
+import { shouldAutoApprove } from './task-auto-approve'
 
 // The SDK drives model requests through globalThis.fetch; disable undici's
 // ~300s idle timeouts so slow local models can't die with "terminated".
@@ -269,6 +270,24 @@ async function main(): Promise<void> {
     if ((event as { type: string }).type === 'display_state_changed') return
     const ev = sanitizeEvent(event as unknown as Record<string, unknown>)
     if (ev.type === 'tool_suspended' && ev.toolName === 'submit_plan') enrichPlanSuspension(ev)
+    // Task-list tools shouldn't need user approval (see task-auto-approve.ts).
+    // Approve in-process and skip the event so no approval card flashes; on
+    // any failure fall through so the run can't hang invisibly.
+    if (
+      ev.type === 'tool_approval_required' &&
+      typeof ev.toolName === 'string' &&
+      typeof ev.toolCallId === 'string'
+    ) {
+      try {
+        const rules = session.permissions.getRules()
+        if (shouldAutoApprove(ev.toolName, rules.tools[ev.toolName])) {
+          session.respondToToolApproval({ decision: 'approve', toolCallId: ev.toolCallId })
+          return
+        }
+      } catch (err) {
+        post({ t: 'log', level: 'error', msg: `task auto-approve failed: ${String(err)}` })
+      }
+    }
     post({ t: 'event', ev: ev as never })
   })
 
