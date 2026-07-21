@@ -44,6 +44,8 @@ export const agentRouter = router({
       if (tasks.length > 0) emit.next({ type: 'task-list', tasks })
       if (agentSessionManager.isRunning(subchatId)) emit.next({ type: 'run-started' })
       for (const ev of agentSessionManager.pendingApprovals(subchatId)) emit.next(ev)
+      const queued = agentSessionManager.queuedPrompts(subchatId)
+      if (queued.length > 0) emit.next({ type: 'queued-prompts', items: queued })
 
       const off = agentSessionManager.onEvents(subchatId, (ev) => emit.next(ev))
       return off
@@ -75,25 +77,18 @@ export const agentRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const cwd = subchatCwd(input.subchatId)
-      const checkpointRef = cwd ? await captureCheckpoint(cwd) : null
-      await agentSessionManager.sendMessage(
-        input.subchatId,
-        input.content,
-        checkpointRef ?? undefined,
-        undefined,
-        input.files
-      )
+      // Queues behind an active run (dismissable, flushed FIFO on run end);
+      // sends immediately when idle. Checkpoint capture happens at send time
+      // inside the manager.
+      await agentSessionManager.sendOrQueue(input.subchatId, input.content, input.files)
       return { ok: true }
     }),
 
-  /** Queue a message behind the active run (sends immediately when idle). */
-  followUp: publicProcedure
-    .input(z.object({ subchatId: z.string(), content: z.string().min(1) }))
-    .mutation(async ({ input }) => {
-      const cwd = subchatCwd(input.subchatId)
-      const checkpointRef = cwd ? await captureCheckpoint(cwd) : null
-      await agentSessionManager.followUp(input.subchatId, input.content, checkpointRef ?? undefined)
+  /** Remove a queued prompt before it sends. */
+  dismissQueued: publicProcedure
+    .input(z.object({ subchatId: z.string(), id: z.string() }))
+    .mutation(({ input }) => {
+      agentSessionManager.dismissQueuedPrompt(input.subchatId, input.id)
       return { ok: true }
     }),
 

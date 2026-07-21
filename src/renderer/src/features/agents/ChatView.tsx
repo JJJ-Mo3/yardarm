@@ -30,6 +30,7 @@ import { MessageList, INTERACTIVE_TOOLS } from './MessageList'
 import { ApprovalCard } from './ApprovalCard'
 import { PlanApprovalCard } from './PlanApprovalCard'
 import { PromptInput } from './PromptInput'
+import { QueuedPrompts } from './QueuedPrompts'
 import { HelpDialog } from './HelpDialog'
 import { CostPopover } from './CostPopover'
 import { ThreadsPopover } from './ThreadsPopover'
@@ -57,7 +58,7 @@ export function ChatView({
   const utils = trpc.useUtils()
 
   const send = trpc.agent.send.useMutation()
-  const followUp = trpc.agent.followUp.useMutation()
+  const dismissQueued = trpc.agent.dismissQueued.useMutation()
   const approve = trpc.agent.approve.useMutation()
   const respondSuspension = trpc.agent.respondSuspension.useMutation()
   const abort = trpc.agent.abort.useMutation()
@@ -157,7 +158,7 @@ export function ChatView({
   const [goalOpen, setGoalOpen] = useState(false)
 
   const meta = state.meta
-  const busy = send.isPending || followUp.isPending
+  const busy = send.isPending
 
   const currentMode: Mode = (MODES as readonly string[]).includes(meta.mode ?? '')
     ? (meta.mode as Mode)
@@ -179,7 +180,7 @@ export function ChatView({
   const actionMutations: Array<[string, { error: { message: string } | null; reset: () => void }]> =
     [
       ['send', send],
-      ['follow-up', followUp],
+      ['dismiss', dismissQueued],
       ['approval', approve],
       ['response', respondSuspension],
       ['abort', abort],
@@ -480,12 +481,14 @@ export function ChatView({
             </Badge>
           </Tip>
         )}
-        {state.queued > 0 && (
+        {state.queuedPrompts.length > 0 && (
           <Tip
-            content="Messages queued behind the active run — they'll be sent when it finishes"
+            content="Messages queued behind the active run — sent in order when it finishes; dismiss them above the composer"
             side="bottom"
           >
-            <Badge className="border-sky-500/50 text-sky-500">{state.queued} queued</Badge>
+            <Badge className="border-sky-500/50 text-sky-500">
+              {state.queuedPrompts.length} queued
+            </Badge>
           </Tip>
         )}
         <ThreadsPopover subchatId={subchatId} open={threadsOpen} onOpenChange={setThreadsOpen} />
@@ -625,6 +628,11 @@ export function ChatView({
         </div>
       )}
 
+      <QueuedPrompts
+        items={state.queuedPrompts}
+        onDismiss={(id) => dismissQueued.mutate({ subchatId, id })}
+      />
+
       <PromptInput
         disabled={busy}
         running={state.running}
@@ -632,9 +640,9 @@ export function ChatView({
         commands={commands}
         onSend={(content, files) => {
           setRollbackNotice(null)
-          // followUp() queues behind the active run but doesn't accept files.
-          if (state.running) followUp.mutate({ subchatId, content })
-          else send.mutate({ subchatId, content, files })
+          // The main process queues this behind an active run (dismissable,
+          // flushed in order on run end) or sends immediately when idle.
+          send.mutate({ subchatId, content, files })
         }}
         onAbort={() => abort.mutate({ subchatId })}
         onSlashCommand={handleSlashCommand}

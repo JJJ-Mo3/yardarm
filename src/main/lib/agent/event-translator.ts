@@ -273,10 +273,6 @@ export class EventTranslator {
         break
       }
 
-      case 'follow_up_queued':
-        this.cb.emit({ type: 'queue-update', count: (ev.count as number) ?? 0 })
-        break
-
       case 'thread_deleted':
       case 'subagent_model_changed':
         break

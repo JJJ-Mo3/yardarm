@@ -140,16 +140,10 @@ export function PromptInput({
     }
   }
 
-  /** Add pasted/dropped image files as attachments (disabled mid-run). */
+  /** Add pasted/dropped image files as attachments. */
   async function addFiles(files: File[]): Promise<void> {
     const images = files.filter((f) => f.type.startsWith('image/'))
     if (images.length === 0) return
-    if (running) {
-      setHint(
-        'Attachments are unavailable while the agent is running — wait for the run to finish.'
-      )
-      return
-    }
     const converted = await Promise.all(images.map(fileToAttachment))
     setAttachments((prev) => [...prev, ...converted])
   }
@@ -166,10 +160,6 @@ export function PromptInput({
         return
       }
       runSlash(entry, m?.[2]?.trim() ?? '')
-      return
-    }
-    if (running && attachments.length > 0) {
-      setHint('Attachments are unavailable while the agent is running — remove them or wait.')
       return
     }
     onSend(content || 'See the attached file(s).', attachments.length ? attachments : undefined)
@@ -349,18 +339,12 @@ export function PromptInput({
             e.target.value = ''
           }}
         />
-        <Tip
-          content={
-            running
-              ? 'Attachments are unavailable while the agent is running'
-              : 'Attach images to your message — or paste or drag & drop them'
-          }
-        >
+        <Tip content="Attach images to your message — or paste or drag & drop them">
           <span className="inline-flex">
             <Button
               size="icon"
               variant="ghost"
-              disabled={disabled || running}
+              disabled={disabled}
               onClick={() => fileInputRef.current?.click()}
             >
               <Paperclip size={14} />

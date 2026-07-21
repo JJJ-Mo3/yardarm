@@ -115,6 +115,15 @@ export interface SubchatStatusInfo {
   pendingCount: number
 }
 
+/** A prompt waiting behind the active run (main-process queue, dismissable). */
+export interface QueuedPromptInfo {
+  id: string
+  text: string
+  /** Number of file attachments riding along (payload stays in main). */
+  fileCount: number
+  createdAt: number
+}
+
 /** Events streamed to the renderer over the tRPC subscription. */
 export type AgentUIEvent =
   | { type: 'message-upsert'; message: StoredMessage }
@@ -124,7 +133,7 @@ export type AgentUIEvent =
   | { type: 'suspension-request'; suspension: PendingSuspension }
   | { type: 'suspension-resolved'; toolCallId: string }
   | { type: 'task-list'; tasks: TaskItem[] }
-  | { type: 'queue-update'; count: number }
+  | { type: 'queued-prompts'; items: QueuedPromptInfo[] }
   | { type: 'usage'; usage: UsageInfo }
   | { type: 'session-meta'; meta: SessionMeta }
   | { type: 'status'; status: AgentStatus; error?: string }

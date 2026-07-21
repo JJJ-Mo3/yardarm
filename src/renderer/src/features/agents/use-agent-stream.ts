@@ -7,6 +7,7 @@ import type {
   OmProgressInfo,
   PendingApproval,
   PendingSuspension,
+  QueuedPromptInfo,
   SessionMeta,
   StoredMessage,
   TaskItem,
@@ -22,8 +23,8 @@ export interface AgentStreamState {
   meta: SessionMeta
   usage: UsageInfo | null
   tasks: TaskItem[]
-  /** Messages queued behind the active run (Session.followUp). */
-  queued: number
+  /** Prompts queued behind the active run (dismissable, flushed FIFO). */
+  queuedPrompts: QueuedPromptInfo[]
   infos: Array<{ level: 'info' | 'error'; text: string; ts: number }>
   /** Latest goal-judge evaluation this session, if any. */
   goal: GoalEvaluationInfo | null
@@ -41,7 +42,7 @@ const initialState: AgentStreamState = {
   meta: {},
   usage: null,
   tasks: [],
-  queued: 0,
+  queuedPrompts: [],
   infos: [],
   goal: null,
   omEvents: [],
@@ -51,7 +52,15 @@ const initialState: AgentStreamState = {
 function reducer(state: AgentStreamState, ev: AgentUIEvent): AgentStreamState {
   switch (ev.type) {
     case 'messages-reset':
-      return { ...initialState, status: state.status, meta: state.meta, messages: ev.messages }
+      // Queued prompts live in the main process — a transcript reset (e.g.
+      // rollback) must not wipe them here.
+      return {
+        ...initialState,
+        status: state.status,
+        meta: state.meta,
+        queuedPrompts: state.queuedPrompts,
+        messages: ev.messages
+      }
     case 'message-upsert': {
       const idx = state.messages.findIndex((m) => m.id === ev.message.id)
       const messages =
@@ -74,12 +83,11 @@ function reducer(state: AgentStreamState, ev: AgentUIEvent): AgentStreamState {
       return { ...state, running: true, tasks: stale ? [] : state.tasks }
     }
     case 'run-finished':
-      // The SDK flushes the follow-up queue when the run ends. NOTE: a
-      // suspending tool (ask_user / submit_plan / request_access) ends the
-      // run while its suspension is still pending, so suspensions must
-      // survive run end — they're cleared by 'suspension-resolved' or
-      // 'messages-reset'.
-      return { ...state, running: false, approvals: [], queued: 0 }
+      // NOTE: a suspending tool (ask_user / submit_plan / request_access)
+      // ends the run while its suspension is still pending, so suspensions
+      // must survive run end — they're cleared by 'suspension-resolved' or
+      // 'messages-reset'. Queued prompts update via 'queued-prompts'.
+      return { ...state, running: false, approvals: [] }
     case 'approval-request':
       if (state.approvals.some((a) => a.toolCallId === ev.approval.toolCallId)) return state
       return { ...state, approvals: [...state.approvals, ev.approval] }
@@ -99,8 +107,8 @@ function reducer(state: AgentStreamState, ev: AgentUIEvent): AgentStreamState {
       return { ...state, usage: ev.usage }
     case 'task-list':
       return { ...state, tasks: ev.tasks }
-    case 'queue-update':
-      return { ...state, queued: ev.count }
+    case 'queued-prompts':
+      return { ...state, queuedPrompts: ev.items }
     case 'info':
       return {
         ...state,

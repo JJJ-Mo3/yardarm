@@ -366,16 +366,6 @@ async function main(): Promise<void> {
               })
             })
             break
-          case 'followUp':
-            // Queues behind the active run; sends immediately when idle.
-            session.followUp({ content: cmd.text }).catch((err: unknown) => {
-              post({ t: 'log', level: 'error', msg: `followUp failed: ${String(err)}` })
-              post({
-                t: 'event',
-                ev: { type: 'error', error: { message: String(err) } }
-              })
-            })
-            break
           case 'approve':
             session.respondToToolApproval({
               decision: cmd.decision,

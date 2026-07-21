@@ -10,8 +10,10 @@ import path from 'node:path'
 import { app, shell, utilityProcess, type UtilityProcess } from 'electron'
 import { eq, desc, sql } from 'drizzle-orm'
 import { getDb, schema } from '../db'
+import { captureCheckpoint } from '../git/ops'
 import { EventTranslator } from './event-translator'
 import { clampMessageForStorage } from './message-clamp'
+import { PromptQueue } from './prompt-queue'
 import {
   normalizeCustomProviderModelId,
   normalizeCustomProviderModels
@@ -48,6 +50,7 @@ import type {
 import type {
   AgentStatus,
   AgentUIEvent,
+  QueuedPromptInfo,
   SessionMeta,
   StoredMessage,
   SubchatStatusInfo,
@@ -94,6 +97,13 @@ export class AgentSessionManager {
   private lastBootError: string | null = null
   /** Debounces the per-tool-call full-row rewrites of streaming messages. */
   private writeBuffer = new MessageWriteBuffer((sid, m) => this.writeMessageRow(sid, m))
+  /** Prompts submitted while a run was active, flushed FIFO on run end. */
+  private promptQueue = new PromptQueue()
+  /**
+   * Subchats with a queued prompt dispatched but no agent_start seen yet.
+   * Doubles as the flush lock so duplicate agent_end events can't double-send.
+   */
+  private awaitingRunStart = new Set<string>()
 
   private emitterFor(subchatId: string): EventEmitter {
     let em = this.emitters.get(subchatId)
@@ -412,7 +422,12 @@ export class AgentSessionManager {
             .run()
         }
       },
-      onRunStateChanged: () => {}
+      onRunStateChanged: (running) => {
+        // agent_start confirms the dispatched queue item took; agent_end on
+        // an error path (no agent_start) must also release the lock.
+        this.awaitingRunStart.delete(subchatId)
+        if (!running) this.maybeFlushQueue(subchatId)
+      }
     })
     translator.seed(this.loadMessages(subchatId))
 
@@ -518,6 +533,9 @@ export class AgentSessionManager {
     proc.on('exit', (code) => {
       handle.killed = true
       handle.status = 'stopped'
+      // No auto-flush on host death (avoids crash-respawn loops); the queue
+      // stays intact and resumes via the sendOrQueue idle kick.
+      this.awaitingRunStart.delete(subchatId)
       throttle.dispose()
       this.writeBuffer.flush(subchatId)
       for (const [, req] of handle.pending) {
@@ -634,15 +652,105 @@ export class AgentSessionManager {
     this.sendCommand(handle, { t: 'send', text: content + noteSuffix, files })
   }
 
+  // ---- Prompt queue (send-while-running) ----------------------------------
+
+  /** Working directory for a subchat (worktree > project path), or null. */
+  private subchatCwd(subchatId: string): string | null {
+    const db = getDb()
+    const subchat = db
+      .select({ chatId: schema.subchats.chatId })
+      .from(schema.subchats)
+      .where(eq(schema.subchats.id, subchatId))
+      .get()
+    if (!subchat) return null
+    const chat = db
+      .select({ worktreePath: schema.chats.worktreePath, projectId: schema.chats.projectId })
+      .from(schema.chats)
+      .where(eq(schema.chats.id, subchat.chatId))
+      .get()
+    if (!chat) return null
+    if (chat.worktreePath) return chat.worktreePath
+    const project = db
+      .select({ path: schema.projects.path })
+      .from(schema.projects)
+      .where(eq(schema.projects.id, chat.projectId))
+      .get()
+    return project?.path ?? null
+  }
+
+  /** Rollback checkpoint captured at actual send time (not enqueue time). */
+  private async captureSendCheckpoint(subchatId: string): Promise<string | undefined> {
+    const cwd = this.subchatCwd(subchatId)
+    if (!cwd) return undefined
+    return (await captureCheckpoint(cwd)) ?? undefined
+  }
+
+  private emitQueuedPrompts(subchatId: string): void {
+    this.emitUI(subchatId, { type: 'queued-prompts', items: this.promptQueue.list(subchatId) })
+  }
+
   /**
-   * Queue a message to run after the active run finishes (Session.followUp);
-   * sends immediately when the session is idle. No files support (SDK limit).
+   * Send a prompt, or queue it when a run is active (or other prompts are
+   * already waiting — FIFO order is preserved even after a host crash). The
+   * main process is authoritative here so a stale `running` in the renderer
+   * can't misroute a prompt.
    */
-  async followUp(subchatId: string, content: string, checkpointRef?: string): Promise<void> {
-    const handle = await this.ensureHost(subchatId)
-    const noteSuffix = this.consumePendingNote(subchatId)
-    this.recordUserMessage(subchatId, content, checkpointRef)
-    this.sendCommand(handle, { t: 'followUp', text: content + noteSuffix })
+  async sendOrQueue(subchatId: string, content: string, files?: FileAttachment[]): Promise<void> {
+    const busy =
+      this.isRunning(subchatId) ||
+      this.awaitingRunStart.has(subchatId) ||
+      this.promptQueue.size(subchatId) > 0
+    if (!busy) {
+      const checkpointRef = await this.captureSendCheckpoint(subchatId)
+      await this.sendMessage(subchatId, content, checkpointRef, undefined, files)
+      return
+    }
+    this.promptQueue.enqueue(subchatId, content, files)
+    this.emitQueuedPrompts(subchatId)
+    // Idle kick: if the queue was stranded (host crash, failed flush), this
+    // enqueue is the moment it resumes — head first, order preserved.
+    this.maybeFlushQueue(subchatId)
+  }
+
+  dismissQueuedPrompt(subchatId: string, id: string): void {
+    if (this.promptQueue.dismiss(subchatId, id)) this.emitQueuedPrompts(subchatId)
+  }
+
+  /** Renderer-safe queue snapshot, for stream seeding. */
+  queuedPrompts(subchatId: string): QueuedPromptInfo[] {
+    return this.promptQueue.list(subchatId)
+  }
+
+  /**
+   * Flush the next queued prompt if the subchat is idle. Never flushes while
+   * a suspension (ask_user / plan approval) is pending — sending steers into
+   * the gate and force-declines it. The awaitingRunStart lock is taken
+   * synchronously so duplicate agent_end events can't double-send.
+   */
+  private maybeFlushQueue(subchatId: string): void {
+    if (this.promptQueue.size(subchatId) === 0) return
+    if (this.isRunning(subchatId) || this.awaitingRunStart.has(subchatId)) return
+    const pendingSuspensions = this.hosts.get(subchatId)?.translator.pendingSuspensions
+    if (pendingSuspensions && pendingSuspensions.size > 0) return
+    const item = this.promptQueue.shift(subchatId)
+    if (!item) return
+    this.awaitingRunStart.add(subchatId)
+    this.emitQueuedPrompts(subchatId)
+    // Deferred so a flush triggered from inside translator.handle never
+    // interleaves with the event currently being processed.
+    void (async () => {
+      const checkpointRef = await this.captureSendCheckpoint(subchatId)
+      await this.sendMessage(subchatId, item.text, checkpointRef, undefined, item.files)
+    })().catch((err: unknown) => {
+      this.awaitingRunStart.delete(subchatId)
+      this.promptQueue.unshift(subchatId, item)
+      this.emitQueuedPrompts(subchatId)
+      this.emitUI(subchatId, {
+        type: 'info',
+        level: 'error',
+        text: `Failed to send queued message: ${err instanceof Error ? err.message : String(err)}`
+      })
+    })
   }
 
   async approve(

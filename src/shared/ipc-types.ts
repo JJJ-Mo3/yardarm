@@ -7,8 +7,6 @@
 /** main -> host */
 export type HostCommand =
   | { t: 'send'; text: string; files?: FileAttachment[] }
-  /** Queue a message to run after the active run finishes (Session.followUp). */
-  | { t: 'followUp'; text: string }
   | {
       t: 'approve'
       toolCallId: string
