@@ -1,6 +1,11 @@
 import React from 'react'
+import { useSetAtom } from 'jotai'
+import { KeyRound } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
+import { settingsTabAtom } from '../../lib/atoms'
+import { Button } from '../../components/ui/button'
 import { Switch } from '../../components/ui/switch'
+import { Tip } from '../../components/ui/tooltip'
 import { useRestartBanner } from './restart-banner'
 
 /**
@@ -21,12 +26,25 @@ export function VoiceTab(): React.JSX.Element {
     }
   })
 
+  const setSettingsTab = useSetAtom(settingsTabAtom)
+
   const v = settings.data?.voice ?? {}
   const models = registry.data ?? []
   const providers = [...new Set(models.map((m) => m.provider))]
   const provider = v.provider ?? providers[0] ?? ''
   const providerModels = models.filter((m) => m.provider === provider)
   const error = settings.error ?? registry.error ?? setVoice.error
+
+  // Cloud transcription only works with an API key (env var or stored key —
+  // STT endpoints reject OAuth tokens), so a key is a prerequisite for
+  // enabling. Gate all blocking on keysKnown so a loading/errored registry
+  // never falsely locks the UI.
+  const cloud = (v.engine ?? 'macos-native') === 'cloud'
+  const keysKnown = registry.isSuccess
+  const providerHasKey = models.some((m) => m.provider === provider && m.hasKey)
+  const anyKey = models.some((m) => m.hasKey)
+  const envVar = models.find((m) => m.provider === provider)?.envVar
+  const enableBlocked = !(v.enabled ?? false) && cloud && keysKnown && !providerHasKey
 
   return (
     <div className="space-y-4">
@@ -37,27 +55,58 @@ export function VoiceTab(): React.JSX.Element {
       </div>
 
       <label className="flex items-center gap-2 text-xs">
-        <Switch
-          checked={v.enabled ?? false}
-          onCheckedChange={(enabled) => setVoice.mutate({ enabled })}
-        />
+        <Tip
+          content={
+            enableBlocked
+              ? `Add a ${provider} API key first — cloud transcription requires one (OAuth logins don't work).`
+              : 'Turn voice dictation on or off (shared with the mastracode CLI)'
+          }
+        >
+          <span className="inline-flex">
+            <Switch
+              checked={v.enabled ?? false}
+              disabled={enableBlocked}
+              onCheckedChange={(enabled) => setVoice.mutate({ enabled })}
+            />
+          </span>
+        </Tip>
         Enable voice input
       </label>
 
       <div className="flex items-center gap-2">
         <span className="w-24 text-[11px] text-muted-foreground">Engine</span>
-        <select
-          value={v.engine ?? 'macos-native'}
-          onChange={(e) => setVoice.mutate({ engine: e.target.value as 'macos-native' | 'cloud' })}
-          className="h-7 rounded-md border border-border bg-background px-2 text-[11px]"
-        >
-          <option value="macos-native">macOS native dictation</option>
-          <option value="cloud">Cloud transcription</option>
-        </select>
+        <Tip content="Where dictation runs: macOS native (CLI only) or a cloud STT provider (usable in-app)">
+          <select
+            value={v.engine ?? 'macos-native'}
+            onChange={(e) =>
+              setVoice.mutate({ engine: e.target.value as 'macos-native' | 'cloud' })
+            }
+            className="h-7 rounded-md border border-border bg-background px-2 text-[11px]"
+          >
+            <option value="macos-native">macOS native dictation</option>
+            <option value="cloud" disabled={keysKnown && !anyKey}>
+              Cloud transcription{keysKnown && !anyKey ? ' (needs an API key)' : ''}
+            </option>
+          </select>
+        </Tip>
       </div>
 
-      {(v.engine ?? 'macos-native') === 'cloud' && (
+      {cloud && (
         <>
+          {keysKnown && !providerHasKey && (
+            <div className="flex items-center gap-2 rounded-md border border-amber-600/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-500">
+              <KeyRound size={13} className="shrink-0" />
+              <span className="min-w-0 flex-1">
+                No {provider} API key — cloud transcription needs one. Add it under API Keys
+                {envVar ? ` or set ${envVar}` : ''}.
+              </span>
+              <Tip content="Store a provider API key under Settings → API Keys">
+                <Button size="sm" variant="outline" onClick={() => setSettingsTab('keys')}>
+                  API Keys
+                </Button>
+              </Tip>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <span className="w-24 text-[11px] text-muted-foreground">Provider</span>
             <select
@@ -68,6 +117,9 @@ export function VoiceTab(): React.JSX.Element {
               {providers.map((p) => (
                 <option key={p} value={p}>
                   {p}
+                  {keysKnown && !models.some((m) => m.provider === p && m.hasKey)
+                    ? ' — no key'
+                    : ''}
                 </option>
               ))}
             </select>

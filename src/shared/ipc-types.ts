@@ -306,6 +306,10 @@ export interface SttModelInfo {
   provider: string
   model: string
   label: string
+  /** A usable API key exists (env var or stored apikey:<provider> — never OAuth). */
+  hasKey: boolean
+  /** Env var the host/CLI reads for this provider (e.g. GROQ_API_KEY). */
+  envVar: string
 }
 
 export type PermissionPolicy = 'allow' | 'ask' | 'deny'

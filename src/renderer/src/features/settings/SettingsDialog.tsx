@@ -92,10 +92,11 @@ export function KeysTab(): React.JSX.Element {
   const [provider, setProvider] = useState(PROVIDERS[0])
   const [apiKey, setApiKey] = useState('')
 
-  /** Credentials changed: hasApiKey flags and available packs are stale. */
+  /** Credentials changed: hasApiKey/hasKey flags and available packs are stale. */
   const invalidateModelData = (): void => {
     utils.agent.listModels.invalidate()
     utils.mastraSettings.listPacks.invalidate()
+    utils.mastraSettings.sttRegistry.invalidate()
   }
 
   const setKey = trpc.settings.authSet.useMutation({

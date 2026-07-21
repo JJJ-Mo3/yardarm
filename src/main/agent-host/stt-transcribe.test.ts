@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   STT_PROVIDER_ENV_VARS,
   buildSttRequest,
+  envVarFor,
   httpErrorMessage,
   missingKeyMessage,
   parseDeepgramTranscription,
@@ -22,6 +23,16 @@ describe('STT_PROVIDER_ENV_VARS', () => {
       evroc: 'EVROC_API_KEY',
       deepgram: 'DEEPGRAM_API_KEY'
     })
+  })
+})
+
+describe('envVarFor', () => {
+  it('uses the CLI map for known providers', () => {
+    expect(envVarFor('alibaba-cn')).toBe('DASHSCOPE_API_KEY')
+  })
+
+  it('falls back to <PROVIDER>_API_KEY for unknown providers', () => {
+    expect(envVarFor('someprovider')).toBe('SOMEPROVIDER_API_KEY')
   })
 })
 

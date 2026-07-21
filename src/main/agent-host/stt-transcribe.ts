@@ -19,7 +19,8 @@ export const STT_PROVIDER_ENV_VARS: Record<string, string> = {
   deepgram: 'DEEPGRAM_API_KEY'
 }
 
-function envVarFor(provider: string): string {
+/** Env var the host/CLI reads for a provider (uppercased fallback for unknowns). */
+export function envVarFor(provider: string): string {
   return STT_PROVIDER_ENV_VARS[provider] ?? `${provider.toUpperCase()}_API_KEY`
 }
 

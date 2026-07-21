@@ -74,11 +74,14 @@ export function PromptInput({
   // Voice dictation (Cloud engine only — recording is independent of runs).
   const utils = trpc.useUtils()
   const mastraSettings = trpc.mastraSettings.get.useQuery()
-  const micStatus = trpc.voice.micAccessStatus.useQuery(undefined, { staleTime: 30_000 })
-  const requestMicAccess = trpc.voice.requestMicAccess.useMutation()
   const voiceSettings = mastraSettings.data?.voice ?? {}
   const voiceEnabled = voiceSettings.enabled ?? false
   const voiceCloud = (voiceSettings.engine ?? 'macos-native') === 'cloud'
+  const micStatus = trpc.voice.micAccessStatus.useQuery(undefined, {
+    staleTime: 30_000,
+    enabled: voiceEnabled && voiceCloud
+  })
+  const requestMicAccess = trpc.voice.requestMicAccess.useMutation()
   const micDenied = micStatus.data === 'denied' || micStatus.data === 'restricted'
   const micPressRef = useRef<{ startedRecording: boolean; downAt: number } | null>(null)
 
@@ -414,55 +417,45 @@ export function PromptInput({
             </Button>
           </span>
         </Tip>
-        <Tip
-          content={
-            !voice.supported
-              ? "Audio recording isn't available in this environment."
-              : !voiceEnabled
-                ? 'Voice input is turned off — enable it in Settings → Voice.'
-                : !voiceCloud
-                  ? 'macOS native dictation runs in the mastracode CLI — switch the engine to Cloud in Settings → Voice to dictate here.'
-                  : micDenied
-                    ? 'Microphone access is blocked — allow Yardarm in System Settings → Privacy & Security → Microphone.'
-                    : voice.state === 'recording'
-                      ? 'Stop recording and transcribe (Esc cancels).'
-                      : voice.state === 'transcribing'
-                        ? 'Transcribing…'
-                        : 'Dictate into the prompt — click to start/stop recording, or hold to talk. Esc cancels.'
-          }
-        >
-          <span className="inline-flex items-center gap-1.5">
-            {voice.state === 'recording' && (
-              <span className="text-[11px] tabular-nums text-destructive">
-                {formatElapsed(voice.elapsedMs)}
-              </span>
-            )}
-            <Button
-              size="icon"
-              variant={voice.state === 'recording' ? 'destructive' : 'ghost'}
-              className={voice.state === 'recording' ? 'animate-pulse' : undefined}
-              disabled={
-                !voice.supported ||
-                !voiceEnabled ||
-                !voiceCloud ||
-                micDenied ||
-                voice.state === 'transcribing'
-              }
-              onPointerDown={(e) => void onMicPointerDown(e)}
-              onPointerUp={onMicPointerUp}
-              onPointerLeave={onMicPointerUp}
-              onPointerCancel={onMicPointerUp}
-            >
-              {voice.state === 'recording' ? (
-                <Square size={13} />
-              ) : voice.state === 'transcribing' ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Mic size={14} />
+        {voice.supported && voiceEnabled && voiceCloud && (
+          <Tip
+            content={
+              micDenied
+                ? 'Microphone access is blocked — allow Yardarm in System Settings → Privacy & Security → Microphone.'
+                : voice.state === 'recording'
+                  ? 'Stop recording and transcribe (Esc cancels).'
+                  : voice.state === 'transcribing'
+                    ? 'Transcribing…'
+                    : 'Dictate into the prompt — click to start/stop recording, or hold to talk. Esc cancels.'
+            }
+          >
+            <span className="inline-flex items-center gap-1.5">
+              {voice.state === 'recording' && (
+                <span className="text-[11px] tabular-nums text-destructive">
+                  {formatElapsed(voice.elapsedMs)}
+                </span>
               )}
-            </Button>
-          </span>
-        </Tip>
+              <Button
+                size="icon"
+                variant={voice.state === 'recording' ? 'destructive' : 'ghost'}
+                className={voice.state === 'recording' ? 'animate-pulse' : undefined}
+                disabled={micDenied || voice.state === 'transcribing'}
+                onPointerDown={(e) => void onMicPointerDown(e)}
+                onPointerUp={onMicPointerUp}
+                onPointerLeave={onMicPointerUp}
+                onPointerCancel={onMicPointerUp}
+              >
+                {voice.state === 'recording' ? (
+                  <Square size={13} />
+                ) : voice.state === 'transcribing' ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Mic size={14} />
+                )}
+              </Button>
+            </span>
+          </Tip>
+        )}
         {running && !value.trim() ? (
           <Tip content="Stop the agent's current run">
             <Button size="icon" variant="destructive" onClick={onAbort}>

@@ -8,11 +8,12 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import type { HostBootConfig, HostCommand, HostMessage } from '../../shared/ipc-types'
+import type { HostBootConfig, HostCommand, HostMessage, SttModelInfo } from '../../shared/ipc-types'
 import { patchApprovalRunBudget } from './approval-run-budget'
 import { installNoTimeoutFetch } from './no-timeout-fetch'
 import {
   buildSttRequest,
+  envVarFor,
   httpErrorMessage,
   missingKeyMessage,
   parseDeepgramTranscription,
@@ -821,11 +822,27 @@ async function main(): Promise<void> {
               const stt = await runtimeImport<typeof import('@mastra/code-sdk/voice/stt-registry')>(
                 '@mastra/code-sdk/voice/stt-registry'
               )
-              return stt.STT_MODELS.map((m) => ({
+              // Pick up keys saved in other hosts / the CLI since boot.
+              authStorage.reload()
+              const keyByProvider = new Map<string, boolean>()
+              for (const m of stt.STT_MODELS) {
+                if (!keyByProvider.has(m.provider)) {
+                  keyByProvider.set(
+                    m.provider,
+                    !!resolveSttApiKey(m.provider, process.env, (p) =>
+                      authStorage.getStoredApiKey(p)
+                    )
+                  )
+                }
+              }
+              const entries: SttModelInfo[] = stt.STT_MODELS.map((m) => ({
                 provider: m.provider,
                 model: m.model,
-                label: m.label
+                label: m.label,
+                hasKey: keyByProvider.get(m.provider) ?? false,
+                envVar: envVarFor(m.provider)
               }))
+              return entries
             })
             break
           case 'transcribe':
