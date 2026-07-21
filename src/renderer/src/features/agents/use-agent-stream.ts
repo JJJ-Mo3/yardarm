@@ -66,8 +66,13 @@ function reducer(state: AgentStreamState, ev: AgentUIEvent): AgentStreamState {
         status: ev.status,
         running: ev.status === 'stopped' ? false : state.running
       }
-    case 'run-started':
-      return { ...state, running: true }
+    case 'run-started': {
+      // A fully-completed checklist from a previous plan is stale once a new
+      // run begins — drop it instead of resurrecting it (visibility is
+      // derived from tasks + running in TaskChecklist).
+      const stale = state.tasks.length > 0 && state.tasks.every((t) => t.status === 'completed')
+      return { ...state, running: true, tasks: stale ? [] : state.tasks }
+    }
     case 'run-finished':
       // The SDK flushes the follow-up queue when the run ends. NOTE: a
       // suspending tool (ask_user / submit_plan / request_access) ends the

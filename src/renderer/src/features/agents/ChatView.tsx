@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { CheckCircle2, Circle, CircleDot, KeyRound, Server } from 'lucide-react'
+import { KeyRound, Server } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import {
   debugEventsAtom,
@@ -36,6 +36,7 @@ import { ThreadsPopover } from './ThreadsPopover'
 import { PermissionsDialog } from './PermissionsDialog'
 import { SandboxDialog } from './SandboxDialog'
 import { GoalBanner } from './GoalBanner'
+import { TaskChecklist } from './TaskChecklist'
 import { GoalPopover } from './GoalPopover'
 import { OmStatusPopover } from './OmStatusPopover'
 import { ModeSelector } from './ModeSelector'
@@ -511,27 +512,7 @@ export function ChatView({
 
       <GoalBanner subchatId={subchatId} live={state.goal} />
 
-      {/* Task list */}
-      {state.tasks.length > 0 && (
-        <div className="border-b border-border px-4 py-2 space-y-0.5 max-h-32 overflow-y-auto">
-          {state.tasks.map((t, i) => (
-            <div key={t.id ?? i} className="flex items-center gap-1.5 text-[11px]">
-              {t.status === 'completed' ? (
-                <CheckCircle2 size={11} className="text-green-500 shrink-0" />
-              ) : t.status === 'in_progress' ? (
-                <CircleDot size={11} className="text-blue-400 shrink-0" />
-              ) : (
-                <Circle size={11} className="text-muted-foreground shrink-0" />
-              )}
-              <span
-                className={t.status === 'completed' ? 'text-muted-foreground line-through' : ''}
-              >
-                {t.content ?? ''}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+      <TaskChecklist key={subchatId} tasks={state.tasks} running={state.running} />
 
       <MessageList
         messages={state.messages}
