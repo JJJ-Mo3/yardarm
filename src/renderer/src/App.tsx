@@ -29,6 +29,7 @@ import { Sidebar } from './features/sidebar/Sidebar'
 import { BootErrorScreen } from './features/boot/BootErrorScreen'
 import { OnboardingWizard } from './features/onboarding/OnboardingWizard'
 import { ChatView } from './features/agents/ChatView'
+import { useChatStatusTracker } from './features/agents/use-chat-status-tracker'
 import { ChangesView } from './features/changes/ChangesView'
 import { TerminalView } from './features/terminal/TerminalView'
 import { FilesView } from './features/file-viewer/FilesView'
@@ -100,6 +101,7 @@ function SelectProjectPane(): React.JSX.Element {
 export default function App(): React.JSX.Element {
   useThemeEffect()
   useAppShortcuts()
+  useChatStatusTracker()
   const projectId = useAtomValue(selectedProjectIdAtom)
   const setAddProjectOpen = useSetAtom(addProjectOpenAtom)
   const chatId = useAtomValue(selectedChatIdAtom)

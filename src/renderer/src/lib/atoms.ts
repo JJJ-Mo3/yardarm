@@ -1,5 +1,6 @@
 import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
+import type { SubchatStatusInfo } from '../../../shared/ui-message'
 
 export type MainTab = 'chat' | 'changes' | 'terminal' | 'files' | 'cli'
 export type Theme = 'light' | 'dark' | 'system'
@@ -35,3 +36,20 @@ export const projectSettingsTabAtom = atom<ProjectSettingsTab>('general')
 export const debugEventsAtom = atomWithStorage<boolean>('cz.debugEvents', false)
 /** Re-open the first-run onboarding wizard (Settings → About → Run setup again). */
 export const onboardingForceOpenAtom = atom(false)
+
+/** Live per-subchat agent status keyed by subchatId (fed by useChatStatusTracker). */
+export const subchatStatusesAtom = atom<Map<string, SubchatStatusInfo>>(new Map())
+/** Chats whose last run finished while the chat wasn't selected (sidebar blue dot). */
+export const unseenChatsAtom = atom<Set<string>>(new Set<string>())
+/** Per-chat aggregate across its subchats: any running / any awaiting user input. */
+export const chatStatusesAtom = atom((get) => {
+  const agg = new Map<string, { running: boolean; awaiting: boolean }>()
+  for (const s of get(subchatStatusesAtom).values()) {
+    const cur = agg.get(s.chatId) ?? { running: false, awaiting: false }
+    agg.set(s.chatId, {
+      running: cur.running || s.running,
+      awaiting: cur.awaiting || s.pendingCount > 0
+    })
+  }
+  return agg
+})

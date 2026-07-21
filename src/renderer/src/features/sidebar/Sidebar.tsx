@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
-import { useAtom, useSetAtom } from 'jotai'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   FolderCog,
   FolderGit2,
+  Loader2,
   MessageSquarePlus,
   Moon,
   Pencil,
@@ -15,13 +16,15 @@ import { trpc } from '../../lib/trpc'
 import { cn, timeAgo } from '../../lib/utils'
 import {
   addProjectOpenAtom,
+  chatStatusesAtom,
   newChatOpenAtom,
   projectSettingsOpenAtom,
   selectedChatIdAtom,
   selectedProjectIdAtom,
   selectedSubchatIdAtom,
   settingsOpenAtom,
-  themeAtom
+  themeAtom,
+  unseenChatsAtom
 } from '../../lib/atoms'
 import { useIsDark } from '../../lib/use-dark'
 import { Button } from '../../components/ui/button'
@@ -40,6 +43,46 @@ import { useConfirm } from '../../components/ConfirmDialog'
 import { AddProjectDialog } from './AddProjectDialog'
 import { Logo } from '../../components/Logo'
 
+/**
+ * Per-chat activity badge: amber dot = awaiting a user response, spinner =
+ * agent working, blue dot = run finished but not yet viewed. Hidden on row
+ * hover so the rename/delete buttons can take its slot without a width jump.
+ */
+function ChatStatusIndicator({
+  running,
+  awaiting,
+  unseen
+}: {
+  running: boolean
+  awaiting: boolean
+  unseen: boolean
+}): React.JSX.Element | null {
+  if (awaiting) {
+    return (
+      <Tip content="The agent is waiting for your response">
+        <span className="block group-hover:hidden h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+      </Tip>
+    )
+  }
+  if (running) {
+    return (
+      <Tip content="The agent is working in this chat">
+        <span className="block group-hover:hidden shrink-0 text-muted-foreground">
+          <Loader2 size={12} className="animate-spin" />
+        </span>
+      </Tip>
+    )
+  }
+  if (unseen) {
+    return (
+      <Tip content="The agent finished — you haven't viewed the result yet">
+        <span className="block group-hover:hidden h-2 w-2 shrink-0 rounded-full bg-blue-500" />
+      </Tip>
+    )
+  }
+  return null
+}
+
 export function Sidebar(): React.JSX.Element {
   const [projectId, setProjectId] = useAtom(selectedProjectIdAtom)
   const [chatId, setChatId] = useAtom(selectedChatIdAtom)
@@ -54,6 +97,8 @@ export function Sidebar(): React.JSX.Element {
   const [useWorktree, setUseWorktree] = useState(true)
   const [renameTarget, setRenameTarget] = useState<{ id: string; title: string } | null>(null)
   const [renameTitle, setRenameTitle] = useState('')
+  const chatStatuses = useAtomValue(chatStatusesAtom)
+  const unseenChats = useAtomValue(unseenChatsAtom)
   const confirmDialog = useConfirm()
 
   const utils = trpc.useUtils()
@@ -185,6 +230,11 @@ export function Sidebar(): React.JSX.Element {
                   {c.branch ?? 'no worktree'} · {timeAgo(c.updatedAt)}
                 </div>
               </div>
+              <ChatStatusIndicator
+                running={chatStatuses.get(c.id)?.running ?? false}
+                awaiting={chatStatuses.get(c.id)?.awaiting ?? false}
+                unseen={unseenChats.has(c.id)}
+              />
               <Tip content="Rename this chat">
                 <button
                   className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"

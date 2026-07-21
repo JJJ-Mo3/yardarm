@@ -50,6 +50,7 @@ import type {
   AgentUIEvent,
   SessionMeta,
   StoredMessage,
+  SubchatStatusInfo,
   TaskItem
 } from '../../../shared/ui-message'
 
@@ -106,12 +107,83 @@ export class AgentSessionManager {
 
   private emitUI(subchatId: string, event: AgentUIEvent): void {
     this.emitterFor(subchatId).emit('event', event)
+    switch (event.type) {
+      case 'run-started':
+      case 'run-finished':
+      case 'approval-request':
+      case 'approval-resolved':
+      case 'suspension-request':
+      case 'suspension-resolved':
+      case 'status':
+        this.broadcastStatus(subchatId)
+    }
   }
 
   onEvents(subchatId: string, listener: (ev: AgentUIEvent) => void): () => void {
     const em = this.emitterFor(subchatId)
     em.on('event', listener)
     return () => em.off('event', listener)
+  }
+
+  // ---- Cross-chat status (sidebar activity indicators) ---------------------
+
+  /** Broadcasts per-subchat status snapshots to the statusAll subscription. */
+  private statusEmitter = new EventEmitter()
+  /** Immutable subchat → chat mapping, cached to avoid a DB hit per event. */
+  private chatIdCache = new Map<string, string>()
+  /** Last broadcast per subchat ('running|pendingCount'), to drop no-op emits. */
+  private lastStatusKey = new Map<string, string>()
+
+  onStatus(listener: (info: SubchatStatusInfo) => void): () => void {
+    this.statusEmitter.on('status', listener)
+    return () => this.statusEmitter.off('status', listener)
+  }
+
+  private chatIdFor(subchatId: string): string | null {
+    const cached = this.chatIdCache.get(subchatId)
+    if (cached) return cached
+    const row = getDb()
+      .select({ chatId: schema.subchats.chatId })
+      .from(schema.subchats)
+      .where(eq(schema.subchats.id, subchatId))
+      .get()
+    if (!row) return null // deleted subchat or the utility host
+    this.chatIdCache.set(subchatId, row.chatId)
+    return row.chatId
+  }
+
+  private computeStatus(subchatId: string): { running: boolean; pendingCount: number } {
+    const host = this.hosts.get(subchatId)
+    if (!host || host.killed) return { running: false, pendingCount: 0 }
+    const t = host.translator
+    return {
+      running: t.running,
+      pendingCount: t.pendingApprovals.size + t.pendingSuspensions.size
+    }
+  }
+
+  private broadcastStatus(subchatId: string): void {
+    if (subchatId === '__utility__') return
+    const chatId = this.chatIdFor(subchatId)
+    if (!chatId) return
+    const { running, pendingCount } = this.computeStatus(subchatId)
+    const key = `${running}|${pendingCount}`
+    if (this.lastStatusKey.get(subchatId) === key) return
+    this.lastStatusKey.set(subchatId, key)
+    const info: SubchatStatusInfo = { subchatId, chatId, running, pendingCount }
+    this.statusEmitter.emit('status', info)
+  }
+
+  /** Live status for every chat host (idle ones included), for stream seeding. */
+  statusSnapshot(): SubchatStatusInfo[] {
+    const out: SubchatStatusInfo[] = []
+    for (const subchatId of this.hosts.keys()) {
+      if (subchatId === '__utility__') continue
+      const chatId = this.chatIdFor(subchatId)
+      if (!chatId) continue
+      out.push({ subchatId, chatId, ...this.computeStatus(subchatId) })
+    }
+    return out
   }
 
   /**

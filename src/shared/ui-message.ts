@@ -105,6 +105,16 @@ export interface OmProgressInfo {
   ts: number
 }
 
+/** Cross-chat live status for one subchat (sidebar activity indicators). */
+export interface SubchatStatusInfo {
+  subchatId: string
+  chatId: string
+  /** An agent run is in flight. */
+  running: boolean
+  /** Pending tool approvals + suspensions (ask_user / plan) awaiting the user. */
+  pendingCount: number
+}
+
 /** Events streamed to the renderer over the tRPC subscription. */
 export type AgentUIEvent =
   | { type: 'message-upsert'; message: StoredMessage }

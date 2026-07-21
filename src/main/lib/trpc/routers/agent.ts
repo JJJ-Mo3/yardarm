@@ -5,7 +5,7 @@ import { getDb, schema } from '../../db'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import { captureCheckpoint } from '../../git/ops'
 import { readSettings } from '../../mastra-config/settings-json'
-import { MODES, type AgentUIEvent } from '../../../../shared/ui-message'
+import { MODES, type AgentUIEvent, type SubchatStatusInfo } from '../../../../shared/ui-message'
 import { publicProcedure, router } from '../trpc'
 
 function subchatCwd(subchatId: string): string | null {
@@ -47,6 +47,14 @@ export const agentRouter = router({
 
       const off = agentSessionManager.onEvents(subchatId, (ev) => emit.next(ev))
       return off
+    })
+  }),
+
+  /** Cross-chat live status: seeds a snapshot of all hosts, then streams changes. */
+  statusAll: publicProcedure.subscription(() => {
+    return observable<SubchatStatusInfo>((emit) => {
+      for (const info of agentSessionManager.statusSnapshot()) emit.next(info)
+      return agentSessionManager.onStatus((info) => emit.next(info))
     })
   }),
 
