@@ -1,5 +1,8 @@
 appId: dev.yardarm.app
 productName: Yardarm
+# Pinned so the in-app updater (src/main/lib/updates) can match release assets
+# by name: Yardarm-<version>-<arch>.<ext>.
+artifactName: ${productName}-${version}-${arch}.${ext}
 directories:
   buildResources: build
   output: dist
@@ -33,11 +36,13 @@ extraResources:
 
 mac:
   category: public.app-category.developer-tools
+  # arm64 only: scripts/build-agent-runtime.mjs stages native modules for the
+  # build machine's architecture, so a cross-arch x64 artifact would be broken.
   target:
     - target: dmg
-      arch: [arm64, x64]
+      arch: [arm64]
     - target: zip
-      arch: [arm64, x64]
+      arch: [arm64]
   hardenedRuntime: true
   gatekeeperAssess: false
   entitlements: build/entitlements.mac.plist

@@ -36,6 +36,7 @@ import { TerminalView } from './features/terminal/TerminalView'
 import { FilesView } from './features/file-viewer/FilesView'
 import { KanbanView } from './features/kanban/KanbanView'
 import { SettingsDialog } from './features/settings/SettingsDialog'
+import { UpdateRestartBanner } from './features/settings/UpdateRestartBanner'
 import { ProjectSettingsDialog } from './features/project-settings/ProjectSettingsDialog'
 
 const TABS: Array<{ id: MainTab; label: string; icon: React.ReactNode; tip: string }> = [
@@ -178,6 +179,8 @@ export default function App(): React.JSX.Element {
             </Tip>
           ))}
         </div>
+
+        <UpdateRestartBanner />
 
         <div className="min-h-0 flex-1">
           {projects.data && projects.data.length === 0 ? (

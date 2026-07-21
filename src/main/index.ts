@@ -6,7 +6,7 @@ import { agentSessionManager } from './lib/agent/agent-session-manager'
 import { normalizeModelIdsInSettings } from './lib/mastra-config/normalize-model-ids'
 import { ptyManager } from './lib/terminal/pty-manager'
 import { createWindow, setIpcHandler } from './windows/window-manager'
-import { initUpdater } from './lib/updater'
+import { updateManager } from './lib/updates/update-manager'
 import icon from '../../build/icon.png?asset'
 
 // Two OS-level instances would contend over the same SQLite database and
@@ -43,7 +43,7 @@ app.whenReady().then(() => {
   setIpcHandler(handler)
 
   createWindow()
-  initUpdater()
+  updateManager.init()
 
   // Heal gateway-prefixed model ids saved before catalog normalization, then
   // warm up + verify the bundled mastracode runtime (hosts read settings.json

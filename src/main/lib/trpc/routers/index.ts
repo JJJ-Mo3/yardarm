@@ -10,6 +10,7 @@ import { projectsRouter } from './projects'
 import { settingsRouter } from './settings'
 import { systemRouter } from './system'
 import { terminalRouter } from './terminal'
+import { updatesRouter } from './updates'
 
 export const appRouter = router({
   ping: publicProcedure.query(() => 'pong'),
@@ -23,7 +24,8 @@ export const appRouter = router({
   mastraSettings: mastraSettingsRouter,
   mcp: mcpRouter,
   projectConfig: projectConfigRouter,
-  system: systemRouter
+  system: systemRouter,
+  updates: updatesRouter
 })
 
 export type AppRouter = typeof appRouter

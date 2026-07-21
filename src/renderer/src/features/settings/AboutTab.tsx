@@ -1,13 +1,131 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useSetAtom } from 'jotai'
-import { CheckCircle2, Wand2, XCircle } from 'lucide-react'
+import { CheckCircle2, Download, ExternalLink, RefreshCw, Wand2, XCircle } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { onboardingForceOpenAtom, settingsOpenAtom } from '../../lib/atoms'
 import { Button } from '../../components/ui/button'
+import { Switch } from '../../components/ui/switch'
+import { Tip } from '../../components/ui/tooltip'
 
 // Strip CSI/OSC escape sequences and carriage returns from pty output.
 // eslint-disable-next-line no-control-regex
 const ANSI_RE = /\u001b\[[0-9;?]*[A-Za-z]|\u001b\][^\u0007]*(?:\u0007|\u001b\\)|\r/g
+
+function updateStatusText(s: { phase: string; latestVersion?: string; progress?: number }): string {
+  switch (s.phase) {
+    case 'checking':
+      return 'Checking…'
+    case 'up-to-date':
+      return 'Up to date'
+    case 'update-available':
+      return `Update v${s.latestVersion} available`
+    case 'downloading':
+      return s.progress !== undefined
+        ? `Downloading… ${Math.round(s.progress * 100)}%`
+        : 'Downloading…'
+    case 'installing':
+      return 'Installing…'
+    case 'ready-to-restart':
+      return 'Restart to finish updating'
+    case 'error':
+      return 'Update failed'
+    default:
+      return 'Not checked yet'
+  }
+}
+
+/** "Updates" section: check/install from GitHub Releases + auto-update toggle. */
+function UpdatesSection(): React.JSX.Element {
+  const utils = trpc.useUtils()
+  const status = trpc.updates.status.useQuery(undefined, {
+    refetchInterval: (query) => {
+      const phase = query.state.data?.phase
+      return phase === 'checking' || phase === 'downloading' || phase === 'installing' ? 750 : false
+    }
+  })
+  const invalidate = (): void => void utils.updates.status.invalidate()
+  const check = trpc.updates.check.useMutation({ onSuccess: invalidate, onError: invalidate })
+  const install = trpc.updates.install.useMutation({ onSuccess: invalidate, onError: invalidate })
+  const openRelease = trpc.updates.openRelease.useMutation()
+  const restart = trpc.updates.restart.useMutation()
+  const setAuto = trpc.updates.setAutoUpdate.useMutation({ onSuccess: invalidate })
+
+  const s = status.data
+  const busy =
+    s?.phase === 'checking' ||
+    s?.phase === 'downloading' ||
+    s?.phase === 'installing' ||
+    check.isPending ||
+    install.isPending
+
+  return (
+    <div className="space-y-2 border-t border-border pt-3">
+      <div className="text-xs font-medium">Updates</div>
+      <Row label="Status" value={s ? updateStatusText(s) : '…'} />
+      {s?.phase === 'error' && s.error && (
+        <div className="text-xs text-destructive selectable">{s.error}</div>
+      )}
+      {s?.phase === 'ready-to-restart' ? (
+        <div className="flex items-center gap-2 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1.5">
+          <span className="flex-1 text-[11px]">
+            Update v{s.latestVersion} installed. Restart to finish.
+          </span>
+          <Tip content="Quit and relaunch Yardarm as the new version">
+            <Button
+              size="sm"
+              className="h-6 px-2 text-[11px]"
+              disabled={restart.isPending}
+              onClick={() => restart.mutate()}
+            >
+              Restart
+            </Button>
+          </Tip>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <Tip content="Check the Yardarm GitHub releases for a newer version">
+            <span className="inline-flex">
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => check.mutate()}>
+                <RefreshCw size={12} />
+                Check for updates
+              </Button>
+            </span>
+          </Tip>
+          {s?.phase === 'update-available' && s.canInstall && (
+            <Tip content="Download and install the update, then ask to restart">
+              <span className="inline-flex">
+                <Button size="sm" disabled={busy} onClick={() => install.mutate()}>
+                  <Download size={12} />
+                  Install v{s.latestVersion}
+                </Button>
+              </span>
+            </Tip>
+          )}
+          {s?.phase === 'update-available' && !s.canInstall && (
+            <Tip content="This build can't update itself — opens the release page to download manually">
+              <span className="inline-flex">
+                <Button size="sm" variant="outline" onClick={() => openRelease.mutate()}>
+                  <ExternalLink size={12} />
+                  View release
+                </Button>
+              </span>
+            </Tip>
+          )}
+        </div>
+      )}
+      <Tip content="Check on launch and every 4 hours, install updates automatically, and ask to restart when ready">
+        <label className="flex w-fit items-center gap-2 text-xs">
+          <Switch
+            checked={s?.autoUpdate ?? true}
+            disabled={setAuto.isPending}
+            onCheckedChange={(v) => setAuto.mutate({ enabled: v })}
+          />
+          Automatically update
+        </label>
+      </Tip>
+    </div>
+  )
+}
 
 function Row({ label, value }: { label: string; value: React.ReactNode }): React.JSX.Element {
   return (
@@ -89,6 +207,8 @@ export function AboutTab(): React.JSX.Element {
           </pre>
         )}
       </div>
+
+      <UpdatesSection />
 
       <div className="space-y-2 border-t border-border pt-3">
         <div className="text-xs font-medium">Setup</div>
