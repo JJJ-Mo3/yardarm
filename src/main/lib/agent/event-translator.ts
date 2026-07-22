@@ -15,6 +15,7 @@ import type {
   UsageInfo
 } from '../../../shared/ui-message'
 import { withMaxOutputHint } from './max-output-hint'
+import { withPrefillHint } from './prefill-error'
 
 interface ToolMeta {
   status: ToolCallPart['status']
@@ -49,6 +50,12 @@ export interface TranslatorCallbacks {
     thinkingLevel?: string
   }) => void
   onRunStateChanged: (running: boolean) => void
+  /**
+   * Called with the raw text of an `error` event. Return true when the owner
+   * will auto-recover (e.g. prefill auto-continue) — the transcript then gets
+   * an info line instead of the raw provider error.
+   */
+  onAgentError?: (text: string) => boolean
 }
 
 export class EventTranslator {
@@ -244,10 +251,21 @@ export class EventTranslator {
 
       case 'error': {
         const error = ev.error as { message?: string } | undefined
+        const raw = error?.message ?? String(ev.error ?? 'Unknown agent error')
+        if (this.cb.onAgentError?.(raw)) {
+          this.cb.emit({
+            type: 'info',
+            level: 'info',
+            text:
+              'Provider rejected resuming an assistant reply (assistant prefill not supported) ' +
+              '— continuing automatically.'
+          })
+          break
+        }
         this.cb.emit({
           type: 'info',
           level: 'error',
-          text: withMaxOutputHint(error?.message ?? String(ev.error ?? 'Unknown agent error'))
+          text: withPrefillHint(withMaxOutputHint(raw))
         })
         break
       }

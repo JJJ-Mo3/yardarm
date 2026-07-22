@@ -17,7 +17,7 @@ interface Harness {
   runStates: boolean[]
 }
 
-function makeTranslator(): Harness {
+function makeTranslator(onAgentError?: (text: string) => boolean): Harness {
   const h: Omit<Harness, 't'> = {
     emitted: [],
     persisted: [],
@@ -32,7 +32,8 @@ function makeTranslator(): Harness {
       h.persisted.push({ message: structuredClone(m), final: final ?? false }),
     onThreadChanged: (id) => h.threads.push(id),
     onMetaChanged: (m) => h.metaChanges.push(m),
-    onRunStateChanged: (r) => h.runStates.push(r)
+    onRunStateChanged: (r) => h.runStates.push(r),
+    onAgentError
   })
   return { t, ...h }
 }
@@ -317,6 +318,47 @@ describe('session meta and misc events', () => {
     expect(infos[0].type === 'info' && infos[0].text).toBe('plain failure')
     expect(infos[0].type === 'info' && infos[0].level).toBe('error')
     expect(infos[1].type === 'info' && infos[1].text).toContain('context')
+  })
+
+  it('replaces the raw error with an info line when onAgentError says it will recover', () => {
+    const seen: string[] = []
+    const h = makeTranslator((text) => {
+      seen.push(text)
+      return true
+    })
+    h.t.handle({
+      type: 'error',
+      error: { message: 'This model does not support assistant message prefill.' }
+    })
+    expect(seen).toEqual(['This model does not support assistant message prefill.'])
+    const infos = h.emitted.filter((e) => e.type === 'info')
+    expect(infos).toHaveLength(1)
+    expect(infos[0].type === 'info' && infos[0].level).toBe('info')
+    expect(infos[0].type === 'info' && infos[0].text).toContain('continuing automatically')
+    expect(infos[0].type === 'info' && infos[0].text).not.toContain('prefill.')
+  })
+
+  it('emits the original error when onAgentError declines to recover', () => {
+    const h = makeTranslator(() => false)
+    h.t.handle({ type: 'error', error: { message: 'rate limit exceeded' } })
+    const infos = h.emitted.filter((e) => e.type === 'info')
+    expect(infos[0].type === 'info' && infos[0].level).toBe('error')
+    expect(infos[0].type === 'info' && infos[0].text).toBe('rate limit exceeded')
+  })
+
+  it('appends the manual prefill remedy when no recovery hook is wired', () => {
+    const h = makeTranslator()
+    h.t.handle({
+      type: 'error',
+      error: {
+        message:
+          'This model does not support assistant message prefill. The conversation must ' +
+          'end with a user message.'
+      }
+    })
+    const infos = h.emitted.filter((e) => e.type === 'info')
+    expect(infos[0].type === 'info' && infos[0].level).toBe('error')
+    expect(infos[0].type === 'info' && infos[0].text).toContain('Send any message')
   })
 
   it('routes om_* to om-progress, subagent deltas into the owning tool, unknowns to raw', () => {

@@ -13,6 +13,7 @@ import { getDb, schema } from '../db'
 import { captureCheckpoint } from '../git/ops'
 import { EventTranslator } from './event-translator'
 import { clampMessageForStorage } from './message-clamp'
+import { isPrefillError } from './prefill-error'
 import { PromptQueue } from './prompt-queue'
 import {
   normalizeCustomProviderModelId,
@@ -104,6 +105,13 @@ export class AgentSessionManager {
    * Doubles as the flush lock so duplicate agent_end events can't double-send.
    */
   private awaitingRunStart = new Set<string>()
+  /** Subchats whose current run errored with a provider prefill rejection. */
+  private prefillRetryPending = new Set<string>()
+  /**
+   * One-shot auto-continue budget: set when a recovery is dispatched, cleared
+   * on the next real user send so each prompt re-arms exactly one retry.
+   */
+  private prefillRetried = new Set<string>()
 
   private emitterFor(subchatId: string): EventEmitter {
     let em = this.emitters.get(subchatId)
@@ -426,7 +434,22 @@ export class AgentSessionManager {
         // agent_start confirms the dispatched queue item took; agent_end on
         // an error path (no agent_start) must also release the lock.
         this.awaitingRunStart.delete(subchatId)
-        if (!running) this.maybeFlushQueue(subchatId)
+        if (!running) {
+          // Auto-continue first: if it dispatches, it holds awaitingRunStart
+          // and the flush guard below skips (same lock discipline as flushes).
+          this.maybeAutoContinue(subchatId)
+          this.maybeFlushQueue(subchatId)
+        }
+      },
+      onAgentError: (text) => {
+        if (!isPrefillError(text) || this.prefillRetried.has(subchatId)) return false
+        this.prefillRetryPending.add(subchatId)
+        // Errors emitted outside a run get no agent_end; recover directly,
+        // deferred so we never send from inside translator.handle.
+        if (!this.isRunning(subchatId)) {
+          queueMicrotask(() => this.maybeAutoContinue(subchatId))
+        }
+        return true
       }
     })
     translator.seed(this.loadMessages(subchatId))
@@ -536,6 +559,7 @@ export class AgentSessionManager {
       // No auto-flush on host death (avoids crash-respawn loops); the queue
       // stays intact and resumes via the sendOrQueue idle kick.
       this.awaitingRunStart.delete(subchatId)
+      this.prefillRetryPending.delete(subchatId)
       throttle.dispose()
       this.writeBuffer.flush(subchatId)
       for (const [, req] of handle.pending) {
@@ -648,6 +672,7 @@ export class AgentSessionManager {
       ? `\n\n[${files.length} file${files.length === 1 ? '' : 's'} attached]`
       : ''
     const noteSuffix = this.consumePendingNote(subchatId)
+    this.prefillRetried.delete(subchatId) // each real send re-arms one auto-recovery
     this.recordUserMessage(subchatId, (displayText ?? content) + attachmentNote, checkpointRef)
     this.sendCommand(handle, { t: 'send', text: content + noteSuffix, files })
   }
@@ -750,6 +775,35 @@ export class AgentSessionManager {
         level: 'error',
         text: `Failed to send queued message: ${err instanceof Error ? err.message : String(err)}`
       })
+    })
+  }
+
+  /**
+   * One-shot recovery from a provider "assistant message prefill" rejection:
+   * send a hidden continue message so the conversation ends with a user
+   * message, which is all the provider demands. The `<system-reminder>`
+   * prefix makes the SDK filter it from later recalls, so no fake user turn
+   * pollutes agent memory — and no user bubble is recorded; the translator's
+   * info line is the transcript record. Skipped when queued prompts exist
+   * (the queued user prompt fixes the trailing-assistant state by itself)
+   * and while suspensions are pending (same rule as the prompt queue).
+   */
+  private maybeAutoContinue(subchatId: string): void {
+    if (!this.prefillRetryPending.has(subchatId)) return
+    if (this.isRunning(subchatId) || this.awaitingRunStart.has(subchatId)) return
+    this.prefillRetryPending.delete(subchatId)
+    if (this.promptQueue.size(subchatId) > 0) return
+    const handle = this.hosts.get(subchatId)
+    if (!handle || handle.killed) return
+    if (handle.translator.pendingSuspensions.size > 0) return
+    this.prefillRetried.add(subchatId)
+    this.awaitingRunStart.add(subchatId)
+    this.sendCommand(handle, {
+      t: 'send',
+      text:
+        '<system-reminder>\nThe previous model call failed because this provider cannot ' +
+        'resume an assistant reply (assistant message prefill). Continue from where you ' +
+        'left off.\n</system-reminder>'
     })
   }
 
