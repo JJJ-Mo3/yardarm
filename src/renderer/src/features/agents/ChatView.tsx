@@ -73,6 +73,9 @@ export function ChatView({
   const [rollbackNotice, setRollbackNotice] = useState<{ text: string; warn: boolean } | null>(null)
   // Rolled-back message text, handed to the prompt input for edit + resend.
   const [prefill, setPrefill] = useState<string | null>(null)
+  // × on the red agent-error banner: hide errors up to this timestamp; a
+  // newer error (larger ts) brings the banner back.
+  const [dismissedErrorTs, setDismissedErrorTs] = useState(0)
   const pendingRollbackText = useRef<string | null>(null)
   const rollback = trpc.chats.rollbackToMessage.useMutation({
     onSuccess: (res) => {
@@ -93,6 +96,7 @@ export function ChatView({
     setRollbackNotice(null)
     setPrefill(null)
     setPendingMode(null)
+    setDismissedErrorTs(0)
   }, [subchatId])
   const confirmDialog = useConfirm()
 
@@ -199,6 +203,11 @@ export function ChatView({
       ['update goal', goalUpdate]
     ]
   const failedActions = actionMutations.filter(([, m]) => m.error)
+
+  // Newest agent error from the event stream, unless the user dismissed it.
+  const visibleErrors = state.infos
+    .filter((i) => i.level === 'error' && i.ts > dismissedErrorTs)
+    .slice(-1)
 
   // OS notification when a run finishes while the window is unfocused,
   // honoring the mastracode `notifications` session-state setting.
@@ -531,19 +540,24 @@ export function ChatView({
           only unknown suspension tools fall back to this strip. */}
       {(state.approvals.length > 0 ||
         state.suspensions.some((s) => !INTERACTIVE_TOOLS.has(s.toolName)) ||
-        state.infos.some((i) => i.level === 'error')) && (
+        visibleErrors.length > 0) && (
         <div className="px-4 pb-2 space-y-2">
-          {state.infos
-            .filter((i) => i.level === 'error')
-            .slice(-1)
-            .map((i) => (
-              <div
-                key={i.ts}
-                className="text-xs text-destructive bg-destructive/10 rounded px-2 py-1.5 selectable"
-              >
-                {i.text}
-              </div>
-            ))}
+          {visibleErrors.map((i) => (
+            <div
+              key={i.ts}
+              className="flex items-start gap-2 rounded bg-destructive/10 px-2 py-1.5 text-xs text-destructive"
+            >
+              <span className="min-w-0 flex-1 selectable">{i.text}</span>
+              <Tip content="Dismiss this error">
+                <button
+                  className="shrink-0 cursor-pointer text-destructive/70 hover:text-destructive"
+                  onClick={() => setDismissedErrorTs(i.ts)}
+                >
+                  ×
+                </button>
+              </Tip>
+            </div>
+          ))}
           {state.approvals.map((a) => (
             <ApprovalCard
               key={a.toolCallId}
