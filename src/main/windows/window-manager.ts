@@ -44,6 +44,18 @@ export function createWindow(): BrowserWindow {
     return { action: 'deny' }
   })
 
+  // In-page link clicks (e.g. URLs in chat markdown) are same-window
+  // navigations, which bypass setWindowOpenHandler: keep the app in place
+  // and open http(s) links in the user's browser instead.
+  const devOrigin = process.env['ELECTRON_RENDERER_URL']
+  win.webContents.on('will-navigate', (event, url) => {
+    if (url === win.webContents.getURL()) return // in-app reload (dev Cmd+R)
+    event.preventDefault()
+    if (!url.startsWith('http://') && !url.startsWith('https://')) return
+    if (devOrigin && url.startsWith(devOrigin)) return
+    shell.openExternal(url).catch(() => {})
+  })
+
   if (process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
