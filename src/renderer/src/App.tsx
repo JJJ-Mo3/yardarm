@@ -47,6 +47,18 @@ const TABS: Array<{ id: MainTab; label: string; icon: React.ReactNode; tip: stri
     tip: 'Talk to the agent — send prompts, review its replies, and approve tool calls'
   },
   {
+    id: 'cli',
+    label: 'CLI',
+    icon: <SquareChevronRight size={13} />,
+    tip: 'Interactive Mastra Code CLI in the chat worktree — it sees the same threads as this chat. Avoid running the chat and the CLI on the same thread at once.'
+  },
+  {
+    id: 'files',
+    label: 'IDE',
+    icon: <FileCode2 size={13} />,
+    tip: 'Browse and edit files in the chat worktree (or project root)'
+  },
+  {
     id: 'changes',
     label: 'Changes',
     icon: <GitCompare size={13} />,
@@ -57,18 +69,6 @@ const TABS: Array<{ id: MainTab; label: string; icon: React.ReactNode; tip: stri
     label: 'Terminal',
     icon: <TerminalSquare size={13} />,
     tip: 'Shell in the chat worktree (or project root) — ⌘J toggles it'
-  },
-  {
-    id: 'files',
-    label: 'IDE',
-    icon: <FileCode2 size={13} />,
-    tip: 'Browse and edit files in the chat worktree (or project root)'
-  },
-  {
-    id: 'cli',
-    label: 'CLI',
-    icon: <SquareChevronRight size={13} />,
-    tip: 'Interactive Mastra Code CLI in the chat worktree — it sees the same threads as this chat. Avoid running the chat and the CLI on the same thread at once.'
   },
   {
     id: 'kanban',
