@@ -32,6 +32,12 @@ export type HostCommand =
    * delivered by the main process with the next message send.
    */
   | { t: 'rewindThread'; reqId: string; anchorMessageId: string }
+  /**
+   * Deliver an IDE-edit note onto the active run as a system-reminder signal.
+   * Responds { delivered: false } (never starts a run) when the session is
+   * idle or a tool approval/suspension is parked.
+   */
+  | { t: 'ideNote'; reqId: string; text: string }
   | { t: 'getPermissions'; reqId: string }
   | {
       t: 'setPermission'

@@ -3,9 +3,11 @@
  * told about them. mastracode has no file-freshness tracking of its own, so
  * without this the agent would keep trusting stale reads of files the user
  * changed under it. Edits are recorded per subchat (every subchat of a chat
- * shares the worktree) and drained into a one-shot `<system-reminder>` suffix
- * on the next model-bound prompt — never sent immediately, since any send
- * starts an agent run.
+ * shares the worktree) and drained either onto the active run as a
+ * system-reminder signal (when the agent is running) or into a one-shot
+ * `<system-reminder>` suffix on the next model-bound prompt (when idle —
+ * a note must never start a run of its own). Failed mid-run deliveries are
+ * re-added, so a drained note is never lost.
  *
  * Deliberately in-memory: notes are lost on app restart and subchats created
  * after an edit aren't notified. Harmless — worst case the agent re-reads.
@@ -44,8 +46,8 @@ export function formatIdeEditNote(paths: string[]): string {
   if (paths.length === 0) return ''
   const list = paths.map((p) => `\`${p}\``).join(', ')
   return (
-    `The user manually edited the following file(s) in the Yardarm IDE since your last ` +
-    `message: ${list}. Their contents on disk may differ from any earlier reads — re-read ` +
-    `them before relying on or modifying them.`
+    `The user manually edited the following file(s) in the Yardarm IDE: ${list}. ` +
+    `Their contents on disk may differ from any earlier reads — re-read them before ` +
+    `relying on or modifying them.`
   )
 }

@@ -23,6 +23,16 @@ describe('IdeEditTracker', () => {
     t.clear('b')
     expect(t.drain('b')).toEqual([])
   })
+
+  it('supports re-adding drained paths (failed mid-run delivery fallback)', () => {
+    const t = new IdeEditTracker()
+    t.add(['a'], 'src/x.ts')
+    t.add(['a'], 'src/y.ts')
+    const drained = t.drain('a')
+    expect(drained).toEqual(['src/x.ts', 'src/y.ts'])
+    for (const p of drained) t.add(['a'], p)
+    expect(t.drain('a')).toEqual(['src/x.ts', 'src/y.ts'])
+  })
 })
 
 describe('formatIdeEditNote', () => {
@@ -32,5 +42,8 @@ describe('formatIdeEditNote', () => {
     expect(note).toContain('`src/a.ts`, `docs/b.md`')
     expect(note).toContain('Yardarm IDE')
     expect(note).toContain('re-read')
+    // The same wording is used mid-run and as a next-prompt suffix, so it
+    // must not anchor itself to "your last message".
+    expect(note).not.toContain('since your last message')
   })
 })

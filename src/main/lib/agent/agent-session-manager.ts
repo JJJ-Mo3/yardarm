@@ -89,6 +89,8 @@ interface HostHandle {
 const REQUEST_TIMEOUT_MS = 30_000
 /** Upper bound on the total JSON bytes a loadMessages seed may carry. */
 const SEED_BYTE_BUDGET = 24 * 1024 * 1024
+/** Debounce for mid-run IDE-edit note delivery, batching rapid Cmd+S saves. */
+const IDE_NOTE_DEBOUNCE_MS = 1200
 
 export class AgentSessionManager {
   private hosts = new Map<string, HostHandle>()
@@ -113,8 +115,10 @@ export class AgentSessionManager {
    * on the next real user send so each prompt re-arms exactly one retry.
    */
   private prefillRetried = new Set<string>()
-  /** Files the user saved from the IDE, reported to the agent on its next prompt. */
+  /** Files the user saved from the IDE, reported to the agent mid-run or on its next prompt. */
   private ideEdits = new IdeEditTracker()
+  /** Pending per-subchat debounce timers for mid-run IDE-note delivery. */
+  private ideNoteTimers = new Map<string, NodeJS.Timeout>()
 
   private emitterFor(subchatId: string): EventEmitter {
     let em = this.emitters.get(subchatId)
@@ -442,6 +446,11 @@ export class AgentSessionManager {
           // and the flush guard below skips (same lock discipline as flushes).
           this.maybeAutoContinue(subchatId)
           this.maybeFlushQueue(subchatId)
+        } else {
+          // IDE edits saved during the awaitingRunStart gap (or while an
+          // approval was parked) couldn't be delivered — push them onto the
+          // now-live run. No-op when the tracker is empty.
+          this.scheduleIdeNoteDelivery(subchatId)
         }
       },
       onAgentError: (text) => {
@@ -660,9 +669,10 @@ export class AgentSessionManager {
 
   /**
    * Record a user IDE edit for every subchat of a chat (they share the
-   * worktree), to be reported to the agent as a `<system-reminder>` suffix on
-   * each subchat's next prompt. Deferred rather than sent immediately because
-   * any send starts an agent run.
+   * worktree). Delivered onto the active run as a system-reminder signal
+   * (debounced) when the agent is running, otherwise held and appended as a
+   * `<system-reminder>` suffix on the subchat's next prompt — never by
+   * starting a run of its own.
    */
   noteIdeEdit(chatId: string, filePath: string): void {
     const db = getDb()
@@ -676,12 +686,62 @@ export class AgentSessionManager {
         rows.map((r) => r.id),
         filePath
       )
+      for (const r of rows) this.scheduleIdeNoteDelivery(r.id)
     }
   }
 
   /** Forget pending IDE-edit notes for a subchat (chat/project deletion). */
   clearIdeEdits(subchatId: string): void {
+    this.clearIdeNoteTimer(subchatId)
     this.ideEdits.clear(subchatId)
+  }
+
+  /** (Re)start the delivery debounce so rapid saves coalesce into one note. */
+  private scheduleIdeNoteDelivery(subchatId: string): void {
+    const existing = this.ideNoteTimers.get(subchatId)
+    if (existing) clearTimeout(existing)
+    this.ideNoteTimers.set(
+      subchatId,
+      setTimeout(() => {
+        this.ideNoteTimers.delete(subchatId)
+        void this.deliverIdeEditsNow(subchatId)
+      }, IDE_NOTE_DEBOUNCE_MS)
+    )
+  }
+
+  private clearIdeNoteTimer(subchatId: string): void {
+    const timer = this.ideNoteTimers.get(subchatId)
+    if (timer) {
+      clearTimeout(timer)
+      this.ideNoteTimers.delete(subchatId)
+    }
+  }
+
+  /**
+   * Push pending IDE-edit notes onto the active run as a system-reminder
+   * signal. Only fires into a live, running host — when idle (or an approval/
+   * suspension is parked, where a signal would decline the gate) the notes
+   * stay in the tracker and ride the next prompt's suffix instead. On any
+   * failure the paths are re-added so nothing is lost.
+   */
+  private async deliverIdeEditsNow(subchatId: string): Promise<void> {
+    const host = this.hosts.get(subchatId)
+    if (!host || host.killed || host.status !== 'ready') return
+    if (!this.isRunning(subchatId)) return // idle → next-prompt suffix path
+    const t = host.translator
+    if (t.pendingApprovals.size > 0 || t.pendingSuspensions.size > 0) return
+    const paths = this.ideEdits.drain(subchatId)
+    if (paths.length === 0) return
+    try {
+      const res = await this.request<{ delivered: boolean }>(host, {
+        t: 'ideNote',
+        reqId: randomUUID(),
+        text: formatIdeEditNote(paths)
+      })
+      if (!res.delivered) for (const p of paths) this.ideEdits.add([subchatId], p)
+    } catch {
+      for (const p of paths) this.ideEdits.add([subchatId], p)
+    }
   }
 
   /**
@@ -1380,6 +1440,7 @@ export class AgentSessionManager {
 
   /** Stop the host for a subchat (e.g. on chat delete or app quit). */
   stopHost(subchatId: string): void {
+    this.clearIdeNoteTimer(subchatId)
     this.writeBuffer.flush(subchatId)
     const handle = this.hosts.get(subchatId)
     if (!handle) return
@@ -1400,6 +1461,7 @@ export class AgentSessionManager {
    * Never hangs: resolves after timeoutMs even if the exit event is lost.
    */
   async stopHostAndWait(subchatId: string, timeoutMs = 3000): Promise<void> {
+    this.clearIdeNoteTimer(subchatId)
     this.writeBuffer.flush(subchatId)
     const handle = this.hosts.get(subchatId)
     this.hosts.delete(subchatId)

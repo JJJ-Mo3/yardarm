@@ -147,9 +147,10 @@ Yardarm puts a desktop workspace around the agent:
   (`refs/yardarm/checkpoints/*`); roll back the conversation and the tree
   together
 - IDE tab: file tree + Monaco editor with multiple tabs and ⌘S saves (the
-  agent is told about your edits; clean buffers refresh when the agent
-  changes files), and an integrated terminal (node-pty + xterm) that opens
-  in the chat's worktree
+  agent is told about your edits immediately while it's working, or with
+  your next message; clean buffers refresh when the agent changes files),
+  and an integrated terminal (node-pty + xterm) that opens in the chat's
+  worktree
 - CLI tab that runs the interactive Mastra Code TUI in the chat's worktree,
   sharing the chat's thread history
 - Kanban board of every chat in the project (needs input / in progress /
@@ -288,8 +289,9 @@ push (uses the `gh` CLI when available for PR flows).
 
 **Terminal & IDE.** The Terminal tab is a real shell in the chat's
 worktree; the IDE tab is a file tree + Monaco editor over the same
-(multiple tabs, ⌘S to save — the agent hears about your edits on its next
-turn, and clean buffers refresh when the agent changes files). The CLI
+(multiple tabs, ⌘S to save — the agent hears about your edits immediately
+while it's working, or with your next message, and clean buffers refresh
+when the agent changes files). The CLI
 tab runs the interactive Mastra Code TUI in the same worktree — it sees the
 same threads as the chat (avoid running the chat and the CLI on the same
 thread at once).

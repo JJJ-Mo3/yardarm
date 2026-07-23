@@ -421,6 +421,31 @@ async function main(): Promise<void> {
           case 'abort':
             session.abort()
             break
+          case 'ideNote':
+            await respond(cmd.reqId, async () => {
+              // Replicate Session.sendSignal's own active-branch condition and
+              // call sendSignal in the same synchronous tick: if any of these
+              // are false the SDK falls to its idle path and *starts a new
+              // run* ('wake'), which an IDE note must never do.
+              const ds = session.displayState.get()
+              const running =
+                session.run.getRunId() !== null &&
+                session.stream.activeRunId() !== null &&
+                session.run.isRunning()
+              // The active path declines a parked tool approval ("interrupted
+              // by user message"), and a signal queued onto a suspended run
+              // can drain into a paid follow-up run — hold the note back in
+              // both cases (it rides the next prompt's suffix instead).
+              if (!running || ds.pendingApproval !== null || ds.pendingSuspensions.size > 0) {
+                return { delivered: false }
+              }
+              // Bare contents: the SDK wraps signals in its own
+              // <system-reminder> markup and escapes nested tags.
+              const result = session.sendSignal({ type: 'system-reminder', contents: cmd.text })
+              await result.accepted
+              return { delivered: true }
+            })
+            break
           case 'setMode':
             try {
               await session.mode.switch({ modeId: cmd.mode })

@@ -123,7 +123,8 @@ export const filesRouter = router({
    * Save an IDE buffer. When `baseMtimeMs` is set, the write is rejected as a
    * conflict if the file's mtime no longer matches (another process — usually
    * the agent — changed or deleted it); omitting it force-writes ("Overwrite").
-   * A `chatId` lets the agent be told about the user's edit on its next prompt.
+   * A `chatId` lets the agent be told about the user's edit — mid-run when
+   * it's working, otherwise with the next prompt.
    */
   write: publicProcedure
     .input(
