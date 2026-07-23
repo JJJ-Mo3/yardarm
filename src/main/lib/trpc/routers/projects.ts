@@ -124,7 +124,10 @@ export const projectsRouter = router({
             )
             .all()
         : []
-    for (const sc of subchats) agentSessionManager.stopHost(sc.id)
+    for (const sc of subchats) {
+      agentSessionManager.stopHost(sc.id)
+      agentSessionManager.clearIdeEdits(sc.id)
+    }
 
     if (subchats.length > 0) {
       const refs = db

@@ -70,7 +70,7 @@ Yardarm puts a desktop workspace around the agent:
   working tree return to that moment, with the agent told what happened.
 - **Review and ship in one place** — side-by-side Monaco diffs of exactly
   what the agent changed, staging, commit, and push (with `gh` for PR
-  flows), plus a real terminal and file viewer scoped to the chat's worktree.
+  flows), plus a real terminal and a light IDE scoped to the chat's worktree.
 - **Persistent, organized history** — projects and chats with full
   transcripts survive restarts in a local SQLite database.
 - **Everything visible at a glance** — a color-coded mode selector, tool
@@ -146,8 +146,10 @@ Yardarm puts a desktop workspace around the agent:
 - Checkpoints: every user message pins a restorable snapshot
   (`refs/yardarm/checkpoints/*`); roll back the conversation and the tree
   together
-- Read-only file viewer (tree + Monaco) and an integrated terminal
-  (node-pty + xterm) that opens in the chat's worktree
+- IDE tab: file tree + Monaco editor with multiple tabs and ⌘S saves (the
+  agent is told about your edits; clean buffers refresh when the agent
+  changes files), and an integrated terminal (node-pty + xterm) that opens
+  in the chat's worktree
 - CLI tab that runs the interactive Mastra Code TUI in the chat's worktree,
   sharing the chat's thread history
 - Kanban board of every chat in the project (needs input / in progress /
@@ -284,8 +286,10 @@ restored.
 **Changes.** The Changes tab shows worktree diffs with staging, commit, and
 push (uses the `gh` CLI when available for PR flows).
 
-**Terminal & files.** The Terminal tab is a real shell in the chat's
-worktree; the Files tab is a read-only tree + viewer of the same. The CLI
+**Terminal & IDE.** The Terminal tab is a real shell in the chat's
+worktree; the IDE tab is a file tree + Monaco editor over the same
+(multiple tabs, ⌘S to save — the agent hears about your edits on its next
+turn, and clean buffers refresh when the agent changes files). The CLI
 tab runs the interactive Mastra Code TUI in the same worktree — it sees the
 same threads as the chat (avoid running the chat and the CLI on the same
 thread at once).

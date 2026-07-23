@@ -2,6 +2,7 @@ import type { Dirent } from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { z } from 'zod'
+import { agentSessionManager } from '../../agent/agent-session-manager'
 import { publicProcedure, router } from '../trpc'
 
 const IGNORED = new Set([
@@ -101,12 +102,56 @@ export const filesRouter = router({
     .query(async ({ input }) => {
       const abs = resolveWithin(input.root, input.path)
       const stat = await fs.stat(abs)
+      const mtimeMs = stat.mtimeMs
       if (stat.size > MAX_FILE_BYTES) {
-        return { path: input.path, content: null, tooLarge: true, binary: false }
+        return { path: input.path, content: null, tooLarge: true, binary: false, mtimeMs }
       }
       const buf = await fs.readFile(abs)
-      if (buf.includes(0)) return { path: input.path, content: null, tooLarge: false, binary: true }
-      return { path: input.path, content: buf.toString('utf8'), tooLarge: false, binary: false }
+      if (buf.includes(0)) {
+        return { path: input.path, content: null, tooLarge: false, binary: true, mtimeMs }
+      }
+      return {
+        path: input.path,
+        content: buf.toString('utf8'),
+        tooLarge: false,
+        binary: false,
+        mtimeMs
+      }
+    }),
+
+  /**
+   * Save an IDE buffer. When `baseMtimeMs` is set, the write is rejected as a
+   * conflict if the file's mtime no longer matches (another process — usually
+   * the agent — changed or deleted it); omitting it force-writes ("Overwrite").
+   * A `chatId` lets the agent be told about the user's edit on its next prompt.
+   */
+  write: publicProcedure
+    .input(
+      z.object({
+        root: z.string(),
+        path: z.string(),
+        content: z.string(),
+        baseMtimeMs: z.number().optional(),
+        chatId: z.string().optional()
+      })
+    )
+    .mutation(async ({ input }) => {
+      const abs = resolveWithin(input.root, input.path)
+      if (input.baseMtimeMs !== undefined) {
+        let diskMtimeMs: number | null = null
+        try {
+          diskMtimeMs = (await fs.stat(abs)).mtimeMs
+        } catch {
+          // missing file → diskMtimeMs stays null (deleted-on-disk conflict)
+        }
+        if (diskMtimeMs !== input.baseMtimeMs) {
+          return { ok: false as const, conflict: true as const, mtimeMs: diskMtimeMs }
+        }
+      }
+      await fs.writeFile(abs, input.content, 'utf8')
+      const stat = await fs.stat(abs)
+      if (input.chatId) agentSessionManager.noteIdeEdit(input.chatId, input.path)
+      return { ok: true as const, mtimeMs: stat.mtimeMs }
     }),
 
   /** Substring/fuzzy filename search for @-mentions. */

@@ -12,6 +12,7 @@ import { eq, desc, sql } from 'drizzle-orm'
 import { getDb, schema } from '../db'
 import { captureCheckpoint } from '../git/ops'
 import { EventTranslator } from './event-translator'
+import { IdeEditTracker, formatIdeEditNote } from './ide-edit-notes'
 import { clampMessageForStorage } from './message-clamp'
 import { isPrefillError } from './prefill-error'
 import { PromptQueue } from './prompt-queue'
@@ -112,6 +113,8 @@ export class AgentSessionManager {
    * on the next real user send so each prompt re-arms exactly one retry.
    */
   private prefillRetried = new Set<string>()
+  /** Files the user saved from the IDE, reported to the agent on its next prompt. */
+  private ideEdits = new IdeEditTracker()
 
   private emitterFor(subchatId: string): EventEmitter {
     let em = this.emitters.get(subchatId)
@@ -656,6 +659,32 @@ export class AgentSessionManager {
   }
 
   /**
+   * Record a user IDE edit for every subchat of a chat (they share the
+   * worktree), to be reported to the agent as a `<system-reminder>` suffix on
+   * each subchat's next prompt. Deferred rather than sent immediately because
+   * any send starts an agent run.
+   */
+  noteIdeEdit(chatId: string, filePath: string): void {
+    const db = getDb()
+    const rows = db
+      .select({ id: schema.subchats.id })
+      .from(schema.subchats)
+      .where(eq(schema.subchats.chatId, chatId))
+      .all()
+    if (rows.length) {
+      this.ideEdits.add(
+        rows.map((r) => r.id),
+        filePath
+      )
+    }
+  }
+
+  /** Forget pending IDE-edit notes for a subchat (chat/project deletion). */
+  clearIdeEdits(subchatId: string): void {
+    this.ideEdits.clear(subchatId)
+  }
+
+  /**
    * Send a prompt to the agent. `displayText` (when set) is what the
    * transcript stores/shows — e.g. `/cmd args` — while `content` is the
    * expanded prompt actually sent to the model.
@@ -672,9 +701,11 @@ export class AgentSessionManager {
       ? `\n\n[${files.length} file${files.length === 1 ? '' : 's'} attached]`
       : ''
     const noteSuffix = this.consumePendingNote(subchatId)
+    const ideNote = formatIdeEditNote(this.ideEdits.drain(subchatId))
+    const ideSuffix = ideNote ? `\n\n<system-reminder>\n${ideNote}\n</system-reminder>` : ''
     this.prefillRetried.delete(subchatId) // each real send re-arms one auto-recovery
     this.recordUserMessage(subchatId, (displayText ?? content) + attachmentNote, checkpointRef)
-    this.sendCommand(handle, { t: 'send', text: content + noteSuffix, files })
+    this.sendCommand(handle, { t: 'send', text: content + noteSuffix + ideSuffix, files })
   }
 
   // ---- Prompt queue (send-while-running) ----------------------------------

@@ -134,7 +134,10 @@ export const chatsRouter = router({
       .from(schema.subchats)
       .where(eq(schema.subchats.chatId, chat.id))
       .all()
-    for (const sc of subchats) agentSessionManager.stopHost(sc.id)
+    for (const sc of subchats) {
+      agentSessionManager.stopHost(sc.id)
+      agentSessionManager.clearIdeEdits(sc.id)
+    }
 
     // Unpin checkpoint stash commits so the repo doesn't grow unboundedly.
     // Refs live in the main repo's git dir (shared with its worktrees).

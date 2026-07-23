@@ -60,9 +60,9 @@ const TABS: Array<{ id: MainTab; label: string; icon: React.ReactNode; tip: stri
   },
   {
     id: 'files',
-    label: 'Files',
+    label: 'IDE',
     icon: <FileCode2 size={13} />,
-    tip: 'Browse and read files in the chat worktree (or project root)'
+    tip: 'Browse and edit files in the chat worktree (or project root)'
   },
   {
     id: 'cli',
@@ -283,7 +283,15 @@ export default function App(): React.JSX.Element {
                 ) : (
                   <SelectProjectPane />
                 ))}
-              {tab === 'files' && (cwd ? <FilesView root={cwd} /> : <SelectProjectPane />)}
+              {/* IDE tab — kept mounted (hidden) so open editor tabs and dirty
+                  buffers survive tab switches. */}
+              <div className={cn('h-full', tab !== 'files' && 'hidden')}>
+                {cwd ? (
+                  <FilesView root={cwd} chatId={chatId ?? undefined} />
+                ) : (
+                  <SelectProjectPane />
+                )}
+              </div>
               {tab === 'cli' &&
                 (cwd ? (
                   <TerminalView

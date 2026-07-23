@@ -6,7 +6,7 @@
  *   Cmd+N     new chat
  *   Cmd+P     thread switcher
  *   Cmd+J     toggle terminal tab
- *   Cmd+1–6   main tabs (chat / changes / terminal / files / cli / kanban)
+ *   Cmd+1–6   main tabs (chat / changes / terminal / IDE / cli / kanban)
  *   Cmd+,     settings
  */
 import { useEffect } from 'react'

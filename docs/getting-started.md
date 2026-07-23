@@ -278,13 +278,16 @@ clone, or delete threads, or open one in a new **subchat** (its own agent
 process, running in parallel). The cost popover (`/cost`) breaks token usage
 down per thread.
 
-## Terminal, Files, and CLI tabs
+## Terminal, IDE, and CLI tabs
 
 - **Terminal** (`Cmd+3`, or toggle with `Cmd+J`) — a real shell that opens in
   the chat's worktree. Build, test, poke around; you and the agent are
   looking at the same files.
-- **Files** (`Cmd+4`) — a read-only file tree with a Monaco viewer, scoped to
-  the worktree.
+- **IDE** (`Cmd+4`) — a file tree + Monaco editor scoped to the worktree.
+  Open multiple files as tabs and save with `⌘S`; the agent is told about
+  your edits on its next turn, clean files the agent changes refresh
+  automatically, and saving over a file the agent just changed prompts you
+  to overwrite or reload.
 - **CLI** (`Cmd+5`) — the interactive Mastra Code terminal UI, embedded,
   running in the same worktree and seeing the same threads as the chat.
   Handy for CLI-only commands (`/sandbox`, terminal voice mode, …). Avoid

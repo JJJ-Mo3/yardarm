@@ -1,0 +1,36 @@
+/** Tests for the IDE-edit tracker that informs the agent about user file edits. */
+import { describe, expect, it } from 'vitest'
+import { IdeEditTracker, formatIdeEditNote } from './ide-edit-notes'
+
+describe('IdeEditTracker', () => {
+  it('dedupes repeated paths and fans out to multiple subchats', () => {
+    const t = new IdeEditTracker()
+    t.add(['a', 'b'], 'src/x.ts')
+    t.add(['a', 'b'], 'src/x.ts')
+    t.add(['a'], 'src/y.ts')
+    expect(t.drain('a')).toEqual(['src/x.ts', 'src/y.ts'])
+    expect(t.drain('b')).toEqual(['src/x.ts'])
+  })
+
+  it('drain returns sorted paths, clears the set, and handles unknown subchats', () => {
+    const t = new IdeEditTracker()
+    t.add(['a'], 'zeta.ts')
+    t.add(['a'], 'alpha.ts')
+    expect(t.drain('a')).toEqual(['alpha.ts', 'zeta.ts'])
+    expect(t.drain('a')).toEqual([])
+    expect(t.drain('never-seen')).toEqual([])
+    t.add(['b'], 'x.ts')
+    t.clear('b')
+    expect(t.drain('b')).toEqual([])
+  })
+})
+
+describe('formatIdeEditNote', () => {
+  it('is empty for no paths and lists backticked paths with a re-read instruction', () => {
+    expect(formatIdeEditNote([])).toBe('')
+    const note = formatIdeEditNote(['src/a.ts', 'docs/b.md'])
+    expect(note).toContain('`src/a.ts`, `docs/b.md`')
+    expect(note).toContain('Yardarm IDE')
+    expect(note).toContain('re-read')
+  })
+})
