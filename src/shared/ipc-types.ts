@@ -34,8 +34,8 @@ export type HostCommand =
   | { t: 'rewindThread'; reqId: string; anchorMessageId: string }
   /**
    * Deliver an IDE-edit note onto the active run as a system-reminder signal.
-   * Responds { delivered: false } (never starts a run) when the session is
-   * idle or a tool approval/suspension is parked.
+   * Responds with an IdeNoteResult; delivered: false (never starts a run)
+   * when the session is idle or a tool approval/suspension is parked.
    */
   | { t: 'ideNote'; reqId: string; text: string }
   | { t: 'getPermissions'; reqId: string }
@@ -195,6 +195,12 @@ export interface SlashCommandInfo {
   name: string
   description: string
   namespace?: string
+}
+
+/** Result of an ideNote command; reason explains a held (undelivered) note. */
+export interface IdeNoteResult {
+  delivered: boolean
+  reason?: 'idle' | 'approval' | 'suspension'
 }
 
 /** A mastracode thread as listed for the Threads UI. */

@@ -432,17 +432,23 @@ async function main(): Promise<void> {
                 session.run.getRunId() !== null &&
                 session.stream.activeRunId() !== null &&
                 session.run.isRunning()
+              if (!running) return { delivered: false, reason: 'idle' }
               // The active path declines a parked tool approval ("interrupted
-              // by user message"), and a signal queued onto a suspended run
-              // can drain into a paid follow-up run — hold the note back in
-              // both cases (it rides the next prompt's suffix instead).
-              if (!running || ds.pendingApproval !== null || ds.pendingSuspensions.size > 0) {
-                return { delivered: false }
-              }
+              // by user message") — hold the note back and let the manager
+              // retry once the approval resolves.
+              if (ds.pendingApproval !== null) return { delivered: false, reason: 'approval' }
+              // A signal queued onto a suspended run can drain into a paid
+              // follow-up run — hold back here too.
+              if (ds.pendingSuspensions.size > 0) return { delivered: false, reason: 'suspension' }
               // Bare contents: the SDK wraps signals in its own
               // <system-reminder> markup and escapes nested tags.
               const result = session.sendSignal({ type: 'system-reminder', contents: cmd.text })
               await result.accepted
+              post({
+                t: 'log',
+                level: 'info',
+                msg: `ide-note signalled (${cmd.text.length} chars)`
+              })
               return { delivered: true }
             })
             break

@@ -31,6 +31,7 @@ import type {
   HostBootConfig,
   HostCommand,
   HostMessage,
+  IdeNoteResult,
   ModelInfo,
   OAuthProviderInfo,
   OAuthStatusEvent,
@@ -413,7 +414,17 @@ export class AgentSessionManager {
     // full-message upserts per message id before they cross IPC.
     const throttle = createUpsertThrottle((ev) => this.emitUI(subchatId, ev))
     const translator = new EventTranslator({
-      emit: throttle.emit,
+      emit: (ev) => {
+        throttle.emit(ev)
+        // A resolved approval/suspension unblocks held IDE-edit notes — the
+        // host declined to signal past that gate, so retry now.
+        if (
+          (ev.type === 'approval-resolved' || ev.type === 'suspension-resolved') &&
+          this.ideEdits.hasPending(subchatId)
+        ) {
+          this.scheduleIdeNoteDelivery(subchatId)
+        }
+      },
       persistMessage: (m, final) => this.persistMessage(subchatId, m, final),
       onThreadChanged: (threadId) => {
         handle.meta.threadId = threadId
@@ -719,27 +730,33 @@ export class AgentSessionManager {
 
   /**
    * Push pending IDE-edit notes onto the active run as a system-reminder
-   * signal. Only fires into a live, running host — when idle (or an approval/
-   * suspension is parked, where a signal would decline the gate) the notes
-   * stay in the tracker and ride the next prompt's suffix instead. On any
-   * failure the paths are re-added so nothing is lost.
+   * signal. Only fires into a live, running host; the host itself is the
+   * authority on whether the signal is safe (its live displayState knows
+   * about parked approvals/suspensions — the translator's mirror must NOT be
+   * consulted here, because suspension entries deliberately outlive run end
+   * and would permanently gate delivery). Held/failed notes are re-added and
+   * retried when the gate resolves, or ride the next prompt's suffix.
    */
   private async deliverIdeEditsNow(subchatId: string): Promise<void> {
     const host = this.hosts.get(subchatId)
     if (!host || host.killed || host.status !== 'ready') return
     if (!this.isRunning(subchatId)) return // idle → next-prompt suffix path
-    const t = host.translator
-    if (t.pendingApprovals.size > 0 || t.pendingSuspensions.size > 0) return
     const paths = this.ideEdits.drain(subchatId)
     if (paths.length === 0) return
     try {
-      const res = await this.request<{ delivered: boolean }>(host, {
+      const res = await this.request<IdeNoteResult>(host, {
         t: 'ideNote',
         reqId: randomUUID(),
         text: formatIdeEditNote(paths)
       })
-      if (!res.delivered) for (const p of paths) this.ideEdits.add([subchatId], p)
-    } catch {
+      if (res.delivered) {
+        console.log(`[agent ${subchatId}] ide-note delivered mid-run: ${paths.join(', ')}`)
+      } else {
+        console.log(`[agent ${subchatId}] ide-note held (${res.reason ?? 'unknown'}), will retry`)
+        for (const p of paths) this.ideEdits.add([subchatId], p)
+      }
+    } catch (err) {
+      console.error(`[agent ${subchatId}] ide-note delivery failed, re-queued`, err)
       for (const p of paths) this.ideEdits.add([subchatId], p)
     }
   }

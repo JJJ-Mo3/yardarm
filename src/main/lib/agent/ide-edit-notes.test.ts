@@ -24,6 +24,18 @@ describe('IdeEditTracker', () => {
     expect(t.drain('b')).toEqual([])
   })
 
+  it('hasPending reflects adds, drains, and clears', () => {
+    const t = new IdeEditTracker()
+    expect(t.hasPending('a')).toBe(false)
+    t.add(['a'], 'src/x.ts')
+    expect(t.hasPending('a')).toBe(true)
+    t.drain('a')
+    expect(t.hasPending('a')).toBe(false)
+    t.add(['b'], 'y.ts')
+    t.clear('b')
+    expect(t.hasPending('b')).toBe(false)
+  })
+
   it('supports re-adding drained paths (failed mid-run delivery fallback)', () => {
     const t = new IdeEditTracker()
     t.add(['a'], 'src/x.ts')

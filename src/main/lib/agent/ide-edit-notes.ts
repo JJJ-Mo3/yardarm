@@ -4,10 +4,12 @@
  * without this the agent would keep trusting stale reads of files the user
  * changed under it. Edits are recorded per subchat (every subchat of a chat
  * shares the worktree) and drained either onto the active run as a
- * system-reminder signal (when the agent is running) or into a one-shot
+ * system-reminder signal (when the agent is running — the host's live
+ * displayState is the authority on when that is safe) or into a one-shot
  * `<system-reminder>` suffix on the next model-bound prompt (when idle —
- * a note must never start a run of its own). Failed mid-run deliveries are
- * re-added, so a drained note is never lost.
+ * a note must never start a run of its own). Held/failed mid-run deliveries
+ * are re-added and retried when the blocking approval/suspension resolves,
+ * so a drained note is never lost.
  *
  * Deliberately in-memory: notes are lost on app restart and subchats created
  * after an edit aren't notified. Harmless — worst case the agent re-reads.
@@ -33,6 +35,11 @@ export class IdeEditTracker {
     if (!set || set.size === 0) return []
     this.edits.delete(subchatId)
     return [...set].sort()
+  }
+
+  /** Whether any undelivered edits are pending for a subchat. */
+  hasPending(subchatId: string): boolean {
+    return (this.edits.get(subchatId)?.size ?? 0) > 0
   }
 
   /** Forget a subchat entirely (chat/subchat deletion). */
