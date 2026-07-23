@@ -38,14 +38,19 @@ function makeTranslator(onAgentError?: (text: string) => boolean): Harness {
   return { t, ...h }
 }
 
-/** Assistant message event with the given content items. */
+/** Assistant message event with the given content parts (sdk v2 shape). */
 function msgEvent(
   type: 'message_start' | 'message_update' | 'message_end',
   id: string,
-  content: Array<Record<string, unknown>>,
+  parts: Array<Record<string, unknown>>,
   createdAt?: unknown
 ): AgentControllerEventLike {
-  return { type, message: { id, role: 'assistant', content, createdAt } }
+  return { type, message: { id, role: 'assistant', content: { format: 2, parts }, createdAt } }
+}
+
+/** sdk v2 tool-invocation content part. */
+function invocation(inv: Record<string, unknown>): Record<string, unknown> {
+  return { type: 'tool-invocation', toolInvocation: inv }
 }
 
 function lastUpsert(emitted: AgentUIEvent[], id: string): StoredMessage | undefined {
@@ -108,13 +113,13 @@ describe('message streaming', () => {
     expect(lastUpsert(h.emitted, 'm1')?.parts).toEqual([{ type: 'text', text: 'Hello!' }])
   })
 
-  it('renders thinking as reasoning parts and skips empty/unknown items', () => {
+  it('renders reasoning parts and skips empty/unknown items', () => {
     const h = makeTranslator()
     h.t.handle(
       msgEvent('message_end', 'm1', [
-        { type: 'thinking', thinking: 'hmm' },
+        { type: 'reasoning', reasoning: 'hmm' },
         { type: 'text', text: '' },
-        { type: 'system_reminder', text: 'hidden' },
+        { type: 'step-start' },
         { type: 'text', text: 'done' }
       ])
     )
@@ -128,7 +133,11 @@ describe('message streaming', () => {
     const h = makeTranslator()
     h.t.handle({
       type: 'message_end',
-      message: { id: 'u1', role: 'user', content: [{ type: 'text', text: 'hi' }] }
+      message: {
+        id: 'u1',
+        role: 'user',
+        content: { format: 2, parts: [{ type: 'text', text: 'hi' }] }
+      }
     })
     expect(h.emitted).toHaveLength(0)
     expect(h.persisted).toHaveLength(0)
@@ -198,19 +207,34 @@ describe('tool lifecycle', () => {
     expect(part?.type === 'tool-call' && part.status).toBe('error')
   })
 
-  it('a tool_result content item never downgrades an error status', () => {
+  it('a result invocation never downgrades an error status', () => {
     const h = makeTranslator()
-    h.t.handle(msgEvent('message_start', 'm1', [{ type: 'tool_call', id: 't1', name: 'shell' }]))
+    h.t.handle(
+      msgEvent('message_start', 'm1', [
+        invocation({ toolCallId: 't1', toolName: 'shell', state: 'call' })
+      ])
+    )
     h.t.handle({ type: 'tool_end', toolCallId: 't1', result: 'boom', isError: true })
     h.t.handle(
       msgEvent('message_end', 'm1', [
-        { type: 'tool_result', id: 't1', name: 'shell', result: 'late ok', isError: false },
-        { type: 'tool_call', id: 't1', name: 'shell' }
+        invocation({ toolCallId: 't1', toolName: 'shell', state: 'result', result: 'late ok' })
       ])
     )
     const part = lastUpsert(h.emitted, 'm1')?.parts[0]
     expect(part?.type === 'tool-call' && part.status).toBe('error')
     expect(part?.type === 'tool-call' && part.result).toBe('late ok')
+  })
+
+  it('marks output-error invocations as failed with their errorText', () => {
+    const h = makeTranslator()
+    h.t.handle(
+      msgEvent('message_end', 'm1', [
+        invocation({ toolCallId: 't1', toolName: 'shell', state: 'output-error', errorText: 'no' })
+      ])
+    )
+    const part = lastUpsert(h.emitted, 'm1')?.parts[0]
+    expect(part?.type === 'tool-call' && part.status).toBe('error')
+    expect(part?.type === 'tool-call' && part.result).toBe('no')
   })
 
   it('re-homes a tool part when mastracode places the call in another message', () => {
@@ -219,7 +243,11 @@ describe('tool lifecycle', () => {
     h.t.handle({ type: 'tool_start', toolCallId: 't1', toolName: 'shell', args: {} })
     expect(lastUpsert(h.emitted, 'm1')?.parts).toHaveLength(1)
     // The SDK homes the call in m2 — the stale copy in m1 must disappear.
-    h.t.handle(msgEvent('message_update', 'm2', [{ type: 'tool_call', id: 't1', name: 'shell' }]))
+    h.t.handle(
+      msgEvent('message_update', 'm2', [
+        invocation({ toolCallId: 't1', toolName: 'shell', state: 'call' })
+      ])
+    )
     expect(lastUpsert(h.emitted, 'm1')?.parts).toHaveLength(0)
     const m2 = lastUpsert(h.emitted, 'm2')
     expect(m2?.parts).toHaveLength(1)

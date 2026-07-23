@@ -31,10 +31,20 @@ interface MastraContentItem {
   [key: string]: unknown
 }
 
+interface MastraToolInvocationLike {
+  toolCallId: string
+  toolName: string
+  state?: string
+  args?: unknown
+  result?: unknown
+  errorText?: string
+}
+
 interface MastraMessageLike {
   id: string
-  role: 'user' | 'assistant' | 'system'
-  content: MastraContentItem[]
+  role: string
+  // sdk 1.0.1: MastraMessageContentV2 — AI SDK v4 UI parts under `parts`.
+  content: { parts?: MastraContentItem[] } | null
   createdAt?: number | string | Date
 }
 
@@ -347,20 +357,22 @@ export class EventTranslator {
   /** Rebuild a StoredMessage from a mastracode message + tool overlays. */
   private upsertFromMastra(msg: MastraMessageLike, persist: boolean): void {
     const parts: MessagePart[] = []
-    for (const item of msg.content ?? []) {
+    for (const item of msg.content?.parts ?? []) {
       switch (item.type) {
         case 'text':
           if (typeof item.text === 'string' && item.text.length > 0) {
             parts.push({ type: 'text', text: item.text })
           }
           break
-        case 'thinking':
-          if (typeof item.thinking === 'string' && item.thinking.length > 0) {
-            parts.push({ type: 'reasoning', text: item.thinking })
+        case 'reasoning':
+          if (typeof item.reasoning === 'string' && item.reasoning.length > 0) {
+            parts.push({ type: 'reasoning', text: item.reasoning })
           }
           break
-        case 'tool_call': {
-          const id = item.id as string
+        case 'tool-invocation': {
+          const inv = item.toolInvocation as MastraToolInvocationLike | undefined
+          if (!inv?.toolCallId) break
+          const id = inv.toolCallId
           // Tool events that arrive before this content item map the call to
           // the then-current assistant message (refreshToolPart fallback). If
           // mastracode homes the call in a different message, drop the stale
@@ -368,22 +380,19 @@ export class EventTranslator {
           const prevMsgId = this.toolToMessage.get(id)
           if (prevMsgId && prevMsgId !== msg.id) this.removeToolPart(prevMsgId, id)
           this.toolToMessage.set(id, msg.id)
-          const meta = this.ensureTool(id, item.name as string, item.args)
+          const meta = this.ensureTool(id, inv.toolName, inv.args)
+          if (inv.state === 'result') {
+            meta.result = inv.result
+            if (meta.status !== 'error') meta.status = 'success'
+          } else if (inv.state === 'output-error' || inv.state === 'output-denied') {
+            meta.result = inv.errorText ?? inv.result
+            meta.status = 'error'
+          }
           parts.push(this.toolPartFor(id, meta))
           break
         }
-        case 'tool_result': {
-          // Result for a tool call rendered in this or an earlier message.
-          const id = item.id as string
-          const meta = this.ensureTool(id, item.name as string, undefined)
-          meta.result = item.result
-          if (meta.status !== 'error') {
-            meta.status = item.isError ? 'error' : 'success'
-          }
-          break
-        }
         default:
-          break // system_reminder, signals, notifications — not rendered
+          break // step-start, file, source, data-* — not rendered
       }
     }
 
