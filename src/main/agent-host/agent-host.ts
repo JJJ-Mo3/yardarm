@@ -494,7 +494,7 @@ async function main(): Promise<void> {
               return threads
                 .map((t) => {
                   const first = firsts.get(t.id)
-                  const textPart = first?.content.find((c) => c.type === 'text')
+                  const textPart = first?.content.parts.find((c) => c.type === 'text')
                   return {
                     id: t.id,
                     title: t.title,

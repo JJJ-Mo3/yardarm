@@ -60,6 +60,12 @@ No accounts or login — everything runs locally against mastracode's own config
 - `vendor/` is gitignored; `scripts/build-agent-runtime.mjs` stages a self-contained mastracode
   runtime there for packaging (npm-staged because electron-builder's pnpm walker mis-pairs
   multi-version `@ai-sdk/*` packages). mastracode deliberately lives in devDependencies.
+- Bumping the bundled runtime: edit the exact `mastracode` + `@mastra/code-sdk` pins in
+  package.json → `pnpm install` → `pnpm typecheck` (the SDK boundary lives in
+  `src/main/agent-host/agent-host.ts`) → verify the deep-import subpaths used by
+  `runtimeImport` still resolve → `pnpm package` restages `vendor/` → packaged boot-check +
+  a real agent turn. Dev typecheck alone does not prove the packaged runtime (npm-staged vs
+  pnpm dev trees).
 - Native modules (better-sqlite3, node-pty) are `asarUnpack`ed — see `electron-builder.yml`.
 - Each chat can run in its own git worktree under Electron userData
   (`worktrees/<projectId>/<chatId>`, branch prefix `yardarm/`); rollback checkpoints are stored
