@@ -326,7 +326,7 @@ export function SettingsDialog(): React.JSX.Element {
               </Tip>
             ))}
           </div>
-          <div className="min-h-72 flex-1">
+          <div className="min-h-72 max-h-[65vh] min-w-0 flex-1 overflow-y-auto pr-1">
             {tab === 'appearance' && <AppearanceTab />}
             {tab === 'preferences' && <PreferencesTab />}
             {tab === 'keys' && <KeysTab />}
