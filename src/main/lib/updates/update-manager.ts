@@ -123,11 +123,17 @@ class UpdateManager {
       this.phase = 'downloading'
       this.progress = 0
       this.error = undefined
-      const staged = await downloadAndStage(asset, (fraction) => {
-        this.progress = fraction
-      })
-      this.phase = 'installing'
-      this.progress = undefined
+      const staged = await downloadAndStage(
+        asset,
+        (fraction) => {
+          this.progress = fraction
+        },
+        () => {
+          // Network done; extract + stage are the slow local phases.
+          this.phase = 'installing'
+          this.progress = undefined
+        }
+      )
       await swapBundle(staged)
       this.phase = 'ready-to-restart'
     } catch (err) {

@@ -55,10 +55,13 @@ async function assertLooksLikeApp(appPath: string): Promise<void> {
 /**
  * Downloads and verifies the zip, extracts it, and stages the contained .app
  * as a sibling of the installed bundle. Returns the staged path.
+ * `onStageStart` fires once the network transfer is complete and the slow
+ * local extract/stage work begins, so callers can flip their status phase.
  */
 export async function downloadAndStage(
   asset: ReleaseAsset,
-  onProgress?: (fraction: number) => void
+  onProgress?: (fraction: number) => void,
+  onStageStart?: () => void
 ): Promise<string> {
   const bundle = getBundlePath()
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'yardarm-update-'))
@@ -86,6 +89,7 @@ export async function downloadAndStage(
       throw new Error(`Download incomplete (${stat.size} of ${asset.size} bytes)`)
     }
 
+    onStageStart?.()
     const extractDir = path.join(tmp, 'extracted')
     await execFileAsync('ditto', ['-x', '-k', zipPath, extractDir])
     const entries = await fs.readdir(extractDir)

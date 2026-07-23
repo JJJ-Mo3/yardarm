@@ -12,7 +12,12 @@ import { Tip } from '../../components/ui/tooltip'
 export function UpdateRestartBanner(): React.JSX.Element | null {
   const [dismissed, setDismissed] = useState(false)
   const status = trpc.updates.status.useQuery(undefined, {
-    refetchInterval: 60_000,
+    // Poll faster while an install is in flight so the banner appears
+    // promptly when Settings is closed mid-update.
+    refetchInterval: (query) => {
+      const phase = query.state.data?.phase
+      return phase === 'downloading' || phase === 'installing' ? 2000 : 60_000
+    },
     refetchOnWindowFocus: false
   })
   const restart = trpc.updates.restart.useMutation()

@@ -13,7 +13,12 @@ export const updatesRouter = router({
 
   check: publicProcedure.mutation(() => updateManager.check()),
 
-  install: publicProcedure.mutation(() => updateManager.downloadAndInstall()),
+  // Fire-and-forget: resolves immediately with phase 'downloading' so the
+  // renderer's status polling drives progress; errors surface via status.
+  install: publicProcedure.mutation(() => {
+    void updateManager.downloadAndInstall()
+    return updateManager.getStatus()
+  }),
 
   openRelease: publicProcedure.mutation(async () => {
     const url =

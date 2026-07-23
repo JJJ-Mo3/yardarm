@@ -62,6 +62,19 @@ function UpdatesSection(): React.JSX.Element {
     <div className="space-y-2 border-t border-border pt-3">
       <div className="text-xs font-medium">Updates</div>
       <Row label="Status" value={s ? updateStatusText(s) : '…'} />
+      {s?.phase === 'downloading' && (
+        <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-primary transition-[width] duration-500"
+            style={{ width: `${Math.round((s.progress ?? 0) * 100)}%` }}
+          />
+        </div>
+      )}
+      {(s?.phase === 'checking' || s?.phase === 'installing') && (
+        <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+          <div className="h-full w-full animate-pulse rounded-full bg-primary/60" />
+        </div>
+      )}
       {s?.phase === 'error' && s.error && (
         <div className="text-xs text-destructive selectable">{s.error}</div>
       )}
@@ -140,6 +153,7 @@ export function AboutTab(): React.JSX.Element {
   const utils = trpc.useUtils()
   const preflight = trpc.system.preflight.useQuery(undefined, { staleTime: 60_000 })
   const cli = trpc.system.detectCli.useQuery()
+  const mcLatest = trpc.system.mastracodeLatest.useQuery(undefined, { staleTime: 60 * 60_000 })
   const setSettingsOpen = useSetAtom(settingsOpenAtom)
   const setForceOnboarding = useSetAtom(onboardingForceOpenAtom)
 
@@ -196,6 +210,11 @@ export function AboutTab(): React.JSX.Element {
                 <span className="text-muted-foreground">
                   {p.ok ? 'runtime OK' : 'runtime failed to boot'}
                 </span>
+                {mcLatest.data?.isNewer && mcLatest.data.latest && (
+                  <span className="text-muted-foreground">
+                    · v{mcLatest.data.latest} available — ships with the next app update
+                  </span>
+                )}
               </span>
             )
           }
