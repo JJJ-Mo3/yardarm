@@ -286,11 +286,7 @@ export default function App(): React.JSX.Element {
               {/* IDE tab — kept mounted (hidden) so open editor tabs and dirty
                   buffers survive tab switches. */}
               <div className={cn('h-full', tab !== 'files' && 'hidden')}>
-                {cwd ? (
-                  <FilesView root={cwd} chatId={chatId ?? undefined} />
-                ) : (
-                  <SelectProjectPane />
-                )}
+                {cwd ? <FilesView root={cwd} /> : <SelectProjectPane />}
               </div>
               {tab === 'cli' &&
                 (cwd ? (

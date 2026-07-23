@@ -4,10 +4,10 @@
  * a reconcile effect as the single place model content is set
  * programmatically; clean buffers auto-refresh when the agent changes files
  * on disk (4s poll of the active tab, mtime-compared) and saves go through an
- * mtime conflict check (Overwrite / Reload / Cancel). Saves are reported to
- * the chat's agent via files.write's chatId. Tab state lives in a per-root
- * atom and the view stays mounted, so dirty buffers survive tab/chat
- * switches.
+ * mtime conflict check (Overwrite / Reload / Cancel). files.write reports
+ * each save to every chat working on this root. Tab state lives in a
+ * per-root atom and the view stays mounted, so dirty buffers survive
+ * tab/chat switches.
  */
 import React, { useEffect, useRef, useState } from 'react'
 import Editor, { type OnMount } from '@monaco-editor/react'
@@ -146,7 +146,7 @@ function FileNodeRow({
   )
 }
 
-export function FilesView({ root, chatId }: { root: string; chatId?: string }): React.JSX.Element {
+export function FilesView({ root }: { root: string }): React.JSX.Element {
   const theme = useAtomValue(themeAtom)
   const mainTab = useAtomValue(mainTabAtom)
   const confirm = useConfirm()
@@ -212,8 +212,7 @@ export function FilesView({ root, chatId }: { root: string; chatId?: string }): 
         root,
         path,
         content,
-        baseMtimeMs: activeTab.mtimeMs,
-        chatId
+        baseMtimeMs: activeTab.mtimeMs
       })
       if (res.ok) {
         recordSaved(path, content, res.mtimeMs)
@@ -229,7 +228,7 @@ export function FilesView({ root, chatId }: { root: string; chatId?: string }): 
       })
       if (overwrite) {
         // No baseMtimeMs: force the write past the conflict check.
-        const forced = await write.mutateAsync({ root, path, content, chatId })
+        const forced = await write.mutateAsync({ root, path, content })
         if (forced.ok) recordSaved(path, content, forced.mtimeMs)
         return
       }

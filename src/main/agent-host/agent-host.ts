@@ -423,16 +423,20 @@ async function main(): Promise<void> {
             break
           case 'ideNote':
             await respond(cmd.reqId, async () => {
-              // Replicate Session.sendSignal's own active-branch condition and
-              // call sendSignal in the same synchronous tick: if any of these
-              // are false the SDK falls to its idle path and *starts a new
-              // run* ('wake'), which an IDE note must never do.
+              // Replicate Session.sendSignal's own active-branch condition
+              // (sdk 1.0.1) and call sendSignal in the same synchronous tick:
+              // if any of these are false the SDK falls to its idle path and
+              // *starts a new run* ('wake'), which an IDE note must never do.
               const ds = session.displayState.get()
               const running =
                 session.run.getRunId() !== null &&
                 session.stream.activeRunId() !== null &&
                 session.run.isRunning()
               if (!running) return { delivered: false, reason: 'idle' }
+              // sdk 1.0.1 parks signals sent while an abort is in flight
+              // until the stream idles — where they'd fall to the idle path.
+              // Hold the note back instead.
+              if (session.run.isAbortRequested()) return { delivered: false, reason: 'aborting' }
               // The active path declines a parked tool approval ("interrupted
               // by user message") — hold the note back and let the manager
               // retry once the approval resolves.

@@ -123,8 +123,8 @@ export const filesRouter = router({
    * Save an IDE buffer. When `baseMtimeMs` is set, the write is rejected as a
    * conflict if the file's mtime no longer matches (another process — usually
    * the agent — changed or deleted it); omitting it force-writes ("Overwrite").
-   * A `chatId` lets the agent be told about the user's edit — mid-run when
-   * it's working, otherwise with the next prompt.
+   * Every chat working on `root` is told about the user's edit — mid-run when
+   * its agent is working, otherwise with its next prompt.
    */
   write: publicProcedure
     .input(
@@ -132,8 +132,7 @@ export const filesRouter = router({
         root: z.string(),
         path: z.string(),
         content: z.string(),
-        baseMtimeMs: z.number().optional(),
-        chatId: z.string().optional()
+        baseMtimeMs: z.number().optional()
       })
     )
     .mutation(async ({ input }) => {
@@ -151,7 +150,7 @@ export const filesRouter = router({
       }
       await fs.writeFile(abs, input.content, 'utf8')
       const stat = await fs.stat(abs)
-      if (input.chatId) agentSessionManager.noteIdeEdit(input.chatId, input.path)
+      agentSessionManager.noteIdeEditForRoot(input.root, input.path)
       return { ok: true as const, mtimeMs: stat.mtimeMs }
     }),
 

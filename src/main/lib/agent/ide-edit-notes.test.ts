@@ -1,49 +1,46 @@
-/** Tests for the IDE-edit tracker that informs the agent about user file edits. */
+/** Tests for the IDE-edit note helpers that inform the agent about user file edits. */
 import { describe, expect, it } from 'vitest'
-import { IdeEditTracker, formatIdeEditNote } from './ide-edit-notes'
+import { addIdeEditPath, parseIdeEditPaths, formatIdeEditNote } from './ide-edit-notes'
 
-describe('IdeEditTracker', () => {
-  it('dedupes repeated paths and fans out to multiple subchats', () => {
-    const t = new IdeEditTracker()
-    t.add(['a', 'b'], 'src/x.ts')
-    t.add(['a', 'b'], 'src/x.ts')
-    t.add(['a'], 'src/y.ts')
-    expect(t.drain('a')).toEqual(['src/x.ts', 'src/y.ts'])
-    expect(t.drain('b')).toEqual(['src/x.ts'])
+describe('addIdeEditPath', () => {
+  it('starts a new array from null and dedupes repeated paths', () => {
+    const once = addIdeEditPath(null, 'src/x.ts')
+    expect(parseIdeEditPaths(once)).toEqual(['src/x.ts'])
+    const twice = addIdeEditPath(once, 'src/x.ts')
+    expect(parseIdeEditPaths(twice)).toEqual(['src/x.ts'])
+    const more = addIdeEditPath(twice, 'src/y.ts')
+    expect(parseIdeEditPaths(more)).toEqual(['src/x.ts', 'src/y.ts'])
   })
 
-  it('drain returns sorted paths, clears the set, and handles unknown subchats', () => {
-    const t = new IdeEditTracker()
-    t.add(['a'], 'zeta.ts')
-    t.add(['a'], 'alpha.ts')
-    expect(t.drain('a')).toEqual(['alpha.ts', 'zeta.ts'])
-    expect(t.drain('a')).toEqual([])
-    expect(t.drain('never-seen')).toEqual([])
-    t.add(['b'], 'x.ts')
-    t.clear('b')
-    expect(t.drain('b')).toEqual([])
-  })
-
-  it('hasPending reflects adds, drains, and clears', () => {
-    const t = new IdeEditTracker()
-    expect(t.hasPending('a')).toBe(false)
-    t.add(['a'], 'src/x.ts')
-    expect(t.hasPending('a')).toBe(true)
-    t.drain('a')
-    expect(t.hasPending('a')).toBe(false)
-    t.add(['b'], 'y.ts')
-    t.clear('b')
-    expect(t.hasPending('b')).toBe(false)
+  it('recovers from garbage column values', () => {
+    expect(parseIdeEditPaths(addIdeEditPath('not json', 'a.ts'))).toEqual(['a.ts'])
+    expect(parseIdeEditPaths(addIdeEditPath('{"nope":1}', 'a.ts'))).toEqual(['a.ts'])
   })
 
   it('supports re-adding drained paths (failed mid-run delivery fallback)', () => {
-    const t = new IdeEditTracker()
-    t.add(['a'], 'src/x.ts')
-    t.add(['a'], 'src/y.ts')
-    const drained = t.drain('a')
+    let json: string | null = null
+    json = addIdeEditPath(json, 'src/x.ts')
+    json = addIdeEditPath(json, 'src/y.ts')
+    const drained = parseIdeEditPaths(json)
     expect(drained).toEqual(['src/x.ts', 'src/y.ts'])
-    for (const p of drained) t.add(['a'], p)
-    expect(t.drain('a')).toEqual(['src/x.ts', 'src/y.ts'])
+    let requeued: string | null = null
+    for (const p of drained) requeued = addIdeEditPath(requeued, p)
+    expect(parseIdeEditPaths(requeued)).toEqual(['src/x.ts', 'src/y.ts'])
+  })
+})
+
+describe('parseIdeEditPaths', () => {
+  it('returns sorted paths and [] for null, garbage, and non-arrays', () => {
+    expect(parseIdeEditPaths('["zeta.ts","alpha.ts"]')).toEqual(['alpha.ts', 'zeta.ts'])
+    expect(parseIdeEditPaths(null)).toEqual([])
+    expect(parseIdeEditPaths('')).toEqual([])
+    expect(parseIdeEditPaths('not json')).toEqual([])
+    expect(parseIdeEditPaths('42')).toEqual([])
+    expect(parseIdeEditPaths('{"a":1}')).toEqual([])
+  })
+
+  it('drops non-string entries', () => {
+    expect(parseIdeEditPaths('["a.ts", 3, null, "b.ts"]')).toEqual(['a.ts', 'b.ts'])
   })
 })
 

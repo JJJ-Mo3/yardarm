@@ -46,6 +46,8 @@ export const subchats = sqliteTable(
     thinkingLevel: text('thinking_level'),
     /** One-time note (e.g. rollback) appended to the next model-bound prompt. */
     pendingNote: text('pending_note'),
+    /** JSON array of IDE-edited paths awaiting delivery to the agent. */
+    pendingIdeEdits: text('pending_ide_edits'),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull()
   },

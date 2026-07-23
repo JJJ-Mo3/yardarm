@@ -8,11 +8,11 @@ import { randomUUID } from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import { app, shell, utilityProcess, type UtilityProcess } from 'electron'
-import { eq, desc, sql } from 'drizzle-orm'
+import { and, eq, desc, isNull, or, sql } from 'drizzle-orm'
 import { getDb, schema } from '../db'
 import { captureCheckpoint } from '../git/ops'
 import { EventTranslator } from './event-translator'
-import { IdeEditTracker, formatIdeEditNote } from './ide-edit-notes'
+import { addIdeEditPath, parseIdeEditPaths, formatIdeEditNote } from './ide-edit-notes'
 import { clampMessageForStorage } from './message-clamp'
 import { isPrefillError } from './prefill-error'
 import { PromptQueue } from './prompt-queue'
@@ -116,8 +116,6 @@ export class AgentSessionManager {
    * on the next real user send so each prompt re-arms exactly one retry.
    */
   private prefillRetried = new Set<string>()
-  /** Files the user saved from the IDE, reported to the agent mid-run or on its next prompt. */
-  private ideEdits = new IdeEditTracker()
   /** Pending per-subchat debounce timers for mid-run IDE-note delivery. */
   private ideNoteTimers = new Map<string, NodeJS.Timeout>()
 
@@ -420,7 +418,7 @@ export class AgentSessionManager {
         // host declined to signal past that gate, so retry now.
         if (
           (ev.type === 'approval-resolved' || ev.type === 'suspension-resolved') &&
-          this.ideEdits.hasPending(subchatId)
+          this.hasPendingIdeEdits(subchatId)
         ) {
           this.scheduleIdeNoteDelivery(subchatId)
         }
@@ -679,21 +677,31 @@ export class AgentSessionManager {
   }
 
   /**
-   * Record a user IDE edit for every subchat of a chat (they share the
-   * worktree). Delivered onto the active run as a system-reminder signal
-   * (debounced) when the agent is running, otherwise held and appended as a
-   * `<system-reminder>` suffix on the subchat's next prompt — never by
-   * starting a run of its own.
+   * Record a user IDE edit for every subchat whose working directory is the
+   * saved file's root — a chat's worktree, or the project path shared by all
+   * non-worktree chats. Recipients are derived here (not from the renderer's
+   * selected chat) so no chat on that root misses the edit, and the pending
+   * paths live in the DB so they survive app restarts. Delivered onto the
+   * active run as a system-reminder signal (debounced) when the agent is
+   * running, otherwise held and appended as a `<system-reminder>` suffix on
+   * the subchat's next prompt — never by starting a run of its own.
    */
-  noteIdeEdit(chatId: string, filePath: string): void {
+  noteIdeEditForRoot(root: string, filePath: string): void {
     const db = getDb()
     const rows = db
       .select({ id: schema.subchats.id })
       .from(schema.subchats)
-      .where(eq(schema.subchats.chatId, chatId))
+      .innerJoin(schema.chats, eq(schema.subchats.chatId, schema.chats.id))
+      .innerJoin(schema.projects, eq(schema.chats.projectId, schema.projects.id))
+      .where(
+        or(
+          eq(schema.chats.worktreePath, root),
+          and(isNull(schema.chats.worktreePath), eq(schema.projects.path, root))
+        )
+      )
       .all()
     if (rows.length) {
-      this.ideEdits.add(
+      this.addIdeEdits(
         rows.map((r) => r.id),
         filePath
       )
@@ -701,10 +709,55 @@ export class AgentSessionManager {
     }
   }
 
-  /** Forget pending IDE-edit notes for a subchat (chat/project deletion). */
+  /** Add one edited path to each subchat's persisted pending set (deduped). */
+  private addIdeEdits(subchatIds: string[], filePath: string): void {
+    const db = getDb()
+    for (const id of subchatIds) {
+      const row = db
+        .select({ pendingIdeEdits: schema.subchats.pendingIdeEdits })
+        .from(schema.subchats)
+        .where(eq(schema.subchats.id, id))
+        .get()
+      if (!row) continue
+      db.update(schema.subchats)
+        .set({ pendingIdeEdits: addIdeEditPath(row.pendingIdeEdits, filePath) })
+        .where(eq(schema.subchats.id, id))
+        .run()
+    }
+  }
+
+  /** Take (and clear) a subchat's persisted pending IDE-edit paths, sorted. */
+  private drainIdeEdits(subchatId: string): string[] {
+    const db = getDb()
+    const row = db
+      .select({ pendingIdeEdits: schema.subchats.pendingIdeEdits })
+      .from(schema.subchats)
+      .where(eq(schema.subchats.id, subchatId))
+      .get()
+    const paths = parseIdeEditPaths(row?.pendingIdeEdits ?? null)
+    if (paths.length) {
+      db.update(schema.subchats)
+        .set({ pendingIdeEdits: null })
+        .where(eq(schema.subchats.id, subchatId))
+        .run()
+    }
+    return paths
+  }
+
+  /** Whether any undelivered IDE edits are pending for a subchat. */
+  private hasPendingIdeEdits(subchatId: string): boolean {
+    const db = getDb()
+    const row = db
+      .select({ pendingIdeEdits: schema.subchats.pendingIdeEdits })
+      .from(schema.subchats)
+      .where(eq(schema.subchats.id, subchatId))
+      .get()
+    return parseIdeEditPaths(row?.pendingIdeEdits ?? null).length > 0
+  }
+
+  /** Stop pending IDE-note delivery for a subchat (chat/project deletion — the DB row cascades). */
   clearIdeEdits(subchatId: string): void {
     this.clearIdeNoteTimer(subchatId)
-    this.ideEdits.clear(subchatId)
   }
 
   /** (Re)start the delivery debounce so rapid saves coalesce into one note. */
@@ -741,7 +794,7 @@ export class AgentSessionManager {
     const host = this.hosts.get(subchatId)
     if (!host || host.killed || host.status !== 'ready') return
     if (!this.isRunning(subchatId)) return // idle → next-prompt suffix path
-    const paths = this.ideEdits.drain(subchatId)
+    const paths = this.drainIdeEdits(subchatId)
     if (paths.length === 0) return
     try {
       const res = await this.request<IdeNoteResult>(host, {
@@ -751,13 +804,14 @@ export class AgentSessionManager {
       })
       if (res.delivered) {
         console.log(`[agent ${subchatId}] ide-note delivered mid-run: ${paths.join(', ')}`)
+        this.insertMarker(subchatId, `Told the agent about IDE edits: ${paths.join(', ')}`)
       } else {
         console.log(`[agent ${subchatId}] ide-note held (${res.reason ?? 'unknown'}), will retry`)
-        for (const p of paths) this.ideEdits.add([subchatId], p)
+        for (const p of paths) this.addIdeEdits([subchatId], p)
       }
     } catch (err) {
       console.error(`[agent ${subchatId}] ide-note delivery failed, re-queued`, err)
-      for (const p of paths) this.ideEdits.add([subchatId], p)
+      for (const p of paths) this.addIdeEdits([subchatId], p)
     }
   }
 
@@ -778,10 +832,14 @@ export class AgentSessionManager {
       ? `\n\n[${files.length} file${files.length === 1 ? '' : 's'} attached]`
       : ''
     const noteSuffix = this.consumePendingNote(subchatId)
-    const ideNote = formatIdeEditNote(this.ideEdits.drain(subchatId))
+    const idePaths = this.drainIdeEdits(subchatId)
+    const ideNote = formatIdeEditNote(idePaths)
     const ideSuffix = ideNote ? `\n\n<system-reminder>\n${ideNote}\n</system-reminder>` : ''
     this.prefillRetried.delete(subchatId) // each real send re-arms one auto-recovery
     this.recordUserMessage(subchatId, (displayText ?? content) + attachmentNote, checkpointRef)
+    if (idePaths.length) {
+      this.insertMarker(subchatId, `Told the agent about IDE edits: ${idePaths.join(', ')}`)
+    }
     this.sendCommand(handle, { t: 'send', text: content + noteSuffix + ideSuffix, files })
   }
 
