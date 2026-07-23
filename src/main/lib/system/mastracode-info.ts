@@ -7,6 +7,8 @@ import { spawn } from 'node:child_process'
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import path from 'node:path'
 import { app } from 'electron'
+import { isNewerVersion } from '../updates/semver'
+import { parseNpmLatest } from './npm-latest'
 
 /** Version of the mastracode package bundled with the app, or null if missing. */
 export function getMastracodeVersion(): string | null {
@@ -52,6 +54,35 @@ export function getMastracodeCliPath(): string | null {
     if (p && existsSync(p)) return p
   }
   return null
+}
+
+export interface MastracodeLatestResult {
+  /** Latest published mastracode version on npm, or null when unknown. */
+  latest: string | null
+  /** True when `latest` is strictly newer than the bundled runtime. */
+  isNewer: boolean
+}
+
+/**
+ * Best-effort check of the npm registry for a newer mastracode release than
+ * the bundled runtime. Offline-safe: any failure (network, parse, missing
+ * bundled version) yields { latest: null, isNewer: false }.
+ */
+export async function fetchMastracodeLatest(): Promise<MastracodeLatestResult> {
+  try {
+    const { net } = await import('electron')
+    const res = await net.fetch('https://registry.npmjs.org/mastracode/latest', {
+      signal: AbortSignal.timeout(10_000),
+      headers: { Accept: 'application/json' }
+    })
+    if (!res.ok) return { latest: null, isNewer: false }
+    const latest = parseNpmLatest(await res.json())
+    if (!latest) return { latest: null, isNewer: false }
+    const bundled = getMastracodeVersion()
+    return { latest, isNewer: bundled !== null && isNewerVersion(bundled, latest) }
+  } catch {
+    return { latest: null, isNewer: false }
+  }
 }
 
 export interface CliDetectResult {

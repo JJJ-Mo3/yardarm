@@ -1,7 +1,11 @@
 import os from 'node:os'
 import { app } from 'electron'
 import { agentSessionManager } from '../../agent/agent-session-manager'
-import { detectGlobalCli, getMastracodeVersion } from '../../system/mastracode-info'
+import {
+  detectGlobalCli,
+  fetchMastracodeLatest,
+  getMastracodeVersion
+} from '../../system/mastracode-info'
 import { ptyManager } from '../../terminal/pty-manager'
 import { publicProcedure, router } from '../trpc'
 
@@ -22,6 +26,9 @@ export const systemRouter = router({
   }),
 
   detectCli: publicProcedure.query(() => detectGlobalCli()),
+
+  /** Latest mastracode on npm vs the bundled runtime (offline-safe nulls). */
+  mastracodeLatest: publicProcedure.query(() => fetchMastracodeLatest()),
 
   /** Runs `npm install -g mastracode` in a pty; output streams via terminal.stream. */
   installCli: publicProcedure.mutation(() => {
