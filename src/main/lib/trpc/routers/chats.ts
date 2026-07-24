@@ -226,7 +226,11 @@ export const chatsRouter = router({
       // anchors the agent-memory cut (assistant ids in our DB are SDK
       // message ids), and the rolled-back user text goes into the note.
       // Skip pure-info rows: transcript markers use role 'assistant' but
-      // local UUIDs the SDK thread has never seen.
+      // local UUIDs the SDK thread has never seen. Unbounded on purpose —
+      // marker runs (IDE-edit notes etc.) can be arbitrarily long, and a
+      // capped window that misses the real anchor would misclassify a
+      // partial rollback as roll-to-start and discard the whole thread.
+      // Rows are storage-clamped, so cost is bounded by transcript size.
       const anchor = db
         .select({ id: schema.messages.id, parts: schema.messages.parts })
         .from(schema.messages)
@@ -238,7 +242,6 @@ export const chatsRouter = router({
           )
         )
         .orderBy(desc(schema.messages.seq))
-        .limit(20)
         .all()
         .find((row) => {
           try {
