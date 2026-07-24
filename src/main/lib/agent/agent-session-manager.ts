@@ -659,11 +659,16 @@ export class AgentSessionManager {
   // ---- Public command surface -------------------------------------------
 
   /** Persist + broadcast a user message and touch the chat's updatedAt. */
-  private recordUserMessage(subchatId: string, text: string, checkpointRef?: string): void {
+  private recordUserMessage(
+    subchatId: string,
+    text: string,
+    checkpointRef?: string,
+    marker?: boolean
+  ): void {
     const userMessage: StoredMessage = {
       id: randomUUID(),
       role: 'user',
-      parts: [{ type: 'text', text }],
+      parts: [{ type: 'text', text, ...(marker ? { marker: true } : {}) }],
       checkpointRef: checkpointRef ?? null,
       createdAt: Date.now()
     }
@@ -855,7 +860,8 @@ export class AgentSessionManager {
     content: string,
     checkpointRef?: string,
     displayText?: string,
-    files?: FileAttachment[]
+    files?: FileAttachment[],
+    displayKind?: 'marker'
   ): Promise<void> {
     const handle = await this.ensureHost(subchatId)
     const attachmentNote = files?.length
@@ -866,7 +872,12 @@ export class AgentSessionManager {
     const ideNote = formatIdeEditNote(idePaths)
     const ideSuffix = ideNote ? `\n\n<system-reminder>\n${ideNote}\n</system-reminder>` : ''
     this.prefillRetried.delete(subchatId) // each real send re-arms one auto-recovery
-    this.recordUserMessage(subchatId, (displayText ?? content) + attachmentNote, checkpointRef)
+    this.recordUserMessage(
+      subchatId,
+      (displayText ?? content) + attachmentNote,
+      checkpointRef,
+      displayKind === 'marker'
+    )
     if (idePaths.length) {
       this.insertMarker(subchatId, `Told the agent about IDE edits: ${idePaths.join(', ')}`)
     }
@@ -920,7 +931,8 @@ export class AgentSessionManager {
     subchatId: string,
     content: string,
     files?: FileAttachment[],
-    displayText?: string
+    displayText?: string,
+    displayKind?: 'marker'
   ): Promise<void> {
     const busy =
       this.isRunning(subchatId) ||
@@ -928,10 +940,10 @@ export class AgentSessionManager {
       this.promptQueue.size(subchatId) > 0
     if (!busy) {
       const checkpointRef = await this.captureSendCheckpoint(subchatId)
-      await this.sendMessage(subchatId, content, checkpointRef, displayText, files)
+      await this.sendMessage(subchatId, content, checkpointRef, displayText, files, displayKind)
       return
     }
-    this.promptQueue.enqueue(subchatId, content, files, displayText)
+    this.promptQueue.enqueue(subchatId, content, files, displayText, displayKind)
     this.emitQueuedPrompts(subchatId)
     // Idle kick: if the queue was stranded (host crash, failed flush), this
     // enqueue is the moment it resumes — head first, order preserved.
@@ -966,7 +978,14 @@ export class AgentSessionManager {
     // interleaves with the event currently being processed.
     void (async () => {
       const checkpointRef = await this.captureSendCheckpoint(subchatId)
-      await this.sendMessage(subchatId, item.text, checkpointRef, item.displayText, item.files)
+      await this.sendMessage(
+        subchatId,
+        item.text,
+        checkpointRef,
+        item.displayText,
+        item.files,
+        item.displayKind
+      )
     })().catch((err: unknown) => {
       this.awaitingRunStart.delete(subchatId)
       this.promptQueue.unshift(subchatId, item)

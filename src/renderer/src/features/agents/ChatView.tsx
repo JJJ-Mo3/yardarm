@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { KeyRound, Server } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
@@ -41,11 +41,17 @@ import { TaskChecklist } from './TaskChecklist'
 import { GoalPopover } from './GoalPopover'
 import { OmStatusPopover } from './OmStatusPopover'
 import { ModeSelector } from './ModeSelector'
+import { ReviewPopover } from './ReviewPopover'
+import { ReviewFollowupBar } from './ReviewFollowupBar'
 import { useSlashCommands, type SlashCommandEntry } from './slash-commands'
 import {
   buildLocalReviewPrompt,
+  buildPlanFromReviewPrompt,
+  buildPrCommentsPrompt,
   buildPrListPrompt,
   buildPrReviewPrompt,
+  buildReviewMarker,
+  findCompletedReview,
   parseReviewArgs
 } from './review-prompts'
 import { MODES, type Mode } from '../../../../shared/ui-message'
@@ -54,10 +60,13 @@ const THINKING = ['off', 'low', 'medium', 'high', 'xhigh'] as const
 
 export function ChatView({
   subchatId,
-  projectRoot
+  projectRoot,
+  baseBranch
 }: {
   subchatId: string
   projectRoot: string | null
+  /** The chat worktree's base branch, if known (feeds the review picker). */
+  baseBranch: string | null
 }): React.JSX.Element {
   const state = useAgentStream(subchatId)
   const debug = useAtomValue(debugEventsAtom)
@@ -82,6 +91,8 @@ export function ChatView({
   // × on the red agent-error banner: hide errors up to this timestamp; a
   // newer error (larger ts) brings the banner back.
   const [dismissedErrorTs, setDismissedErrorTs] = useState(0)
+  // Follow-up bar dismissal, keyed by the review marker's message id.
+  const [dismissedReviewId, setDismissedReviewId] = useState<string | null>(null)
   const pendingRollbackText = useRef<string | null>(null)
   const rollback = trpc.chats.rollbackToMessage.useMutation({
     onSuccess: (res) => {
@@ -103,6 +114,7 @@ export function ChatView({
     setPrefill(null)
     setPendingMode(null)
     setDismissedErrorTs(0)
+    setDismissedReviewId(null)
   }, [subchatId])
   const confirmDialog = useConfirm()
 
@@ -123,9 +135,12 @@ export function ChatView({
       }).then((ok) => {
         if (!ok) return
         const msg = messagesRef.current.find((m) => m.id === messageId)
-        pendingRollbackText.current = msg
-          ? msg.parts.map((p) => (p.type === 'text' ? p.text : '')).join('')
-          : null
+        // Marker sends (reviews) carry a label, not the user's words — don't
+        // prefill the composer with it.
+        pendingRollbackText.current =
+          msg && !msg.parts.some((p) => p.type === 'text' && p.marker)
+            ? msg.parts.map((p) => (p.type === 'text' ? p.text : '')).join('')
+            : null
         rollbackMutate({ subchatId, messageId })
       })
     },
@@ -166,9 +181,22 @@ export function ChatView({
   const [sandboxOpen, setSandboxOpen] = useState(false)
   const [omOpen, setOmOpen] = useState(false)
   const [goalOpen, setGoalOpen] = useState(false)
+  const [reviewOpen, setReviewOpen] = useState(false)
 
   const meta = state.meta
   const busy = send.isPending
+
+  /** Send an expanded prompt with a compact transcript marker instead of a user bubble. */
+  const sendMarked = (content: string, marker: string): void => {
+    send.mutate({ subchatId, content, displayText: marker, displayKind: 'marker' })
+  }
+
+  // The just-finished review (if the last exchange was one) drives the
+  // follow-up bar; hidden while running so it never overlaps a live run.
+  const completedReview = useMemo(
+    () => (state.running ? null : findCompletedReview(state.messages)),
+    [state.running, state.messages]
+  )
 
   const currentMode: Mode = (MODES as readonly string[]).includes(meta.mode ?? '')
     ? (meta.mode as Mode)
@@ -302,14 +330,21 @@ export function ChatView({
       case 'review': {
         const parsed = parseReviewArgs(args)
         if (parsed.kind === 'invalid') return 'Usage: /review [<pr-number>|changes] [focus]'
-        const content =
-          parsed.kind === 'list'
-            ? buildPrListPrompt()
-            : parsed.kind === 'pr'
-              ? buildPrReviewPrompt(parsed.prNumber, parsed.focus)
-              : buildLocalReviewPrompt({ focus: parsed.focus })
-        const displayText = `/review${args.trim() ? ` ${args.trim()}` : ''}`
-        send.mutate({ subchatId, content, displayText })
+        if (parsed.kind === 'pr') {
+          sendMarked(
+            buildPrReviewPrompt(parsed.prNumber, parsed.focus),
+            buildReviewMarker({ kind: 'pr', prNumber: parsed.prNumber })
+          )
+        } else if (parsed.kind === 'changes') {
+          sendMarked(
+            buildLocalReviewPrompt({ baseBranch: baseBranch ?? undefined, focus: parsed.focus }),
+            buildReviewMarker({ kind: 'local' })
+          )
+        } else {
+          // Deliberately not a parseable review marker — listing PRs is not a
+          // review, so it must not trigger the follow-up bar.
+          sendMarked(buildPrListPrompt(), 'Review: list open PRs')
+        }
         return
       }
       case 'theme':
@@ -527,6 +562,14 @@ export function ChatView({
           open={goalOpen}
           onOpenChange={setGoalOpen}
         />
+        <ReviewPopover
+          cwd={projectRoot}
+          baseBranch={baseBranch}
+          running={state.running}
+          open={reviewOpen}
+          onOpenChange={setReviewOpen}
+          onReview={sendMarked}
+        />
         <ThreadsPopover subchatId={subchatId} open={threadsOpen} onOpenChange={setThreadsOpen} />
         <OmStatusPopover
           subchatId={subchatId}
@@ -660,6 +703,30 @@ export function ChatView({
               </Tip>
             </div>
           ))}
+        </div>
+      )}
+
+      {completedReview && completedReview.markerId !== dismissedReviewId && (
+        <div className="px-4">
+          <ReviewFollowupBar
+            target={completedReview.target}
+            cwd={projectRoot}
+            busy={busy}
+            onPostComments={(prNumber) =>
+              sendMarked(buildPrCommentsPrompt(prNumber), 'Review follow-up: post PR comments')
+            }
+            onBuildPlan={() => {
+              const go = (): void =>
+                sendMarked(buildPlanFromReviewPrompt(), 'Review follow-up: build a plan')
+              if (currentMode === 'plan') {
+                go()
+                return
+              }
+              setPendingMode('plan')
+              setMode.mutate({ subchatId, modeId: 'plan' }, { onSuccess: go })
+            }}
+            onDismiss={() => setDismissedReviewId(completedReview.markerId)}
+          />
         </div>
       )}
 

@@ -11,6 +11,8 @@ export type ThinkingLevel = 'off' | 'low' | 'medium' | 'high' | 'xhigh'
 export interface TextPart {
   type: 'text'
   text: string
+  /** Render as a compact muted transcript marker instead of a user bubble. */
+  marker?: boolean
 }
 
 export interface ReasoningPart {

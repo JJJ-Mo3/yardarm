@@ -240,7 +240,11 @@ export default function App(): React.JSX.Element {
                       </div>
                     )}
                     <div className="min-h-0 flex-1">
-                      <ChatView subchatId={subchatId} projectRoot={cwd} />
+                      <ChatView
+                        subchatId={subchatId}
+                        projectRoot={cwd}
+                        baseBranch={chat.data?.baseBranch ?? null}
+                      />
                     </div>
                   </>
                 ) : (

@@ -236,11 +236,15 @@ chat's worktree:
 - **Push**, **pull**, and **merge into base** — merge the `yardarm/…` branch
   back into the branch you started from, or use the `gh` CLI integration for
   PR flows if `gh` is installed.
-- **Agent review** — the magnifier button in the header (or `/review changes`
-  in the chat) asks the agent for a detailed review of the branch's local
-  changes before you merge. `/review <pr-number>` reviews a GitHub PR via
-  `gh`, and `/review` alone lists open PRs to pick from; add a focus after
-  either form (e.g. `/review 42 security`).
+- **Agent review** — the **review** button in the chat header opens a picker:
+  review the branch's local changes against its base, or pick a specific open
+  PR from the list (needs the `gh` CLI). A review doesn't post a user message
+  — the transcript just shows a compact "Review: …" marker line. When the
+  review finishes, a follow-up bar offers to **post the findings as PR
+  comments** or **build a plan to execute** them. The magnifier button on the
+  Changes tab and the `/review` command do the same thing: `/review changes`
+  reviews local changes, `/review <pr-number>` reviews a PR, `/review` alone
+  lists open PRs; add a focus after either form (e.g. `/review 42 security`).
 
 Nothing the agent does in a worktree touches your own checkout until you
 merge it.

@@ -12,8 +12,10 @@ import type { QueuedPromptInfo } from '../../../shared/ui-message'
 export interface QueuedPrompt {
   id: string
   text: string
-  /** Transcript text (e.g. `/review 42`) when `text` is an expanded prompt. */
+  /** Transcript text (e.g. `Review: PR #42`) when `text` is an expanded prompt. */
   displayText?: string
+  /** Render the transcript entry as a muted marker line instead of a user bubble. */
+  displayKind?: 'marker'
   files?: FileAttachment[]
   createdAt: number
 }
@@ -34,12 +36,14 @@ export class PromptQueue {
     subchatId: string,
     text: string,
     files?: FileAttachment[],
-    displayText?: string
+    displayText?: string,
+    displayKind?: 'marker'
   ): QueuedPrompt {
     const item: QueuedPrompt = {
       id: randomUUID(),
       text,
       displayText,
+      displayKind,
       files: files?.length ? files : undefined,
       createdAt: Date.now()
     }

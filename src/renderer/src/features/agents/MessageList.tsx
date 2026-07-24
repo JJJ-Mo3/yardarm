@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Brain, ChevronDown, ChevronRight, RotateCcw } from 'lucide-react'
+import { Brain, ChevronDown, ChevronRight, RotateCcw, ScanSearch } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { Tip } from '../../components/ui/tooltip'
 import { Markdown } from './Markdown'
@@ -162,6 +162,27 @@ const MessageItem = React.memo(function MessageItem({
 } & SuspensionProps): React.JSX.Element {
   if (message.role === 'user') {
     const text = message.parts.map((p) => (p.type === 'text' ? p.text : '')).join('')
+    // Marker sends (e.g. reviews) render as a compact muted line, not a bubble.
+    if (message.parts.some((p) => p.type === 'text' && p.marker)) {
+      return (
+        <div className="group flex items-center gap-1.5 py-0.5 text-[11px] text-muted-foreground">
+          <ScanSearch size={12} className="shrink-0" />
+          <span className="selectable truncate" title={text}>
+            {text}
+          </span>
+          {onRollback && message.checkpointRef && showRollback && (
+            <Tip content="Restore files and chat to just before this was sent">
+              <button
+                onClick={() => onRollback(message.id)}
+                className="flex items-center rounded-md border border-border bg-background p-0.5 text-muted-foreground shadow-sm opacity-0 group-hover:opacity-100 hover:text-foreground cursor-pointer"
+              >
+                <RotateCcw size={10} />
+              </button>
+            </Tip>
+          )}
+        </div>
+      )
+    }
     return (
       <div className="flex justify-end group">
         <div className="relative max-w-[85%] rounded-lg bg-accent border border-border px-3 py-2 selectable whitespace-pre-wrap text-[13px]">

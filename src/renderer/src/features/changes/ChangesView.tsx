@@ -24,7 +24,7 @@ import {
 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { mainTabAtom } from '../../lib/atoms'
-import { buildLocalReviewPrompt } from '../agents/review-prompts'
+import { buildLocalReviewPrompt, buildReviewMarker } from '../agents/review-prompts'
 import { cn, timeAgo } from '../../lib/utils'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -253,7 +253,8 @@ export function ChangesView({
                   sendReview.mutate({
                     subchatId: review.subchatId,
                     content: buildLocalReviewPrompt({ baseBranch: review.baseBranch }),
-                    displayText: '/review changes'
+                    displayText: buildReviewMarker({ kind: 'local' }),
+                    displayKind: 'marker'
                   })
                   setMainTab('chat')
                 }}

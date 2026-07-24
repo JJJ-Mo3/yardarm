@@ -65,8 +65,10 @@ export const agentRouter = router({
       z.object({
         subchatId: z.string(),
         content: z.string().min(1),
-        /** Transcript text (e.g. `/review 42`) when content is an expanded prompt. */
+        /** Transcript text (e.g. `Review: PR #42`) when content is an expanded prompt. */
         displayText: z.string().optional(),
+        /** Render the transcript entry as a muted marker line instead of a user bubble. */
+        displayKind: z.literal('marker').optional(),
         files: z
           .array(
             z.object({
@@ -86,7 +88,8 @@ export const agentRouter = router({
         input.subchatId,
         input.content,
         input.files,
-        input.displayText
+        input.displayText,
+        input.displayKind
       )
       return { ok: true }
     }),

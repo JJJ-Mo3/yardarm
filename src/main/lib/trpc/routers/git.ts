@@ -16,7 +16,7 @@ import {
   stageFiles,
   unstageFiles
 } from '../../git/ops'
-import { createPr, ghPath } from '../../git/gh'
+import { createPr, ghPath, listPrs, prForBranch } from '../../git/gh'
 import { publicProcedure, router } from '../trpc'
 
 const cwdInput = z.object({ cwd: z.string() })
@@ -79,6 +79,14 @@ export const gitRouter = router({
 
   /** Whether the GitHub CLI is installed (enables the Create PR flow). */
   ghAvailable: publicProcedure.query(async () => ({ available: (await ghPath()) !== null })),
+
+  /** Open PRs for the repo at cwd (feeds the review picker). */
+  listPrs: publicProcedure
+    .input(cwdInput.extend({ limit: z.number().int().positive().max(50).default(20) }))
+    .query(({ input }) => listPrs(input.cwd, input.limit)),
+
+  /** Open PR for the branch checked out at cwd, or null (gates review follow-ups). */
+  branchPr: publicProcedure.input(cwdInput).query(({ input }) => prForBranch(input.cwd)),
 
   createPr: publicProcedure
     .input(
