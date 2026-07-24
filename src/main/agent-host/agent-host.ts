@@ -257,6 +257,27 @@ async function main(): Promise<void> {
     ;(controller as unknown as { availableModelsCache?: unknown }).availableModelsCache = null
   }
 
+  /**
+   * Storage-backed Memory instance. mc.memory is usually a dynamic factory
+   * ({requestContext}) => Memory; it tolerates an empty context (all state
+   * reads are optional) and returns the storage-backed instance.
+   */
+  type MemoryLike = {
+    deleteMessages(ids: string[]): Promise<void>
+    saveMessages(args: { messages: unknown[] }): Promise<unknown>
+  }
+  const resolveMemory = (): MemoryLike => {
+    const memRaw = mc.memory as unknown
+    const mem =
+      typeof memRaw === 'function'
+        ? (memRaw as (args: { requestContext: { get(k: string): unknown } }) => MemoryLike)({
+            requestContext: { get: () => undefined }
+          })
+        : (memRaw as MemoryLike | undefined)
+    if (!mem) throw new Error('memory instance unavailable')
+    return mem
+  }
+
   /** Project session state onto the wire-safe SessionStateInfo shape. */
   const stateInfo = (): Record<string, unknown> => {
     const st = (session.state.get() ?? {}) as Record<string, unknown>
@@ -423,16 +444,11 @@ async function main(): Promise<void> {
             break
           case 'ideNote':
             await respond(cmd.reqId, async () => {
-              // Replicate Session.sendSignal's own active-branch condition
-              // (sdk 1.0.1) and call sendSignal in the same synchronous tick:
-              // if any of these are false the SDK falls to its idle path and
-              // *starts a new run* ('wake'), which an IDE note must never do.
+              // Gate order matters — the holds apply to BOTH delivery modes:
+              // persisting a row mid-suspension would interleave it between a
+              // suspended tool call and its result (providers reject that),
+              // and the active signal path has its own hazards (see below).
               const ds = session.displayState.get()
-              const running =
-                session.run.getRunId() !== null &&
-                session.stream.activeRunId() !== null &&
-                session.run.isRunning()
-              if (!running) return { delivered: false, reason: 'idle' }
               // sdk 1.0.1 parks signals sent while an abort is in flight
               // until the stream idles — where they'd fall to the idle path.
               // Hold the note back instead.
@@ -444,16 +460,68 @@ async function main(): Promise<void> {
               // A signal queued onto a suspended run can drain into a paid
               // follow-up run — hold back here too.
               if (ds.pendingSuspensions.size > 0) return { delivered: false, reason: 'suspension' }
-              // Bare contents: the SDK wraps signals in its own
-              // <system-reminder> markup and escapes nested tags.
-              const result = session.sendSignal({ type: 'system-reminder', contents: cmd.text })
-              await result.accepted
+              // Replicate Session.sendSignal's own active-branch condition
+              // (sdk 1.0.1) and call sendSignal in the same synchronous tick:
+              // if any of these are false the SDK falls to its idle path and
+              // *starts a new run* ('wake'), which an IDE note must never do.
+              const running =
+                session.run.getRunId() !== null &&
+                session.stream.activeRunId() !== null &&
+                session.run.isRunning()
+              if (running) {
+                // Bare contents: the SDK wraps signals in its own
+                // <system-reminder> markup and escapes nested tags.
+                const result = session.sendSignal({ type: 'system-reminder', contents: cmd.text })
+                await result.accepted
+                post({
+                  t: 'log',
+                  level: 'info',
+                  msg: `ide-note signalled mid-run (${cmd.text.length} chars)`
+                })
+                return { delivered: true, mode: 'mid-run' }
+              }
+              // Idle: persist the note directly into the thread's memory so
+              // the next run recalls it — never wake the session. The SDK's
+              // own idle affordances don't work here: 'wake' starts a run,
+              // and persisted 'system-reminder'/'reactive' signal rows are
+              // dropped from recall by filterSystemReminderMessages. A
+              // user-typed signal WITH an explicit tagName survives both
+              // normalization and the recall filter, and renders on the next
+              // run as <system-reminder type="ide-edit">…</system-reminder>.
+              // Persisting via memory.saveMessages (not the runtime's persist
+              // path) avoids synthetic stream frames that would look like a
+              // phantom run to the event translator.
+              const threadId = session.thread.getId()
+              // Fresh chat with no thread yet: don't create one for a note —
+              // the manager delivers it with the first prompt instead.
+              if (!threadId) return { delivered: false, reason: 'idle' }
+              const { signalToMastraDBMessage } = await runtimeImport<{
+                signalToMastraDBMessage: (
+                  signal: {
+                    type: string
+                    tagName: string
+                    attributes: Record<string, string>
+                    contents: string
+                  },
+                  args: { threadId: string; resourceId: string }
+                ) => unknown
+              }>('@mastra/core/agent')
+              const dbMessage = signalToMastraDBMessage(
+                {
+                  type: 'user',
+                  tagName: 'system-reminder',
+                  attributes: { type: 'ide-edit' },
+                  contents: cmd.text
+                },
+                { threadId, resourceId: session.identity.getResourceId() }
+              )
+              await resolveMemory().saveMessages({ messages: [dbMessage] })
               post({
                 t: 'log',
                 level: 'info',
-                msg: `ide-note signalled (${cmd.text.length} chars)`
+                msg: `ide-note persisted to thread (${cmd.text.length} chars)`
               })
-              return { delivered: true }
+              return { delivered: true, mode: 'persisted' }
             })
             break
           case 'setMode':
@@ -558,21 +626,7 @@ async function main(): Promise<void> {
               if (idx >= 0) {
                 const ids = msgs.slice(idx + 1).map((m) => m.id)
                 if (ids.length > 0) {
-                  // mc.memory is usually a dynamic factory ({requestContext})
-                  // => Memory; it tolerates an empty context (all state reads
-                  // are optional) and returns the storage-backed instance.
-                  type MemoryLike = { deleteMessages(ids: string[]): Promise<void> }
-                  const memRaw = mc.memory as unknown
-                  const mem =
-                    typeof memRaw === 'function'
-                      ? (
-                          memRaw as (args: {
-                            requestContext: { get(k: string): unknown }
-                          }) => MemoryLike
-                        )({ requestContext: { get: () => undefined } })
-                      : (memRaw as MemoryLike | undefined)
-                  if (!mem) throw new Error('memory instance unavailable')
-                  await mem.deleteMessages(ids)
+                  await resolveMemory().deleteMessages(ids)
                   deleted = ids.length
                 }
               }

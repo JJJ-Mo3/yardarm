@@ -534,6 +534,10 @@ export class AgentSessionManager {
             }
           })
           handle.readyResolve()
+          // Edits saved while no host was live (including pending_ide_edits
+          // persisted across an app restart) can be delivered now — the
+          // host's idle path writes them into the thread's memory.
+          if (this.hasPendingIdeEdits(subchatId)) this.scheduleIdeNoteDelivery(subchatId)
           break
         case 'boot-error':
           this.lastBootError = msg.error
@@ -782,18 +786,19 @@ export class AgentSessionManager {
   }
 
   /**
-   * Push pending IDE-edit notes onto the active run as a system-reminder
-   * signal. Only fires into a live, running host; the host itself is the
-   * authority on whether the signal is safe (its live displayState knows
-   * about parked approvals/suspensions — the translator's mirror must NOT be
-   * consulted here, because suspension entries deliberately outlive run end
-   * and would permanently gate delivery). Held/failed notes are re-added and
-   * retried when the gate resolves, or ride the next prompt's suffix.
+   * Deliver pending IDE-edit notes to a live host. The host is the sole
+   * authority on the delivery mode: mid-run it signals onto the active run,
+   * idle with a bound thread it persists the note into the thread's memory
+   * (never starting a run), and it holds the note back around parked
+   * approvals/suspensions/aborts (its live displayState knows — the
+   * translator's mirror must NOT be consulted here, because suspension
+   * entries deliberately outlive run end and would permanently gate
+   * delivery). Held/failed notes are re-added and retried when the gate
+   * resolves, or ride the next prompt's suffix (fresh chats with no thread).
    */
   private async deliverIdeEditsNow(subchatId: string): Promise<void> {
     const host = this.hosts.get(subchatId)
     if (!host || host.killed || host.status !== 'ready') return
-    if (!this.isRunning(subchatId)) return // idle → next-prompt suffix path
     const paths = this.drainIdeEdits(subchatId)
     if (paths.length === 0) return
     try {
@@ -803,7 +808,7 @@ export class AgentSessionManager {
         text: formatIdeEditNote(paths)
       })
       if (res.delivered) {
-        console.log(`[agent ${subchatId}] ide-note delivered mid-run: ${paths.join(', ')}`)
+        console.log(`[agent ${subchatId}] ide-note ${res.mode ?? 'delivered'}: ${paths.join(', ')}`)
         this.insertMarker(subchatId, `Told the agent about IDE edits: ${paths.join(', ')}`)
       } else {
         console.log(`[agent ${subchatId}] ide-note held (${res.reason ?? 'unknown'}), will retry`)

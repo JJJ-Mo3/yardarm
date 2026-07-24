@@ -286,12 +286,14 @@ down per thread.
 - **IDE** (`Cmd+4`) — a file tree + Monaco editor scoped to the worktree.
   Open multiple files as tabs and save with `⌘S`. Every save is tracked per
   project/worktree and survives app restarts: each chat working on that
-  root is told about your edit — immediately while its agent is working, or
-  with your next message when it's idle (edits saved during a permission
-  prompt are delivered right after you answer it). The transcript shows a
-  "Told the agent about IDE edits" line when that happens. Clean files the
-  agent changes refresh automatically, and saving over a file the agent
-  just changed prompts you to overwrite or reload.
+  root is told about your edit immediately — pushed into the run while its
+  agent is working, or written into the chat's memory while it's idle, no
+  message needed (edits saved during a permission prompt are delivered
+  right after you answer it). The transcript shows a "Told the agent about
+  IDE edits" line either way; brand-new chats with no messages yet get the
+  note alongside your first prompt. Clean files the agent changes refresh
+  automatically, and saving over a file the agent just changed prompts you
+  to overwrite or reload.
 - **CLI** (`Cmd+5`) — the interactive Mastra Code terminal UI, embedded,
   running in the same worktree and seeing the same threads as the chat.
   Handy for CLI-only commands (`/sandbox`, terminal voice mode, …). Avoid
