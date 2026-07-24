@@ -21,6 +21,7 @@ import {
   normalizeCustomProviderModels
 } from './custom-provider-models'
 import { readSettings } from '../mastra-config/settings-json'
+import { loadSubagentDefinitions } from '../mastra-config/agents-fs'
 import { MessageWriteBuffer } from './message-write-buffer'
 import { createUpsertThrottle } from './upsert-throttle'
 import type {
@@ -368,13 +369,18 @@ export class AgentSessionManager {
           (await readSettings()).customProviders ?? []
         )
       : undefined
+    // Custom subagents are read from the project root (where the Agents
+    // editor writes .mastracode/agents), not the worktree cwd — unlike
+    // custom commands, worktrees shouldn't fork the subagent roster.
+    const subagents = await loadSubagentDefinitions(project.path).catch(() => undefined)
     const boot: HostBootConfig = {
       cwd,
       threadId: subchat.mastraThreadId ?? undefined,
       mode: subchat.mode ?? undefined,
       modelId,
       thinkingLevel: subchat.thinkingLevel ?? undefined,
-      yolo: false
+      yolo: false,
+      subagents
     }
 
     const handle = this.spawnHost(subchatId, boot)

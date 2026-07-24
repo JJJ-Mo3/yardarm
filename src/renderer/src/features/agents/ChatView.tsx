@@ -361,7 +361,7 @@ export function ChatView({
         return
       }
       case 'subagents':
-        openSettings('models')
+        openProjectSettings('agents')
         return
       case 'sandbox':
         setSandboxOpen(true)

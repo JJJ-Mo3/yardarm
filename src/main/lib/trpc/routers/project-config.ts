@@ -1,7 +1,8 @@
 /**
  * Per-project .mastracode configuration: hooks.json, custom .md commands,
- * agent-instructions.md, database.json resourceId, and live plugin info.
- * (mcp.json is handled by the existing mcp router with projectPath.)
+ * custom subagents, agent-instructions.md, database.json resourceId, and
+ * live plugin info. (mcp.json is handled by the existing mcp router with
+ * projectPath.)
  */
 import { shell } from 'electron'
 import { z } from 'zod'
@@ -13,12 +14,40 @@ import {
   readCommandFile,
   writeCommandFile
 } from '../../mastra-config/commands-fs'
+import {
+  createAgentFile,
+  deleteAgentFile,
+  listAgentFiles,
+  readAgentFile,
+  writeAgentFile
+} from '../../mastra-config/agents-fs'
 import { readDatabaseJson, writeResourceId } from '../../mastra-config/database-json'
 import { readInstructions, writeInstructions } from '../../mastra-config/agent-instructions'
 import { HOOK_EVENTS, readHooksJson, writeHooksJson } from '../../mastra-config/hooks-json'
 import { publicProcedure, router } from '../trpc'
 
 const scopeInput = z.object({ projectPath: z.string().optional() })
+
+const agentScopeInput = z.object({
+  scope: z.enum(['global', 'project']),
+  projectPath: z.string().optional()
+})
+
+/** Project scope requires a path; global scope ignores it. */
+function agentScopePath(input: z.infer<typeof agentScopeInput>): string | undefined {
+  if (input.scope === 'global') return undefined
+  if (!input.projectPath) throw new Error('projectPath is required for project-scoped agents')
+  return input.projectPath
+}
+
+/** Editor saves/deletes take effect at host boot — restart the affected hosts. */
+function restartForAgentScope(input: z.infer<typeof agentScopeInput>): void {
+  if (input.scope === 'project' && input.projectPath) {
+    agentSessionManager.restartByProject(input.projectPath)
+  } else {
+    agentSessionManager.restartAll()
+  }
+}
 
 export const projectConfigRouter = router({
   // ---- hooks.json --------------------------------------------------------
@@ -91,6 +120,57 @@ export const projectConfigRouter = router({
     .input(z.object({ projectPath: z.string().optional(), relPath: z.string().min(1) }))
     .mutation(async ({ input }) => {
       await deleteCommandFile(input.projectPath, input.relPath)
+      return { ok: true }
+    }),
+
+  // ---- custom subagents (.mastracode/agents/*.md) --------------------------
+  agentsList: publicProcedure.input(agentScopeInput).query(async ({ input }) => {
+    return listAgentFiles(agentScopePath(input))
+  }),
+
+  agentRead: publicProcedure
+    .input(agentScopeInput.extend({ id: z.string().min(1) }))
+    .query(async ({ input }) => {
+      return readAgentFile(agentScopePath(input), input.id)
+    }),
+
+  agentWrite: publicProcedure
+    .input(
+      agentScopeInput.extend({
+        id: z.string().min(1),
+        name: z.string().min(1),
+        description: z.string().min(1),
+        instructions: z.string(),
+        model: z.string().optional(),
+        maxSteps: z.number().int().positive().optional(),
+        forked: z.boolean().optional()
+      })
+    )
+    .mutation(async ({ input }) => {
+      await writeAgentFile(agentScopePath(input), input.id, {
+        name: input.name,
+        description: input.description,
+        instructions: input.instructions,
+        model: input.model,
+        maxSteps: input.maxSteps,
+        forked: input.forked
+      })
+      restartForAgentScope(input)
+      return { ok: true }
+    }),
+
+  agentCreate: publicProcedure
+    .input(agentScopeInput.extend({ id: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      // No restart: the template isn't useful until the user saves real fields.
+      return createAgentFile(agentScopePath(input), input.id)
+    }),
+
+  agentDelete: publicProcedure
+    .input(agentScopeInput.extend({ id: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      await deleteAgentFile(agentScopePath(input), input.id)
+      restartForAgentScope(input)
       return { ok: true }
     }),
 

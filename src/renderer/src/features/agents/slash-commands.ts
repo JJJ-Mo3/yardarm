@@ -39,7 +39,7 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
   { name: 'resource', description: 'Show/set the memory resource id', kind: 'builtin' },
   { name: 'skills', description: 'List installed skills & plugins', kind: 'builtin' },
   { name: 'skill', description: 'Run a skill', args: '<name> [args]', kind: 'builtin' },
-  { name: 'subagents', description: 'Manage subagents', kind: 'builtin' },
+  { name: 'subagents', description: 'Manage custom subagents', kind: 'builtin' },
   { name: 'sandbox', description: 'Sandbox & session settings', kind: 'builtin' },
   {
     name: 'goal',

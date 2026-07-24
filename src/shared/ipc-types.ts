@@ -346,6 +346,21 @@ export interface PermissionsSnapshot {
   grantedTools: string[]
 }
 
+/**
+ * A custom subagent definition (from .mastracode/agents/*.md), passed to the
+ * SDK so the main agent can delegate tasks to it via the `subagent` tool.
+ */
+export interface SubagentDefinition {
+  id: string
+  name: string
+  description: string
+  instructions: string
+  defaultModelId?: string
+  maxSteps?: number
+  /** Forked subagents inherit the parent conversation; instructions/model are ignored. */
+  forked?: boolean
+}
+
 /** Passed to the host via the YARDARM_BOOT env var (JSON). */
 export interface HostBootConfig {
   cwd: string
@@ -354,6 +369,8 @@ export interface HostBootConfig {
   modelId?: string
   yolo?: boolean
   thinkingLevel?: string
+  /** Custom subagent definitions (global + project .mastracode/agents). */
+  subagents?: SubagentDefinition[]
   /**
    * Packaged builds only: absolute path to the vendored mastracode runtime
    * (Resources/agent-runtime). The host imports mastracode/@mastra/code-sdk

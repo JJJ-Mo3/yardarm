@@ -223,9 +223,14 @@ async function main(): Promise<void> {
 
   let mc: Awaited<ReturnType<typeof sdk.createMastraCode>>
   try {
+    // NOTE: sdk 1.0.1 ships no built-in subagents, so passing our custom
+    // definitions REPLACES nothing — but revisit at the next runtime bump in
+    // case the SDK grows defaults that a plain array would clobber.
+    type SdkSubagents = NonNullable<Parameters<typeof sdk.createMastraCode>[0]>['subagents']
     mc = await sdk.createMastraCode({
       cwd: boot.cwd,
-      initialState: Object.keys(initialState).length ? (initialState as never) : undefined
+      initialState: Object.keys(initialState).length ? (initialState as never) : undefined,
+      subagents: boot.subagents?.length ? (boot.subagents as SdkSubagents) : undefined
     })
   } catch (err) {
     post({

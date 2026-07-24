@@ -417,6 +417,12 @@ single project:
 - **MCP servers** (`.mastracode/mcp.json`)
 - **Lifecycle hooks** (`.mastracode/hooks.json`, appended after global hooks)
 - **Custom slash commands** (`.mastracode/commands/**/*.md`)
+- **Custom subagents** (`.mastracode/agents/*.md`, or `~/.mastracode/agents/`
+  for every project) — helpers the main agent can delegate tasks to via the
+  `subagent` tool (`/subagents` opens this tab). Each file has a frontmatter
+  block (`name`, `description` — required, `model`, `maxSteps`, `forked`) and
+  the body is the subagent's instructions. Saving restarts the affected agent
+  processes; the ids `explore`, `plan`, `execute` and `general` are reserved.
 - **Agent instructions** (`.mastracode/agent-instructions.md`) — standing
   guidance the agent reads on every run
 - **Memory resource id** (`.mastracode/database.json`)
