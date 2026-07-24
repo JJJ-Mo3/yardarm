@@ -4,7 +4,7 @@ import {
   Archive,
   ArchiveRestore,
   ChevronRight,
-  FolderCog,
+  Folder,
   FolderGit2,
   Loader2,
   MessageSquarePlus,
@@ -216,9 +216,19 @@ export function Sidebar(): React.JSX.Element {
               size="icon"
               variant="ghost"
               disabled={!projectId}
+              className="group"
               onClick={() => setProjectSettingsOpen(true)}
             >
-              <FolderCog size={14} />
+              {/* FolderCog's built-in gear is too small to read at this size, so
+                  composite a folder with a larger gear overlapping its corner. The
+                  gear's background knocks out the folder lines behind it. */}
+              <span className="relative inline-flex">
+                <Folder size={15} />
+                <Settings
+                  size={10}
+                  className="absolute -right-1 -bottom-1 rounded-full bg-card group-hover:bg-accent"
+                />
+              </span>
             </Button>
           </span>
         </Tip>
