@@ -22,11 +22,11 @@ through installation, first-run setup, and every part of the app.
 
 ## Install
 
-**Latest release: [v0.7.0](https://github.com/JJJ-Mo3/yardarm/releases/tag/v0.7.0)**
+**Latest release: [v0.7.1](https://github.com/JJJ-Mo3/yardarm/releases/tag/v0.7.1)**
 (macOS, Apple Silicon) —
-[Yardarm-0.7.0-arm64.dmg](https://github.com/JJJ-Mo3/yardarm/releases/download/v0.7.0/Yardarm-0.7.0-arm64.dmg)
+[Yardarm-0.7.1-arm64.dmg](https://github.com/JJJ-Mo3/yardarm/releases/download/v0.7.1/Yardarm-0.7.1-arm64.dmg)
 ·
-[Yardarm-0.7.0-arm64.zip](https://github.com/JJJ-Mo3/yardarm/releases/download/v0.7.0/Yardarm-0.7.0-arm64.zip)
+[Yardarm-0.7.1-arm64.zip](https://github.com/JJJ-Mo3/yardarm/releases/download/v0.7.1/Yardarm-0.7.1-arm64.zip)
 
 All versions and their binaries are on the
 [Releases page](https://github.com/JJJ-Mo3/yardarm/releases).
