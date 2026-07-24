@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
+import { rm } from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import { BrowserWindow, dialog } from 'electron'
 import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm'
@@ -14,6 +16,7 @@ import {
   isGitRepo,
   removeWorktree
 } from '../../git/worktree'
+import { isSafeToDeleteDir } from '../../system/safe-delete-dir'
 import { ptyManager } from '../../terminal/pty-manager'
 import { publicProcedure, router } from '../trpc'
 
@@ -43,6 +46,7 @@ async function insertProject(projectPath: string): Promise<typeof schema.project
     path: projectPath,
     defaultBranch: await detectDefaultBranch(projectPath),
     settings: null,
+    archived: false,
     createdAt: Date.now(),
     updatedAt: Date.now()
   }
@@ -104,74 +108,108 @@ export const projectsRouter = router({
    * Remove a project and everything attached to it: agent hosts, terminals,
    * chat worktrees, and pinned checkpoint refs. DB rows cascade via FKs.
    * Filesystem/git cleanup is best-effort — the folder may already be gone.
+   * With deleteFiles the project folder itself is also deleted from disk.
    */
-  remove: publicProcedure.input(z.object({ id: z.string() })).mutation(async ({ input }) => {
-    const db = getDb()
-    const project = db.select().from(schema.projects).where(eq(schema.projects.id, input.id)).get()
-    if (!project) return { ok: true }
+  remove: publicProcedure
+    .input(z.object({ id: z.string(), deleteFiles: z.boolean().optional() }))
+    .mutation(async ({ input }) => {
+      const db = getDb()
+      const project = db
+        .select()
+        .from(schema.projects)
+        .where(eq(schema.projects.id, input.id))
+        .get()
+      if (!project) return { ok: true }
 
-    const chats = db.select().from(schema.chats).where(eq(schema.chats.projectId, project.id)).all()
-    const subchats =
-      chats.length > 0
-        ? db
-            .select()
-            .from(schema.subchats)
-            .where(
-              inArray(
-                schema.subchats.chatId,
-                chats.map((c) => c.id)
-              )
-            )
-            .all()
-        : []
-    // Wait for the host processes to actually exit so none is mid-write in a
-    // worktree when the worktrees are removed below.
-    await Promise.all(
-      subchats.map(async (sc) => {
-        await agentSessionManager.stopHostAndWait(sc.id)
-        agentSessionManager.clearIdeEdits(sc.id)
-      })
-    )
-
-    if (subchats.length > 0) {
-      const refs = db
-        .select({ checkpointRef: schema.messages.checkpointRef })
-        .from(schema.messages)
-        .where(
-          and(
-            inArray(
-              schema.messages.subchatId,
-              subchats.map((sc) => sc.id)
-            ),
-            isNotNull(schema.messages.checkpointRef)
-          )
-        )
+      const chats = db
+        .select()
+        .from(schema.chats)
+        .where(eq(schema.chats.projectId, project.id))
         .all()
-      const stashShas = refs
-        .map((r) => (r.checkpointRef ? checkpointStashSha(r.checkpointRef) : null))
-        .filter((sha): sha is string => sha !== null)
-      try {
-        await deleteCheckpointRefs(project.path, stashShas)
-      } catch {
-        // Repo may have been deleted from disk; removal must still succeed.
-      }
-    }
+      const subchats =
+        chats.length > 0
+          ? db
+              .select()
+              .from(schema.subchats)
+              .where(
+                inArray(
+                  schema.subchats.chatId,
+                  chats.map((c) => c.id)
+                )
+              )
+              .all()
+          : []
+      // Wait for the host processes to actually exit so none is mid-write in a
+      // worktree when the worktrees are removed below.
+      await Promise.all(
+        subchats.map(async (sc) => {
+          await agentSessionManager.stopHostAndWait(sc.id)
+          agentSessionManager.clearIdeEdits(sc.id)
+        })
+      )
 
-    // Kills project-root terminals and (by prefix) any worktree terminals.
-    ptyManager.killByCwdPrefix(project.path)
-    for (const chat of chats) {
-      if (!chat.worktreePath) continue
-      ptyManager.killByCwdPrefix(chat.worktreePath)
-      try {
-        await removeWorktree(project.path, chat.worktreePath, chat.branch ?? undefined)
-      } catch {
-        // Best-effort: don't block project removal on a broken worktree.
+      if (subchats.length > 0) {
+        const refs = db
+          .select({ checkpointRef: schema.messages.checkpointRef })
+          .from(schema.messages)
+          .where(
+            and(
+              inArray(
+                schema.messages.subchatId,
+                subchats.map((sc) => sc.id)
+              ),
+              isNotNull(schema.messages.checkpointRef)
+            )
+          )
+          .all()
+        const stashShas = refs
+          .map((r) => (r.checkpointRef ? checkpointStashSha(r.checkpointRef) : null))
+          .filter((sha): sha is string => sha !== null)
+        try {
+          await deleteCheckpointRefs(project.path, stashShas)
+        } catch {
+          // Repo may have been deleted from disk; removal must still succeed.
+        }
       }
-    }
 
-    db.delete(schema.projects).where(eq(schema.projects.id, project.id)).run()
-    return { ok: true }
-  }),
+      // Kills project-root terminals and (by prefix) any worktree terminals.
+      ptyManager.killByCwdPrefix(project.path)
+      for (const chat of chats) {
+        if (!chat.worktreePath) continue
+        ptyManager.killByCwdPrefix(chat.worktreePath)
+        try {
+          await removeWorktree(project.path, chat.worktreePath, chat.branch ?? undefined)
+        } catch {
+          // Best-effort: don't block project removal on a broken worktree.
+        }
+      }
+
+      // Opt-in folder deletion, last: the checkpoint-ref and worktree cleanup
+      // above run git against project.path and need the repo present.
+      if (input.deleteFiles) {
+        if (!isSafeToDeleteDir(project.path, os.homedir())) {
+          throw new Error(`Refusing to delete unsafe path: ${project.path}`)
+        }
+        // Deliberately NOT best-effort: on failure the project row is kept so
+        // the user sees the error and can retry. A failed rm may leave a
+        // partially deleted folder behind.
+        await rm(project.path, { recursive: true, force: true })
+      }
+
+      db.delete(schema.projects).where(eq(schema.projects.id, project.id)).run()
+      return { ok: true }
+    }),
+
+  setArchived: publicProcedure
+    .input(z.object({ id: z.string(), archived: z.boolean() }))
+    .mutation(({ input }) => {
+      getDb()
+        .update(schema.projects)
+        .set({ archived: input.archived, updatedAt: Date.now() })
+        .where(eq(schema.projects.id, input.id))
+        .run()
+      return { ok: true }
+    }),
 
   rename: publicProcedure
     .input(z.object({ id: z.string(), name: z.string().min(1) }))

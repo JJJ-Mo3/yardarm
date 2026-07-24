@@ -135,6 +135,8 @@ export function Sidebar(): React.JSX.Element {
 
   const selectChat = useSelectChat()
 
+  const activeProjects = (projects.data ?? []).filter((p) => !p.archived)
+  const archivedProjects = (projects.data ?? []).filter((p) => p.archived)
   const activeChats = (chats.data ?? []).filter((c) => !c.archived)
   const archivedChats = (chats.data ?? []).filter((c) => c.archived)
 
@@ -189,11 +191,23 @@ export function Sidebar(): React.JSX.Element {
             </SelectTrigger>
           </Tip>
           <SelectContent>
-            {(projects.data ?? []).map((p) => (
+            {activeProjects.map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.name}
               </SelectItem>
             ))}
+            {archivedProjects.length > 0 && (
+              <>
+                <div className="px-2 pt-1.5 pb-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Archived
+                </div>
+                {archivedProjects.map((p) => (
+                  <SelectItem key={p.id} value={p.id} className="text-muted-foreground">
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </>
+            )}
           </SelectContent>
         </Select>
         <Tip content="Project settings — MCP servers, commands, instructions, plugins">

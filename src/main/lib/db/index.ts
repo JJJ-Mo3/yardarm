@@ -69,7 +69,9 @@ const MIGRATIONS: string[] = [
   // v2 — one-time note (e.g. rollback) delivered with the next message send
   `ALTER TABLE subchats ADD COLUMN pending_note TEXT;`,
   // v3 — pending IDE-edit paths (JSON array) awaiting delivery to the agent
-  `ALTER TABLE subchats ADD COLUMN pending_ide_edits TEXT;`
+  `ALTER TABLE subchats ADD COLUMN pending_ide_edits TEXT;`,
+  // v4 — project archiving (hidden from the picker's active list, restorable)
+  `ALTER TABLE projects ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;`
 ]
 
 export function initDb(): DB {

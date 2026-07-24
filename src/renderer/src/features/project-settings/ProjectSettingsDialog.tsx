@@ -36,11 +36,13 @@ import { useConfirm } from '../../components/ConfirmDialog'
 function GeneralTab({
   projectId,
   projectName,
-  projectPath
+  projectPath,
+  projectArchived
 }: {
   projectId: string
   projectName: string | null
   projectPath: string
+  projectArchived: boolean
 }): React.JSX.Element {
   const utils = trpc.useUtils()
   const setOpen = useSetAtom(projectSettingsOpenAtom)
@@ -49,14 +51,31 @@ function GeneralTab({
   const setSubchatId = useSetAtom(selectedSubchatIdAtom)
   const confirmDialog = useConfirm()
   const [name, setName] = useState(projectName ?? '')
+  const [deleteFiles, setDeleteFiles] = useState(false)
 
   // The dialog is shared across projects — resync when the target changes.
   useEffect(() => {
     setName(projectName ?? '')
   }, [projectName])
+  useEffect(() => {
+    setDeleteFiles(false)
+  }, [projectId])
 
   const rename = trpc.projects.rename.useMutation({
     onSuccess: () => utils.projects.list.invalidate()
+  })
+  const setArchived = trpc.projects.setArchived.useMutation({
+    onSuccess: (_res, vars) => {
+      utils.projects.list.invalidate()
+      if (vars.archived) {
+        // Same exit path as remove: the project leaves the picker's active
+        // list, so deselect it and close the dialog.
+        setSelectedProjectId(null)
+        setChatId(null)
+        setSubchatId(null)
+        setOpen(false)
+      }
+    }
   })
   const remove = trpc.projects.remove.useMutation({
     onSuccess: () => {
@@ -105,13 +124,63 @@ function GeneralTab({
         <div className="font-mono text-[11px] text-muted-foreground selectable">{projectPath}</div>
       </div>
 
+      <div className="space-y-2 rounded-md border border-border p-3">
+        <div className="text-xs font-medium">Archive</div>
+        <div className="text-[11px] text-muted-foreground">
+          Archiving hides this project from the active project list without touching anything on
+          disk. It stays available under &ldquo;Archived&rdquo; in the project picker.
+        </div>
+        <Tip
+          content={
+            projectArchived
+              ? 'Restore this project to the active project list'
+              : 'Hide this project in the picker’s Archived group — nothing is deleted'
+          }
+        >
+          <span className="inline-flex">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={setArchived.isPending}
+              onClick={() => setArchived.mutate({ id: projectId, archived: !projectArchived })}
+            >
+              {setArchived.isPending
+                ? 'Saving…'
+                : projectArchived
+                  ? 'Unarchive project'
+                  : 'Archive project'}
+            </Button>
+          </span>
+        </Tip>
+        {setArchived.error && (
+          <div className="text-xs text-destructive selectable">{setArchived.error.message}</div>
+        )}
+      </div>
+
       <div className="space-y-2 rounded-md border border-destructive/40 p-3">
         <div className="text-xs font-medium text-destructive">Danger zone</div>
         <div className="text-[11px] text-muted-foreground">
           Removing the project deletes all its chats and their git worktrees, and stops any running
-          agents and terminals. The project folder itself is not deleted.
+          agents and terminals.
         </div>
-        <Tip content="Remove this project from Yardarm — deletes its chats and worktrees, keeps the folder on disk">
+        <Tip content="Danger — permanently deletes the folder and everything in it from your disk, not just from Yardarm">
+          <label className="flex w-fit cursor-pointer items-center gap-2 text-[11px] text-muted-foreground">
+            <input
+              type="checkbox"
+              className="accent-destructive"
+              checked={deleteFiles}
+              onChange={(e) => setDeleteFiles(e.target.checked)}
+            />
+            Also permanently delete the project folder from disk
+          </label>
+        </Tip>
+        <Tip
+          content={
+            deleteFiles
+              ? 'Remove this project and permanently delete its folder from disk'
+              : 'Remove this project from Yardarm — deletes its chats and worktrees, keeps the folder on disk'
+          }
+        >
           <span className="inline-flex">
             <Button
               size="sm"
@@ -120,10 +189,12 @@ function GeneralTab({
               onClick={() => {
                 void confirmDialog({
                   title: 'Remove project?',
-                  description: `"${projectName ?? projectPath}" will be removed from Yardarm along with all its chats and worktrees. The folder on disk is kept.`,
-                  confirmLabel: 'Remove project'
+                  description: deleteFiles
+                    ? `"${projectName ?? projectPath}" will be removed from Yardarm and its folder will be PERMANENTLY deleted from disk: ${projectPath}`
+                    : `"${projectName ?? projectPath}" will be removed from Yardarm along with all its chats and worktrees. The folder on disk is kept.`,
+                  confirmLabel: deleteFiles ? 'Remove and delete folder' : 'Remove project'
                 }).then((ok) => {
-                  if (ok) remove.mutate({ id: projectId })
+                  if (ok) remove.mutate({ id: projectId, deleteFiles })
                 })
               }}
             >
@@ -796,11 +867,13 @@ export function ProjectSettingsDialog({
   projectId,
   projectPath,
   projectName,
+  projectArchived,
   subchatId
 }: {
   projectId: string | null
   projectPath: string | null
   projectName: string | null
+  projectArchived: boolean
   subchatId: string | null
 }): React.JSX.Element {
   const [open, setOpen] = useAtom(projectSettingsOpenAtom)
@@ -816,7 +889,7 @@ export function ProjectSettingsDialog({
       id: 'general',
       label: 'General',
       icon: <Settings2 size={13} />,
-      tip: 'Rename or remove this project'
+      tip: 'Rename, archive, or remove this project'
     },
     {
       id: 'mcp',
@@ -886,6 +959,7 @@ export function ProjectSettingsDialog({
                   projectId={projectId}
                   projectName={projectName}
                   projectPath={projectPath}
+                  projectArchived={projectArchived}
                 />
               )}
               {tab === 'mcp' && <McpTab projectPath={projectPath} />}

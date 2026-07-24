@@ -309,6 +309,7 @@ export default function App(): React.JSX.Element {
         projectId={project?.id ?? null}
         projectPath={project?.path ?? null}
         projectName={project?.name ?? null}
+        projectArchived={project?.archived ?? false}
         subchatId={subchatId}
       />
     </div>

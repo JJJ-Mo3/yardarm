@@ -8,6 +8,7 @@ export const projects = sqliteTable(
     path: text('path').notNull(),
     defaultBranch: text('default_branch'),
     settings: text('settings'),
+    archived: integer('archived', { mode: 'boolean' }).notNull().default(false),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull()
   },
