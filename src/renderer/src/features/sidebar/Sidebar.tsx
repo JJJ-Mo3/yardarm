@@ -226,7 +226,7 @@ export function Sidebar(): React.JSX.Element {
                 <Folder size={15} />
                 <Settings
                   size={10}
-                  className="absolute -right-1 -bottom-1 rounded-full bg-card group-hover:bg-accent"
+                  className="absolute -right-0.5 -bottom-0.5 rounded-full bg-card group-hover:bg-accent"
                 />
               </span>
             </Button>
