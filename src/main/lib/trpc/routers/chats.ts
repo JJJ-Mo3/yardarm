@@ -128,16 +128,20 @@ export const chatsRouter = router({
       .where(eq(schema.projects.id, chat.projectId))
       .get()
 
-    // Stop hosts + terminals rooted in the worktree, then clean up.
+    // Stop hosts + terminals rooted in the worktree, then clean up. Wait for
+    // the processes to actually exit so none is mid-write in the worktree
+    // when it is removed below (same discipline as rollback).
     const subchats = db
       .select()
       .from(schema.subchats)
       .where(eq(schema.subchats.chatId, chat.id))
       .all()
-    for (const sc of subchats) {
-      agentSessionManager.stopHost(sc.id)
-      agentSessionManager.clearIdeEdits(sc.id)
-    }
+    await Promise.all(
+      subchats.map(async (sc) => {
+        await agentSessionManager.stopHostAndWait(sc.id)
+        agentSessionManager.clearIdeEdits(sc.id)
+      })
+    )
 
     // Unpin checkpoint stash commits so the repo doesn't grow unboundedly.
     // Refs live in the main repo's git dir (shared with its worktrees).

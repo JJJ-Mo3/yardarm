@@ -124,10 +124,14 @@ export const projectsRouter = router({
             )
             .all()
         : []
-    for (const sc of subchats) {
-      agentSessionManager.stopHost(sc.id)
-      agentSessionManager.clearIdeEdits(sc.id)
-    }
+    // Wait for the host processes to actually exit so none is mid-write in a
+    // worktree when the worktrees are removed below.
+    await Promise.all(
+      subchats.map(async (sc) => {
+        await agentSessionManager.stopHostAndWait(sc.id)
+        agentSessionManager.clearIdeEdits(sc.id)
+      })
+    )
 
     if (subchats.length > 0) {
       const refs = db
