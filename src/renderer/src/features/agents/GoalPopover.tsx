@@ -174,7 +174,7 @@ export function GoalPopover({
           </button>
         </PopoverTrigger>
       </Tip>
-      <PopoverContent align="start" className="w-80">
+      <PopoverContent align="end" className="w-80">
         <div className="mb-1.5 text-xs font-medium">Goal</div>
         {goal.isLoading && <div className="text-[11px] text-muted-foreground">Loading…</div>}
         {goal.error && (
