@@ -394,6 +394,11 @@ the same configuration.
 Click the **gear** next to the project name in the sidebar to configure a
 single project:
 
+- **General** — rename, archive, or remove the project. Archived projects move
+  to an "Archived" group at the bottom of the project picker, from where they
+  can be reopened and unarchived. Removing a project deletes its chats and
+  worktrees but keeps the project folder on disk unless you tick the option to
+  delete it too.
 - **MCP servers** (`.mastracode/mcp.json`)
 - **Lifecycle hooks** (`.mastracode/hooks.json`, appended after global hooks)
 - **Custom slash commands** (`.mastracode/commands/**/*.md`)
