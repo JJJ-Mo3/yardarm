@@ -314,6 +314,12 @@ shows every chat in the project as a card in one of four live columns:
 The same states appear as dots on chat rows in the sidebar: amber = waiting
 for you, spinner = working, blue = finished and unseen.
 
+When a chat is finished but you want to keep it around, hover its sidebar
+row and click the **archive** icon: the chat disappears from the list and
+the board without deleting its worktree or history. Archived chats collapse
+into an **Archived** section at the bottom of the sidebar, where they can be
+restored or deleted.
+
 ## Voice dictation
 
 Yardarm can transcribe your voice straight into the composer using a cloud

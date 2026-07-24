@@ -1,6 +1,9 @@
 import React, { useState } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
+  Archive,
+  ArchiveRestore,
+  ChevronRight,
   FolderCog,
   FolderGit2,
   Loader2,
@@ -98,6 +101,7 @@ export function Sidebar(): React.JSX.Element {
   const [useWorktree, setUseWorktree] = useState(true)
   const [renameTarget, setRenameTarget] = useState<{ id: string; title: string } | null>(null)
   const [renameTitle, setRenameTitle] = useState('')
+  const [archivedOpen, setArchivedOpen] = useState(false)
   const chatStatuses = useAtomValue(chatStatusesAtom)
   const unseenChats = useAtomValue(unseenChatsAtom)
   const confirmDialog = useConfirm()
@@ -118,6 +122,9 @@ export function Sidebar(): React.JSX.Element {
   const deleteChat = trpc.chats.delete.useMutation({
     onSuccess: () => utils.chats.list.invalidate()
   })
+  const setArchived = trpc.chats.setArchived.useMutation({
+    onSuccess: () => utils.chats.list.invalidate()
+  })
   const renameChat = trpc.chats.rename.useMutation({
     onSuccess: (_res, vars) => {
       utils.chats.list.invalidate()
@@ -127,6 +134,25 @@ export function Sidebar(): React.JSX.Element {
   })
 
   const selectChat = useSelectChat()
+
+  const activeChats = (chats.data ?? []).filter((c) => !c.archived)
+  const archivedChats = (chats.data ?? []).filter((c) => c.archived)
+
+  /** Confirm, deselect if needed, then delete — shared by active and archived rows. */
+  const confirmDeleteChat = (c: { id: string; title: string }): void => {
+    void confirmDialog({
+      title: 'Delete chat?',
+      description: `"${c.title}" and its worktree will be permanently deleted.`,
+      confirmLabel: 'Delete'
+    }).then((ok) => {
+      if (!ok) return
+      if (chatId === c.id) {
+        setChatId(null)
+        setSubchatId(null)
+      }
+      deleteChat.mutate({ id: c.id })
+    })
+  }
 
   return (
     <div className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-card">
@@ -206,73 +232,141 @@ export function Sidebar(): React.JSX.Element {
         </Tip>
       </div>
       <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
-        {(chats.data ?? [])
-          .filter((c) => !c.archived)
-          .map((c) => (
-            <div
-              key={c.id}
-              onClick={() => selectChat(c.id)}
-              className={cn(
-                'group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5',
-                chatId === c.id ? 'bg-accent' : 'hover:bg-accent/50'
-              )}
-            >
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px]">{c.title}</div>
-                <div className="truncate text-[10px] text-muted-foreground font-mono">
-                  {c.branch ?? 'no worktree'} · {timeAgo(c.updatedAt)}
-                </div>
+        {activeChats.map((c) => (
+          <div
+            key={c.id}
+            onClick={() => selectChat(c.id)}
+            className={cn(
+              'group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5',
+              chatId === c.id ? 'bg-accent' : 'hover:bg-accent/50'
+            )}
+          >
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[13px]">{c.title}</div>
+              <div className="truncate text-[10px] text-muted-foreground font-mono">
+                {c.branch ?? 'no worktree'} · {timeAgo(c.updatedAt)}
               </div>
-              <ChatStatusIndicator
-                running={chatStatuses.get(c.id)?.running ?? false}
-                awaiting={chatStatuses.get(c.id)?.awaiting ?? false}
-                unseen={unseenChats.has(c.id)}
-              />
-              <Tip content="Rename this chat">
-                <button
-                  className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    renameChat.reset() // don't show a stale error from a previous attempt
-                    setRenameTitle(c.title)
-                    setRenameTarget({ id: c.id, title: c.title })
-                  }}
-                >
-                  <Pencil size={12} />
-                </button>
-              </Tip>
-              <Tip content="Delete this chat and its worktree">
-                <button
-                  className="hidden group-hover:block text-muted-foreground hover:text-destructive cursor-pointer"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    void confirmDialog({
-                      title: 'Delete chat?',
-                      description: `"${c.title}" and its worktree will be permanently deleted.`,
-                      confirmLabel: 'Delete'
-                    }).then((ok) => {
-                      if (!ok) return
-                      if (chatId === c.id) {
-                        setChatId(null)
-                        setSubchatId(null)
-                      }
-                      deleteChat.mutate({ id: c.id })
-                    })
-                  }}
-                >
-                  <Trash2 size={12} />
-                </button>
-              </Tip>
             </div>
-          ))}
-        {projectId && (chats.data ?? []).filter((c) => !c.archived).length === 0 && (
+            <ChatStatusIndicator
+              running={chatStatuses.get(c.id)?.running ?? false}
+              awaiting={chatStatuses.get(c.id)?.awaiting ?? false}
+              unseen={unseenChats.has(c.id)}
+            />
+            <Tip content="Rename this chat">
+              <button
+                className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  renameChat.reset() // don't show a stale error from a previous attempt
+                  setRenameTitle(c.title)
+                  setRenameTarget({ id: c.id, title: c.title })
+                }}
+              >
+                <Pencil size={12} />
+              </button>
+            </Tip>
+            <Tip content="Archive this chat — hides it from the list and board without deleting anything">
+              <button
+                className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (chatId === c.id) {
+                    setChatId(null)
+                    setSubchatId(null)
+                  }
+                  setArchived.mutate({ id: c.id, archived: true })
+                }}
+              >
+                <Archive size={12} />
+              </button>
+            </Tip>
+            <Tip content="Delete this chat and its worktree">
+              <button
+                className="hidden group-hover:block text-muted-foreground hover:text-destructive cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  confirmDeleteChat(c)
+                }}
+              >
+                <Trash2 size={12} />
+              </button>
+            </Tip>
+          </div>
+        ))}
+        {projectId && activeChats.length === 0 && (
           <div className="px-2 py-4 text-center text-[11px] text-muted-foreground">
             No chats yet
+          </div>
+        )}
+        {archivedChats.length > 0 && (
+          <div className="pt-2">
+            <Tip content={archivedOpen ? 'Hide archived chats' : 'Show archived chats'}>
+              <button
+                className="flex w-full cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground hover:bg-accent/50"
+                onClick={() => setArchivedOpen((o) => !o)}
+              >
+                <ChevronRight
+                  size={12}
+                  className={cn('transition-transform', archivedOpen && 'rotate-90')}
+                />
+                Archived ({archivedChats.length})
+              </button>
+            </Tip>
+            {archivedOpen &&
+              archivedChats.map((c) => (
+                <div
+                  key={c.id}
+                  onClick={() => selectChat(c.id)}
+                  className={cn(
+                    'group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 opacity-70',
+                    chatId === c.id ? 'bg-accent' : 'hover:bg-accent/50'
+                  )}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[13px]">{c.title}</div>
+                    <div className="truncate text-[10px] text-muted-foreground font-mono">
+                      {c.branch ?? 'no worktree'} · {timeAgo(c.updatedAt)}
+                    </div>
+                  </div>
+                  <ChatStatusIndicator
+                    running={chatStatuses.get(c.id)?.running ?? false}
+                    awaiting={chatStatuses.get(c.id)?.awaiting ?? false}
+                    unseen={unseenChats.has(c.id)}
+                  />
+                  <Tip content="Restore this chat to the chat list">
+                    <button
+                      className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setArchived.mutate({ id: c.id, archived: false })
+                      }}
+                    >
+                      <ArchiveRestore size={12} />
+                    </button>
+                  </Tip>
+                  <Tip content="Delete this chat and its worktree">
+                    <button
+                      className="hidden group-hover:block text-muted-foreground hover:text-destructive cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        confirmDeleteChat(c)
+                      }}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </Tip>
+                </div>
+              ))}
           </div>
         )}
         {deleteChat.error && (
           <div className="px-2 py-1 text-[11px] text-destructive selectable">
             Delete failed: {deleteChat.error.message}
+          </div>
+        )}
+        {setArchived.error && (
+          <div className="px-2 py-1 text-[11px] text-destructive selectable">
+            Archive failed: {setArchived.error.message}
           </div>
         )}
       </div>
