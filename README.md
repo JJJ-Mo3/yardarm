@@ -20,12 +20,67 @@ click away (Settings → About).
 New here? The **[Getting Started guide](docs/getting-started.md)** walks
 through installation, first-run setup, and every part of the app.
 
+## Install
+
+**Latest release: [v0.6.0](https://github.com/JJJ-Mo3/yardarm/releases/tag/v0.6.0)**
+(macOS, Apple Silicon) —
+[Yardarm-0.6.0-arm64.dmg](https://github.com/JJJ-Mo3/yardarm/releases/download/v0.6.0/Yardarm-0.6.0-arm64.dmg)
+·
+[Yardarm-0.6.0-arm64.zip](https://github.com/JJJ-Mo3/yardarm/releases/download/v0.6.0/Yardarm-0.6.0-arm64.zip)
+
+All versions and their binaries are on the
+[Releases page](https://github.com/JJJ-Mo3/yardarm/releases).
+
+### Download a release (macOS, Apple Silicon)
+
+Install the dmg (or drag `Yardarm.app` from the zip into `/Applications`),
+then see [Unsigned builds on macOS](#unsigned-builds-on-macos) for the first
+launch. Release builds can update themselves from Settings → About.
+
+### From source (all platforms)
+
+Requirements: [Node](https://nodejs.org) 22+, [pnpm](https://pnpm.io) 10,
+and git.
+
+```sh
+git clone https://github.com/JJJ-Mo3/yardarm.git
+cd yardarm
+pnpm install
+pnpm dist        # installers into dist/ (dmg/zip, nsis, AppImage/deb)
+# or
+pnpm package     # unpacked app bundle, e.g. dist/mac-arm64/Yardarm.app
+```
+
+Targets: macOS (arm64 + x64), Windows (x64), Linux (AppImage + deb).
+
+On macOS, drag `Yardarm.app` into `/Applications` (or install the dmg).
+
+### Unsigned builds on macOS
+
+Local builds are not code-signed or notarized, so Gatekeeper will refuse a
+double-click launch of a downloaded copy ("Yardarm is damaged" / "cannot be
+opened"). Either right-click → Open → Open, or clear the quarantine flag:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Yardarm.app
+```
+
+Apps you build yourself on the same machine are not quarantined and open
+normally.
+
+### Run in dev mode
+
+```sh
+pnpm install
+pnpm dev
+```
+
 ## Contents
 
+- [Install](#install)
 - [Why Mastra Code](#why-mastra-code)
 - [What Yardarm adds](#what-yardarm-adds)
 - [Features](#features)
-- [Install](#install)
 - [First run](#first-run)
 - [Using the app](#using-the-app)
 - [Configuration paths](#configuration-paths-shared-with-the-mastracode-cli)
@@ -71,6 +126,9 @@ Yardarm puts a desktop workspace around the agent:
 - **Review and ship in one place** — side-by-side Monaco diffs of exactly
   what the agent changed, staging, commit, and push (with `gh` for PR
   flows), plus a real terminal and a light IDE scoped to the chat's worktree.
+  A **review** button in the chat header has the agent code-review the
+  chat's changes or any open PR, with one-click follow-ups to post the
+  findings as PR comments or turn them into a plan.
 - **Persistent, organized history** — projects and chats with full
   transcripts survive restarts in a local SQLite database.
 - **Everything visible at a glance** — a color-coded mode selector, tool
@@ -102,9 +160,17 @@ Yardarm puts a desktop workspace around the agent:
   per-mode model selection, an extended-thinking toggle, and yolo mode
 - Session permissions panel (`/permissions`): per-category and per-tool
   allow / ask / deny
-- Goals (`/goal`) with a live goal banner and a header popover to set,
-  pause/resume, or clear the goal and tune the judge model and run limit —
-  no slash command needed
+- Goals (`/goal`) with a live goal banner and a color-coded header chip
+  (blue active, amber paused, green done) whose popover sets, pauses/resumes,
+  or clears the goal and tunes the judge model and run limit — setting a
+  goal can kick off a run toward it immediately
+- Agent code review from the **review** button in the header: review the
+  chat's local changes against their base branch, or pick any open PR from
+  a `gh`-powered list, optionally with a focus. Reviews run silently — the
+  transcript shows a compact "Review: …" marker line instead of a user
+  message — and finish with follow-up actions: post the findings as PR
+  comments, or switch to Plan mode and build a plan to execute them
+  (`/review` does the same from the keyboard)
 - Observational Memory status (`/om`) showing observer/reflector activity
   and token budgets
 - Threads (`/threads`): switch, rename, clone, delete, open in a new subchat,
@@ -120,8 +186,9 @@ Yardarm puts a desktop workspace around the agent:
 **Slash commands**
 
 - Autocomplete for the full command surface from code.mastra.ai — mode and
-  model switches, threads, `/mcp`, `/hooks`, `/commands`, `/skills`,
-  `/resource`, `/login`, `/api-keys`, `/diff`, `/help`, and more
+  model switches, threads, `/goal`, `/review`, `/subagents`, `/mcp`,
+  `/hooks`, `/commands`, `/skills`, `/resource`, `/login`, `/api-keys`,
+  `/diff`, `/help`, and more
 - Project and global custom commands (`.md` files with frontmatter) are
   loaded through the mastracode command loader and run as prompts
 - Commands that only make sense in a terminal (e.g. `/sandbox`, `/voice`)
@@ -155,6 +222,10 @@ Yardarm puts a desktop workspace around the agent:
   sharing the chat's thread history
 - Kanban board of every chat in the project (needs input / in progress /
   ready to review / idle), with matching activity dots on sidebar chat rows
+- Archive chats and projects to declutter the sidebar without deleting
+  history or worktrees — archived items collapse into an "Archived" group
+  and can be restored anytime; removing a project can optionally delete its
+  folder on disk
 - In-app updates from GitHub Releases (Settings → About), with optional
   automatic staging and a restart-to-finish banner on macOS
 
@@ -171,58 +242,14 @@ Yardarm puts a desktop workspace around the agent:
 **Per-project configuration**
 
 - Project Settings dialog (gear in the sidebar): MCP servers, lifecycle
-  hooks, custom commands, agent instructions, memory `resourceId`, and
-  installed skills/plugins
+  hooks, custom commands, custom subagents, agent instructions, memory
+  `resourceId`, and installed skills/plugins
+- Custom subagents editor (`/subagents`): create and edit the `.md` agent
+  definitions (frontmatter `name`/`description`/`model`/`tools` + an
+  instructions body) that the agent can delegate to via the `subagent`
+  tool, per project or globally
 - Edits are atomic, preserve unknown keys, and restart affected agent
   processes so they take effect immediately
-
-## Install
-
-### Download a release (macOS, Apple Silicon)
-
-Pre-built dmg/zip bundles are on the
-[Releases page](https://github.com/JJJ-Mo3/yardarm/releases). Install the
-dmg (or drag `Yardarm.app` into `/Applications`), then see
-[Unsigned builds on macOS](#unsigned-builds-on-macos) for the first launch.
-Release builds can update themselves from Settings → About.
-
-### From source (all platforms)
-
-Requirements: [Node](https://nodejs.org) 22+, [pnpm](https://pnpm.io) 10,
-and git.
-
-```sh
-git clone https://github.com/JJJ-Mo3/yardarm.git
-cd yardarm
-pnpm install
-pnpm dist        # installers into dist/ (dmg/zip, nsis, AppImage/deb)
-# or
-pnpm package     # unpacked app bundle, e.g. dist/mac-arm64/Yardarm.app
-```
-
-Targets: macOS (arm64 + x64), Windows (x64), Linux (AppImage + deb).
-
-On macOS, drag `Yardarm.app` into `/Applications` (or install the dmg).
-
-### Unsigned builds on macOS
-
-Local builds are not code-signed or notarized, so Gatekeeper will refuse a
-double-click launch of a downloaded copy ("Yardarm is damaged" / "cannot be
-opened"). Either right-click → Open → Open, or clear the quarantine flag:
-
-```sh
-xattr -dr com.apple.quarantine /Applications/Yardarm.app
-```
-
-Apps you build yourself on the same machine are not quarantined and open
-normally.
-
-### Run in dev mode
-
-```sh
-pnpm install
-pnpm dev
-```
 
 ## First run
 
@@ -286,6 +313,27 @@ restored.
 
 **Changes.** The Changes tab shows worktree diffs with staging, commit, and
 push (uses the `gh` CLI when available for PR flows).
+
+**Review.** The **review** button in the chat header (next to the goal chip)
+asks the agent for a thorough code review — of the chat's local changes
+against their base branch, or of any open PR picked from a `gh`-powered
+list, with an optional focus. The review runs without posting a user
+message (the transcript shows a compact "Review: …" marker line), and when
+it finishes a follow-up bar offers to post the findings as comments on the
+PR or to switch to Plan mode and turn them into an implementation plan.
+`/review changes`, `/review <pr-number>`, and `/review` (list open PRs) do
+the same from the keyboard.
+
+**Goals.** Click the **goal** chip (or `/goal`) to give the agent an
+objective; a judge model evaluates each run and the agent keeps going until
+the goal is met. Setting a goal can start a run immediately, and the chip
+stays color-coded with the goal's status (blue active, amber paused, green
+done).
+
+**Archiving.** Hover a chat row and click the archive icon to tuck finished
+chats into an "Archived" section at the bottom of the sidebar — history and
+worktrees are kept. Projects can be archived or removed (optionally
+deleting the folder) from Project Settings → General.
 
 **Terminal & IDE.** The Terminal tab is a real shell in the chat's
 worktree; the IDE tab is a file tree + Monaco editor over the same

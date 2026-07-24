@@ -38,8 +38,12 @@ shorter overview, see the [README](../README.md).
 ### Download a release (macOS, Apple Silicon)
 
 Grab the latest `.dmg` (or `.zip`) from the
-[Releases page](https://github.com/JJJ-Mo3/yardarm/releases) and drag
-`Yardarm.app` into `/Applications`.
+[Releases page](https://github.com/JJJ-Mo3/yardarm/releases) — currently
+[v0.6.0](https://github.com/JJJ-Mo3/yardarm/releases/tag/v0.6.0)
+([dmg](https://github.com/JJJ-Mo3/yardarm/releases/download/v0.6.0/Yardarm-0.6.0-arm64.dmg)
+·
+[zip](https://github.com/JJJ-Mo3/yardarm/releases/download/v0.6.0/Yardarm-0.6.0-arm64.zip))
+— and drag `Yardarm.app` into `/Applications`.
 
 Release builds are not code-signed, so macOS Gatekeeper will refuse a plain
 double-click the first time ("Yardarm is damaged" or "cannot be opened").
@@ -160,6 +164,8 @@ A few notes on worktrees:
   chip is color-coded once a goal is set: blue while active, amber when
   paused, green when done. See
   [Goals](#goals-let-the-agent-run-to-completion).
+- **review** chip — have the agent code-review this chat's changes or an
+  open PR. See [Agent code review](#agent-code-review).
 - **Threads** (`Cmd+P`) — switch, rename, clone, or delete conversation
   threads. See [Threads and subchats](#threads-and-subchats).
 
@@ -176,6 +182,10 @@ A few notes on worktrees:
 - **Task checklist** — when the agent breaks work into tasks, a collapsible
   "Tasks n/m" strip appears under the header showing live progress. It hides
   itself when everything is done.
+- **Marker lines** — actions triggered from buttons (like reviews) don't
+  post a user bubble; the transcript shows a compact muted one-liner
+  (e.g. "Review: PR #42 — fix auth") instead. Hover it to roll back, like
+  any message.
 
 ### The composer
 
@@ -236,18 +246,41 @@ chat's worktree:
 - **Push**, **pull**, and **merge into base** — merge the `yardarm/…` branch
   back into the branch you started from, or use the `gh` CLI integration for
   PR flows if `gh` is installed.
-- **Agent review** — the **review** button in the chat header opens a picker:
-  review the branch's local changes against its base, or pick a specific open
-  PR from the list (needs the `gh` CLI). A review doesn't post a user message
-  — the transcript just shows a compact "Review: …" marker line. When the
-  review finishes, a follow-up bar offers to **post the findings as PR
-  comments** or **build a plan to execute** them. The magnifier button on the
-  Changes tab and the `/review` command do the same thing: `/review changes`
-  reviews local changes, `/review <pr-number>` reviews a PR, `/review` alone
-  lists open PRs; add a focus after either form (e.g. `/review 42 security`).
+- **Agent review** — the magnifier button asks the chat's agent to review
+  the branch's local changes. See [Agent code review](#agent-code-review).
 
 Nothing the agent does in a worktree touches your own checkout until you
 merge it.
+
+### Agent code review
+
+Click the **review** button in the chat header (next to the goal chip) to
+open the review picker:
+
+- **Review local changes** — reviews the branch's committed work against
+  its base branch, plus anything uncommitted.
+- **Open PRs** — pick any open pull request from the list to review it
+  (requires the [GitHub CLI](https://cli.github.com), `gh`).
+- The optional **focus** field steers the review toward a specific concern
+  ("error handling", "security", a file name, …).
+
+Reviews run silently: no user message is posted — the transcript just shows
+a compact "Review: local changes" or "Review: PR #42 — …" marker line
+(hover it to roll back, like any message). If a run is already active, the
+review queues behind it.
+
+When the review finishes, a follow-up bar appears above the composer:
+
+- **Post review as PR comments** — the agent posts its findings on the PR
+  with `gh` (comment only — it never approves or requests changes). Offered
+  after PR reviews, and after local reviews when the branch has an open PR.
+- **Build a plan to execute** — switches to Plan mode and turns the
+  findings into a prioritized implementation plan for approval.
+
+The same review can be started from the magnifier button on the Changes tab
+or from the keyboard: `/review changes` (local), `/review <pr-number>` (a
+PR), `/review` alone (list open PRs to pick from); append a focus to either
+form, e.g. `/review 42 security`.
 
 ## Checkpoints and rollback
 
