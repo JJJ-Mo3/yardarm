@@ -910,17 +910,22 @@ export class AgentSessionManager {
    * main process is authoritative here so a stale `running` in the renderer
    * can't misroute a prompt.
    */
-  async sendOrQueue(subchatId: string, content: string, files?: FileAttachment[]): Promise<void> {
+  async sendOrQueue(
+    subchatId: string,
+    content: string,
+    files?: FileAttachment[],
+    displayText?: string
+  ): Promise<void> {
     const busy =
       this.isRunning(subchatId) ||
       this.awaitingRunStart.has(subchatId) ||
       this.promptQueue.size(subchatId) > 0
     if (!busy) {
       const checkpointRef = await this.captureSendCheckpoint(subchatId)
-      await this.sendMessage(subchatId, content, checkpointRef, undefined, files)
+      await this.sendMessage(subchatId, content, checkpointRef, displayText, files)
       return
     }
-    this.promptQueue.enqueue(subchatId, content, files)
+    this.promptQueue.enqueue(subchatId, content, files, displayText)
     this.emitQueuedPrompts(subchatId)
     // Idle kick: if the queue was stranded (host crash, failed flush), this
     // enqueue is the moment it resumes — head first, order preserved.
@@ -955,7 +960,7 @@ export class AgentSessionManager {
     // interleaves with the event currently being processed.
     void (async () => {
       const checkpointRef = await this.captureSendCheckpoint(subchatId)
-      await this.sendMessage(subchatId, item.text, checkpointRef, undefined, item.files)
+      await this.sendMessage(subchatId, item.text, checkpointRef, item.displayText, item.files)
     })().catch((err: unknown) => {
       this.awaitingRunStart.delete(subchatId)
       this.promptQueue.unshift(subchatId, item)

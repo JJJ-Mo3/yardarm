@@ -1,10 +1,12 @@
 /**
  * Changes tab: working-tree status with stage/unstage/discard, staged or
- * stage-all commits, push/pull, branch switching, PR creation, a commit
- * history pane (per-commit files + diffs), and merging the chat's worktree
- * branch into the base branch at the project root.
+ * stage-all commits, push/pull, branch switching, PR creation, an
+ * agent-review shortcut for the local changes, a commit history pane
+ * (per-commit files + diffs), and merging the chat's worktree branch into
+ * the base branch at the project root.
  */
 import React, { useMemo, useState } from 'react'
+import { useSetAtom } from 'jotai'
 import { DiffModeEnum, DiffView } from '@git-diff-view/react'
 import { generateDiffFile } from '@git-diff-view/file'
 import {
@@ -16,10 +18,13 @@ import {
   Minus,
   Plus,
   RefreshCw,
+  ScanSearch,
   Undo2,
   Upload
 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
+import { mainTabAtom } from '../../lib/atoms'
+import { buildLocalReviewPrompt } from '../agents/review-prompts'
 import { cn, timeAgo } from '../../lib/utils'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -112,13 +117,18 @@ export interface MergeTarget {
 
 export function ChangesView({
   cwd,
-  merge = null
+  merge = null,
+  review = null
 }: {
   cwd: string
   merge?: MergeTarget | null
+  /** When set, shows a button that asks this subchat's agent to review the local changes. */
+  review?: { subchatId: string; baseBranch?: string } | null
 }): React.JSX.Element {
   const utils = trpc.useUtils()
   const confirmDialog = useConfirm()
+  const setMainTab = useSetAtom(mainTabAtom)
+  const sendReview = trpc.agent.send.useMutation()
   const status = trpc.git.status.useQuery({ cwd }, { refetchInterval: 4000 })
   const branches = trpc.git.branches.useQuery({ cwd }, { staleTime: 10_000 })
   const ghAvailable = trpc.git.ghAvailable.useQuery(undefined, { staleTime: Infinity })
@@ -231,6 +241,24 @@ export function ChangesView({
                 }}
               >
                 <GitPullRequestArrow size={12} />
+              </Button>
+            </Tip>
+          )}
+          {review && (
+            <Tip content="Ask the agent to review the local changes on this branch">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => {
+                  sendReview.mutate({
+                    subchatId: review.subchatId,
+                    content: buildLocalReviewPrompt({ baseBranch: review.baseBranch }),
+                    displayText: '/review changes'
+                  })
+                  setMainTab('chat')
+                }}
+              >
+                <ScanSearch size={12} />
               </Button>
             </Tip>
           )}

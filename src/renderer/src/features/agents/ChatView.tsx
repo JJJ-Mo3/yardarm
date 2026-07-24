@@ -42,6 +42,12 @@ import { GoalPopover } from './GoalPopover'
 import { OmStatusPopover } from './OmStatusPopover'
 import { ModeSelector } from './ModeSelector'
 import { useSlashCommands, type SlashCommandEntry } from './slash-commands'
+import {
+  buildLocalReviewPrompt,
+  buildPrListPrompt,
+  buildPrReviewPrompt,
+  parseReviewArgs
+} from './review-prompts'
 import { MODES, type Mode } from '../../../../shared/ui-message'
 
 const THINKING = ['off', 'low', 'medium', 'high', 'xhigh'] as const
@@ -293,6 +299,19 @@ export function ChatView({
       case 'diff':
         setMainTab('changes')
         return
+      case 'review': {
+        const parsed = parseReviewArgs(args)
+        if (parsed.kind === 'invalid') return 'Usage: /review [<pr-number>|changes] [focus]'
+        const content =
+          parsed.kind === 'list'
+            ? buildPrListPrompt()
+            : parsed.kind === 'pr'
+              ? buildPrReviewPrompt(parsed.prNumber, parsed.focus)
+              : buildLocalReviewPrompt({ focus: parsed.focus })
+        const displayText = `/review${args.trim() ? ` ${args.trim()}` : ''}`
+        send.mutate({ subchatId, content, displayText })
+        return
+      }
       case 'theme':
       case 'settings':
         openSettings('appearance')

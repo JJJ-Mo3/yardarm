@@ -236,6 +236,11 @@ chat's worktree:
 - **Push**, **pull**, and **merge into base** — merge the `yardarm/…` branch
   back into the branch you started from, or use the `gh` CLI integration for
   PR flows if `gh` is installed.
+- **Agent review** — the magnifier button in the header (or `/review changes`
+  in the chat) asks the agent for a detailed review of the branch's local
+  changes before you merge. `/review <pr-number>` reviews a GitHub PR via
+  `gh`, and `/review` alone lists open PRs to pick from; add a focus after
+  either form (e.g. `/review 42 security`).
 
 Nothing the agent does in a worktree touches your own checkout until you
 merge it.
@@ -370,6 +375,7 @@ command surface plus app commands. Highlights:
 | `/om`                     | Observational Memory status        |
 | `/cost`                   | token usage per thread             |
 | `/diff`                   | show working-tree changes          |
+| `/review`                 | review a PR or the local changes   |
 | `/help`                   | the full list                      |
 
 You can define your own commands as plain Markdown files:

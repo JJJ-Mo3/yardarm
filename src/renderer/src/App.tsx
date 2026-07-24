@@ -273,6 +273,11 @@ export default function App(): React.JSX.Element {
                           }
                         : null
                     }
+                    review={
+                      subchatId
+                        ? { subchatId, baseBranch: chat.data?.baseBranch ?? undefined }
+                        : null
+                    }
                   />
                 ) : (
                   <SelectProjectPane />

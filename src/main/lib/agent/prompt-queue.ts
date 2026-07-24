@@ -12,6 +12,8 @@ import type { QueuedPromptInfo } from '../../../shared/ui-message'
 export interface QueuedPrompt {
   id: string
   text: string
+  /** Transcript text (e.g. `/review 42`) when `text` is an expanded prompt. */
+  displayText?: string
   files?: FileAttachment[]
   createdAt: number
 }
@@ -28,10 +30,16 @@ export class PromptQueue {
     return items
   }
 
-  enqueue(subchatId: string, text: string, files?: FileAttachment[]): QueuedPrompt {
+  enqueue(
+    subchatId: string,
+    text: string,
+    files?: FileAttachment[],
+    displayText?: string
+  ): QueuedPrompt {
     const item: QueuedPrompt = {
       id: randomUUID(),
       text,
+      displayText,
       files: files?.length ? files : undefined,
       createdAt: Date.now()
     }
@@ -67,7 +75,7 @@ export class PromptQueue {
   list(subchatId: string): QueuedPromptInfo[] {
     return (this.queues.get(subchatId) ?? []).map((i) => ({
       id: i.id,
-      text: i.text,
+      text: i.displayText ?? i.text,
       fileCount: i.files?.length ?? 0,
       createdAt: i.createdAt
     }))

@@ -55,6 +55,12 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
   { name: 'clone', description: 'Clone the current thread', kind: 'builtin' },
   { name: 'cost', description: 'Show token usage', kind: 'builtin' },
   { name: 'diff', description: 'Open the Changes view', kind: 'builtin' },
+  {
+    name: 'review',
+    description: 'Review a PR or the local changes',
+    args: '[<pr-number>|changes] [focus]',
+    kind: 'builtin'
+  },
   { name: 'theme', description: 'Open appearance settings', kind: 'builtin' },
   { name: 'settings', description: 'Open settings', kind: 'builtin' },
   { name: 'mcp', description: 'Configure MCP servers', kind: 'builtin' },
@@ -71,7 +77,6 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
  */
 export const CLI_ONLY_COMMANDS: SlashCommandEntry[] = [
   { name: 'thread:tag-dir', description: 'Tag threads by directory', kind: 'cli-only' },
-  { name: 'review', description: 'Code review workflow', kind: 'cli-only' },
   { name: 'github', description: 'GitHub integration', kind: 'cli-only' },
   { name: 'observability', description: 'Observability integration', kind: 'cli-only' },
   {

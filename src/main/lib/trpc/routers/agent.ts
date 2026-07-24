@@ -65,6 +65,8 @@ export const agentRouter = router({
       z.object({
         subchatId: z.string(),
         content: z.string().min(1),
+        /** Transcript text (e.g. `/review 42`) when content is an expanded prompt. */
+        displayText: z.string().optional(),
         files: z
           .array(
             z.object({
@@ -80,7 +82,12 @@ export const agentRouter = router({
       // Queues behind an active run (dismissable, flushed FIFO on run end);
       // sends immediately when idle. Checkpoint capture happens at send time
       // inside the manager.
-      await agentSessionManager.sendOrQueue(input.subchatId, input.content, input.files)
+      await agentSessionManager.sendOrQueue(
+        input.subchatId,
+        input.content,
+        input.files,
+        input.displayText
+      )
       return { ok: true }
     }),
 
