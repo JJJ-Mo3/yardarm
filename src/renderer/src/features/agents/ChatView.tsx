@@ -482,6 +482,13 @@ export function ChatView({
           </label>
         </Tip>
 
+        <GoalPopover
+          subchatId={subchatId}
+          live={state.goal}
+          open={goalOpen}
+          onOpenChange={setGoalOpen}
+        />
+
         <div className="flex-1" />
 
         {state.approvals.length + state.suspensions.length > 0 && (
@@ -502,12 +509,6 @@ export function ChatView({
           </Tip>
         )}
         <ThreadsPopover subchatId={subchatId} open={threadsOpen} onOpenChange={setThreadsOpen} />
-        <GoalPopover
-          subchatId={subchatId}
-          live={state.goal}
-          open={goalOpen}
-          onOpenChange={setGoalOpen}
-        />
         <OmStatusPopover
           subchatId={subchatId}
           omEvents={state.omEvents}

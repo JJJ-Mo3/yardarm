@@ -156,8 +156,10 @@ A few notes on worktrees:
   Higher levels are slower but better on hard problems.
 - **auto-approve** — the "yolo" switch. On, the agent runs tools and edits
   files without asking; off, you approve each sensitive action.
-- **Goal** (target icon) — set an objective the agent works toward across
-  runs. See [Goals](#goals-let-the-agent-run-to-completion).
+- **goal** chip — set an objective the agent works toward across runs. The
+  chip is color-coded once a goal is set: blue while active, amber when
+  paused, green when done. See
+  [Goals](#goals-let-the-agent-run-to-completion).
 - **Threads** (`Cmd+P`) — switch, rename, clone, or delete conversation
   threads. See [Threads and subchats](#threads-and-subchats).
 
@@ -255,7 +257,7 @@ back). Confirming will:
 
 ## Goals: let the agent run to completion
 
-For bigger objectives, click the **target icon** in the header (or use
+For bigger objectives, click the **goal** chip in the header (or use
 `/goal`) and describe the outcome you want. The agent keeps working across
 runs until an independent **judge model** agrees the goal is met — not just
 until the agent claims it is.

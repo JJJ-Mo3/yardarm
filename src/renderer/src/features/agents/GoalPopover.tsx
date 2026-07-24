@@ -19,6 +19,13 @@ const STATUS_STYLES: Record<string, string> = {
   done: 'text-green-500'
 }
 
+/** Color-coded trigger-chip fills, matching the ModeSelector's active pattern. */
+const STATUS_CHIP: Record<string, string> = {
+  active: 'border-blue-500/40 bg-blue-500/15 text-blue-400 hover:bg-blue-500/25',
+  paused: 'border-amber-500/40 bg-amber-500/15 text-amber-500 hover:bg-amber-500/25',
+  done: 'border-green-500/40 bg-green-500/15 text-green-500 hover:bg-green-500/25'
+}
+
 /** Mirrors @mastra/core DEFAULT_GOAL_MAX_RUNS — applied when no limit is set anywhere. */
 const SDK_DEFAULT_MAX_RUNS = 50
 
@@ -156,16 +163,18 @@ export function GoalPopover({
         <PopoverTrigger asChild>
           <button
             className={cn(
-              'flex items-center gap-1 text-[10px] cursor-pointer',
-              g ? STATUS_STYLES[g.status] : 'text-muted-foreground hover:text-foreground'
+              'flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] cursor-pointer',
+              g
+                ? STATUS_CHIP[g.status]
+                : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
             )}
           >
             <Target size={11} />
-            goal
+            {g ? `goal: ${g.status}` : 'goal'}
           </button>
         </PopoverTrigger>
       </Tip>
-      <PopoverContent align="end" className="w-80">
+      <PopoverContent align="start" className="w-80">
         <div className="mb-1.5 text-xs font-medium">Goal</div>
         {goal.isLoading && <div className="text-[11px] text-muted-foreground">Loading…</div>}
         {goal.error && (
