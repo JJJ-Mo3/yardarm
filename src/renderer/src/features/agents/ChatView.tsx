@@ -179,6 +179,8 @@ export function ChatView({
   const [threadsOpen, setThreadsOpen] = useAtom(threadsOpenAtom)
   const [permissionsOpen, setPermissionsOpen] = useState(false)
   const [sandboxOpen, setSandboxOpen] = useState(false)
+  // On failure the switch reverts (fail-visible meta) — open the dialog so the error is seen.
+  const setSandbox = trpc.agent.setSandbox.useMutation({ onError: () => setSandboxOpen(true) })
   const [omOpen, setOmOpen] = useState(false)
   const [goalOpen, setGoalOpen] = useState(false)
   const [reviewOpen, setReviewOpen] = useState(false)
@@ -536,12 +538,40 @@ export function ChatView({
           </label>
         </Tip>
 
+        <Tip
+          content={
+            meta.isolationAvailable === false
+              ? 'OS-level sandboxing is only supported on macOS (built-in seatbelt) and Linux (needs the bwrap package)'
+              : meta.fullSandbox
+                ? 'Full sandbox active — configure network and allowed paths via the shield or /sandbox'
+                : "Run this chat's shell commands in an OS-level sandbox — writes contained to the worktree and allowed paths"
+          }
+          side="bottom"
+        >
+          <span className="inline-flex">
+            <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground ml-1">
+              <Switch
+                checked={meta.fullSandbox ?? false}
+                disabled={setSandbox.isPending || meta.isolationAvailable === false}
+                onCheckedChange={(enabled) =>
+                  setSandbox.mutate({
+                    subchatId,
+                    enabled,
+                    allowNetwork: meta.sandboxNetwork ?? true
+                  })
+                }
+              />
+              sandbox
+            </label>
+          </span>
+        </Tip>
+
         {meta.fullSandbox && (
           <Tip
             content={
               meta.sandboxNetwork === false
-                ? 'Full sandbox active — shell commands are OS-isolated and network access is blocked. Click to configure.'
-                : 'Full sandbox active — shell command writes are contained to this chat (network allowed). Click to configure.'
+                ? 'Sandbox is active and network access is blocked — click to configure network access and allowed paths'
+                : 'Sandbox is active — click to configure network access and allowed paths'
             }
             side="bottom"
           >
@@ -550,7 +580,7 @@ export function ChatView({
               onClick={() => setSandboxOpen(true)}
             >
               <ShieldCheck size={11} />
-              sandbox{meta.sandboxNetwork === false ? ' · no net' : ''}
+              {meta.sandboxNetwork === false && 'no net'}
             </button>
           </Tip>
         )}

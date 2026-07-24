@@ -160,10 +160,11 @@ Yardarm puts a desktop workspace around the agent:
   per-mode model selection, an extended-thinking toggle, and yolo mode
 - Session permissions panel (`/permissions`): per-category and per-tool
   allow / ask / deny
-- Full sandbox mode (`/sandbox`): run the agent's shell commands inside an
-  OS-level sandbox (macOS seatbelt / Linux bubblewrap) — writes contained to
-  the worktree and allowed paths, optional network block, a per-chat toggle
-  with a header shield chip, and a global default for new chats
+- Full sandbox mode: run the agent's shell commands inside an OS-level
+  sandbox (macOS seatbelt / Linux bubblewrap) — writes contained to the
+  worktree and allowed paths, optional network block, a per-chat header
+  toggle next to auto-approve (configure via the shield chip or `/sandbox`),
+  and a global default for new chats
 - Goals (`/goal`) with a live goal banner and a color-coded header chip
   (blue active, amber paused, green done) whose popover sets, pauses/resumes,
   or clears the goal and tunes the judge model and run limit — setting a

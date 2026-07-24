@@ -160,6 +160,10 @@ A few notes on worktrees:
   Higher levels are slower but better on hard problems.
 - **auto-approve** — the "yolo" switch. On, the agent runs tools and edits
   files without asking; off, you approve each sensitive action.
+- **sandbox** — run this chat's shell commands inside an OS-level sandbox.
+  While it's on, a green shield chip appears next to the switch — click it
+  to configure network access and allowed paths. See
+  [Full sandbox](#full-sandbox-os-isolation).
 - **goal** chip — set an objective the agent works toward across runs. The
   chip is color-coded once a goal is set: blue while active, amber when
   paused, green when done. See
@@ -238,10 +242,10 @@ projects you can afford to roll back.
 ### Full sandbox (OS isolation)
 
 Approvals control _whether_ a command runs; the full sandbox controls what it
-can touch once it does. Run `/sandbox` and flip on **Full sandbox** to execute
-the agent's shell commands inside an OS-level sandbox — seatbelt on macOS,
-bubblewrap on Linux (install the `bwrap` package first). Not available on
-Windows.
+can touch once it does. Flip the **sandbox** switch in the chat header (or
+run `/sandbox`) to execute the agent's shell commands inside an OS-level
+sandbox — seatbelt on macOS, bubblewrap on Linux (install the `bwrap`
+package first). Not available on Windows.
 
 What it does — and, honestly, what it doesn't:
 
