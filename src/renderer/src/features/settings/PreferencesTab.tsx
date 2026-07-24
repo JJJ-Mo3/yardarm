@@ -21,8 +21,17 @@ export function PreferencesTab(): React.JSX.Element {
     }
   })
 
+  // Yardarm-native new-chat defaults for full sandbox mode (app_settings KV).
+  const sandboxDefaults = trpc.settings.get.useQuery({ key: 'sandboxDefaults' })
+  const setSetting = trpc.settings.set.useMutation({
+    onSuccess: () => utils.settings.get.invalidate({ key: 'sandboxDefaults' })
+  })
+  const sd = (sandboxDefaults.data as { enabled?: boolean; allowNetwork?: boolean } | null) ?? {}
+  const sandboxEnabled = sd.enabled === true
+  const sandboxNetwork = sd.allowNetwork !== false
+
   const p = settings.data?.preferences ?? {}
-  const error = settings.error ?? setPreferences.error
+  const error = settings.error ?? setPreferences.error ?? setSetting.error
 
   return (
     <div className="space-y-4">
@@ -108,6 +117,44 @@ export function PreferencesTab(): React.JSX.Element {
               }
             }}
           />
+        </Tip>
+      </div>
+
+      <div className="space-y-3 rounded border border-border p-3">
+        <div>
+          <div className="text-xs font-medium">Agent sandbox</div>
+          <div className="text-[11px] text-muted-foreground">
+            Yardarm defaults for new chats only — existing chats keep their own setting (change it
+            per chat via /sandbox).
+          </div>
+        </div>
+        <Tip content="New chats start with OS-level isolation for agent shell commands (macOS seatbelt / Linux bubblewrap)">
+          <label className="flex w-fit items-center gap-2 text-xs">
+            <Switch
+              checked={sandboxEnabled}
+              onCheckedChange={(v) =>
+                setSetting.mutate({
+                  key: 'sandboxDefaults',
+                  value: { enabled: v, allowNetwork: sandboxNetwork }
+                })
+              }
+            />
+            Full sandbox by default (OS isolation for shell commands)
+          </label>
+        </Tip>
+        <Tip content="Whether sandboxed shell commands in new chats may access the network (all-or-nothing)">
+          <label className="flex w-fit items-center gap-2 text-xs">
+            <Switch
+              checked={sandboxNetwork}
+              onCheckedChange={(v) =>
+                setSetting.mutate({
+                  key: 'sandboxDefaults',
+                  value: { enabled: sandboxEnabled, allowNetwork: v }
+                })
+              }
+            />
+            Allow network in the sandbox
+          </label>
         </Tip>
       </div>
 

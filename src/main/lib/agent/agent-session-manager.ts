@@ -44,6 +44,7 @@ import type {
   PluginInfo,
   PluginScope,
   ResourceInfo,
+  SandboxRuntimeInfo,
   SessionStateInfo,
   SessionStatePatch,
   SkillInfo,
@@ -81,6 +82,10 @@ interface HostHandle {
     modelId?: string
     yolo?: boolean
     thinkingLevel?: string
+    fullSandbox?: boolean
+    sandboxNetwork?: boolean
+    isolationAvailable?: boolean
+    sandboxError?: string
   }
   readyPromise: Promise<void>
   readyResolve: () => void
@@ -238,7 +243,9 @@ export class AgentSessionManager {
         mode: schema.subchats.mode,
         modelId: schema.subchats.modelId,
         thinkingLevel: schema.subchats.thinkingLevel,
-        mastraThreadId: schema.subchats.mastraThreadId
+        mastraThreadId: schema.subchats.mastraThreadId,
+        fullSandbox: schema.subchats.fullSandbox,
+        sandboxNetwork: schema.subchats.sandboxNetwork
       })
       .from(schema.subchats)
       .where(eq(schema.subchats.id, subchatId))
@@ -250,7 +257,12 @@ export class AgentSessionManager {
       thinkingLevel: row.thinkingLevel ?? undefined,
       threadId: row.mastraThreadId ?? undefined,
       // Boot always starts hosts with yolo off (see ensureHost), so this is accurate.
-      yolo: false
+      yolo: false,
+      // Sandbox flags persist across boots (unlike yolo); availability is a
+      // platform approximation until a live host reports the real backend.
+      fullSandbox: row.fullSandbox,
+      sandboxNetwork: row.sandboxNetwork,
+      isolationAvailable: process.platform === 'darwin' || process.platform === 'linux'
     }
   }
 
@@ -380,6 +392,8 @@ export class AgentSessionManager {
       modelId,
       thinkingLevel: subchat.thinkingLevel ?? undefined,
       yolo: false,
+      // Unlike yolo (reset every boot), the sandbox setting persists.
+      sandbox: { enabled: subchat.fullSandbox, allowNetwork: subchat.sandboxNetwork },
       subagents
     }
 
@@ -504,16 +518,30 @@ export class AgentSessionManager {
     proc.on('message', (raw: unknown) => {
       const msg = raw as HostMessage
       switch (msg.t) {
-        case 'ready':
+        case 'ready': {
           this.lastBootError = null
           handle.status = 'ready'
+          const bootState = (msg.state as Record<string, unknown> | undefined) ?? {}
           handle.meta = {
             threadId: msg.threadId ?? undefined,
             mode: msg.mode,
             modelId: msg.modelId,
-            yolo: (msg.state as Record<string, unknown> | undefined)?.yolo as boolean | undefined,
-            thinkingLevel: (msg.state as Record<string, unknown> | undefined)?.thinkingLevel as
-              string | undefined
+            yolo: bootState.yolo as boolean | undefined,
+            thinkingLevel: bootState.thinkingLevel as string | undefined,
+            // Host-synthesized isolation status (see agent-host.ts ready).
+            fullSandbox: bootState.fullSandbox as boolean | undefined,
+            sandboxNetwork: bootState.sandboxNetwork as boolean | undefined,
+            isolationAvailable: bootState.isolationAvailable as boolean | undefined,
+            sandboxError: bootState.sandboxError as string | undefined
+          }
+          // Fail visible: boot-time isolation failed — flip the persisted
+          // toggle off so the UI never claims a sandbox that isn't active.
+          if (boot.sandbox?.enabled && bootState.fullSandbox === false) {
+            getDb()
+              .update(schema.subchats)
+              .set({ fullSandbox: false })
+              .where(eq(schema.subchats.id, subchatId))
+              .run()
           }
           {
             // Seed the task list from boot state so the panel reflects
@@ -529,22 +557,14 @@ export class AgentSessionManager {
               .run()
           }
           this.emitUI(subchatId, { type: 'status', status: 'ready' })
-          this.emitUI(subchatId, {
-            type: 'session-meta',
-            meta: {
-              threadId: msg.threadId ?? undefined,
-              mode: msg.mode,
-              modelId: msg.modelId,
-              yolo: handle.meta.yolo,
-              thinkingLevel: handle.meta.thinkingLevel
-            }
-          })
+          this.emitUI(subchatId, { type: 'session-meta', meta: { ...handle.meta } })
           handle.readyResolve()
           // Edits saved while no host was live (including pending_ide_edits
           // persisted across an app restart) can be delivered now — the
           // host's idle path writes them into the thread's memory.
           if (this.hasPendingIdeEdits(subchatId)) this.scheduleIdeNoteDelivery(subchatId)
           break
+        }
         case 'boot-error':
           this.lastBootError = msg.error
           handle.status = 'error'
@@ -1091,6 +1111,71 @@ export class AgentSessionManager {
   async setYolo(subchatId: string, yolo: boolean): Promise<void> {
     const handle = await this.ensureHost(subchatId)
     this.sendCommand(handle, { t: 'setYolo', yolo })
+  }
+
+  /**
+   * Toggle full sandbox mode (OS-level isolation for shell commands).
+   * DB-first so the setting survives with no host running; a live host
+   * applies it immediately and the truthful status it reports is reconciled
+   * back into the DB — the UI never claims isolation that isn't active.
+   */
+  async setSandbox(
+    subchatId: string,
+    enabled: boolean,
+    allowNetwork: boolean
+  ): Promise<SandboxRuntimeInfo> {
+    getDb()
+      .update(schema.subchats)
+      .set({ fullSandbox: enabled, sandboxNetwork: allowNetwork })
+      .where(eq(schema.subchats.id, subchatId))
+      .run()
+
+    const handle = this.hosts.get(subchatId)
+    if (!handle || handle.killed) {
+      // No live host: nothing can run shell commands, so the persisted flags
+      // are the whole truth — they apply at the next boot via HostBootConfig.
+      return {
+        enabled,
+        allowNetwork,
+        available: process.platform === 'darwin' || process.platform === 'linux',
+        backend: 'none'
+      }
+    }
+
+    let status: SandboxRuntimeInfo
+    try {
+      await handle.readyPromise
+      status = await this.request<SandboxRuntimeInfo>(handle, {
+        t: 'setSandbox',
+        reqId: randomUUID(),
+        enabled,
+        allowNetwork
+      })
+    } catch (err) {
+      // Host couldn't apply — never leave the DB claiming isolation.
+      getDb()
+        .update(schema.subchats)
+        .set({ fullSandbox: false })
+        .where(eq(schema.subchats.id, subchatId))
+        .run()
+      handle.meta.fullSandbox = false
+      handle.meta.sandboxError = err instanceof Error ? err.message : String(err)
+      this.emitUI(subchatId, { type: 'session-meta', meta: { ...handle.meta } })
+      throw err
+    }
+
+    // Reconcile persisted flags with what is actually applied.
+    getDb()
+      .update(schema.subchats)
+      .set({ fullSandbox: status.enabled, sandboxNetwork: status.allowNetwork })
+      .where(eq(schema.subchats.id, subchatId))
+      .run()
+    handle.meta.fullSandbox = status.enabled
+    handle.meta.sandboxNetwork = status.allowNetwork
+    handle.meta.isolationAvailable = status.available
+    handle.meta.sandboxError = status.error
+    this.emitUI(subchatId, { type: 'session-meta', meta: { ...handle.meta } })
+    return status
   }
 
   async setThinking(subchatId: string, level: string): Promise<void> {

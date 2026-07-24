@@ -8,9 +8,16 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import type { HostBootConfig, HostCommand, HostMessage, SttModelInfo } from '../../shared/ipc-types'
+import type {
+  HostBootConfig,
+  HostCommand,
+  HostMessage,
+  SandboxRuntimeInfo,
+  SttModelInfo
+} from '../../shared/ipc-types'
 import { patchApprovalRunBudget } from './approval-run-budget'
 import { installNoTimeoutFetch } from './no-timeout-fetch'
+import { SandboxIsolationManager, type WorkspaceLike } from './sandbox-isolation'
 import {
   buildSttRequest,
   envVarFor,
@@ -253,6 +260,32 @@ async function main(): Promise<void> {
     post({ t: 'log', level: 'error', msg: `approval run-budget patch failed: ${String(err)}` })
   }
 
+  // Full sandbox mode: OS-level isolation (seatbelt/bwrap) for shell
+  // commands, applied by swapping the workspace's sandbox at runtime — see
+  // sandbox-isolation.ts. Fail visible: errors are logged and surfaced,
+  // never silently swallowed.
+  const sandboxManager = new SandboxIsolationManager()
+  const resolveWorkspaceForSandbox = async (): Promise<WorkspaceLike> => {
+    const ws = await controller.resolveWorkspace({ session: session as never })
+    if (!ws) throw new Error('workspace unavailable')
+    return ws as unknown as WorkspaceLike
+  }
+  /**
+   * Re-apply the current isolation config (fire-and-forget). Picks up
+   * request_access grants and re-asserts the swap after thread changes;
+   * no-ops when isolation is off or nothing drifted.
+   */
+  const refreshSandbox = (): void => {
+    if (!sandboxManager.isolationActive) return
+    void (async () => {
+      try {
+        await sandboxManager.refreshPaths(await resolveWorkspaceForSandbox())
+      } catch (err) {
+        post({ t: 'log', level: 'error', msg: `sandbox refresh failed: ${String(err)}` })
+      }
+    })()
+  }
+
   /**
    * Drop the controller's ~10s model-catalog cache so the next listModels
    * recomputes hasApiKey after credentials change. availableModelsCache is a
@@ -312,6 +345,9 @@ async function main(): Promise<void> {
     if ((event as { type: string }).type === 'display_state_changed') return
     const ev = sanitizeEvent(event as unknown as Record<string, unknown>)
     if (ev.type === 'tool_suspended' && ev.toolName === 'submit_plan') enrichPlanSuspension(ev)
+    // request_access grants land in state.sandboxAllowedPaths — rebuild the
+    // isolated sandbox so grants apply to shell commands too.
+    if (ev.type === 'state_changed') refreshSandbox()
     // The SDK's always-allow tools (task list + interactive/planning tools)
     // shouldn't need user approval (see task-auto-approve.ts). Approve
     // in-process and skip the event so no approval card flashes; on any
@@ -371,12 +407,46 @@ async function main(): Promise<void> {
     post({ t: 'log', level: 'error', msg: `guidance state.set failed: ${String(err)}` })
   }
 
+  // Full sandbox mode: bring isolation up before ready so the very first
+  // shell command already runs contained. Fail visible — on error the state
+  // reports isolation off plus the error instead of pretending.
+  let bootSandbox: SandboxRuntimeInfo = {
+    enabled: false,
+    allowNetwork: boot.sandbox?.allowNetwork ?? true,
+    available: process.platform === 'darwin' || process.platform === 'linux',
+    backend: 'none'
+  }
+  if (boot.sandbox?.enabled) {
+    try {
+      const ws = await resolveWorkspaceForSandbox()
+      const res = await sandboxManager.apply(ws, true, boot.sandbox.allowNetwork)
+      if (!res.ok) {
+        post({ t: 'log', level: 'error', msg: `sandbox isolation failed: ${res.error}` })
+      }
+      bootSandbox = sandboxManager.status(ws)
+    } catch (err) {
+      post({ t: 'log', level: 'error', msg: `sandbox isolation failed: ${String(err)}` })
+      bootSandbox = { ...bootSandbox, error: String(err) }
+    }
+  }
+
+  // Host-synthesized sandbox keys ride along with the mastracode state so
+  // the session manager can seed handle.meta (mirrors how yolo arrives).
+  const readyState = JSON.parse(JSON.stringify(session.state.get() ?? {})) as Record<
+    string,
+    unknown
+  >
+  readyState.fullSandbox = bootSandbox.enabled
+  readyState.sandboxNetwork = bootSandbox.allowNetwork
+  readyState.isolationAvailable = bootSandbox.available
+  if (bootSandbox.error) readyState.sandboxError = bootSandbox.error
+
   post({
     t: 'ready',
     threadId: session.thread.getId(),
     mode: session.mode.get(),
     modelId: session.model.get(),
-    state: JSON.parse(JSON.stringify(session.state.get() ?? {}))
+    state: readyState
   })
 
   async function respond(reqId: string, fn: () => Promise<unknown>): Promise<void> {
@@ -555,9 +625,19 @@ async function main(): Promise<void> {
           case 'setThinking':
             await session.state.set({ thinkingLevel: cmd.level } as never)
             break
+          case 'setSandbox':
+            await respond(cmd.reqId, async () => {
+              const ws = await resolveWorkspaceForSandbox()
+              await sandboxManager.apply(ws, cmd.enabled, cmd.allowNetwork)
+              // Truthful status: reflects what is actually applied (plus any
+              // error), so the main process can reconcile the DB and UI.
+              return sandboxManager.status(ws)
+            })
+            break
           case 'newThread':
             await respond(cmd.reqId, async () => {
               const thread = await session.thread.create()
+              refreshSandbox()
               return { threadId: thread.id }
             })
             break
@@ -589,6 +669,7 @@ async function main(): Promise<void> {
           case 'threadSwitch':
             await respond(cmd.reqId, async () => {
               await session.thread.switch({ threadId: cmd.threadId })
+              refreshSandbox()
               return { threadId: session.thread.getId() }
             })
             break

@@ -9,6 +9,26 @@ import { createWorktree, ensureBaseCommit, isGitRepo, removeWorktree } from '../
 import { ptyManager } from '../../terminal/pty-manager'
 import { publicProcedure, router } from '../trpc'
 
+/**
+ * Global new-chat defaults for full sandbox mode (app_settings KV, written by
+ * the Preferences tab via the settings router). The per-subchat columns are
+ * the source of truth after creation.
+ */
+function sandboxDefaults(): { enabled: boolean; allowNetwork: boolean } {
+  try {
+    const row = getDb()
+      .select()
+      .from(schema.appSettings)
+      .where(eq(schema.appSettings.key, 'sandboxDefaults'))
+      .get()
+    if (row) {
+      const v = JSON.parse(row.value) as { enabled?: boolean; allowNetwork?: boolean }
+      return { enabled: v.enabled === true, allowNetwork: v.allowNetwork !== false }
+    }
+  } catch {}
+  return { enabled: false, allowNetwork: true }
+}
+
 export const chatsRouter = router({
   list: publicProcedure.input(z.object({ projectId: z.string() })).query(({ input }) => {
     return getDb()
@@ -80,6 +100,7 @@ export const chatsRouter = router({
       }
       db.insert(schema.chats).values(chat).run()
 
+      const sandbox = sandboxDefaults()
       const subchat = {
         id: randomUUID(),
         chatId,
@@ -87,6 +108,8 @@ export const chatsRouter = router({
         mode: 'build',
         modelId: null,
         thinkingLevel: null,
+        fullSandbox: sandbox.enabled,
+        sandboxNetwork: sandbox.allowNetwork,
         createdAt: now,
         updatedAt: now
       }
@@ -182,6 +205,7 @@ export const chatsRouter = router({
     .input(z.object({ chatId: z.string(), mastraThreadId: z.string().optional() }))
     .mutation(({ input }) => {
       const now = Date.now()
+      const sandbox = sandboxDefaults()
       const subchat = {
         id: randomUUID(),
         chatId: input.chatId,
@@ -191,6 +215,8 @@ export const chatsRouter = router({
         mode: 'build',
         modelId: null,
         thinkingLevel: null,
+        fullSandbox: sandbox.enabled,
+        sandboxNetwork: sandbox.allowNetwork,
         createdAt: now,
         updatedAt: now
       }

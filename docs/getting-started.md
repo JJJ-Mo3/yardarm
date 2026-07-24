@@ -235,6 +235,35 @@ The **auto-approve** switch in the header is the blunt instrument: everything
 runs without asking. Recommended only in isolated worktrees (the default) and
 projects you can afford to roll back.
 
+### Full sandbox (OS isolation)
+
+Approvals control _whether_ a command runs; the full sandbox controls what it
+can touch once it does. Run `/sandbox` and flip on **Full sandbox** to execute
+the agent's shell commands inside an OS-level sandbox — seatbelt on macOS,
+bubblewrap on Linux (install the `bwrap` package first). Not available on
+Windows.
+
+What it does — and, honestly, what it doesn't:
+
+- **Writes are contained.** Sandboxed commands can only write inside the
+  chat's worktree, the sandbox allowed paths, and temp directories; writes
+  anywhere else fail.
+- **Reads are not restricted.** The sandbox limits damage, not what the
+  agent can look at.
+- **Network is all-or-nothing.** Allowed by default; the **Allow network**
+  switch blocks it entirely (installs, fetches, and pushes will fail while
+  blocked).
+
+If the agent needs to write somewhere else, it asks with a **sandbox access
+request** card — approving adds that directory to the allowed paths, and the
+grant applies to sandboxed commands immediately, no restart needed.
+
+The setting persists per chat, and a green shield chip appears in the header
+while it's active (with "no net" when the network is blocked) — click it to
+reconfigure. Defaults for new chats live in Settings → **Preferences** →
+Agent sandbox. Pairs well with auto-approve: yolo speed, contained blast
+radius.
+
 ## Reviewing and shipping changes
 
 The **Changes** tab (`Cmd+2`) is a full review-and-ship surface for the
@@ -347,7 +376,7 @@ down per thread.
   to overwrite or reload.
 - **CLI** (`Cmd+5`) — the interactive Mastra Code terminal UI, embedded,
   running in the same worktree and seeing the same threads as the chat.
-  Handy for CLI-only commands (`/sandbox`, terminal voice mode, …). Avoid
+  Handy for CLI-only commands (terminal voice mode, …). Avoid
   driving the same thread from the chat and the CLI at the same time.
 
 ## The Kanban board and sidebar indicators
@@ -408,6 +437,7 @@ command surface plus app commands. Highlights:
 | `/goal`                   | set a goal                         |
 | `/threads`                | manage threads                     |
 | `/permissions`            | session permissions panel          |
+| `/sandbox`                | full sandbox + session settings    |
 | `/mcp` `/hooks` `/skills` | inspect MCP servers, hooks, skills |
 | `/om`                     | Observational Memory status        |
 | `/cost`                   | token usage per thread             |
@@ -418,7 +448,7 @@ command surface plus app commands. Highlights:
 You can define your own commands as plain Markdown files:
 `~/.mastracode/commands/**/*.md` (global) or `.mastracode/commands/**/*.md`
 (per project). They appear in the autocomplete like built-ins. A few
-terminal-only commands (e.g. `/sandbox`) are listed in `/help` and point you
+terminal-only commands (e.g. `/voice`) are listed in `/help` and point you
 to the CLI tab.
 
 ## Settings reference
@@ -428,7 +458,7 @@ Open with `Cmd+,` (`Ctrl+,`).
 | Tab             | What's there                                                                      |
 | --------------- | --------------------------------------------------------------------------------- |
 | **Appearance**  | light / dark / system theme (also togglable from the sidebar footer)              |
-| **Preferences** | approval behavior, notifications, output limits                                   |
+| **Preferences** | approval behavior, notifications, output limits, new-chat sandbox defaults        |
 | **API Keys**    | provider API keys (stored in mastracode's `auth.json`)                            |
 | **Models**      | default model per mode, subagent, goal judge, and memory role; model packs        |
 | **Providers**   | OAuth logins (Claude / Codex / Copilot), Ollama detection, custom local providers |

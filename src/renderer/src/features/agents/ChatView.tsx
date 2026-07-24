@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { KeyRound, Server } from 'lucide-react'
+import { KeyRound, Server, ShieldCheck } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import {
   debugEventsAtom,
@@ -536,6 +536,25 @@ export function ChatView({
           </label>
         </Tip>
 
+        {meta.fullSandbox && (
+          <Tip
+            content={
+              meta.sandboxNetwork === false
+                ? 'Full sandbox active — shell commands are OS-isolated and network access is blocked. Click to configure.'
+                : 'Full sandbox active — shell command writes are contained to this chat (network allowed). Click to configure.'
+            }
+            side="bottom"
+          >
+            <button
+              className="flex items-center gap-1 rounded-md border border-emerald-600/40 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-500 hover:bg-emerald-500/20 cursor-pointer"
+              onClick={() => setSandboxOpen(true)}
+            >
+              <ShieldCheck size={11} />
+              sandbox{meta.sandboxNetwork === false ? ' · no net' : ''}
+            </button>
+          </Tip>
+        )}
+
         <div className="flex-1" />
 
         {state.approvals.length + state.suspensions.length > 0 && (
@@ -757,7 +776,12 @@ export function ChatView({
         open={permissionsOpen}
         onOpenChange={setPermissionsOpen}
       />
-      <SandboxDialog subchatId={subchatId} open={sandboxOpen} onOpenChange={setSandboxOpen} />
+      <SandboxDialog
+        subchatId={subchatId}
+        meta={meta}
+        open={sandboxOpen}
+        onOpenChange={setSandboxOpen}
+      />
     </div>
   )
 }

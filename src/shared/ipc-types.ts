@@ -19,6 +19,11 @@ export type HostCommand =
   | { t: 'setMode'; mode: string }
   | { t: 'setModel'; modelId: string }
   | { t: 'setYolo'; yolo: boolean }
+  /**
+   * Toggle OS-level isolation (seatbelt/bwrap) for agent shell commands.
+   * Request/response so availability failures surface to the UI.
+   */
+  | { t: 'setSandbox'; reqId: string; enabled: boolean; allowNetwork: boolean }
   | { t: 'setThinking'; level: string }
   | { t: 'newThread'; reqId: string }
   | { t: 'threadList'; reqId: string }
@@ -290,6 +295,18 @@ export interface SessionStateInfo {
 
 export type SessionStatePatch = Partial<SessionStateInfo>
 
+/**
+ * Live OS-isolation status of the host's workspace sandbox (full sandbox
+ * mode). Not part of mastracode session state — synthesized by the host.
+ */
+export interface SandboxRuntimeInfo {
+  enabled: boolean
+  allowNetwork: boolean
+  available: boolean
+  backend: 'seatbelt' | 'bwrap' | 'none'
+  error?: string
+}
+
 /** A user-invocable workspace skill (SKILL.md). */
 export interface SkillInfo {
   name: string
@@ -369,6 +386,8 @@ export interface HostBootConfig {
   modelId?: string
   yolo?: boolean
   thinkingLevel?: string
+  /** OS-level isolation for agent shell commands (full sandbox mode). */
+  sandbox?: { enabled: boolean; allowNetwork: boolean }
   /** Custom subagent definitions (global + project .mastracode/agents). */
   subagents?: SubagentDefinition[]
   /**

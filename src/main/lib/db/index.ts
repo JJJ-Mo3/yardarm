@@ -71,7 +71,10 @@ const MIGRATIONS: string[] = [
   // v3 — pending IDE-edit paths (JSON array) awaiting delivery to the agent
   `ALTER TABLE subchats ADD COLUMN pending_ide_edits TEXT;`,
   // v4 — project archiving (hidden from the picker's active list, restorable)
-  `ALTER TABLE projects ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;`
+  `ALTER TABLE projects ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;`,
+  // v5 — full sandbox mode (OS-level isolation for agent shell commands)
+  `ALTER TABLE subchats ADD COLUMN full_sandbox INTEGER NOT NULL DEFAULT 0;
+   ALTER TABLE subchats ADD COLUMN sandbox_network INTEGER NOT NULL DEFAULT 1;`
 ]
 
 export function initDb(): DB {

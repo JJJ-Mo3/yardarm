@@ -49,6 +49,10 @@ export const subchats = sqliteTable(
     pendingNote: text('pending_note'),
     /** JSON array of IDE-edited paths awaiting delivery to the agent. */
     pendingIdeEdits: text('pending_ide_edits'),
+    /** Full sandbox mode: OS-level isolation for agent shell commands. */
+    fullSandbox: integer('full_sandbox', { mode: 'boolean' }).notNull().default(false),
+    /** Whether sandboxed shell commands may access the network. */
+    sandboxNetwork: integer('sandbox_network', { mode: 'boolean' }).notNull().default(true),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull()
   },

@@ -162,6 +162,13 @@ export const agentRouter = router({
       return { ok: true }
     }),
 
+  /** Toggle full sandbox mode; returns the truthful applied status. */
+  setSandbox: publicProcedure
+    .input(z.object({ subchatId: z.string(), enabled: z.boolean(), allowNetwork: z.boolean() }))
+    .mutation(async ({ input }) => {
+      return agentSessionManager.setSandbox(input.subchatId, input.enabled, input.allowNetwork)
+    }),
+
   setThinking: publicProcedure
     .input(z.object({ subchatId: z.string(), level: z.string() }))
     .mutation(async ({ input }) => {

@@ -84,6 +84,14 @@ export interface SessionMeta {
   threadId?: string
   yolo?: boolean
   thinkingLevel?: string
+  /** Full sandbox mode: OS-level isolation for agent shell commands. */
+  fullSandbox?: boolean
+  /** Whether sandboxed shell commands may access the network. */
+  sandboxNetwork?: boolean
+  /** Whether an isolation backend (seatbelt/bwrap) is available here. */
+  isolationAvailable?: boolean
+  /** Last isolation failure, when the sandbox could not be applied. */
+  sandboxError?: string
 }
 
 export type AgentStatus = 'stopped' | 'starting' | 'ready' | 'running' | 'error'
