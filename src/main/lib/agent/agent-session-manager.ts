@@ -608,8 +608,19 @@ export class AgentSessionManager {
     return handle
   }
 
+  /**
+   * Fire-and-forget write to a host. Silently drops commands to a dead
+   * process: the killed flag is set in the async exit handler, and the
+   * try/catch covers the window where the OS process is gone but the exit
+   * event hasn't been delivered yet (postMessage throws then).
+   */
   private sendCommand(handle: HostHandle, cmd: HostCommand): void {
-    handle.proc.postMessage(cmd)
+    if (handle.killed) return
+    try {
+      handle.proc.postMessage(cmd)
+    } catch {
+      // Host died between the killed check and the write.
+    }
   }
 
   private request<T>(
@@ -617,6 +628,7 @@ export class AgentSessionManager {
     cmd: HostCommand & { reqId: string },
     timeoutMs: number = REQUEST_TIMEOUT_MS
   ): Promise<T> {
+    if (handle.killed) return Promise.reject(new Error('Agent host is not running'))
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
         handle.pending.delete(cmd.reqId)
@@ -627,7 +639,14 @@ export class AgentSessionManager {
         reject,
         timer
       })
-      handle.proc.postMessage(cmd)
+      try {
+        handle.proc.postMessage(cmd)
+      } catch (err) {
+        // Reject now instead of leaking the timer until the 30s timeout.
+        clearTimeout(timer)
+        handle.pending.delete(cmd.reqId)
+        reject(err instanceof Error ? err : new Error(String(err)))
+      }
     })
   }
 
@@ -1524,11 +1543,7 @@ export class AgentSessionManager {
     this.writeBuffer.flush(subchatId)
     const handle = this.hosts.get(subchatId)
     if (!handle) return
-    try {
-      this.sendCommand(handle, { t: 'shutdown' })
-    } catch {
-      // ignore
-    }
+    this.sendCommand(handle, { t: 'shutdown' })
     setTimeout(() => {
       if (!handle.killed) handle.proc.kill()
     }, 2000)
@@ -1550,11 +1565,7 @@ export class AgentSessionManager {
     const exited = new Promise<void>((resolve) => {
       handle.proc.once('exit', () => resolve())
     })
-    try {
-      this.sendCommand(handle, { t: 'shutdown' })
-    } catch {
-      // ignore — the kill below covers it
-    }
+    this.sendCommand(handle, { t: 'shutdown' })
     // Escalate to a hard kill before the outer timeout gives up on waiting.
     setTimeout(
       () => {
@@ -1571,11 +1582,7 @@ export class AgentSessionManager {
     if (this.utilityHost) {
       const h = this.utilityHost
       this.utilityHost = null
-      try {
-        h.proc.postMessage({ t: 'shutdown' } satisfies HostCommand)
-      } catch {
-        // ignore
-      }
+      this.sendCommand(h, { t: 'shutdown' })
       setTimeout(() => {
         if (!h.killed) h.proc.kill()
       }, 2000)
