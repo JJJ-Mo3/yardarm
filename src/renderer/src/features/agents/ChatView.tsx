@@ -455,7 +455,8 @@ export function ChatView({
             content="Extended thinking — higher levels let the model reason longer before answering (slower, better on hard problems)"
             side="bottom"
           >
-            <SelectTrigger className="w-24">
+            {/* Wide enough that the longest value ("think: medium") never wraps */}
+            <SelectTrigger className="w-30 whitespace-nowrap">
               <SelectValue placeholder="Thinking" />
             </SelectTrigger>
           </Tip>
