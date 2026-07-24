@@ -504,6 +504,7 @@ export function ChatView({
         <GoalPopover
           subchatId={subchatId}
           live={state.goal}
+          running={state.running}
           open={goalOpen}
           onOpenChange={setGoalOpen}
         />
@@ -523,7 +524,7 @@ export function ChatView({
         <Badge>{state.status}</Badge>
       </div>
 
-      <GoalBanner subchatId={subchatId} live={state.goal} />
+      <GoalBanner subchatId={subchatId} live={state.goal} running={state.running} />
 
       <TaskChecklist key={subchatId} tasks={state.tasks} running={state.running} />
 

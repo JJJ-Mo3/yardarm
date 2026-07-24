@@ -77,12 +77,15 @@ function MaxRunsField({
 export function GoalPopover({
   subchatId,
   live,
+  running,
   open,
   onOpenChange
 }: {
   subchatId: string
   /** Latest goal_evaluation from the event stream, if any. */
   live: GoalEvaluationInfo | null
+  /** Whether a run is currently in progress (gates the auto-start option). */
+  running: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
 }): React.JSX.Element {
@@ -103,6 +106,7 @@ export function GoalPopover({
   const [objective, setObjective] = useState('')
   const [judge, setJudge] = useState('')
   const [maxRuns, setMaxRuns] = useState('')
+  const [startNow, setStartNow] = useState(true)
   // Editing state for an existing goal's objective.
   const [editing, setEditing] = useState(false)
 
@@ -115,6 +119,7 @@ export function GoalPopover({
     // Reset transient form state whenever the popover closes or the chat changes.
     setEditing(false)
     setObjective('')
+    setStartNow(true)
   }, [open, subchatId])
 
   const g = goal.data
@@ -137,7 +142,8 @@ export function GoalPopover({
       subchatId,
       objective: text,
       judgeModelId: judge || undefined,
-      maxRuns: Number.isFinite(n) && n > 0 ? n : undefined
+      maxRuns: Number.isFinite(n) && n > 0 ? n : undefined,
+      start: startNow && !running
     })
     setObjective('')
   }
@@ -222,14 +228,39 @@ export function GoalPopover({
                 </span>
               </Tip>
             </div>
-            <Tip content="Set this goal — the judge starts evaluating runs against it">
+            {running ? (
+              <div className="text-[11px] text-muted-foreground">
+                A run is in progress — the judge starts evaluating it against this goal when it
+                finishes.
+              </div>
+            ) : (
+              <Tip content="Kick off a run toward this goal as soon as it's set — untick to set the goal first and start it with your own prompt">
+                <label className="flex w-fit cursor-pointer items-center gap-2 text-[11px] text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={startNow}
+                    disabled={busy}
+                    onChange={(e) => setStartNow(e.target.checked)}
+                    className="accent-primary"
+                  />
+                  Start working right away
+                </label>
+              </Tip>
+            )}
+            <Tip
+              content={
+                startNow && !running
+                  ? 'Set this goal and immediately start a run toward it'
+                  : 'Set this goal — the judge starts evaluating runs against it'
+              }
+            >
               <span className="inline-flex w-full">
                 <button
                   disabled={busy || !objective.trim()}
                   onClick={submitNew}
                   className="w-full rounded-md border border-border bg-accent/40 px-2 py-1 text-[11px] hover:bg-accent disabled:opacity-50 cursor-pointer"
                 >
-                  Set goal
+                  {startNow && !running ? 'Set goal & start' : 'Set goal'}
                 </button>
               </span>
             </Tip>
@@ -324,7 +355,7 @@ export function GoalPopover({
             </div>
             <div className="flex gap-1.5">
               {g.status === 'paused' ? (
-                <Tip content="Resume this goal — the judge evaluates runs against it again">
+                <Tip content="Resume this goal — the agent picks the work back up right away">
                   <span className="inline-flex">
                     <button
                       disabled={busy}

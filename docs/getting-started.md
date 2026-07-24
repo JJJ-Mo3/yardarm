@@ -262,6 +262,13 @@ For bigger objectives, click the **goal** chip in the header (or use
 runs until an independent **judge model** agrees the goal is met — not just
 until the agent claims it is.
 
+By default **Set goal & start** kicks off a run toward the goal
+immediately. Untick **Start working right away** if you'd rather set the
+goal first and launch it with your own detailed prompt — the judge then
+starts evaluating from your next message. If a run is already in progress,
+the goal simply attaches to it. Resuming a paused goal also picks the work
+back up right away when the agent is idle.
+
 In the goal popover you can:
 
 - set or edit the objective,

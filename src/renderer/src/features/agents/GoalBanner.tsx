@@ -17,11 +17,14 @@ const STATUS_STYLES: Record<string, string> = {
 
 export function GoalBanner({
   subchatId,
-  live
+  live,
+  running
 }: {
   subchatId: string
   /** Latest goal_evaluation from the event stream, if any. */
   live: GoalEvaluationInfo | null
+  /** Whether a run is currently in progress (drives the idle hint). */
+  running: boolean
 }): React.JSX.Element | null {
   const utils = trpc.useUtils()
   const goal = trpc.agent.goalGet.useQuery({ subchatId })
@@ -56,13 +59,14 @@ export function GoalBanner({
           {live?.reason
             ? ` · last eval: ${live.passed ? 'passed' : 'not yet'} — ${live.reason}`
             : ''}
+          {g.status === 'active' && !running ? ' · waiting for your next message' : ''}
         </div>
       </div>
       {g.status !== 'done' && (
         <Tip
           content={
             g.status === 'paused'
-              ? 'Resume this goal — the judge evaluates runs against it again'
+              ? 'Resume this goal — the agent picks the work back up right away'
               : 'Pause this goal — the judge stops evaluating until you resume'
           }
         >

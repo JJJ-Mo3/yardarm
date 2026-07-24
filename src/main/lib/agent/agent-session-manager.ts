@@ -1236,6 +1236,25 @@ export class AgentSessionManager {
     return goal
   }
 
+  /**
+   * Kick off a run for a just-set or resumed goal, but only when the subchat
+   * is fully idle — a running turn, a pending queue flush, queued prompts or
+   * a pending suspension all mean a run is (or will be) underway and the
+   * judge will evaluate it against the goal anyway.
+   */
+  async startGoalRun(subchatId: string, text: string): Promise<void> {
+    if (
+      this.isRunning(subchatId) ||
+      this.awaitingRunStart.has(subchatId) ||
+      this.promptQueue.size(subchatId) > 0
+    )
+      return
+    const pendingSuspensions = this.hosts.get(subchatId)?.translator.pendingSuspensions
+    if (pendingSuspensions && pendingSuspensions.size > 0) return
+    const checkpointRef = await this.captureSendCheckpoint(subchatId)
+    await this.sendMessage(subchatId, text, checkpointRef)
+  }
+
   /** Observational Memory runtime config from live session state. */
   async omGet(subchatId: string): Promise<OmRuntimeInfo> {
     const handle = await this.ensureHost(subchatId)

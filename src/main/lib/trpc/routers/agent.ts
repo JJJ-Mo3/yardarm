@@ -231,7 +231,9 @@ export const agentRouter = router({
         subchatId: z.string(),
         objective: z.string().min(1),
         judgeModelId: z.string().optional(),
-        maxRuns: z.number().int().positive().optional()
+        maxRuns: z.number().int().positive().optional(),
+        /** Kick off a run toward the goal right away (idle subchats only). */
+        start: z.boolean().optional()
       })
     )
     .mutation(async ({ input }) => {
@@ -247,7 +249,16 @@ export const agentRouter = router({
         const meta = agentSessionManager.meta(input.subchatId)
         judgeModelId = meta?.modelId
       }
-      return agentSessionManager.goalSet(input.subchatId, input.objective, judgeModelId, maxRuns)
+      const goal = await agentSessionManager.goalSet(
+        input.subchatId,
+        input.objective,
+        judgeModelId,
+        maxRuns
+      )
+      if (input.start) {
+        await agentSessionManager.startGoalRun(input.subchatId, 'Begin working toward the goal.')
+      }
+      return goal
     }),
 
   goalClear: publicProcedure
@@ -268,11 +279,16 @@ export const agentRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      return agentSessionManager.goalUpdate(input.subchatId, {
+      const goal = await agentSessionManager.goalUpdate(input.subchatId, {
         judgeModelId: input.judgeModelId,
         maxRuns: input.maxRuns,
         status: input.status
       })
+      // Resuming shouldn't need a follow-up prompt: pick the work back up now.
+      if (input.status === 'active') {
+        await agentSessionManager.startGoalRun(input.subchatId, 'Continue working toward the goal.')
+      }
+      return goal
     }),
 
   /** Observational Memory runtime config from live session state. */
