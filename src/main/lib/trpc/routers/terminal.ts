@@ -1,5 +1,6 @@
 import { observable } from '@trpc/server/observable'
 import { z } from 'zod'
+import { detectDevCommand } from '../../terminal/dev-command'
 import { buildMastracodeCommand, ptyManager } from '../../terminal/pty-manager'
 import { extractLocalhostUrls } from '../../terminal/url-detect'
 import { getMastracodeCliPath } from '../../system/mastracode-info'
@@ -75,6 +76,25 @@ export const terminalRouter = router({
   exists: publicProcedure.input(z.object({ id: z.string() })).query(({ input }) => {
     return ptyManager.exists(input.id)
   }),
+
+  /** The project's detected dev-server command, if any (Preview tab start chip). */
+  devCommand: publicProcedure.input(z.object({ cwd: z.string() })).query(({ input }) => {
+    return detectDevCommand(input.cwd)
+  }),
+
+  /**
+   * Starts the detected dev command in a dedicated pty (Preview tab). The
+   * command is re-detected here rather than accepted from the renderer; the
+   * pty ends when the command exits, so `exists` doubles as running-state.
+   */
+  startDevServer: publicProcedure
+    .input(z.object({ id: z.string(), cwd: z.string() }))
+    .mutation(({ input }) => {
+      const dev = detectDevCommand(input.cwd)
+      if (!dev) throw new Error('No dev/serve/start script found in package.json')
+      ptyManager.create(input.id, input.cwd, 80, 24, dev.command)
+      return { ok: true }
+    }),
 
   /** Localhost dev-server URLs seen in the given terminals' scrollback (Preview tab). */
   detectUrls: publicProcedure

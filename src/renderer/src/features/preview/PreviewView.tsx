@@ -6,7 +6,16 @@
  * as one-click chips; the URL bar accepts loopback http(s) URLs only.
  */
 import React, { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, ArrowRight, ExternalLink, Globe, RotateCw, Wrench } from 'lucide-react'
+import {
+  ArrowLeft,
+  ArrowRight,
+  ExternalLink,
+  Globe,
+  Play,
+  RotateCw,
+  Square,
+  Wrench
+} from 'lucide-react'
 import { isLocalhostHttpUrl, normalizeLocalhostUrl } from '@shared/localhost-url'
 import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
@@ -17,12 +26,18 @@ import type { WebviewElement } from './webview'
 
 export function PreviewView({
   terminalIds,
-  active
+  active,
+  cwd,
+  devTerminalId
 }: {
   /** Terminals whose scrollback is scanned for dev-server URLs. */
   terminalIds: string[]
   /** Whether the tab is visible (gates the detection polling). */
   active: boolean
+  /** Project (or chat worktree) directory the dev server runs in. */
+  cwd: string
+  /** Dedicated pty id for the one-click dev server — must be in terminalIds. */
+  devTerminalId: string
 }): React.JSX.Element {
   const webviewRef = useRef<WebviewElement | null>(null)
   const autoLoadedRef = useRef(false)
@@ -44,6 +59,21 @@ export function PreviewView({
     { enabled: active && terminalIds.length > 0, refetchInterval: 3000 }
   )
   const urls = detected.data ?? []
+
+  // One-click dev server: a detected `pnpm run dev`-style command runs in a
+  // dedicated pty; its exit removes the session, so `exists` is running-state.
+  const utils = trpc.useUtils()
+  const devCmd = trpc.terminal.devCommand.useQuery({ cwd }, { enabled: active })
+  const devRunning = trpc.terminal.exists.useQuery(
+    { id: devTerminalId },
+    { enabled: active, refetchInterval: 3000 }
+  )
+  const startDev = trpc.terminal.startDevServer.useMutation({
+    onSuccess: () => utils.terminal.exists.invalidate({ id: devTerminalId })
+  })
+  const stopDev = trpc.terminal.kill.useMutation({
+    onSuccess: () => utils.terminal.exists.invalidate({ id: devTerminalId })
+  })
 
   const navigate = (raw: string): void => {
     const candidate = /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `http://${raw}`
@@ -199,10 +229,39 @@ export function PreviewView({
         </Tip>
       </div>
 
-      {/* Inline URL-bar rejection + detected dev-server chips */}
-      {(inputError || urls.length > 0) && (
+      {/* Inline URL-bar rejection + dev-server start/stop + detected URL chips */}
+      {(inputError || urls.length > 0 || devCmd.data) && (
         <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-border px-2 py-1">
           {inputError && <span className="text-[11px] text-destructive">{inputError}</span>}
+          {devCmd.data && !devRunning.data && (
+            <Tip
+              content={`Start the project's dev server (${devCmd.data.command}) and preview it here`}
+            >
+              <button
+                onClick={() => startDev.mutate({ id: devTerminalId, cwd })}
+                disabled={startDev.isPending}
+                className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                <Play size={9} />
+                {devCmd.data.command}
+              </button>
+            </Tip>
+          )}
+          {devCmd.data && devRunning.data === true && (
+            <Tip content="Stop the dev server started from this Preview tab">
+              <button
+                onClick={() => stopDev.mutate({ id: devTerminalId })}
+                disabled={stopDev.isPending}
+                className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                <Square size={9} />
+                stop dev server
+              </button>
+            </Tip>
+          )}
+          {startDev.error && (
+            <span className="text-[11px] text-destructive">{startDev.error.message}</span>
+          )}
           {urls.map((u) => (
             <Tip key={u} content="Dev-server URL detected in a terminal — click to preview it">
               <button
@@ -245,6 +304,23 @@ export function PreviewView({
               Start a dev server in the Terminal or via the agent — detected localhost URLs appear
               above. Or type a localhost URL in the address bar.
             </div>
+            {devCmd.data && !devRunning.data && (
+              <Tip content="Run the project's detected dev script in a background terminal and preview it here">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-1"
+                  disabled={startDev.isPending}
+                  onClick={() => startDev.mutate({ id: devTerminalId, cwd })}
+                >
+                  <Play size={12} className="mr-1" />
+                  Start dev server ({devCmd.data.command})
+                </Button>
+              </Tip>
+            )}
+            {devRunning.data === true && (
+              <div className="text-xs">Dev server starting — waiting for a localhost URL…</div>
+            )}
           </div>
         )}
       </div>

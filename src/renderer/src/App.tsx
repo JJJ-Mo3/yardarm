@@ -393,10 +393,16 @@ export default function App(): React.JSX.Element {
                   <PreviewView
                     terminalIds={
                       chatId
-                        ? [`chat-${chatId}`, `cli-chat-${chatId}`]
-                        : [`project-${projectId}`, `cli-project-${projectId}`]
+                        ? [`chat-${chatId}`, `cli-chat-${chatId}`, `dev-chat-${chatId}`]
+                        : [
+                            `project-${projectId}`,
+                            `cli-project-${projectId}`,
+                            `dev-project-${projectId}`
+                          ]
                     }
                     active={tab === 'preview'}
+                    cwd={cwd}
+                    devTerminalId={chatId ? `dev-chat-${chatId}` : `dev-project-${projectId}`}
                   />
                 ) : (
                   <SelectProjectPane />
