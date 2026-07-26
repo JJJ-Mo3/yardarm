@@ -92,6 +92,10 @@ export interface SessionMeta {
   isolationAvailable?: boolean
   /** Last isolation failure, when the sandbox could not be applied. */
   sandboxError?: string
+  /** Whether prompt token compression is on (global setting). */
+  compressionEnabled?: boolean
+  /** Estimated tokens saved by compression, cumulative since host start. */
+  compressionSaved?: number
 }
 
 export type AgentStatus = 'stopped' | 'starting' | 'ready' | 'running' | 'error'

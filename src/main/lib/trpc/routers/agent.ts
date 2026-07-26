@@ -162,6 +162,32 @@ export const agentRouter = router({
       return { ok: true }
     }),
 
+  /**
+   * Global token-compression toggle: persist to app_settings and broadcast
+   * to all live hosts in one place so the two can't drift.
+   */
+  setTokenCompression: publicProcedure
+    .input(z.object({ enabled: z.boolean() }))
+    .mutation(({ input }) => {
+      const db = getDb()
+      const value = JSON.stringify({ enabled: input.enabled })
+      const existing = db
+        .select()
+        .from(schema.appSettings)
+        .where(eq(schema.appSettings.key, 'tokenCompression'))
+        .get()
+      if (existing) {
+        db.update(schema.appSettings)
+          .set({ value })
+          .where(eq(schema.appSettings.key, 'tokenCompression'))
+          .run()
+      } else {
+        db.insert(schema.appSettings).values({ key: 'tokenCompression', value }).run()
+      }
+      agentSessionManager.setCompressionAll(input.enabled)
+      return { ok: true }
+    }),
+
   /** Toggle full sandbox mode; returns the truthful applied status. */
   setSandbox: publicProcedure
     .input(z.object({ subchatId: z.string(), enabled: z.boolean(), allowNetwork: z.boolean() }))

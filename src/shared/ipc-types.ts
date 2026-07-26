@@ -19,6 +19,8 @@ export type HostCommand =
   | { t: 'setMode'; mode: string }
   | { t: 'setModel'; modelId: string }
   | { t: 'setYolo'; yolo: boolean }
+  /** Toggle prompt token compression (global setting, fire-and-forget broadcast). */
+  | { t: 'setCompression'; enabled: boolean }
   /**
    * Toggle OS-level isolation (seatbelt/bwrap) for agent shell commands.
    * Request/response so availability failures surface to the UI.
@@ -149,6 +151,8 @@ export type HostMessage =
       message?: string
       placeholder?: string
     }
+  /** Cumulative estimated tokens saved by prompt compression since host start. */
+  | { t: 'compression-stats'; tokensSaved: number }
   | { t: 'log'; level: 'info' | 'error'; msg: string }
 
 /**
@@ -388,6 +392,8 @@ export interface HostBootConfig {
   thinkingLevel?: string
   /** OS-level isolation for agent shell commands (full sandbox mode). */
   sandbox?: { enabled: boolean; allowNetwork: boolean }
+  /** Prompt token compression (global toggle, applied transiently per LLM call). */
+  compression?: { enabled: boolean }
   /** Custom subagent definitions (global + project .mastracode/agents). */
   subagents?: SubagentDefinition[]
   /**

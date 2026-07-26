@@ -16,6 +16,7 @@ import type {
   SttModelInfo
 } from '../../shared/ipc-types'
 import { patchApprovalRunBudget } from './approval-run-budget'
+import { createCompressionProcessor } from './compression-processor'
 import { installNoTimeoutFetch } from './no-timeout-fetch'
 import { SandboxIsolationManager, type WorkspaceLike } from './sandbox-isolation'
 import {
@@ -228,6 +229,22 @@ async function main(): Promise<void> {
   if (boot.yolo !== undefined) initialState.yolo = boot.yolo
   if (boot.thinkingLevel) initialState.thinkingLevel = boot.thinkingLevel
 
+  // Token compression: transiently shrink stale tool outputs right before
+  // each provider call (input processor, prompt substitution only — thread
+  // history is never modified). Prefer the SDK's estimator; chars/4 fallback.
+  let estimate = (text: string): number => Math.ceil(text.length / 4)
+  try {
+    const te = await runtimeImport<{ tokenEstimate: (t: string | object) => number }>(
+      '@mastra/code-sdk/utils/token-estimator'
+    )
+    estimate = (text) => te.tokenEstimate(text)
+  } catch {}
+  const compression = createCompressionProcessor({
+    enabled: boot.compression?.enabled ?? false,
+    estimate,
+    onStats: (tokensSaved) => post({ t: 'compression-stats', tokensSaved })
+  })
+
   let mc: Awaited<ReturnType<typeof sdk.createMastraCode>>
   try {
     // NOTE: sdk 1.0.1 ships no built-in subagents, so passing our custom
@@ -237,7 +254,8 @@ async function main(): Promise<void> {
     mc = await sdk.createMastraCode({
       cwd: boot.cwd,
       initialState: Object.keys(initialState).length ? (initialState as never) : undefined,
-      subagents: boot.subagents?.length ? (boot.subagents as SdkSubagents) : undefined
+      subagents: boot.subagents?.length ? (boot.subagents as SdkSubagents) : undefined,
+      inputProcessors: [compression.processor as never]
     })
   } catch (err) {
     post({
@@ -440,6 +458,8 @@ async function main(): Promise<void> {
   readyState.sandboxNetwork = bootSandbox.allowNetwork
   readyState.isolationAvailable = bootSandbox.available
   if (bootSandbox.error) readyState.sandboxError = bootSandbox.error
+  readyState.compressionEnabled = boot.compression?.enabled ?? false
+  readyState.compressionSaved = 0
 
   post({
     t: 'ready',
@@ -621,6 +641,9 @@ async function main(): Promise<void> {
             break
           case 'setYolo':
             await session.state.set({ yolo: cmd.yolo } as never)
+            break
+          case 'setCompression':
+            compression.setEnabled(cmd.enabled)
             break
           case 'setThinking':
             await session.state.set({ thinkingLevel: cmd.level } as never)

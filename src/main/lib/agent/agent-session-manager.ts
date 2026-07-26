@@ -86,6 +86,8 @@ interface HostHandle {
     sandboxNetwork?: boolean
     isolationAvailable?: boolean
     sandboxError?: string
+    compressionEnabled?: boolean
+    compressionSaved?: number
   }
   readyPromise: Promise<void>
   readyResolve: () => void
@@ -394,6 +396,7 @@ export class AgentSessionManager {
       yolo: false,
       // Unlike yolo (reset every boot), the sandbox setting persists.
       sandbox: { enabled: subchat.fullSandbox, allowNetwork: subchat.sandboxNetwork },
+      compression: { enabled: this.compressionEnabled() },
       subagents
     }
 
@@ -532,7 +535,10 @@ export class AgentSessionManager {
             fullSandbox: bootState.fullSandbox as boolean | undefined,
             sandboxNetwork: bootState.sandboxNetwork as boolean | undefined,
             isolationAvailable: bootState.isolationAvailable as boolean | undefined,
-            sandboxError: bootState.sandboxError as string | undefined
+            sandboxError: bootState.sandboxError as string | undefined,
+            // Host-synthesized compression status (see agent-host.ts ready).
+            compressionEnabled: bootState.compressionEnabled as boolean | undefined,
+            compressionSaved: bootState.compressionSaved as number | undefined
           }
           // Fail visible: boot-time isolation failed — flip the persisted
           // toggle off so the UI never claims a sandbox that isn't active.
@@ -588,6 +594,13 @@ export class AgentSessionManager {
           }
           break
         }
+        case 'compression-stats':
+          handle.meta.compressionSaved = msg.tokensSaved
+          this.emitUI(subchatId, {
+            type: 'session-meta',
+            meta: { compressionSaved: msg.tokensSaved }
+          })
+          break
         case 'oauth-status':
           this.relayOauthStatus({
             flowId: msg.reqId,
@@ -1111,6 +1124,37 @@ export class AgentSessionManager {
   async setYolo(subchatId: string, yolo: boolean): Promise<void> {
     const handle = await this.ensureHost(subchatId)
     this.sendCommand(handle, { t: 'setYolo', yolo })
+  }
+
+  /** Global token-compression toggle (app_settings KV); new hosts boot with it. */
+  private compressionEnabled(): boolean {
+    try {
+      const row = getDb()
+        .select()
+        .from(schema.appSettings)
+        .where(eq(schema.appSettings.key, 'tokenCompression'))
+        .get()
+      if (row) return (JSON.parse(row.value) as { enabled?: boolean }).enabled === true
+    } catch {}
+    return false
+  }
+
+  /**
+   * Broadcast the global token-compression toggle to every live host
+   * (fire-and-forget, like setYolo). Persistence is the caller's job — new
+   * hosts pick the setting up from app_settings at boot.
+   */
+  setCompressionAll(enabled: boolean): void {
+    for (const [subchatId, handle] of this.hosts) {
+      if (handle.killed) continue
+      try {
+        this.sendCommand(handle, { t: 'setCompression', enabled })
+        handle.meta.compressionEnabled = enabled
+        if (subchatId !== '__utility__') {
+          this.emitUI(subchatId, { type: 'session-meta', meta: { compressionEnabled: enabled } })
+        }
+      } catch {}
+    }
   }
 
   /**

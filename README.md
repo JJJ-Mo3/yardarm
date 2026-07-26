@@ -165,6 +165,9 @@ Yardarm puts a desktop workspace around the agent:
   worktree and allowed paths, optional network block, a per-chat header
   toggle next to auto-approve (configure via the shield chip or `/sandbox`),
   and a global default for new chats
+- Token compression: optionally shrink stale tool outputs before each model
+  call to cut token costs (Settings → Preferences) — stored chat history is
+  never modified and the savings show up in the cost popover (`/cost`)
 - Goals (`/goal`) with a live goal banner and a color-coded header chip
   (blue active, amber paused, green done) whose popover sets, pauses/resumes,
   or clears the goal and tunes the judge model and run limit — setting a

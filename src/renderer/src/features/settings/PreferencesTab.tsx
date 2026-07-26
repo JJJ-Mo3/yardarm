@@ -30,8 +30,17 @@ export function PreferencesTab(): React.JSX.Element {
   const sandboxEnabled = sd.enabled === true
   const sandboxNetwork = sd.allowNetwork !== false
 
+  // Global token-compression toggle (applies to all chats, live immediately).
+  const tokenCompression = trpc.settings.get.useQuery({ key: 'tokenCompression' })
+  const setTokenCompression = trpc.agent.setTokenCompression.useMutation({
+    onSuccess: () => utils.settings.get.invalidate({ key: 'tokenCompression' })
+  })
+  const compressionEnabled =
+    (tokenCompression.data as { enabled?: boolean } | null)?.enabled === true
+
   const p = settings.data?.preferences ?? {}
-  const error = settings.error ?? setPreferences.error ?? setSetting.error
+  const error =
+    settings.error ?? setPreferences.error ?? setSetting.error ?? setTokenCompression.error
 
   return (
     <div className="space-y-4">
@@ -154,6 +163,26 @@ export function PreferencesTab(): React.JSX.Element {
               }
             />
             Allow network in the sandbox
+          </label>
+        </Tip>
+      </div>
+
+      <div className="space-y-3 rounded border border-border p-3">
+        <div>
+          <div className="text-xs font-medium">Token compression</div>
+          <div className="text-[11px] text-muted-foreground">
+            Shrinks old tool outputs before each model call to cut token costs. Applies to all chats
+            immediately — the agent can always re-run a tool if it needs the full output.
+          </div>
+        </div>
+        <Tip content="Transiently compress stale tool outputs in the prompt sent to the model — stored chat history is never modified">
+          <label className="flex w-fit items-center gap-2 text-xs">
+            <Switch
+              checked={compressionEnabled}
+              disabled={setTokenCompression.isPending}
+              onCheckedChange={(v) => setTokenCompression.mutate({ enabled: v })}
+            />
+            Compress old tool outputs (token savings show in /cost)
           </label>
         </Tip>
       </div>

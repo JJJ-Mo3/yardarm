@@ -629,6 +629,7 @@ export function ChatView({
         <CostPopover
           subchatId={subchatId}
           usage={state.usage}
+          compressionSaved={meta.compressionSaved}
           open={costOpen}
           onOpenChange={setCostOpen}
         />

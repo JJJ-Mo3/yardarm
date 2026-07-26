@@ -16,11 +16,14 @@ const KNOWN_LABELS: Record<string, string> = {
 export function CostPopover({
   subchatId,
   usage,
+  compressionSaved,
   open,
   onOpenChange
 }: {
   subchatId: string
   usage: UsageInfo | null
+  /** Estimated tokens saved by token compression, cumulative since host start. */
+  compressionSaved?: number
   open: boolean
   onOpenChange: (open: boolean) => void
 }): React.JSX.Element {
@@ -53,6 +56,14 @@ export function CostPopover({
                 <span className="font-mono">{Intl.NumberFormat().format(val)}</span>
               </div>
             ))}
+          </div>
+        )}
+        {compressionSaved != null && compressionSaved > 0 && (
+          <div className="mt-1 flex items-center justify-between text-[11px]">
+            <span className="text-muted-foreground">Saved by compression</span>
+            <span className="font-mono text-green-600 dark:text-green-500">
+              −{Intl.NumberFormat().format(compressionSaved)}
+            </span>
           </div>
         )}
         {threadRows.length > 0 && (

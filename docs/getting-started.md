@@ -268,6 +268,19 @@ reconfigure. Defaults for new chats live in Settings → **Preferences** →
 Agent sandbox. Pairs well with auto-approve: yolo speed, contained blast
 radius.
 
+### Token compression
+
+Long sessions accumulate big tool outputs the model keeps re-reading on every
+turn. Flip **Token compression** in Settings → **Preferences** to shrink
+stale tool outputs (duplicates, huge listings, old command output) in the
+prompt sent to the model — recent turns are never touched, and the agent can
+always re-run a tool if it needs the full output back. The toggle is global
+and applies to all chats immediately, no restart needed. Stored chat history
+is never modified: compression happens transiently per model call, so
+transcripts, rollbacks, and threads are unaffected. The estimated tokens
+saved show up as a green **Saved by compression** line in the cost popover
+(`/cost`).
+
 ## Reviewing and shipping changes
 
 The **Changes** tab (`Cmd+2`) is a full review-and-ship surface for the
@@ -459,17 +472,17 @@ to the CLI tab.
 
 Open with `Cmd+,` (`Ctrl+,`).
 
-| Tab             | What's there                                                                      |
-| --------------- | --------------------------------------------------------------------------------- |
-| **Appearance**  | light / dark / system theme (also togglable from the sidebar footer)              |
-| **Preferences** | approval behavior, notifications, output limits, new-chat sandbox defaults        |
-| **API Keys**    | provider API keys (stored in mastracode's `auth.json`)                            |
-| **Models**      | default model per mode, subagent, goal judge, and memory role; model packs        |
-| **Providers**   | OAuth logins (Claude / Codex / Copilot), Ollama detection, custom local providers |
-| **Voice**       | dictation engine, STT provider and model                                          |
-| **Browser**     | browser-automation settings for web tools                                         |
-| **MCP Servers** | global Model Context Protocol servers                                             |
-| **About**       | versions, runtime boot status, CLI install, updates, re-run setup                 |
+| Tab             | What's there                                                                                  |
+| --------------- | --------------------------------------------------------------------------------------------- |
+| **Appearance**  | light / dark / system theme (also togglable from the sidebar footer)                          |
+| **Preferences** | approval behavior, notifications, output limits, new-chat sandbox defaults, token compression |
+| **API Keys**    | provider API keys (stored in mastracode's `auth.json`)                                        |
+| **Models**      | default model per mode, subagent, goal judge, and memory role; model packs                    |
+| **Providers**   | OAuth logins (Claude / Codex / Copilot), Ollama detection, custom local providers             |
+| **Voice**       | dictation engine, STT provider and model                                                      |
+| **Browser**     | browser-automation settings for web tools                                                     |
+| **MCP Servers** | global Model Context Protocol servers                                                         |
+| **About**       | versions, runtime boot status, CLI install, updates, re-run setup                             |
 
 Everything you change here is written to mastracode's own config files
 (atomically, preserving keys the app doesn't know about), so the CLI picks up
