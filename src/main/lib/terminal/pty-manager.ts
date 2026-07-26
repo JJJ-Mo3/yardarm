@@ -4,6 +4,7 @@
  */
 import { EventEmitter } from 'node:events'
 import os from 'node:os'
+import path from 'node:path'
 import * as pty from 'node-pty'
 
 interface PtySession {
@@ -138,7 +139,8 @@ export class PtyManager {
   /** Kill sessions whose cwd is under the given directory (worktree cleanup). */
   killByCwdPrefix(prefix: string): void {
     for (const [id, s] of this.sessions) {
-      if (s.cwd.startsWith(prefix)) this.kill(id)
+      // Separator-aware so /a/proj doesn't also match /a/proj-backup.
+      if (s.cwd === prefix || s.cwd.startsWith(prefix + path.sep)) this.kill(id)
     }
   }
 }

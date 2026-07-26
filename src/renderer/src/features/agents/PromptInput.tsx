@@ -249,7 +249,8 @@ export function PromptInput({
       }
       if (e.key === 'Tab' || e.key === 'Enter') {
         e.preventDefault()
-        insertMention(files[mentionIndex])
+        // Clamp: a query refetch can shrink the list while the index is stale.
+        insertMention(files[Math.min(mentionIndex, files.length - 1)])
         return
       }
       if (e.key === 'Escape') {
@@ -270,12 +271,12 @@ export function PromptInput({
       }
       if (e.key === 'Tab') {
         e.preventDefault()
-        setValue(`/${slashMatches[slashIndex].name} `)
+        setValue(`/${slashMatches[Math.min(slashIndex, slashMatches.length - 1)].name} `)
         return
       }
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
-        pickSlash(slashMatches[slashIndex])
+        pickSlash(slashMatches[Math.min(slashIndex, slashMatches.length - 1)])
         return
       }
     }

@@ -304,7 +304,7 @@ export class AgentSessionManager {
     const included: typeof rows = []
     let bytes = 0
     for (const r of rows) {
-      bytes += r.parts.length
+      bytes += Buffer.byteLength(r.parts)
       if (included.length > 0 && bytes > SEED_BYTE_BUDGET) break
       included.push(r)
     }
