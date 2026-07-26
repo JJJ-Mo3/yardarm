@@ -30,13 +30,14 @@ export function PreferencesTab(): React.JSX.Element {
   const sandboxEnabled = sd.enabled === true
   const sandboxNetwork = sd.allowNetwork !== false
 
-  // Global token-compression toggle (applies to all chats, live immediately).
+  // Global token-compression settings (apply to all chats, live immediately).
   const tokenCompression = trpc.settings.get.useQuery({ key: 'tokenCompression' })
   const setTokenCompression = trpc.agent.setTokenCompression.useMutation({
     onSuccess: () => utils.settings.get.invalidate({ key: 'tokenCompression' })
   })
-  const compressionEnabled =
-    (tokenCompression.data as { enabled?: boolean } | null)?.enabled === true
+  const tc = (tokenCompression.data as { enabled?: boolean; verbosity?: boolean } | null) ?? {}
+  const compressionEnabled = tc.enabled === true
+  const verbosityEnabled = tc.verbosity === true
 
   const p = settings.data?.preferences ?? {}
   const error =
@@ -175,14 +176,28 @@ export function PreferencesTab(): React.JSX.Element {
             immediately — the agent can always re-run a tool if it needs the full output.
           </div>
         </div>
-        <Tip content="Transiently compress stale tool outputs in the prompt sent to the model — stored chat history is never modified">
+        <Tip content="Transiently compress stale tool outputs in the prompt sent to the model — stored chat history is never modified, and the agent can fetch any compressed output back via the retrieve_full_output tool">
           <label className="flex w-fit items-center gap-2 text-xs">
             <Switch
               checked={compressionEnabled}
               disabled={setTokenCompression.isPending}
-              onCheckedChange={(v) => setTokenCompression.mutate({ enabled: v })}
+              onCheckedChange={(v) =>
+                setTokenCompression.mutate({ enabled: v, verbosity: verbosityEnabled })
+              }
             />
             Compress old tool outputs (token savings show in /cost)
+          </label>
+        </Tip>
+        <Tip content="Appends a short instruction to the system prompt asking the agent not to restate tool outputs and to keep replies brief — works independently of output compression">
+          <label className="flex w-fit items-center gap-2 text-xs">
+            <Switch
+              checked={verbosityEnabled}
+              disabled={setTokenCompression.isPending}
+              onCheckedChange={(v) =>
+                setTokenCompression.mutate({ enabled: compressionEnabled, verbosity: v })
+              }
+            />
+            Verbosity steering (nudge the agent to reply concisely)
           </label>
         </Tip>
       </div>

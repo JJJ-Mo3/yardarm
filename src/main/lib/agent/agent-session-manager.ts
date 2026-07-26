@@ -396,7 +396,7 @@ export class AgentSessionManager {
       yolo: false,
       // Unlike yolo (reset every boot), the sandbox setting persists.
       sandbox: { enabled: subchat.fullSandbox, allowNetwork: subchat.sandboxNetwork },
-      compression: { enabled: this.compressionEnabled() },
+      compression: this.compressionSettings(),
       subagents
     }
 
@@ -1126,29 +1126,32 @@ export class AgentSessionManager {
     this.sendCommand(handle, { t: 'setYolo', yolo })
   }
 
-  /** Global token-compression toggle (app_settings KV); new hosts boot with it. */
-  private compressionEnabled(): boolean {
+  /** Global token-compression settings (app_settings KV); new hosts boot with them. */
+  private compressionSettings(): { enabled: boolean; verbosity: boolean } {
     try {
       const row = getDb()
         .select()
         .from(schema.appSettings)
         .where(eq(schema.appSettings.key, 'tokenCompression'))
         .get()
-      if (row) return (JSON.parse(row.value) as { enabled?: boolean }).enabled === true
+      if (row) {
+        const parsed = JSON.parse(row.value) as { enabled?: boolean; verbosity?: boolean }
+        return { enabled: parsed.enabled === true, verbosity: parsed.verbosity === true }
+      }
     } catch {}
-    return false
+    return { enabled: false, verbosity: false }
   }
 
   /**
-   * Broadcast the global token-compression toggle to every live host
+   * Broadcast the global token-compression settings to every live host
    * (fire-and-forget, like setYolo). Persistence is the caller's job — new
-   * hosts pick the setting up from app_settings at boot.
+   * hosts pick the settings up from app_settings at boot.
    */
-  setCompressionAll(enabled: boolean): void {
+  setCompressionAll(enabled: boolean, verbosity: boolean): void {
     for (const [subchatId, handle] of this.hosts) {
       if (handle.killed) continue
       try {
-        this.sendCommand(handle, { t: 'setCompression', enabled })
+        this.sendCommand(handle, { t: 'setCompression', enabled, verbosity })
         handle.meta.compressionEnabled = enabled
         if (subchatId !== '__utility__') {
           this.emitUI(subchatId, { type: 'session-meta', meta: { compressionEnabled: enabled } })

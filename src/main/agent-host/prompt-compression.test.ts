@@ -4,7 +4,13 @@ import {
   EXCERPT_HEAD_CHARS,
   EXCERPT_TAIL_CHARS,
   JSON_ARRAY_KEEP,
+  JSON_ARRAY_TAIL_KEEP,
+  LINE_REPEAT_MIN,
+  VERBOSITY_SUFFIX,
+  applyVerbositySteering,
+  collapseRepeatedLines,
   compressPrompt,
+  stripAnsi,
   type CompressiblePromptMessage
 } from './prompt-compression'
 
@@ -143,7 +149,7 @@ describe('compressPrompt', () => {
     expect(result.changed).toBe(false)
   })
 
-  it('crushes big homogeneous JSON arrays and keeps the json type', () => {
+  it('crushes big homogeneous JSON arrays keeping head, tail and the json type', () => {
     const items = Array.from({ length: 50 }, (_, i) => ({ id: i, name: `item ${i}` }))
     const prompt = [
       user('turn 1'),
@@ -157,9 +163,77 @@ describe('compressPrompt', () => {
     const output = outputOf(result.prompt[1])
     expect(output.type).toBe('json')
     const value = output.value as unknown[]
-    expect(value).toHaveLength(JSON_ARRAY_KEEP + 1)
+    expect(value).toHaveLength(JSON_ARRAY_KEEP + 1 + JSON_ARRAY_TAIL_KEEP)
     expect(value.slice(0, JSON_ARRAY_KEEP)).toEqual(items.slice(0, JSON_ARRAY_KEEP))
-    expect(value[JSON_ARRAY_KEEP]).toContain(`${50 - JSON_ARRAY_KEEP} more items omitted`)
+    const omitted = 50 - JSON_ARRAY_KEEP - JSON_ARRAY_TAIL_KEEP
+    expect(value[JSON_ARRAY_KEEP]).toContain(`${omitted} more items omitted`)
+    expect(value.slice(-JSON_ARRAY_TAIL_KEEP)).toEqual(items.slice(-JSON_ARRAY_TAIL_KEEP))
+  })
+
+  it('preserves error-like items when crushing arrays', () => {
+    const items: unknown[] = Array.from({ length: 50 }, (_, i) => ({ id: i, status: 'ok' }))
+    items[25] = { id: 25, status: 'error', message: 'boom' }
+    const prompt = [
+      user('turn 1'),
+      toolResult('search', { type: 'json', value: items }),
+      user('turn 2'),
+      user('turn 3'),
+      user('turn 4')
+    ]
+    const result = compressPrompt(prompt, opts)
+    const value = outputOf(result.prompt[1]).value as unknown[]
+    expect(value).toContainEqual({ id: 25, status: 'error', message: 'boom' })
+  })
+
+  it('crushes homogeneous arrays nested one level inside a JSON object', () => {
+    const rows = Array.from({ length: 40 }, (_, i) => ({ id: i }))
+    const prompt = [
+      user('turn 1'),
+      toolResult('query', { type: 'json', value: { total: 40, rows } }),
+      user('turn 2'),
+      user('turn 3'),
+      user('turn 4')
+    ]
+    const result = compressPrompt(prompt, opts)
+    expect(result.changed).toBe(true)
+    const output = outputOf(result.prompt[1])
+    expect(output.type).toBe('json')
+    const value = output.value as { total: number; rows: unknown[] }
+    expect(value.total).toBe(40)
+    expect(value.rows).toHaveLength(JSON_ARRAY_KEEP + 1 + JSON_ARRAY_TAIL_KEEP)
+    expect(JSON.stringify(value.rows[JSON_ARRAY_KEEP])).toContain(COMPRESSION_MARKER)
+  })
+
+  it('strips ANSI escapes and collapses repeated lines in old text outputs', () => {
+    const noisy =
+      '\u001b[32mbuilding\u001b[0m\n' +
+      Array.from({ length: 20 }, () => 'progress tick').join('\n') +
+      '\ndone\n' +
+      'padding '.repeat(60)
+    const prompt = [
+      user('turn 1'),
+      toolResult('shell', { type: 'text', value: noisy }),
+      user('turn 2'),
+      user('turn 3'),
+      user('turn 4')
+    ]
+    const result = compressPrompt(prompt, opts)
+    expect(result.changed).toBe(true)
+    const value = outputOf(result.prompt[1]).value as string
+    expect(value).not.toContain('\u001b[')
+    expect(value).toContain('building')
+    expect(value).toContain('progress tick')
+    expect(value).toContain('repeated 19 more times')
+    expect(result.tokensSaved).toBeGreaterThan(0)
+  })
+
+  it('reports originals with toolCallId for rewritten results', () => {
+    const prompt = promptWithOldBigResult()
+    const result = compressPrompt(prompt, opts)
+    expect(result.originals).toEqual([{ toolCallId: 'call-1', toolName: 'shell', text: BIG }])
+    const value = outputOf(result.prompt[2]).value as string
+    expect(value).toContain('retrieve_full_output')
+    expect(value).toContain('call-1')
   })
 
   it('leaves heterogeneous and short JSON arrays alone', () => {
@@ -215,5 +289,49 @@ describe('compressPrompt', () => {
       if (i === 2) expect(result.prompt[i]).not.toBe(prompt[i])
       else expect(result.prompt[i]).toBe(prompt[i])
     }
+  })
+})
+
+describe('stripAnsi', () => {
+  it('removes CSI and OSC sequences and is idempotent', () => {
+    const input = '\u001b[1;32mok\u001b[0m \u001b]0;title\u0007text \u001b[2K\u001b[1Gline'
+    const stripped = stripAnsi(input)
+    expect(stripped).toBe('ok text line')
+    expect(stripAnsi(stripped)).toBe(stripped)
+  })
+})
+
+describe('collapseRepeatedLines', () => {
+  it('collapses runs at/above the threshold and leaves shorter runs alone', () => {
+    const below = Array.from({ length: LINE_REPEAT_MIN - 1 }, () => 'tick').join('\n')
+    expect(collapseRepeatedLines(below)).toBe(below)
+    const at = Array.from({ length: LINE_REPEAT_MIN }, () => 'tick').join('\n')
+    const collapsed = collapseRepeatedLines(at)
+    expect(collapsed).toBe(
+      `tick\n${COMPRESSION_MARKER}: previous line repeated ${LINE_REPEAT_MIN - 1} more times]`
+    )
+  })
+})
+
+describe('applyVerbositySteering', () => {
+  it('appends the suffix to the system message once, copy-on-write', () => {
+    const prompt: CompressiblePromptMessage[] = [{ role: 'system', content: 'sys' }, user('hi')]
+    const first = applyVerbositySteering(prompt)
+    expect(first.changed).toBe(true)
+    expect(first.prompt[0].content).toBe('sys\n\n' + VERBOSITY_SUFFIX)
+    expect(first.prompt[1]).toBe(prompt[1])
+    expect(prompt[0].content).toBe('sys')
+    const second = applyVerbositySteering(first.prompt)
+    expect(second.changed).toBe(false)
+    expect(second.prompt).toBe(first.prompt)
+  })
+
+  it('is a no-op without a string-content system message', () => {
+    const noSystem = applyVerbositySteering([user('hi')])
+    expect(noSystem.changed).toBe(false)
+    const arrayContent = applyVerbositySteering([
+      { role: 'system', content: [{ type: 'text', text: 'sys' }] }
+    ])
+    expect(arrayContent.changed).toBe(false)
   })
 })

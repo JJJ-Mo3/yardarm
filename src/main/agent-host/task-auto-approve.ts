@@ -27,7 +27,9 @@
 
 /**
  * The SDK's ALWAYS_ALLOW_TOOLS: tools it intends to run without approval but
- * whose gate says "ask".
+ * whose gate says "ask" — plus Yardarm's own retrieve_full_output, a
+ * read-only in-memory lookup of compressed tool outputs (retrieval-store.ts)
+ * that never touches the filesystem or network.
  */
 export const AUTO_APPROVE_TOOLS: ReadonlySet<string> = new Set([
   'ask_user',
@@ -36,7 +38,8 @@ export const AUTO_APPROVE_TOOLS: ReadonlySet<string> = new Set([
   'task_complete',
   'task_check',
   'submit_plan',
-  'request_access'
+  'request_access',
+  'retrieve_full_output'
 ])
 
 /**

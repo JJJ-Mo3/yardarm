@@ -272,14 +272,28 @@ radius.
 
 Long sessions accumulate big tool outputs the model keeps re-reading on every
 turn. Flip **Token compression** in Settings → **Preferences** to shrink
-stale tool outputs (duplicates, huge listings, old command output) in the
-prompt sent to the model — recent turns are never touched, and the agent can
-always re-run a tool if it needs the full output back. The toggle is global
-and applies to all chats immediately, no restart needed. Stored chat history
-is never modified: compression happens transiently per model call, so
-transcripts, rollbacks, and threads are unaffected. The estimated tokens
-saved show up as a green **Saved by compression** line in the cost popover
-(`/cost`).
+stale tool outputs in the prompt sent to the model:
+
+- duplicate results are replaced with a stub pointing at the first occurrence
+- big homogeneous JSON arrays are crushed to their head and tail (error-like
+  items are preserved), including arrays nested one level inside objects
+- noisy text is cleaned: ANSI color codes stripped, repeated log lines
+  collapsed
+- anything still long is reduced to a head+tail excerpt
+
+Recent turns are never touched, and compression is reversible: every
+replacement names its `toolCallId`, and the agent can fetch the original via
+the built-in `retrieve_full_output` tool (or just re-run the original tool).
+The toggle is global and applies to all chats immediately, no restart needed.
+Stored chat history is never modified: compression happens transiently per
+model call, so transcripts, rollbacks, and threads are unaffected. The
+estimated tokens saved show up as a green **Saved by compression** line in
+the cost popover (`/cost`).
+
+The separate **Verbosity steering** switch in the same card appends a short
+constant instruction to the system prompt asking the agent not to restate
+tool outputs and to keep replies brief — it works with or without output
+compression and doesn't disturb provider prompt caching.
 
 ## Reviewing and shipping changes
 
@@ -472,17 +486,17 @@ to the CLI tab.
 
 Open with `Cmd+,` (`Ctrl+,`).
 
-| Tab             | What's there                                                                                  |
-| --------------- | --------------------------------------------------------------------------------------------- |
-| **Appearance**  | light / dark / system theme (also togglable from the sidebar footer)                          |
-| **Preferences** | approval behavior, notifications, output limits, new-chat sandbox defaults, token compression |
-| **API Keys**    | provider API keys (stored in mastracode's `auth.json`)                                        |
-| **Models**      | default model per mode, subagent, goal judge, and memory role; model packs                    |
-| **Providers**   | OAuth logins (Claude / Codex / Copilot), Ollama detection, custom local providers             |
-| **Voice**       | dictation engine, STT provider and model                                                      |
-| **Browser**     | browser-automation settings for web tools                                                     |
-| **MCP Servers** | global Model Context Protocol servers                                                         |
-| **About**       | versions, runtime boot status, CLI install, updates, re-run setup                             |
+| Tab             | What's there                                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **Appearance**  | light / dark / system theme (also togglable from the sidebar footer)                                               |
+| **Preferences** | approval behavior, notifications, output limits, new-chat sandbox defaults, token compression + verbosity steering |
+| **API Keys**    | provider API keys (stored in mastracode's `auth.json`)                                                             |
+| **Models**      | default model per mode, subagent, goal judge, and memory role; model packs                                         |
+| **Providers**   | OAuth logins (Claude / Codex / Copilot), Ollama detection, custom local providers                                  |
+| **Voice**       | dictation engine, STT provider and model                                                                           |
+| **Browser**     | browser-automation settings for web tools                                                                          |
+| **MCP Servers** | global Model Context Protocol servers                                                                              |
+| **About**       | versions, runtime boot status, CLI install, updates, re-run setup                                                  |
 
 Everything you change here is written to mastracode's own config files
 (atomically, preserving keys the app doesn't know about), so the CLI picks up

@@ -163,14 +163,15 @@ export const agentRouter = router({
     }),
 
   /**
-   * Global token-compression toggle: persist to app_settings and broadcast
-   * to all live hosts in one place so the two can't drift.
+   * Global token-compression settings (compression + verbosity steering):
+   * persist to app_settings and broadcast to all live hosts in one place so
+   * the two can't drift.
    */
   setTokenCompression: publicProcedure
-    .input(z.object({ enabled: z.boolean() }))
+    .input(z.object({ enabled: z.boolean(), verbosity: z.boolean() }))
     .mutation(({ input }) => {
       const db = getDb()
-      const value = JSON.stringify({ enabled: input.enabled })
+      const value = JSON.stringify({ enabled: input.enabled, verbosity: input.verbosity })
       const existing = db
         .select()
         .from(schema.appSettings)
@@ -184,7 +185,7 @@ export const agentRouter = router({
       } else {
         db.insert(schema.appSettings).values({ key: 'tokenCompression', value }).run()
       }
-      agentSessionManager.setCompressionAll(input.enabled)
+      agentSessionManager.setCompressionAll(input.enabled, input.verbosity)
       return { ok: true }
     }),
 

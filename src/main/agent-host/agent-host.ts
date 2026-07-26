@@ -15,9 +15,12 @@ import type {
   SandboxRuntimeInfo,
   SttModelInfo
 } from '../../shared/ipc-types'
+import { z } from 'zod'
 import { patchApprovalRunBudget } from './approval-run-budget'
 import { createCompressionProcessor } from './compression-processor'
 import { installNoTimeoutFetch } from './no-timeout-fetch'
+import { RETRIEVAL_TOOL_NAME } from './prompt-compression'
+import { createRetrievalStore } from './retrieval-store'
 import { SandboxIsolationManager, type WorkspaceLike } from './sandbox-isolation'
 import {
   buildSttRequest,
@@ -239,11 +242,66 @@ async function main(): Promise<void> {
     )
     estimate = (text) => te.tokenEstimate(text)
   } catch {}
+  // Reversible compression: originals of rewritten tool results are kept in a
+  // bounded store so the model can get them back via retrieve_full_output.
+  const retrievalStore = createRetrievalStore({ maxEntries: 200, maxBytes: 8 * 1024 * 1024 })
   const compression = createCompressionProcessor({
     enabled: boot.compression?.enabled ?? false,
+    verbosity: boot.compression?.verbosity ?? false,
     estimate,
-    onStats: (tokensSaved) => post({ t: 'compression-stats', tokensSaved })
+    onStats: (tokensSaved) => post({ t: 'compression-stats', tokensSaved }),
+    onOriginals: (originals) => {
+      for (const o of originals) retrievalStore.put(o.toolCallId, o.toolName, o.text)
+    }
   })
+
+  /** Max characters returned per retrieve_full_output call (offset paginates). */
+  const RETRIEVAL_CHUNK_CHARS = 20_000
+  const retrievalTool = {
+    id: RETRIEVAL_TOOL_NAME,
+    description:
+      'Retrieve the full original output of an earlier tool call that Yardarm compressed ' +
+      '(compressed results carry a "[Yardarm compressed" marker naming the toolCallId). ' +
+      `Returns up to ${RETRIEVAL_CHUNK_CHARS} characters per call; pass offset to continue.`,
+    inputSchema: z.object({
+      toolCallId: z.string().describe('The toolCallId named in the compression marker'),
+      offset: z
+        .number()
+        .int()
+        .min(0)
+        .optional()
+        .describe('Character offset to continue a previous retrieval from (default 0)')
+    }),
+    execute: ({ toolCallId, offset }: { toolCallId: string; offset?: number }): string => {
+      const entry = retrievalStore.get(toolCallId)
+      if (!entry) {
+        return `No stored output for toolCallId "${toolCallId}" — it may have expired; re-run the original tool instead.`
+      }
+      const start = Math.min(offset ?? 0, entry.text.length)
+      const chunk = entry.text.slice(start, start + RETRIEVAL_CHUNK_CHARS)
+      const end = start + chunk.length
+      const header =
+        `Full output of ${entry.toolName} (${entry.text.length} chars), ` +
+        `chars ${start}-${end}${end < entry.text.length ? ` — call again with offset ${end} for more` : ''}:\n`
+      return header + chunk
+    }
+  }
+  // Prefer a real Tool instance (marker symbol, validation) built by the
+  // runtime's own createTool; the plain ToolLike object is the fallback. Our
+  // bundled zod schema interops via the Standard Schema interface.
+  let retrievalToolInstance: unknown = retrievalTool
+  try {
+    const toolsMod = await runtimeImport<{ createTool: (cfg: never) => unknown }>(
+      '@mastra/core/tools'
+    )
+    retrievalToolInstance = toolsMod.createTool(retrievalTool as never)
+  } catch (err) {
+    post({
+      t: 'log',
+      level: 'error',
+      msg: `createTool unavailable, using ToolLike: ${String(err)}`
+    })
+  }
 
   let mc: Awaited<ReturnType<typeof sdk.createMastraCode>>
   try {
@@ -255,7 +313,8 @@ async function main(): Promise<void> {
       cwd: boot.cwd,
       initialState: Object.keys(initialState).length ? (initialState as never) : undefined,
       subagents: boot.subagents?.length ? (boot.subagents as SdkSubagents) : undefined,
-      inputProcessors: [compression.processor as never]
+      inputProcessors: [compression.processor as never],
+      extraTools: { [RETRIEVAL_TOOL_NAME]: retrievalToolInstance as never }
     })
   } catch (err) {
     post({
@@ -644,6 +703,7 @@ async function main(): Promise<void> {
             break
           case 'setCompression':
             compression.setEnabled(cmd.enabled)
+            compression.setVerbosity(cmd.verbosity)
             break
           case 'setThinking':
             await session.state.set({ thinkingLevel: cmd.level } as never)

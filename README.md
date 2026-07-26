@@ -166,8 +166,12 @@ Yardarm puts a desktop workspace around the agent:
   toggle next to auto-approve (configure via the shield chip or `/sandbox`),
   and a global default for new chats
 - Token compression: optionally shrink stale tool outputs before each model
-  call to cut token costs (Settings → Preferences) — stored chat history is
-  never modified and the savings show up in the cost popover (`/cost`)
+  call to cut token costs (Settings → Preferences) — duplicates are stubbed,
+  big JSON arrays crushed, noisy logs cleaned, long outputs excerpted, and
+  the agent can fetch any compressed output back via a built-in
+  `retrieve_full_output` tool; stored chat history is never modified and the
+  savings show up in the cost popover (`/cost`). An optional
+  verbosity-steering switch nudges the agent toward terser replies
 - Goals (`/goal`) with a live goal banner and a color-coded header chip
   (blue active, amber paused, green done) whose popover sets, pauses/resumes,
   or clears the goal and tunes the judge model and run limit — setting a
