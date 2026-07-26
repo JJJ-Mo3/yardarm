@@ -297,7 +297,7 @@ compression and doesn't disturb provider prompt caching.
 
 ## Reviewing and shipping changes
 
-The **Changes** tab (`Cmd+2`) is a full review-and-ship surface for the
+The **Changes** tab (`Cmd+4`) is a full review-and-ship surface for the
 chat's worktree:
 
 - **Diffs** — side-by-side Monaco diffs of every changed file.
@@ -391,10 +391,10 @@ down per thread.
 
 ## Terminal, IDE, and CLI tabs
 
-- **Terminal** (`Cmd+3`, or toggle with `Cmd+J`) — a real shell that opens in
+- **Terminal** (`Cmd+5`, or toggle with `Cmd+J`) — a real shell that opens in
   the chat's worktree. Build, test, poke around; you and the agent are
   looking at the same files.
-- **IDE** (`Cmd+4`) — a file tree + Monaco editor scoped to the worktree.
+- **IDE** (`Cmd+3`) — a file tree + Monaco editor scoped to the worktree.
   Open multiple files as tabs and save with `⌘S`. Every save is tracked per
   project/worktree and survives app restarts: each chat working on that
   root is told about your edit immediately — pushed into the run while its
@@ -405,7 +405,7 @@ down per thread.
   note alongside your first prompt. Clean files the agent changes refresh
   automatically, and saving over a file the agent just changed prompts you
   to overwrite or reload.
-- **CLI** (`Cmd+5`) — the interactive Mastra Code terminal UI, embedded,
+- **CLI** (`Cmd+2`) — the interactive Mastra Code terminal UI, embedded,
   running in the same worktree and seeing the same threads as the chat.
   Handy for CLI-only commands (terminal voice mode, …). Avoid
   driving the same thread from the chat and the CLI at the same time.
@@ -552,7 +552,7 @@ providers you configured.
 | ------------- | ----------------------------------------------------------- |
 | `Cmd+N`       | new chat                                                    |
 | `Cmd+P`       | thread switcher                                             |
-| `Cmd+1`–`6`   | switch tab (Chat / Changes / Terminal / IDE / CLI / Kanban) |
+| `Cmd+1`–`6`   | switch tab (Chat / CLI / IDE / Changes / Terminal / Kanban) |
 | `Cmd+J`       | toggle the Terminal tab                                     |
 | `Cmd+,`       | settings                                                    |
 | `Enter`       | send (in composer)                                          |

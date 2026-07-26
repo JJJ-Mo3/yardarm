@@ -362,7 +362,7 @@ thread at once).
 | --------- | ------------------------------------------------- |
 | `Cmd+N`   | New chat                                          |
 | `Cmd+P`   | Thread switcher                                   |
-| `Cmd+1–6` | Switch tab (chat/changes/terminal/IDE/CLI/kanban) |
+| `Cmd+1–6` | Switch tab (chat/CLI/IDE/changes/terminal/kanban) |
 | `Cmd+J`   | Toggle terminal tab                               |
 | `Cmd+,`   | Settings                                          |
 
