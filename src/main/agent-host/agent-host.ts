@@ -417,6 +417,32 @@ async function main(): Promise<void> {
       error: p.error
     }))
 
+  /** Project the SDK's McpServerStatus onto the wire-safe McpServerStatusInfo shape. */
+  const mapMcpStatus = (
+    s: ReturnType<NonNullable<typeof mc.mcpManager>['getServerStatuses']>[number]
+  ): Record<string, unknown> => ({
+    name: s.name,
+    connected: s.connected,
+    connecting: s.connecting,
+    toolCount: s.toolCount,
+    toolNames: s.toolNames,
+    transport: s.transport,
+    error: s.error,
+    needsAuth: s.needsAuth,
+    authenticating: s.authenticating,
+    cancelled: s.cancelled
+  })
+
+  // Surface the SDK's background GitHub-plugin update poll so the UI can
+  // tell the user their installed plugins changed. Best-effort.
+  try {
+    mc.pluginManager?.onGithubPluginsUpdated((names) => {
+      post({ t: 'github-plugins-updated', names })
+    })
+  } catch (err) {
+    post({ t: 'log', level: 'error', msg: `plugin update subscription failed: ${String(err)}` })
+  }
+
   session.subscribe((event) => {
     // The display_state_changed firehose is large and derivable; skip it.
     if ((event as { type: string }).type === 'display_state_changed') return
@@ -770,6 +796,38 @@ async function main(): Promise<void> {
                 title: cmd.title
               })
               return { threadId: thread.id }
+            })
+            break
+          case 'forkThread':
+            await respond(cmd.reqId, async () => {
+              // Runs on the fork's own fresh host so the source subchat's
+              // host/stream is never disturbed. Memory has no thread-scoped
+              // list, so briefly bind to the source to read its message
+              // order for the anchor cut.
+              await session.thread.switch({ threadId: cmd.sourceThreadId })
+              const sourceMsgs = await session.thread.listActiveMessages()
+              const anchorIdx = sourceMsgs.findIndex((m) => m.id === cmd.anchorMessageId)
+              if (anchorIdx < 0) throw new Error('anchor message not found in source thread')
+              // clone() binds the session to the new thread and rebinds the stream.
+              const thread = await session.thread.clone({
+                sourceThreadId: cmd.sourceThreadId,
+                title: cmd.title
+              })
+              const cloneMsgs = await session.thread.listActiveMessages()
+              // Clones get fresh message ids but preserve order, so the cut
+              // falls back to the source index (id match kept as a guard).
+              const idIdx = cloneMsgs.findIndex((m) => m.id === cmd.anchorMessageId)
+              const idx = idIdx >= 0 ? idIdx : Math.min(anchorIdx, cloneMsgs.length - 1)
+              const ids = cloneMsgs.slice(idx + 1).map((m) => m.id)
+              if (ids.length > 0) await resolveMemory().deleteMessages(ids)
+              // Source → clone id map for the retained prefix, so rollback
+              // anchors keep working in the forked transcript.
+              const idMap: Record<string, string> = {}
+              for (let i = 0; i <= idx && i < sourceMsgs.length; i++) {
+                idMap[sourceMsgs[i].id] = cloneMsgs[i].id
+              }
+              refreshSandbox()
+              return { threadId: thread.id, idMap }
             })
             break
           case 'threadDelete':
@@ -1294,6 +1352,41 @@ async function main(): Promise<void> {
               authStorage.logout(cmd.provider)
               bustModelCache()
               return null
+            })
+            break
+          case 'mcpStatus':
+            // No manager (no servers configured) is a normal state, not an error.
+            await respond(cmd.reqId, async () =>
+              (mc.mcpManager?.getServerStatuses() ?? []).map(mapMcpStatus)
+            )
+            break
+          case 'mcpAuthenticate':
+            await respond(cmd.reqId, async () => {
+              const mm = mc.mcpManager
+              if (!mm) throw new Error('MCP manager unavailable')
+              // Human consent flow: give the SDK 4 minutes (the main-process
+              // request timeout is longer so the SDK's resolves-with-error
+              // result — not an IPC timeout — is what the UI sees).
+              const status = await mm.authenticateServer(cmd.serverName, {
+                onAuthorizationUrl: (url) =>
+                  post({ t: 'mcp-auth-url', serverName: cmd.serverName, url }),
+                timeoutMs: 240_000
+              })
+              return mapMcpStatus(status)
+            })
+            break
+          case 'mcpCancelAuth':
+            await respond(cmd.reqId, async () => {
+              const mm = mc.mcpManager
+              if (!mm) throw new Error('MCP manager unavailable')
+              return { cancelled: await mm.cancelServerAuthentication(cmd.serverName) }
+            })
+            break
+          case 'mcpReconnect':
+            await respond(cmd.reqId, async () => {
+              const mm = mc.mcpManager
+              if (!mm) throw new Error('MCP manager unavailable')
+              return mapMcpStatus(await mm.reconnectServer(cmd.serverName))
             })
             break
           case 'shutdown':

@@ -167,10 +167,13 @@ Yardarm puts a desktop workspace around the agent:
   and a global default for new chats
 - Token compression: optionally shrink stale tool outputs before each model
   call to cut token costs (Settings → Preferences) — duplicates are stubbed,
-  big JSON arrays crushed, noisy logs cleaned, long outputs excerpted, and
+  big JSON arrays crushed, noisy logs cleaned (progress bars, repeated
+  lines, deep stack traces), unified diffs compacted without losing a
+  single changed line, HTML stripped to text, long outputs excerpted, and
   the agent can fetch any compressed output back via a built-in
-  `retrieve_full_output` tool; stored chat history is never modified and the
-  savings show up in the cost popover (`/cost`). An optional
+  `retrieve_full_output` tool; stored chat history is never modified and
+  the savings show up in the cost popover (`/cost`) and as a green figure
+  next to the usage counter in the chat header. An optional
   verbosity-steering switch nudges the agent toward terser replies
 - Goals (`/goal`) with a live goal banner and a color-coded header chip
   (blue active, amber paused, green done) whose popover sets, pauses/resumes,
@@ -188,6 +191,13 @@ Yardarm puts a desktop workspace around the agent:
 - Threads (`/threads`): switch, rename, clone, delete, open in a new subchat,
   with per-thread token usage in the cost popover (`/cost`)
 - Multiple subchats per chat, each with its own agent process
+- Fork from any message: a fork pill on your messages clones the agent's
+  memory (a Mastra thread clone) into a new subchat tab, truncated to just
+  before that point — explore an alternative direction while the original
+  conversation continues unchanged
+- Split view: a toggle in the tab bar opens a second chat pane side by
+  side with a draggable divider — watch one agent run while prompting
+  another
 - Prompts sent while the agent is running are queued and delivered in order
   when the run finishes
 - Image attachments (picker, paste, or drag-and-drop) and `@` file mentions
@@ -221,7 +231,9 @@ Yardarm puts a desktop workspace around the agent:
 - Projects sidebar with chats; each chat runs in an isolated git worktree by
   default (branch prefix `yardarm/`), with optional per-repo setup commands
   from `.yardarm/worktree.json`
-- Changes view with side-by-side Monaco diffs, staging, commit, and push
+- Changes view with side-by-side Monaco diffs, staging, commit, and push,
+  plus a compare switcher to diff the worktree against any branch
+  (merge-base based, read-only)
 - Checkpoints: every user message pins a restorable snapshot
   (`refs/yardarm/checkpoints/*`); roll back the conversation and the tree
   together
@@ -232,6 +244,9 @@ Yardarm puts a desktop workspace around the agent:
   worktree
 - CLI tab that runs the interactive Mastra Code TUI in the chat's worktree,
   sharing the chat's thread history
+- Preview tab: an in-app browser for localhost dev servers — URLs are
+  auto-detected from the chat's terminals, navigation is locked to
+  localhost, and external links open in your system browser
 - Kanban board of every chat in the project (needs input / in progress /
   ready to review / idle), with matching activity dots on sidebar chat rows
 - Archive chats and projects to declutter the sidebar without deleting
@@ -256,6 +271,9 @@ Yardarm puts a desktop workspace around the agent:
 - Project Settings dialog (gear in the sidebar): MCP servers, lifecycle
   hooks, custom commands, custom subagents, agent instructions, memory
   `resourceId`, and installed skills/plugins
+- Live MCP server status in the MCP tab — connected state and tool counts
+  per server, with one-click OAuth authentication for servers that need it
+  (and reconnect for ones that dropped)
 - Custom subagents editor (`/subagents`): create and edit the `.md` agent
   definitions (frontmatter `name`/`description`/`model`/`tools` + an
   instructions body) that the agent can delegate to via the `subagent`
@@ -324,7 +342,9 @@ message menu to roll back — both the conversation and the working tree are
 restored.
 
 **Changes.** The Changes tab shows worktree diffs with staging, commit, and
-push (uses the `gh` CLI when available for PR flows).
+push (uses the `gh` CLI when available for PR flows). A compare switcher
+diffs the worktree against any other branch (from their merge-base) for a
+read-only look at how far the work has drifted.
 
 **Review.** The **review** button in the chat header (next to the goal chip)
 asks the agent for a thorough code review — of the chat's local changes
@@ -356,15 +376,28 @@ tab runs the interactive Mastra Code TUI in the same worktree — it sees the
 same threads as the chat (avoid running the chat and the CLI on the same
 thread at once).
 
+**Preview.** The Preview tab embeds a browser for localhost dev servers.
+Server URLs printed in the Terminal or CLI tabs are detected automatically
+and offered as chips (the first one loads by itself). Navigation is locked
+to localhost; links to anywhere else open in your system browser.
+
+**Split view & forking.** The columns button in the tab bar opens a second
+chat pane beside the current one (drag the divider to resize) — useful for
+watching one agent run while prompting another. To branch a single
+conversation instead, hover one of your messages and click the fork pill:
+the agent's memory is cloned as a new Mastra thread into a new subchat tab,
+truncated to just before that message, while the original continues
+unchanged.
+
 **Keyboard shortcuts** (Cmd on macOS, Ctrl elsewhere):
 
-| Shortcut  | Action                                            |
-| --------- | ------------------------------------------------- |
-| `Cmd+N`   | New chat                                          |
-| `Cmd+P`   | Thread switcher                                   |
-| `Cmd+1–6` | Switch tab (chat/CLI/IDE/changes/terminal/kanban) |
-| `Cmd+J`   | Toggle terminal tab                               |
-| `Cmd+,`   | Settings                                          |
+| Shortcut  | Action                                                    |
+| --------- | --------------------------------------------------------- |
+| `Cmd+N`   | New chat                                                  |
+| `Cmd+P`   | Thread switcher                                           |
+| `Cmd+1–7` | Switch tab (chat/CLI/IDE/changes/terminal/kanban/preview) |
+| `Cmd+J`   | Toggle terminal tab                                       |
+| `Cmd+,`   | Settings                                                  |
 
 ## Configuration paths (shared with the mastracode CLI)
 

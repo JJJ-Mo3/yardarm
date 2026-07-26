@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { BrowserWindow, shell } from 'electron'
 import type { createIPCHandler } from 'trpc-electron/main'
+import { isLocalhostHttpUrl } from '../../shared/localhost-url'
 import icon from '../../../build/icon.png?asset'
 
 type IPCHandler = ReturnType<typeof createIPCHandler>
@@ -28,8 +29,38 @@ export function createWindow(): BrowserWindow {
       preload: path.join(__dirname, '../preload/index.js'),
       sandbox: true,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      // Only the Preview tab renders a <webview>; the will/did-attach-webview
+      // handlers below are the enforcement point for what it may load.
+      webviewTag: true
     }
+  })
+
+  // <webview> hardening (Preview tab): strip any preload, force isolation,
+  // and only let localhost documents attach or navigate. This lives in the
+  // main process because the renderer-side webview events are not cancelable.
+  win.webContents.on('will-attach-webview', (event, webPreferences, params) => {
+    delete webPreferences.preload
+    webPreferences.nodeIntegration = false
+    webPreferences.contextIsolation = true
+    webPreferences.sandbox = true
+    const src = typeof params.src === 'string' ? params.src : ''
+    if (src && src !== 'about:blank' && !isLocalhostHttpUrl(src)) event.preventDefault()
+  })
+  win.webContents.on('did-attach-webview', (_event, guest) => {
+    guest.setWindowOpenHandler(({ url }) => {
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        shell.openExternal(url).catch(() => {})
+      }
+      return { action: 'deny' }
+    })
+    guest.on('will-navigate', (ev, url) => {
+      if (isLocalhostHttpUrl(url)) return
+      ev.preventDefault()
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        shell.openExternal(url).catch(() => {})
+      }
+    })
   })
 
   ipcHandler?.attachWindow(win)

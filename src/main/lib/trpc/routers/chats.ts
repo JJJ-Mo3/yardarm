@@ -225,6 +225,118 @@ export const chatsRouter = router({
     }),
 
   /**
+   * Fork the conversation from just before a user message into a new
+   * subchat tab of the same chat: the agent's memory is cloned via mastra
+   * thread.clone and truncated after the last real assistant message before
+   * the fork point, and the transcript rows before that message are copied
+   * into the new subchat. The source subchat continues unchanged.
+   */
+  fork: publicProcedure
+    .input(z.object({ subchatId: z.string(), messageId: z.string() }))
+    .mutation(async ({ input }) => {
+      const db = getDb()
+      const msg = db
+        .select()
+        .from(schema.messages)
+        .where(eq(schema.messages.id, input.messageId))
+        .get()
+      if (!msg || msg.subchatId !== input.subchatId) throw new Error('Message not found')
+      const subchat = db
+        .select()
+        .from(schema.subchats)
+        .where(eq(schema.subchats.id, input.subchatId))
+        .get()
+      if (!subchat) throw new Error('Subchat not found')
+      if (!subchat.mastraThreadId) throw new Error('No agent thread to fork yet')
+      const chat = db.select().from(schema.chats).where(eq(schema.chats.id, subchat.chatId)).get()
+      if (!chat) throw new Error('Chat not found')
+
+      // Same anchor rule as rollback: the last real (non-info) assistant
+      // message before the fork point — its id is an SDK message id that
+      // anchors the memory cut in the cloned thread.
+      const anchor = db
+        .select({ id: schema.messages.id, parts: schema.messages.parts })
+        .from(schema.messages)
+        .where(
+          and(
+            eq(schema.messages.subchatId, input.subchatId),
+            eq(schema.messages.role, 'assistant'),
+            lt(schema.messages.seq, msg.seq)
+          )
+        )
+        .orderBy(desc(schema.messages.seq))
+        .all()
+        .find((row) => {
+          try {
+            const parts = JSON.parse(row.parts) as Array<{ type: string }>
+            return parts.some((p) => p.type !== 'info')
+          } catch {
+            return false
+          }
+        })
+      if (!anchor) throw new Error('Nothing to fork — no agent reply before this message')
+
+      // Rows the forked transcript keeps: everything before the fork point.
+      const kept = db
+        .select()
+        .from(schema.messages)
+        .where(
+          and(eq(schema.messages.subchatId, input.subchatId), lt(schema.messages.seq, msg.seq))
+        )
+        .orderBy(asc(schema.messages.seq))
+        .all()
+
+      // New subchat tab in the same chat (same worktree), inheriting the
+      // source's agent settings. Thread binding happens after the fork.
+      const now = Date.now()
+      const newSubchat = {
+        id: randomUUID(),
+        chatId: subchat.chatId,
+        mastraThreadId: null,
+        mode: subchat.mode,
+        modelId: subchat.modelId,
+        thinkingLevel: subchat.thinkingLevel,
+        fullSandbox: subchat.fullSandbox,
+        sandboxNetwork: subchat.sandboxNetwork,
+        createdAt: now,
+        updatedAt: now
+      }
+      db.insert(schema.subchats).values(newSubchat).run()
+
+      try {
+        const { idMap } = await agentSessionManager.forkThread(
+          newSubchat.id,
+          subchat.mastraThreadId,
+          anchor.id,
+          `Fork of ${chat.title}`
+        )
+        // Copy the transcript prefix. Assistant rows take their clone-side
+        // SDK ids (keeps rollback anchors working in the fork); everything
+        // else gets a fresh id. checkpointRef is not copied — the stash
+        // refs stay owned by the source subchat, so deleting either chat
+        // can't unpin the other's checkpoints.
+        if (kept.length > 0) {
+          db.insert(schema.messages)
+            .values(
+              kept.map((r) => ({
+                ...r,
+                id: idMap[r.id] ?? randomUUID(),
+                subchatId: newSubchat.id,
+                checkpointRef: null
+              }))
+            )
+            .run()
+        }
+        return { subchatId: newSubchat.id }
+      } catch (err) {
+        // Roll the fork back — a half-made subchat must not survive.
+        await agentSessionManager.stopHostAndWait(newSubchat.id).catch(() => {})
+        db.delete(schema.subchats).where(eq(schema.subchats.id, newSubchat.id)).run()
+        throw err
+      }
+    }),
+
+  /**
    * Rollback to the checkpoint captured with a user message: restore the
    * worktree files and delete that message and everything after it.
    */

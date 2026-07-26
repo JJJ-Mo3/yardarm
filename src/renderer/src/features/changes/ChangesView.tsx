@@ -2,17 +2,19 @@
  * Changes tab: working-tree status with stage/unstage/discard, staged or
  * stage-all commits, push/pull, branch switching, PR creation, an
  * agent-review shortcut for the local changes, a commit history pane
- * (per-commit files + diffs), and merging the chat's worktree branch into
- * the base branch at the project root.
+ * (per-commit files + diffs), merging the chat's worktree branch into
+ * the base branch at the project root, and a read-only compare mode that
+ * diffs the working tree against the merge-base with another branch.
  */
 import React, { useMemo, useState } from 'react'
-import { useSetAtom } from 'jotai'
+import { useAtom, useSetAtom } from 'jotai'
 import { DiffModeEnum, DiffView } from '@git-diff-view/react'
 import { generateDiffFile } from '@git-diff-view/file'
 import {
   Download,
   GitBranchPlus,
   GitCommitHorizontal,
+  GitCompareArrows,
   GitMerge,
   GitPullRequestArrow,
   Minus,
@@ -20,10 +22,12 @@ import {
   RefreshCw,
   ScanSearch,
   Undo2,
-  Upload
+  Upload,
+  X
 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { mainTabAtom } from '../../lib/atoms'
+import { compareRefAtomFamily } from './compare-ref-atom'
 import { buildLocalReviewPrompt, buildReviewMarker } from '../agents/review-prompts'
 import { cn, timeAgo } from '../../lib/utils'
 import { Button } from '../../components/ui/button'
@@ -38,6 +42,7 @@ import {
   SelectValue
 } from '../../components/ui/select'
 import { Switch } from '../../components/ui/switch'
+import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
 import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
 
@@ -91,8 +96,16 @@ function DiffContent({
   )
 }
 
-function FileDiffPanel({ cwd, path }: { cwd: string; path: string }): React.JSX.Element {
-  const diff = trpc.git.fileDiff.useQuery({ cwd, path })
+function FileDiffPanel({
+  cwd,
+  path,
+  baseRef
+}: {
+  cwd: string
+  path: string
+  baseRef?: string
+}): React.JSX.Element {
+  const diff = trpc.git.fileDiff.useQuery({ cwd, path, baseRef })
   return <DiffContent diff={diff.data} isLoading={diff.isLoading} />
 }
 
@@ -145,6 +158,25 @@ export function ChangesView({
   const [mergeOpen, setMergeOpen] = useState(false)
   const [mergeSquash, setMergeSquash] = useState(false)
   const [mergeMsg, setMergeMsg] = useState('')
+  const [compareRef, setCompareRef] = useAtom(compareRefAtomFamily(cwd))
+  const [compareOpen, setCompareOpen] = useState(false)
+  const [compareFilter, setCompareFilter] = useState('')
+
+  const mergeBaseQ = trpc.git.mergeBase.useQuery(
+    { cwd, ref: compareRef ?? '' },
+    { enabled: !!compareRef }
+  )
+  const compareBase = compareRef ? (mergeBaseQ.data?.sha ?? null) : null
+  const compareFilesQ = trpc.git.diffAgainst.useQuery(
+    { cwd, baseRef: compareBase ?? '' },
+    { enabled: !!compareBase, refetchInterval: 4000 }
+  )
+  const setCompare = (ref: string | null): void => {
+    setCompareRef(ref)
+    setSelected(null)
+    setCompareOpen(false)
+    setCompareFilter('')
+  }
 
   const log = trpc.git.log.useQuery({ cwd, limit: 100 }, { enabled: pane === 'history' })
   const commitFilesQuery = trpc.git.commitFiles.useQuery(
@@ -157,6 +189,8 @@ export function ChangesView({
     utils.git.fileDiff.invalidate()
     utils.git.branches.invalidate({ cwd })
     utils.git.log.invalidate({ cwd })
+    utils.git.mergeBase.invalidate({ cwd })
+    utils.git.diffAgainst.invalidate({ cwd })
   }
   const stage = trpc.git.stage.useMutation({ onSuccess: invalidate })
   const unstage = trpc.git.unstage.useMutation({ onSuccess: invalidate })
@@ -277,12 +311,77 @@ export function ChangesView({
               </Button>
             </Tip>
           )}
+          <Popover open={compareOpen} onOpenChange={setCompareOpen}>
+            <Tip content="Compare the working tree against another branch (read-only diffs vs the merge base)">
+              <PopoverTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className={cn(compareRef && 'text-primary hover:text-primary')}
+                >
+                  <GitCompareArrows size={12} />
+                </Button>
+              </PopoverTrigger>
+            </Tip>
+            <PopoverContent className="w-60 p-1" align="end">
+              <Input
+                autoFocus
+                placeholder="Filter branches"
+                value={compareFilter}
+                onChange={(e) => setCompareFilter(e.target.value)}
+                className="mb-1 h-7 text-[11px]"
+              />
+              <div className="max-h-56 overflow-y-auto">
+                <button
+                  onClick={() => setCompare(null)}
+                  className={cn(
+                    'block w-full cursor-pointer rounded px-2 py-1 text-left text-[11px] hover:bg-accent',
+                    !compareRef && 'text-primary'
+                  )}
+                >
+                  Current (HEAD)
+                </button>
+                {branchList
+                  .filter((b) => b !== currentBranch)
+                  .filter((b) => b.toLowerCase().includes(compareFilter.toLowerCase()))
+                  .map((b) => (
+                    <button
+                      key={b}
+                      onClick={() => setCompare(b)}
+                      className={cn(
+                        'block w-full cursor-pointer truncate rounded px-2 py-1 text-left font-mono text-[11px] hover:bg-accent',
+                        compareRef === b && 'text-primary'
+                      )}
+                    >
+                      {b}
+                    </button>
+                  ))}
+              </div>
+            </PopoverContent>
+          </Popover>
           <Tip content="Re-read git status, diffs, and branches">
             <Button size="icon" variant="ghost" onClick={() => invalidate()}>
               <RefreshCw size={12} />
             </Button>
           </Tip>
         </div>
+        {compareRef && (
+          <div className="flex items-center gap-1.5 border-b border-border bg-accent/30 px-2 py-1 text-[11px]">
+            <GitCompareArrows size={11} className="shrink-0 text-muted-foreground" />
+            <span className="text-muted-foreground">vs</span>
+            <span className="min-w-0 flex-1 truncate font-mono" title={compareRef}>
+              {compareRef}
+            </span>
+            <Tip content="Stop comparing — return to working-tree changes">
+              <button
+                onClick={() => setCompare(null)}
+                className="shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+              >
+                <X size={11} />
+              </button>
+            </Tip>
+          </div>
+        )}
         <div className="flex shrink-0 border-b border-border text-[11px]">
           <Tip content="Working-tree changes: stage, discard, commit, push, pull">
             <button
@@ -366,7 +465,44 @@ export function ChangesView({
             ))}
           </div>
         )}
-        {pane === 'changes' && (
+        {pane === 'changes' && compareRef && (
+          <>
+            <div className="flex-1 overflow-y-auto p-1">
+              {mergeBaseQ.isFetched && !compareBase && (
+                <div className="p-4 text-center text-[11px] text-muted-foreground">
+                  No merge base found with {compareRef}
+                </div>
+              )}
+              {compareBase &&
+                (compareFilesQ.data ?? []).length === 0 &&
+                !compareFilesQ.isLoading && (
+                  <div className="p-4 text-center text-[11px] text-muted-foreground">
+                    No differences
+                  </div>
+                )}
+              {(compareFilesQ.data ?? []).map((f) => (
+                <div
+                  key={f.path}
+                  onClick={() => setSelected(f.path)}
+                  className={cn(
+                    'flex cursor-pointer items-center gap-1.5 rounded px-2 py-1',
+                    selected === f.path ? 'bg-accent' : 'hover:bg-accent/50'
+                  )}
+                >
+                  <span className={cn('w-6 font-mono text-[10px]', statusColor(f.status))}>
+                    {f.status}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-mono text-[11px]">{f.path}</span>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-border p-2 text-[11px] text-muted-foreground">
+              Read-only compare against {compareRef}. Clear the comparison to stage, discard, or
+              commit.
+            </div>
+          </>
+        )}
+        {pane === 'changes' && !compareRef && (
           <>
             <div className="flex-1 overflow-y-auto p-1">
               {files.length === 0 && (
@@ -540,7 +676,7 @@ export function ChangesView({
             </div>
           )
         ) : selected ? (
-          <FileDiffPanel cwd={cwd} path={selected} />
+          <FileDiffPanel cwd={cwd} path={selected} baseRef={compareBase ?? undefined} />
         ) : (
           <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
             Select a file to view its diff

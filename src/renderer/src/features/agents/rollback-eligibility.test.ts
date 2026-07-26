@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeRollbackEligible } from './rollback-eligibility'
+import { computeForkEligible, computeRollbackEligible } from './rollback-eligibility'
 import type { MessagePart, StoredMessage, ToolCallPart } from '../../../../shared/ui-message'
 
 let nextId = 0
@@ -55,5 +55,28 @@ describe('computeRollbackEligible', () => {
     const u3 = msg('user')
     const a3 = msg('assistant', [{ type: 'text', text: 'done' }])
     expect(computeRollbackEligible([u1, a1, u2, a2, u3, a3])).toEqual(new Set([u1.id, u2.id]))
+  })
+})
+
+describe('computeForkEligible', () => {
+  it('marks nothing when there is no assistant history', () => {
+    const u = msg('user', [{ type: 'text', text: 'hi' }])
+    expect(computeForkEligible([u]).size).toBe(0)
+  })
+
+  it('marks user messages preceded by a real assistant message', () => {
+    const u1 = msg('user')
+    const a1 = msg('assistant', [{ type: 'text', text: 'hello' }])
+    const u2 = msg('user')
+    const a2 = msg('assistant', [{ type: 'text', text: 'again' }])
+    const u3 = msg('user')
+    expect(computeForkEligible([u1, a1, u2, a2, u3])).toEqual(new Set([u2.id, u3.id]))
+  })
+
+  it('ignores info-only assistant rows (markers) as anchors', () => {
+    const u1 = msg('user')
+    const marker = msg('assistant', [{ type: 'info', level: 'info', text: 'Switched thread' }])
+    const u2 = msg('user')
+    expect(computeForkEligible([u1, marker, u2]).size).toBe(0)
   })
 })

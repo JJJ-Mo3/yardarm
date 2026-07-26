@@ -1,10 +1,12 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useRef } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
+  Columns2,
   FileCode2,
   FolderGit2,
   GitCompare,
   GitFork,
+  Globe,
   MessageSquare,
   Plus,
   SquareChevronRight,
@@ -20,6 +22,10 @@ import {
   selectedChatIdAtom,
   selectedProjectIdAtom,
   selectedSubchatIdAtom,
+  splitChatIdAtom,
+  splitOpenAtom,
+  splitRatioAtom,
+  splitSubchatIdAtom,
   themeAtom,
   type MainTab
 } from './lib/atoms'
@@ -30,11 +36,14 @@ import { Sidebar } from './features/sidebar/Sidebar'
 import { BootErrorScreen } from './features/boot/BootErrorScreen'
 import { OnboardingWizard } from './features/onboarding/OnboardingWizard'
 import { ChatView } from './features/agents/ChatView'
+import { SplitChatPane } from './features/agents/SplitChatPane'
+import { SplitDivider } from './components/SplitDivider'
 import { useChatStatusTracker } from './features/agents/use-chat-status-tracker'
 import { ChangesView } from './features/changes/ChangesView'
 import { TerminalView } from './features/terminal/TerminalView'
 import { FilesView } from './features/file-viewer/FilesView'
 import { KanbanView } from './features/kanban/KanbanView'
+import { PreviewView } from './features/preview/PreviewView'
 import { SettingsDialog } from './features/settings/SettingsDialog'
 import { UpdateRestartBanner } from './features/settings/UpdateRestartBanner'
 import { ProjectSettingsDialog } from './features/project-settings/ProjectSettingsDialog'
@@ -75,6 +84,12 @@ const TABS: Array<{ id: MainTab; label: string; icon: React.ReactNode; tip: stri
     label: 'Kanban',
     icon: <SquareKanban size={13} />,
     tip: 'Board of this project’s chats grouped by live agent status — click a card to open it'
+  },
+  {
+    id: 'preview',
+    label: 'Preview',
+    icon: <Globe size={13} />,
+    tip: 'Preview localhost dev servers in-app — URLs are auto-detected from the terminals'
   }
 ]
 
@@ -118,6 +133,22 @@ export default function App(): React.JSX.Element {
   const setSubchatId = useSetAtom(selectedSubchatIdAtom)
   const [tab, setTab] = useAtom(mainTabAtom)
   const [forceOnboarding, setForceOnboarding] = useAtom(onboardingForceOpenAtom)
+  const [splitOpen, setSplitOpen] = useAtom(splitOpenAtom)
+  const setSplitChatId = useSetAtom(splitChatIdAtom)
+  const setSplitSubchatId = useSetAtom(splitSubchatIdAtom)
+  const [splitRatio, setSplitRatio] = useAtom(splitRatioAtom)
+  const splitContainerRef = useRef<HTMLDivElement>(null)
+  const closeSplit = (): void => {
+    setSplitOpen(false)
+    setSplitChatId(null)
+    setSplitSubchatId(null)
+  }
+  // The split selection is project-scoped — clear it when the project changes.
+  useEffect(() => {
+    setSplitOpen(false)
+    setSplitChatId(null)
+    setSplitSubchatId(null)
+  }, [projectId, setSplitOpen, setSplitChatId, setSplitSubchatId])
 
   const projects = trpc.projects.list.useQuery()
   const chat = trpc.chats.get.useQuery({ id: chatId ?? '' }, { enabled: !!chatId })
@@ -132,6 +163,8 @@ export default function App(): React.JSX.Element {
 
   const project = (projects.data ?? []).find((p) => p.id === projectId) ?? null
   const cwd = chat.data?.worktreePath ?? project?.path ?? null
+  const showSplit = splitOpen && !!projectId && !!chatId && !!subchatId
+  const splitPct = Math.min(0.75, Math.max(0.25, splitRatio)) * 100
 
   // Hard gate: the app is useless if the bundled runtime can't boot. Covers
   // both a failed preflight result and the query itself erroring.
@@ -178,6 +211,28 @@ export default function App(): React.JSX.Element {
               </button>
             </Tip>
           ))}
+          {tab === 'chat' && chatId && (
+            <Tip
+              content={
+                splitOpen
+                  ? 'Close the split pane'
+                  : 'Split the chat view — show a second chat of this project side by side'
+              }
+              side="bottom"
+            >
+              <button
+                onClick={() => (splitOpen ? closeSplit() : setSplitOpen(true))}
+                className={cn(
+                  'ml-auto flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs cursor-pointer',
+                  splitOpen
+                    ? 'bg-accent font-medium'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <Columns2 size={13} />
+              </button>
+            </Tip>
+          )}
         </div>
 
         <UpdateRestartBanner />
@@ -211,51 +266,72 @@ export default function App(): React.JSX.Element {
             </div>
           ) : (
             <>
-              {/* Chat tab — kept mounted (hidden) so the stream state survives tab switches. */}
-              <div className={cn('flex h-full flex-col', tab !== 'chat' && 'hidden')}>
-                {chatId && subchatId ? (
-                  <>
-                    {/* Subchat tabs (created by the Threads UI "open in new tab") */}
-                    {(chat.data?.subchats.length ?? 0) > 1 && (
-                      <div className="flex shrink-0 items-center gap-1 border-b border-border px-3 py-1">
-                        {chat.data!.subchats.map((sc, i) => (
-                          <Tip
-                            key={sc.id}
-                            content="Switch to this conversation tab (each tab has its own transcript)"
-                            side="bottom"
-                          >
-                            <button
-                              onClick={() => setSubchatId(sc.id)}
-                              className={cn(
-                                'rounded px-2 py-0.5 text-[11px] cursor-pointer',
-                                subchatId === sc.id
-                                  ? 'bg-accent font-medium'
-                                  : 'text-muted-foreground hover:text-foreground'
-                              )}
+              {/* Chat tab — kept mounted (hidden) so the stream state survives
+                  tab switches; both split panes live inside so their streams
+                  survive too. */}
+              <div
+                ref={splitContainerRef}
+                className={cn('flex h-full', tab !== 'chat' && 'hidden')}
+              >
+                <div
+                  className={cn('flex h-full min-w-0 flex-col', showSplit && 'shrink-0')}
+                  style={{ width: showSplit ? `${splitPct}%` : '100%' }}
+                >
+                  {chatId && subchatId ? (
+                    <>
+                      {/* Subchat tabs (created by the Threads UI "open in new tab") */}
+                      {(chat.data?.subchats.length ?? 0) > 1 && (
+                        <div className="flex shrink-0 items-center gap-1 border-b border-border px-3 py-1">
+                          {chat.data!.subchats.map((sc, i) => (
+                            <Tip
+                              key={sc.id}
+                              content="Switch to this conversation tab (each tab has its own transcript)"
+                              side="bottom"
                             >
-                              Tab {i + 1}
-                            </button>
-                          </Tip>
-                        ))}
+                              <button
+                                onClick={() => setSubchatId(sc.id)}
+                                className={cn(
+                                  'rounded px-2 py-0.5 text-[11px] cursor-pointer',
+                                  subchatId === sc.id
+                                    ? 'bg-accent font-medium'
+                                    : 'text-muted-foreground hover:text-foreground'
+                                )}
+                              >
+                                Tab {i + 1}
+                              </button>
+                            </Tip>
+                          ))}
+                        </div>
+                      )}
+                      <div className="min-h-0 flex-1">
+                        <ChatView
+                          subchatId={subchatId}
+                          projectRoot={cwd}
+                          baseBranch={chat.data?.baseBranch ?? null}
+                        />
                       </div>
-                    )}
-                    <div className="min-h-0 flex-1">
-                      <ChatView
-                        subchatId={subchatId}
-                        projectRoot={cwd}
-                        baseBranch={chat.data?.baseBranch ?? null}
-                      />
+                    </>
+                  ) : (
+                    <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
+                      <MessageSquare size={28} strokeWidth={1.5} />
+                      <div className="text-sm">
+                        {project
+                          ? 'Create or select a chat to get started'
+                          : 'Select a project to begin'}
+                      </div>
                     </div>
+                  )}
+                </div>
+                {showSplit && projectId && (
+                  <>
+                    <SplitDivider containerRef={splitContainerRef} onRatio={setSplitRatio} />
+                    <SplitChatPane
+                      projectId={projectId}
+                      projectPath={project?.path ?? null}
+                      primaryChatId={chatId}
+                      onClose={closeSplit}
+                    />
                   </>
-                ) : (
-                  <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
-                    <MessageSquare size={28} strokeWidth={1.5} />
-                    <div className="text-sm">
-                      {project
-                        ? 'Create or select a chat to get started'
-                        : 'Select a project to begin'}
-                    </div>
-                  </div>
                 )}
               </div>
               {/* Changes / Terminal / Files work at the project level too: they
@@ -309,6 +385,23 @@ export default function App(): React.JSX.Element {
                 ))}
               {tab === 'kanban' &&
                 (projectId ? <KanbanView projectId={projectId} /> : <SelectProjectPane />)}
+              {/* Preview tab — kept mounted (hidden) so the previewed page
+                  survives tab switches. The terminal ids must match the
+                  Terminal/CLI mounts above. */}
+              <div className={cn('h-full', tab !== 'preview' && 'hidden')}>
+                {cwd ? (
+                  <PreviewView
+                    terminalIds={
+                      chatId
+                        ? [`chat-${chatId}`, `cli-chat-${chatId}`]
+                        : [`project-${projectId}`, `cli-project-${projectId}`]
+                    }
+                    active={tab === 'preview'}
+                  />
+                ) : (
+                  <SelectProjectPane />
+                )}
+              </div>
             </>
           )}
         </div>

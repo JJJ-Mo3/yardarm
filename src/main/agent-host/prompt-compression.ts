@@ -6,7 +6,10 @@
  * homogeneous JSON arrays are crushed (head + tail + error-like items kept,
  * one level of nesting too), noisy text is cleaned (ANSI escapes stripped,
  * repeated log lines collapsed), and long outputs are reduced to a head+tail
- * excerpt. The transformation is:
+ * excerpt. Text outputs are first routed by detected content type: HTML is
+ * stripped to its text, logs get progress/duplicate/stack-trace crushing, and
+ * unified diffs are compacted structurally (context trimmed, whole trailing
+ * hunks dropped) instead of taking the generic excerpt. The transformation is:
  *
  * - transient — callers apply it per model call; stored history is untouched
  * - prefix-stable — a message's compressed form depends only on itself and
@@ -41,6 +44,22 @@ export const JSON_ARRAY_ERROR_KEEP = 3
 export const LINE_REPEAT_MIN = 5
 /** Text cleaning (ANSI strip, line collapse) applies only at/above this size. */
 export const MIN_CLEAN_CHARS = 400
+/** Log detection: at least this fraction of sampled lines look log-shaped. */
+export const LOG_LINE_RATIO_MIN = 0.3
+/** HTML detection: average tags per sampled line (when no doctype/html tag). */
+export const HTML_TAG_DENSITY_MIN = 1
+/** Log crush: runs of at least this many digit-only-varying progress lines. */
+export const PROGRESS_RUN_MIN = 4
+/** Log crush: runs of at least this many timestamp-stripped identical lines. */
+export const LOG_DUP_RUN_MIN = 5
+/** Log crush: stack traces with at least this many frames are trimmed... */
+export const STACK_FRAME_MIN = 8
+/** ...to this many leading frames... */
+export const STACK_HEAD_FRAMES = 3
+/** ...plus this many trailing frames. */
+export const STACK_TAIL_FRAMES = 2
+/** Diff compaction: context lines kept on each edge of a trimmed context run. */
+export const DIFF_CONTEXT_KEEP = 2
 /** Prefix of every replacement we inject; also the idempotence sentinel. */
 export const COMPRESSION_MARKER = '[Yardarm compressed'
 /** Name of the host-provided tool that returns compressed originals. */
@@ -182,6 +201,250 @@ export function collapseRepeatedLines(text: string): string {
   return out.join('\n')
 }
 
+export type DetectedContentType = 'diff' | 'log' | 'html' | 'plain'
+
+// Leading ISO/clock timestamp, optionally bracketed — stripped when comparing
+// log lines for duplicate runs and counted for log detection.
+const TIMESTAMP_RE =
+  /^\[?\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:Z|[+-]\d{2}:?\d{2})?\]?\s*|^\[?\d{2}:\d{2}:\d{2}(?:[.,]\d+)?\]?\s*/
+const LOG_LEVEL_RE = /^\s*\[?(?:TRACE|DEBUG|INFO|NOTICE|WARN|WARNING|ERROR|SEVERE|FATAL)\b/i
+// JS/Java "  at frame" and Python '  File "..."' stack-frame lines.
+const STACK_FRAME_RE = /^\s+(?:at\s+\S|File ")/
+const HTML_TAG_RE = /<\/?[a-zA-Z][^<>]*>/g
+const DIFF_HUNK_RE = /^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@/
+
+/**
+ * Classify a tool output by its first ~50 lines so the cleanup pipeline can
+ * route it: diff → structural compaction, html → tag stripping, log →
+ * progress/duplicate/stack crushing. Deliberately conservative — anything
+ * ambiguous is 'plain' and falls back to the generic path.
+ */
+export function detectContentType(text: string): DetectedContentType {
+  const sample = text.split('\n', 50)
+  if (sample.some((l) => l.startsWith('diff --git ') || DIFF_HUNK_RE.test(l))) return 'diff'
+  if (/^\s*(?:<!DOCTYPE\s+html|<html[\s>])/i.test(text.slice(0, 500))) return 'html'
+  const tagCount = (sample.join('\n').match(HTML_TAG_RE) ?? []).length
+  if (tagCount >= 8 && tagCount / sample.length >= HTML_TAG_DENSITY_MIN) return 'html'
+  if (/\r(?!\n)/.test(text)) return 'log' // progress bars rewriting the line
+  const nonEmpty = sample.filter((l) => l.trim().length > 0)
+  const logLines = nonEmpty.filter((l) => TIMESTAMP_RE.test(l) || LOG_LEVEL_RE.test(l)).length
+  if (logLines >= 5 && logLines / Math.max(1, nonEmpty.length) >= LOG_LINE_RATIO_MIN) return 'log'
+  return 'plain'
+}
+
+/**
+ * Crush log-shaped text: resolve carriage-return progress rewrites, collapse
+ * runs of digit-only-varying progress lines and timestamp-stripped duplicate
+ * lines, and trim long stack traces to head + tail frames. Returns the input
+ * unchanged (same reference) when nothing collapsed.
+ */
+export function crushLog(text: string): string {
+  let normalized = text.replace(/\r\n/g, '\n')
+  if (normalized.includes('\r')) {
+    normalized = normalized
+      .split('\n')
+      .map((l) => l.slice(l.lastIndexOf('\r') + 1))
+      .join('\n')
+  }
+  let lines = normalized.split('\n')
+
+  // Pass 1: duplicate lines modulo a leading timestamp.
+  const keys = lines.map((l) => l.replace(TIMESTAMP_RE, ''))
+  let out: string[] = []
+  for (let i = 0; i < lines.length;) {
+    let run = 1
+    while (i + run < lines.length && keys[i + run] === keys[i]) run++
+    if (run >= LOG_DUP_RUN_MIN) {
+      out.push(lines[i], `${COMPRESSION_MARKER}: previous line repeated ${run - 1} more times]`)
+    } else {
+      for (let k = 0; k < run; k++) out.push(lines[i + k])
+    }
+    i += run
+  }
+  lines = out
+
+  // Pass 2: progress lines — identical after masking digits (counters,
+  // percentages, byte counts) but not literally identical. Stack-frame lines
+  // are excluded; the dedicated pass below keeps head + tail frames.
+  const masked = lines.map((l) =>
+    /\d/.test(l) && !STACK_FRAME_RE.test(l) ? l.replace(/\d+/g, '#') : null
+  )
+  out = []
+  for (let i = 0; i < lines.length;) {
+    let run = 1
+    if (masked[i] !== null) {
+      while (i + run < lines.length && masked[i + run] === masked[i]) run++
+    }
+    const allSame = run > 1 && lines.slice(i, i + run).every((l) => l === lines[i])
+    if (run >= PROGRESS_RUN_MIN && !allSame) {
+      out.push(
+        lines[i],
+        `${COMPRESSION_MARKER}: ${run - 2} similar progress lines omitted]`,
+        lines[i + run - 1]
+      )
+    } else {
+      for (let k = 0; k < run; k++) out.push(lines[i + k])
+    }
+    i += run
+  }
+  lines = out
+
+  // Pass 3: long stack traces → head + tail frames.
+  out = []
+  for (let i = 0; i < lines.length;) {
+    let run = 0
+    while (i + run < lines.length && STACK_FRAME_RE.test(lines[i + run])) run++
+    if (run >= STACK_FRAME_MIN) {
+      const omitted = run - STACK_HEAD_FRAMES - STACK_TAIL_FRAMES
+      out.push(
+        ...lines.slice(i, i + STACK_HEAD_FRAMES),
+        `${COMPRESSION_MARKER}: ${omitted} stack frames omitted]`,
+        ...lines.slice(i + run - STACK_TAIL_FRAMES, i + run)
+      )
+      i += run
+    } else if (run > 0) {
+      for (let k = 0; k < run; k++) out.push(lines[i + k])
+      i += run
+    } else {
+      out.push(lines[i])
+      i++
+    }
+  }
+
+  const result = out.join('\n')
+  return result === text ? text : result
+}
+
+/**
+ * Compact a unified diff without ever cutting inside a hunk: file and `@@`
+ * headers and every `+`/`-` line are preserved; long context runs keep
+ * DIFF_CONTEXT_KEEP lines per edge; if the result still exceeds maxChars,
+ * whole trailing hunks are dropped (the first hunk is always kept). Returns
+ * the input unchanged when nothing shrank.
+ */
+export function compressUnifiedDiff(text: string, maxChars: number): string {
+  interface Block {
+    hunk: boolean
+    lines: string[]
+  }
+  const blocks: Block[] = []
+  let cur: Block | null = null
+  for (const line of text.split('\n')) {
+    if (DIFF_HUNK_RE.test(line)) {
+      cur = { hunk: true, lines: [line] }
+      blocks.push(cur)
+    } else if (line.startsWith('diff --git ') || !cur) {
+      cur = { hunk: false, lines: [line] }
+      blocks.push(cur)
+    } else {
+      cur.lines.push(line)
+    }
+  }
+  if (!blocks.some((b) => b.hunk)) return text
+
+  // Trim long context runs inside each hunk (never +/- lines).
+  for (const block of blocks) {
+    if (!block.hunk) continue
+    const out: string[] = [block.lines[0]]
+    const body = block.lines.slice(1)
+    for (let i = 0; i < body.length;) {
+      const isContext = (l: string): boolean => l.startsWith(' ') || l === ''
+      if (!isContext(body[i])) {
+        out.push(body[i])
+        i++
+        continue
+      }
+      let run = 1
+      while (i + run < body.length && isContext(body[i + run])) run++
+      if (run > DIFF_CONTEXT_KEEP * 2 + 1) {
+        out.push(
+          ...body.slice(i, i + DIFF_CONTEXT_KEEP),
+          `${COMPRESSION_MARKER}: ${run - DIFF_CONTEXT_KEEP * 2} context lines omitted]`,
+          ...body.slice(i + run - DIFF_CONTEXT_KEEP, i + run)
+        )
+      } else {
+        out.push(...body.slice(i, i + run))
+      }
+      i += run
+    }
+    block.lines = out
+  }
+
+  // Budget pass: keep headers and leading hunks; drop whole trailing hunks.
+  const lengthOf = (b: Block): number => b.lines.join('\n').length + 1
+  let total = blocks.filter((b) => !b.hunk).reduce((sum, b) => sum + lengthOf(b), 0)
+  let keptHunks = 0
+  let droppedHunks = 0
+  const kept: Block[] = []
+  for (const block of blocks) {
+    if (!block.hunk) {
+      kept.push(block)
+      continue
+    }
+    const size = lengthOf(block)
+    if (keptHunks === 0 || total + size <= maxChars) {
+      kept.push(block)
+      total += size
+      keptHunks++
+    } else {
+      droppedHunks++
+    }
+  }
+  const parts = kept.flatMap((b) => b.lines)
+  if (droppedHunks > 0) {
+    parts.push(`${COMPRESSION_MARKER}: ${droppedHunks} more hunks omitted]`)
+  }
+  const result = parts.join('\n')
+  return result.length < text.length ? result : text
+}
+
+const HTML_ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' ',
+  mdash: '—',
+  ndash: '–',
+  hellip: '…',
+  copy: '©',
+  lsquo: '\u2018',
+  rsquo: '\u2019',
+  ldquo: '\u201c',
+  rdquo: '\u201d'
+}
+
+/**
+ * Strip HTML to its text content: script/style/comments removed, block
+ * closers become newlines, remaining tags dropped, common and numeric
+ * entities decoded, whitespace collapsed.
+ */
+export function stripHtml(text: string): string {
+  let out = text
+    .replace(/<script\b[\s\S]*?<\/script\s*>/gi, ' ')
+    .replace(/<style\b[\s\S]*?<\/style\s*>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(
+      /<\/(?:p|div|section|article|li|ul|ol|table|tr|h[1-6]|header|footer|nav|blockquote|pre|form|title)\s*>|<br\s*\/?>/gi,
+      '\n'
+    )
+    .replace(/<[^<>]+>/g, ' ')
+  out = out.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (match, ent: string) => {
+    if (ent.startsWith('#')) {
+      const hex = ent[1] === 'x' || ent[1] === 'X'
+      const code = parseInt(ent.slice(hex ? 2 : 1), hex ? 16 : 10)
+      return Number.isNaN(code) || code < 0 || code > 0x10ffff ? match : String.fromCodePoint(code)
+    }
+    return HTML_ENTITIES[ent.toLowerCase()] ?? match
+  })
+  return out
+    .replace(/[ \t]+/g, ' ')
+    .replace(/ ?\n ?/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 /** Item looks error-bearing (kept when crushing arrays, like SmartCrusher). */
 function isErrorLike(item: unknown): boolean {
   try {
@@ -309,6 +572,7 @@ export function compressPrompt(
         }
       } else {
         let currentCanonical = canonical
+        let kind: DetectedContentType = 'plain'
         if (output.type === 'json' || output.type === 'error-json') {
           const crushed = crushJsonValue(output.value, toolCallId)
           if (crushed !== null) {
@@ -318,8 +582,15 @@ export function compressPrompt(
             } catch {}
           }
         } else if (canonical.length >= MIN_CLEAN_CHARS) {
-          // Text cleanup: strip ANSI escapes, collapse repeated log lines.
-          const cleaned = collapseRepeatedLines(stripAnsi(canonical))
+          // Text cleanup: strip ANSI escapes, then route by content type —
+          // HTML is stripped to text, logs get progress/dup/stack crushing.
+          let cleaned = stripAnsi(canonical)
+          kind = detectContentType(cleaned)
+          if (kind === 'html') cleaned = stripHtml(cleaned)
+          else if (kind === 'log') cleaned = crushLog(cleaned)
+          // Diffs skip line collapsing so +/- lines and hunks stay intact
+          // for the structural compaction below.
+          if (kind !== 'diff') cleaned = collapseRepeatedLines(cleaned)
           if (cleaned !== canonical) {
             newOutput = { type: isError ? 'error-text' : 'text', value: cleaned }
             currentCanonical = cleaned
@@ -329,13 +600,29 @@ export function compressPrompt(
           currentCanonical.length > EXCERPT_MIN_CHARS &&
           estimate(currentCanonical) >= MIN_COMPRESS_TOKENS
         ) {
-          const omitted = currentCanonical.length - EXCERPT_HEAD_CHARS - EXCERPT_TAIL_CHARS
-          newOutput = {
-            type: isError ? 'error-text' : 'text',
-            value:
-              currentCanonical.slice(0, EXCERPT_HEAD_CHARS) +
-              `\n${COMPRESSION_MARKER}: ${omitted} chars omitted — ${retrievalHint(toolCallId)}]\n` +
-              currentCanonical.slice(-EXCERPT_TAIL_CHARS)
+          if (kind === 'diff') {
+            // Diffs are compacted structurally, never sliced mid-hunk.
+            const compacted = compressUnifiedDiff(
+              currentCanonical,
+              EXCERPT_HEAD_CHARS + EXCERPT_TAIL_CHARS
+            )
+            if (compacted !== currentCanonical) {
+              newOutput = {
+                type: isError ? 'error-text' : 'text',
+                value:
+                  compacted +
+                  `\n${COMPRESSION_MARKER}: unified diff compacted — ${retrievalHint(toolCallId)}]`
+              }
+            }
+          } else {
+            const omitted = currentCanonical.length - EXCERPT_HEAD_CHARS - EXCERPT_TAIL_CHARS
+            newOutput = {
+              type: isError ? 'error-text' : 'text',
+              value:
+                currentCanonical.slice(0, EXCERPT_HEAD_CHARS) +
+                `\n${COMPRESSION_MARKER}: ${omitted} chars omitted — ${retrievalHint(toolCallId)}]\n` +
+                currentCanonical.slice(-EXCERPT_TAIL_CHARS)
+            }
           }
         }
       }

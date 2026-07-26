@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Brain, ChevronDown, ChevronRight, RotateCcw, ScanSearch } from 'lucide-react'
+import { Brain, ChevronDown, ChevronRight, GitFork, RotateCcw, ScanSearch } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { Tip } from '../../components/ui/tooltip'
 import { Markdown } from './Markdown'
@@ -7,7 +7,7 @@ import { ToolCallCard } from './ToolCallCard'
 import { AskUserCard, AskUserAnswered } from './AskUserCard'
 import { PlanApprovalCard, PlanApprovalAnswered } from './PlanApprovalCard'
 import { SandboxAccessCard, SandboxAccessAnswered } from './SandboxAccessCard'
-import { computeRollbackEligible } from './rollback-eligibility'
+import { computeForkEligible, computeRollbackEligible } from './rollback-eligibility'
 import type {
   MessagePart,
   PendingSuspension,
@@ -151,6 +151,8 @@ const MessageItem = React.memo(function MessageItem({
   message,
   onRollback,
   showRollback,
+  onFork,
+  showFork,
   hiddenParts,
   suspensions,
   onRespondSuspension
@@ -158,6 +160,8 @@ const MessageItem = React.memo(function MessageItem({
   message: StoredMessage
   onRollback?: (messageId: string) => void
   showRollback?: boolean
+  onFork?: (messageId: string) => void
+  showFork?: boolean
   hiddenParts?: Set<string>
 } & SuspensionProps): React.JSX.Element {
   if (message.role === 'user') {
@@ -187,16 +191,28 @@ const MessageItem = React.memo(function MessageItem({
       <div className="flex justify-end group">
         <div className="relative max-w-[85%] rounded-lg bg-accent border border-border px-3 py-2 selectable whitespace-pre-wrap text-[13px]">
           {text}
-          {onRollback && message.checkpointRef && showRollback && (
-            <Tip content="Restore files and chat to just before this message was sent — its text returns to the input for editing">
-              <button
-                onClick={() => onRollback(message.id)}
-                className="absolute right-full top-1.5 mr-1.5 flex items-center rounded-md border border-border bg-background p-1 text-muted-foreground shadow-sm opacity-70 group-hover:opacity-100 hover:opacity-100 hover:text-foreground cursor-pointer"
-              >
-                <RotateCcw size={12} />
-              </button>
-            </Tip>
-          )}
+          <div className="absolute right-full top-1.5 mr-1.5 flex items-center gap-1">
+            {onFork && showFork && (
+              <Tip content="Fork the chat from just before this message into a new tab — the agent's memory is cloned as a new Mastra thread and the original continues unchanged">
+                <button
+                  onClick={() => onFork(message.id)}
+                  className="flex items-center rounded-md border border-border bg-background p-1 text-muted-foreground shadow-sm opacity-70 group-hover:opacity-100 hover:opacity-100 hover:text-foreground cursor-pointer"
+                >
+                  <GitFork size={12} />
+                </button>
+              </Tip>
+            )}
+            {onRollback && message.checkpointRef && showRollback && (
+              <Tip content="Restore files and chat to just before this message was sent — its text returns to the input for editing">
+                <button
+                  onClick={() => onRollback(message.id)}
+                  className="flex items-center rounded-md border border-border bg-background p-1 text-muted-foreground shadow-sm opacity-70 group-hover:opacity-100 hover:opacity-100 hover:text-foreground cursor-pointer"
+                >
+                  <RotateCcw size={12} />
+                </button>
+              </Tip>
+            )}
+          </div>
         </div>
       </div>
     )
@@ -221,6 +237,7 @@ export function MessageList({
   messages,
   running,
   onRollback,
+  onFork,
   resetKey,
   suspensions,
   onRespondSuspension
@@ -228,6 +245,7 @@ export function MessageList({
   messages: StoredMessage[]
   running: boolean
   onRollback?: (messageId: string) => void
+  onFork?: (messageId: string) => void
   /** Changes when the transcript identity changes (e.g. subchat switch). */
   resetKey?: string
 } & SuspensionProps): React.JSX.Element {
@@ -279,11 +297,12 @@ export function MessageList({
     }, [messages])
   )
 
-  // A rollback pill is only meaningful when rolling back would revert
+  // Per-message pills are only meaningful when the action would do
   // something — see rollback-eligibility.ts. Recomputed as tools stream.
   const rollbackEligible = useStableSet(
     useMemo(() => computeRollbackEligible(messages), [messages])
   )
+  const forkEligible = useStableSet(useMemo(() => computeForkEligible(messages), [messages]))
 
   useEffect(() => {
     if (stickToBottom.current) {
@@ -330,6 +349,8 @@ export function MessageList({
           message={m}
           onRollback={onRollback}
           showRollback={rollbackEligible.has(m.id)}
+          onFork={onFork}
+          showFork={forkEligible.has(m.id)}
           hiddenParts={hiddenParts}
           suspensions={suspensions}
           onRespondSuspension={onRespondSuspension}

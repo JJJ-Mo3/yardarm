@@ -17,6 +17,7 @@ export function CostPopover({
   subchatId,
   usage,
   compressionSaved,
+  compressionEnabled,
   open,
   onOpenChange
 }: {
@@ -24,6 +25,8 @@ export function CostPopover({
   usage: UsageInfo | null
   /** Estimated tokens saved by token compression, cumulative since host start. */
   compressionSaved?: number
+  /** Whether token compression is on — shows the savings inline in the trigger. */
+  compressionEnabled?: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
 }): React.JSX.Element {
@@ -34,13 +37,24 @@ export function CostPopover({
   const threadRows = (threads.data ?? []).filter((t) => (t.totalTokens ?? 0) > 0)
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
-      <Tip content="Token usage for this session — click for a per-thread breakdown (/cost)">
+      <Tip
+        content={
+          compressionEnabled
+            ? 'Token usage for this session; the green figure is tokens saved by compression — click for a per-thread breakdown (/cost)'
+            : 'Token usage for this session — click for a per-thread breakdown (/cost)'
+        }
+      >
         <PopoverTrigger asChild>
           <button className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer">
             <Coins size={11} />
             {usage?.totalTokens != null
               ? `${Intl.NumberFormat().format(usage.totalTokens)} tok`
               : 'usage'}
+            {compressionEnabled && (
+              <span className="text-green-600 dark:text-green-500">
+                · −{Intl.NumberFormat().format(compressionSaved ?? 0)}
+              </span>
+            )}
           </button>
         </PopoverTrigger>
       </Tip>

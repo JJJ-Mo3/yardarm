@@ -33,6 +33,8 @@ import type {
   HostCommand,
   HostMessage,
   IdeNoteResult,
+  McpAuthUrlEvent,
+  McpServerStatusInfo,
   ModelInfo,
   OAuthProviderInfo,
   OAuthStatusEvent,
@@ -610,6 +612,12 @@ export class AgentSessionManager {
             message: msg.message,
             placeholder: msg.placeholder
           })
+          break
+        case 'mcp-auth-url':
+          this.relayMcpAuthUrl({ subchatId, serverName: msg.serverName, url: msg.url })
+          break
+        case 'github-plugins-updated':
+          this.notifyGithubPluginsUpdated(subchatId, msg.names)
           break
         case 'log':
           console.log(`[agent-host ${subchatId}]`, msg.msg)
@@ -1304,6 +1312,28 @@ export class AgentSessionManager {
   }
 
   /**
+   * Fork support: bind this subchat's (fresh) host to a truncated clone of
+   * another subchat's thread. Runs on the fork's own host so the source
+   * host is never disturbed; returns the clone id plus a source→clone
+   * message-id map for the retained prefix.
+   */
+  async forkThread(
+    subchatId: string,
+    sourceThreadId: string,
+    anchorMessageId: string,
+    title?: string
+  ): Promise<{ threadId: string; idMap: Record<string, string> }> {
+    const handle = await this.ensureHost(subchatId)
+    const res = await this.request<{ threadId: string; idMap: Record<string, string> }>(
+      handle,
+      { t: 'forkThread', reqId: randomUUID(), sourceThreadId, anchorMessageId, title },
+      60_000
+    )
+    this.bindThread(subchatId, handle, res.threadId)
+    return res
+  }
+
+  /**
    * Rollback support: delete the agent's memory of everything after the
    * anchor (last surviving assistant message). The revert note itself is
    * stored on the subchat and delivered with the next message send.
@@ -1716,6 +1746,81 @@ export class AgentSessionManager {
     const handle = await this.ensureUtilityHost()
     await this.request(handle, { t: 'oauthLogout', reqId: randomUUID(), provider })
     await this.broadcastAuthReload(handle)
+  }
+
+  // ---- MCP server status + OAuth -------------------------------------------
+
+  private mcpEmitter = new EventEmitter()
+  /** Last emit time per GitHub plugin-update payload (sorted-names key). */
+  private pluginUpdateNotices = new Map<string, number>()
+
+  onMcpAuthUrl(listener: (ev: McpAuthUrlEvent) => void): () => void {
+    this.mcpEmitter.on('auth-url', listener)
+    return () => this.mcpEmitter.off('auth-url', listener)
+  }
+
+  /**
+   * Open the MCP consent page for the user; the event still carries the URL
+   * so the renderer can offer a fallback link. Only http(s) URLs — never
+   * hand other schemes to the OS.
+   */
+  private relayMcpAuthUrl(ev: McpAuthUrlEvent): void {
+    if (/^https?:\/\//i.test(ev.url)) shell.openExternal(ev.url).catch(() => {})
+    this.mcpEmitter.emit('auth-url', ev)
+  }
+
+  /**
+   * Surface a GitHub plugin update as an info event in the subchat whose
+   * host noticed it. Every live host polls the same installed set, so
+   * identical payloads within 30s are deduped across hosts.
+   */
+  private notifyGithubPluginsUpdated(subchatId: string, names: string[]): void {
+    if (names.length === 0) return
+    const key = [...names].sort().join(',')
+    const now = Date.now()
+    const last = this.pluginUpdateNotices.get(key)
+    if (last != null && now - last < 30_000) return
+    this.pluginUpdateNotices.set(key, now)
+    this.emitUI(subchatId, {
+      type: 'info',
+      level: 'info',
+      text: `GitHub plugins updated: ${names.join(', ')}`
+    })
+  }
+
+  async mcpStatus(subchatId: string): Promise<McpServerStatusInfo[]> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<McpServerStatusInfo[]>(handle, { t: 'mcpStatus', reqId: randomUUID() })
+  }
+
+  async mcpAuthenticate(subchatId: string, serverName: string): Promise<McpServerStatusInfo> {
+    const handle = await this.ensureHost(subchatId)
+    // Human consent flow in a browser — outlive the host's own 4-minute cap
+    // so the SDK's resolves-with-error status wins over an IPC timeout.
+    return this.request<McpServerStatusInfo>(
+      handle,
+      { t: 'mcpAuthenticate', reqId: randomUUID(), serverName },
+      5 * 60_000
+    )
+  }
+
+  async mcpCancelAuth(subchatId: string, serverName: string): Promise<{ cancelled: boolean }> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<{ cancelled: boolean }>(handle, {
+      t: 'mcpCancelAuth',
+      reqId: randomUUID(),
+      serverName
+    })
+  }
+
+  async mcpReconnect(subchatId: string, serverName: string): Promise<McpServerStatusInfo> {
+    const handle = await this.ensureHost(subchatId)
+    // Reconnects can involve slow remote servers; give them a minute.
+    return this.request<McpServerStatusInfo>(
+      handle,
+      { t: 'mcpReconnect', reqId: randomUUID(), serverName },
+      60_000
+    )
   }
 
   /** Stop the host for a subchat (e.g. on chat delete or app quit). */

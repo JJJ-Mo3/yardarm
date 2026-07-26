@@ -8,8 +8,10 @@ import {
   mainTabAtom,
   projectSettingsOpenAtom,
   projectSettingsTabAtom,
+  selectedSubchatIdAtom,
   settingsOpenAtom,
   settingsTabAtom,
+  splitSubchatIdAtom,
   threadsOpenAtom,
   type ProjectSettingsTab,
   type SettingsTab
@@ -61,12 +63,19 @@ const THINKING = ['off', 'low', 'medium', 'high', 'xhigh'] as const
 export function ChatView({
   subchatId,
   projectRoot,
-  baseBranch
+  baseBranch,
+  primary = true
 }: {
   subchatId: string
   projectRoot: string | null
   /** The chat worktree's base branch, if known (feeds the review picker). */
   baseBranch: string | null
+  /**
+   * False for the right-hand split pane: global-overlay UI (threads popover,
+   * help dialog — driven by app-wide atoms and Cmd+P) stays with the primary
+   * pane so the split pane never hijacks those shortcuts.
+   */
+  primary?: boolean
 }): React.JSX.Element {
   const state = useAgentStream(subchatId)
   const debug = useAtomValue(debugEventsAtom)
@@ -118,6 +127,18 @@ export function ChatView({
   }, [subchatId])
   const confirmDialog = useConfirm()
 
+  // Fork-from-message: the mutation clones the Mastra thread into a new
+  // subchat of the same chat; switch this pane's selection to the fork.
+  const setSelectedSubchatId = useSetAtom(selectedSubchatIdAtom)
+  const setSplitSubchatId = useSetAtom(splitSubchatIdAtom)
+  const fork = trpc.chats.fork.useMutation({
+    onSuccess: (res) => {
+      utils.invalidate()
+      if (primary) setSelectedSubchatId(res.subchatId)
+      else setSplitSubchatId(res.subchatId)
+    }
+  })
+
   // Stable callbacks for the memoized MessageList items: mutation objects
   // change identity every render but `.mutate` is referentially stable, and
   // the messages ref avoids depending on the streaming array.
@@ -145,6 +166,12 @@ export function ChatView({
       })
     },
     [subchatId, confirmDialog, rollbackMutate]
+  )
+  const { mutate: forkMutate } = fork
+  // Non-destructive (the source chat is untouched), so no confirm dialog.
+  const handleFork = useCallback(
+    (messageId: string) => forkMutate({ subchatId, messageId }),
+    [subchatId, forkMutate]
   )
   const handleRespondSuspension = useCallback(
     (toolCallId: string, resumeData: unknown) =>
@@ -229,6 +256,7 @@ export function ChatView({
       ['thinking', setThinking],
       ['auto-approve', setYolo],
       ['rollback', rollback],
+      ['fork', fork],
       ['command', runCommand],
       ['skill', runSkill],
       ['new thread', newThread],
@@ -314,6 +342,7 @@ export function ChatView({
         return
       case 'threads':
       case 'thread':
+        if (!primary) return 'Thread switching is available in the primary chat pane.'
         setThreadsOpen(true)
         return
       case 'name':
@@ -619,7 +648,9 @@ export function ChatView({
           onOpenChange={setReviewOpen}
           onReview={sendMarked}
         />
-        <ThreadsPopover subchatId={subchatId} open={threadsOpen} onOpenChange={setThreadsOpen} />
+        {primary && (
+          <ThreadsPopover subchatId={subchatId} open={threadsOpen} onOpenChange={setThreadsOpen} />
+        )}
         <OmStatusPopover
           subchatId={subchatId}
           omEvents={state.omEvents}
@@ -630,6 +661,7 @@ export function ChatView({
           subchatId={subchatId}
           usage={state.usage}
           compressionSaved={meta.compressionSaved}
+          compressionEnabled={meta.compressionEnabled}
           open={costOpen}
           onOpenChange={setCostOpen}
         />
@@ -644,6 +676,7 @@ export function ChatView({
         messages={state.messages}
         running={state.running}
         onRollback={handleRollback}
+        onFork={handleFork}
         resetKey={subchatId}
         suspensions={state.suspensions}
         onRespondSuspension={handleRespondSuspension}
@@ -801,7 +834,7 @@ export function ChatView({
         prefill={prefill}
         onPrefillConsumed={() => setPrefill(null)}
       />
-      <HelpDialog commands={commands} />
+      {primary && <HelpDialog commands={commands} />}
       <PermissionsDialog
         subchatId={subchatId}
         open={permissionsOpen}

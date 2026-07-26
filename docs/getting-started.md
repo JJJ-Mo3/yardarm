@@ -21,8 +21,8 @@ shorter overview, see the [README](../README.md).
 - [Reviewing and shipping changes](#reviewing-and-shipping-changes)
 - [Checkpoints and rollback](#checkpoints-and-rollback)
 - [Goals: let the agent run to completion](#goals-let-the-agent-run-to-completion)
-- [Threads and subchats](#threads-and-subchats)
-- [Terminal, IDE, and CLI tabs](#terminal-ide-and-cli-tabs)
+- [Threads, subchats, forking, and split view](#threads-subchats-forking-and-split-view)
+- [Terminal, IDE, CLI, and Preview tabs](#terminal-ide-cli-and-preview-tabs)
 - [The Kanban board and sidebar indicators](#the-kanban-board-and-sidebar-indicators)
 - [Voice dictation](#voice-dictation)
 - [Slash commands](#slash-commands)
@@ -279,6 +279,10 @@ stale tool outputs in the prompt sent to the model:
   items are preserved), including arrays nested one level inside objects
 - noisy text is cleaned: ANSI color codes stripped, repeated log lines
   collapsed
+- outputs are compressed by what they are: build/server logs lose progress
+  bars, repeated lines, and the middle of deep stack traces; unified diffs
+  are compacted without dropping a single `+`/`-` line (only context and,
+  if needed, whole trailing hunks); HTML is stripped to its text
 - anything still long is reduced to a head+tail excerpt
 
 Recent turns are never touched, and compression is reversible: every
@@ -288,7 +292,8 @@ The toggle is global and applies to all chats immediately, no restart needed.
 Stored chat history is never modified: compression happens transiently per
 model call, so transcripts, rollbacks, and threads are unaffected. The
 estimated tokens saved show up as a green **Saved by compression** line in
-the cost popover (`/cost`).
+the cost popover (`/cost`) and as a green figure next to the usage counter
+in the chat header while compression is on.
 
 The separate **Verbosity steering** switch in the same card appends a short
 constant instruction to the system prompt asking the agent not to restate
@@ -308,6 +313,10 @@ chat's worktree:
   PR flows if `gh` is installed.
 - **Agent review** — the magnifier button asks the chat's agent to review
   the branch's local changes. See [Agent code review](#agent-code-review).
+- **Compare against any branch** — the compare button in the header diffs
+  the worktree against another branch (from their merge-base), read-only:
+  staging and committing come back when you switch back to **Current
+  (HEAD)**.
 
 Nothing the agent does in a worktree touches your own checkout until you
 merge it.
@@ -357,6 +366,10 @@ back). Confirming will:
 4. Tell the agent (on your next message) that a rollback happened, so it
    doesn't act on stale memory.
 
+A **fork pill** may appear beside the rollback pill — that branches the
+conversation into a new subchat tab instead of rewinding it. See
+[Threads, subchats, forking, and split view](#threads-subchats-forking-and-split-view).
+
 ## Goals: let the agent run to completion
 
 For bigger objectives, click the **goal** chip in the header (or use
@@ -381,7 +394,7 @@ In the goal popover you can:
 A banner above the transcript shows live goal status: blue while active,
 amber when paused, green when the judge signs off.
 
-## Threads and subchats
+## Threads, subchats, forking, and split view
 
 Each chat can hold multiple **threads** — independent conversation histories
 over the same worktree. Press `Cmd+P` or use `/threads` to switch, rename,
@@ -389,7 +402,21 @@ clone, or delete threads, or open one in a new **subchat** (its own agent
 process, running in parallel). The cost popover (`/cost`) breaks token usage
 down per thread.
 
-## Terminal, IDE, and CLI tabs
+**Forking.** To branch a conversation at a specific point, hover one of
+your messages and click the **fork pill** next to it. The agent's memory is
+cloned as a new Mastra thread — truncated to just before that message — and
+opens as a new subchat tab over the same worktree. The original
+conversation continues unchanged, so you can explore an alternative
+direction without losing anything. (Rollback pills in the forked transcript
+only cover messages sent after the fork.)
+
+**Split view.** The columns button at the right of the tab bar opens a
+second chat pane beside the current one — pick any other chat in the
+project and both run side by side (drag the divider to resize). Useful for
+watching one agent work while briefing another. `Cmd+P` and other global
+shortcuts stay with the left (primary) pane.
+
+## Terminal, IDE, CLI, and Preview tabs
 
 - **Terminal** (`Cmd+5`, or toggle with `Cmd+J`) — a real shell that opens in
   the chat's worktree. Build, test, poke around; you and the agent are
@@ -409,6 +436,13 @@ down per thread.
   running in the same worktree and seeing the same threads as the chat.
   Handy for CLI-only commands (terminal voice mode, …). Avoid
   driving the same thread from the chat and the CLI at the same time.
+- **Preview** (`Cmd+7`) — an in-app browser for localhost dev servers.
+  Start your server in the Terminal or CLI tab and its URL appears as a
+  chip within a few seconds (the first detection loads automatically); or
+  type a `localhost` / `127.0.0.1` URL into the address bar. Back/forward,
+  reload, DevTools, and open-in-browser controls are in the toolbar.
+  Navigation is locked to localhost — links to anywhere else open in your
+  system browser — and the page survives switching tabs.
 
 ## The Kanban board and sidebar indicators
 
@@ -512,7 +546,12 @@ single project:
   can be reopened and unarchived. Removing a project deletes its chats and
   worktrees but keeps the project folder on disk unless you tick the option to
   delete it too.
-- **MCP servers** (`.mastracode/mcp.json`)
+- **MCP servers** (`.mastracode/mcp.json`) — the tab also shows each
+  server's live status (connected + tool count, connecting, or an error)
+  with a chat open. Servers that use OAuth show **Needs authentication**
+  with an **Authenticate** button: the sign-in opens in your browser, and
+  the server connects when it completes. A **Reconnect** button revives
+  servers that dropped.
 - **Lifecycle hooks** (`.mastracode/hooks.json`, appended after global hooks)
 - **Custom slash commands** (`.mastracode/commands/**/*.md`)
 - **Custom subagents** (`.mastracode/agents/*.md`, or `~/.mastracode/agents/`
@@ -548,16 +587,16 @@ providers you configured.
 
 `Cmd` on macOS, `Ctrl` on Windows/Linux.
 
-| Shortcut      | Action                                                      |
-| ------------- | ----------------------------------------------------------- |
-| `Cmd+N`       | new chat                                                    |
-| `Cmd+P`       | thread switcher                                             |
-| `Cmd+1`–`6`   | switch tab (Chat / CLI / IDE / Changes / Terminal / Kanban) |
-| `Cmd+J`       | toggle the Terminal tab                                     |
-| `Cmd+,`       | settings                                                    |
-| `Enter`       | send (in composer)                                          |
-| `Shift+Enter` | newline (in composer)                                       |
-| `Escape`      | cancel voice recording / close autocomplete popups          |
+| Shortcut      | Action                                                                |
+| ------------- | --------------------------------------------------------------------- |
+| `Cmd+N`       | new chat                                                              |
+| `Cmd+P`       | thread switcher                                                       |
+| `Cmd+1`–`7`   | switch tab (Chat / CLI / IDE / Changes / Terminal / Kanban / Preview) |
+| `Cmd+J`       | toggle the Terminal tab                                               |
+| `Cmd+,`       | settings                                                              |
+| `Enter`       | send (in composer)                                                    |
+| `Shift+Enter` | newline (in composer)                                                 |
+| `Escape`      | cancel voice recording / close autocomplete popups                    |
 
 ## Tips
 

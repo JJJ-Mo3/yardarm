@@ -1,16 +1,26 @@
 import { describe, expect, it } from 'vitest'
 import {
   COMPRESSION_MARKER,
+  DIFF_CONTEXT_KEEP,
   EXCERPT_HEAD_CHARS,
   EXCERPT_TAIL_CHARS,
   JSON_ARRAY_KEEP,
   JSON_ARRAY_TAIL_KEEP,
   LINE_REPEAT_MIN,
+  LOG_DUP_RUN_MIN,
+  PROGRESS_RUN_MIN,
+  STACK_FRAME_MIN,
+  STACK_HEAD_FRAMES,
+  STACK_TAIL_FRAMES,
   VERBOSITY_SUFFIX,
   applyVerbositySteering,
   collapseRepeatedLines,
   compressPrompt,
+  compressUnifiedDiff,
+  crushLog,
+  detectContentType,
   stripAnsi,
+  stripHtml,
   type CompressiblePromptMessage
 } from './prompt-compression'
 
@@ -310,6 +320,260 @@ describe('collapseRepeatedLines', () => {
     expect(collapsed).toBe(
       `tick\n${COMPRESSION_MARKER}: previous line repeated ${LINE_REPEAT_MIN - 1} more times]`
     )
+  })
+})
+
+/** old-turn scaffold: one stale tool output + enough user turns to unprotect it */
+function oldToolPrompt(output: { type: string; value: unknown }): CompressiblePromptMessage[] {
+  return [
+    user('turn 1'),
+    toolResult('shell', output),
+    user('turn 2'),
+    user('turn 3'),
+    user('turn 4')
+  ]
+}
+
+function contextLines(n: number, tag: string): string[] {
+  return Array.from({ length: n }, (_, i) => ` context ${tag} line ${i} ${'pad '.repeat(10)}`)
+}
+
+function bigDiff(): string {
+  return [
+    'diff --git a/src/a.ts b/src/a.ts',
+    'index 1111111..2222222 100644',
+    '--- a/src/a.ts',
+    '+++ b/src/a.ts',
+    '@@ -1,40 +1,41 @@',
+    ...contextLines(20, 'one'),
+    '-const removed = 1',
+    '+const added = 2',
+    ...contextLines(20, 'two'),
+    '@@ -100,30 +101,31 @@',
+    ...contextLines(12, 'three'),
+    '+const alsoAdded = 3',
+    ...contextLines(12, 'four')
+  ].join('\n')
+}
+
+describe('detectContentType', () => {
+  it('detects git and bare unified diffs', () => {
+    expect(detectContentType(bigDiff())).toBe('diff')
+    const bare = ['--- a/x', '+++ b/x', '@@ -1,2 +1,3 @@', ' ctx', '+added'].join('\n')
+    expect(detectContentType(bare)).toBe('diff')
+  })
+
+  it('classifies a diff of an HTML file as diff (order: diff before html)', () => {
+    const diffOfHtml = [
+      'diff --git a/index.html b/index.html',
+      '@@ -1,6 +1,6 @@',
+      ' <!DOCTYPE html>',
+      ' <html><head><title>x</title></head>',
+      '-<p>old</p>',
+      '+<p>new</p>',
+      ' <div><span>a</span><span>b</span></div>',
+      ' </html>'
+    ].join('\n')
+    expect(detectContentType(diffOfHtml)).toBe('diff')
+  })
+
+  it('detects HTML via doctype and via tag density', () => {
+    expect(detectContentType('<!DOCTYPE html><html><body>hi</body></html>')).toBe('html')
+    const fragment = Array.from(
+      { length: 10 },
+      (_, i) => `<div class="row"><span>cell ${i}</span></div>`
+    ).join('\n')
+    expect(detectContentType(fragment)).toBe('html')
+  })
+
+  it('detects logs via timestamps, level prefixes and CR progress rewrites', () => {
+    const stamped = Array.from(
+      { length: 10 },
+      (_, i) => `2024-01-01 12:00:0${i % 10} INFO server event ${i}`
+    ).join('\n')
+    expect(detectContentType(stamped)).toBe('log')
+    const leveled = Array.from({ length: 10 }, (_, i) => `WARN something happened ${i}`).join('\n')
+    expect(detectContentType(leveled)).toBe('log')
+    expect(detectContentType('downloading\r10%\r20%\r30%\ndone')).toBe('log')
+  })
+
+  it('classifies prose and sparse tags as plain', () => {
+    expect(detectContentType('This is a paragraph about a < b and other prose.\nMore text.')).toBe(
+      'plain'
+    )
+    const sparse = 'Some prose with an occasional <b>tag</b> in it.\n' + 'plain line\n'.repeat(20)
+    expect(detectContentType(sparse)).toBe('plain')
+  })
+})
+
+describe('crushLog', () => {
+  it('keeps only the final CR-rewritten segment per line', () => {
+    const crushed = crushLog('fetching\rprogress 10%\rprogress 99%\ndone')
+    expect(crushed).toBe('progress 99%\ndone')
+  })
+
+  it('collapses timestamp-varying duplicate lines to first + marker', () => {
+    const lines = Array.from(
+      { length: LOG_DUP_RUN_MIN + 1 },
+      (_, i) => `2024-01-01 12:00:0${i} INFO cache warmed`
+    )
+    const crushed = crushLog(lines.join('\n'))
+    expect(crushed).toBe(
+      `${lines[0]}\n${COMPRESSION_MARKER}: previous line repeated ${LOG_DUP_RUN_MIN} more times]`
+    )
+  })
+
+  it('collapses digit-only-varying progress lines to first + marker + last', () => {
+    const lines = Array.from({ length: PROGRESS_RUN_MIN + 2 }, (_, i) => `downloaded ${i * 10}%`)
+    const crushed = crushLog(lines.join('\n'))
+    expect(crushed).toBe(
+      `${lines[0]}\n${COMPRESSION_MARKER}: ${PROGRESS_RUN_MIN} similar progress lines omitted]\n${lines[lines.length - 1]}`
+    )
+  })
+
+  it('leaves short progress runs alone', () => {
+    const short = Array.from({ length: PROGRESS_RUN_MIN - 1 }, (_, i) => `step ${i}`).join('\n')
+    expect(crushLog(short)).toBe(short)
+  })
+
+  it('trims long stack traces to head + tail frames', () => {
+    const frames = Array.from(
+      { length: STACK_FRAME_MIN + 2 },
+      (_, i) => `    at fn${i} (/app/src/file${i}.ts:${i}:1)`
+    )
+    const crushed = crushLog(`Error: boom\n${frames.join('\n')}\nrethrown`)
+    const out = crushed.split('\n')
+    expect(out[0]).toBe('Error: boom')
+    expect(out.slice(1, 1 + STACK_HEAD_FRAMES)).toEqual(frames.slice(0, STACK_HEAD_FRAMES))
+    const omitted = frames.length - STACK_HEAD_FRAMES - STACK_TAIL_FRAMES
+    expect(out[1 + STACK_HEAD_FRAMES]).toBe(
+      `${COMPRESSION_MARKER}: ${omitted} stack frames omitted]`
+    )
+    expect(out.slice(-3, -1)).toEqual(frames.slice(-STACK_TAIL_FRAMES))
+    expect(out[out.length - 1]).toBe('rethrown')
+  })
+
+  it('returns the same reference when nothing collapses', () => {
+    const text = 'line one\nline two\nline three'
+    expect(crushLog(text)).toBe(text)
+  })
+})
+
+describe('compressUnifiedDiff', () => {
+  it('preserves headers and all +/- lines while trimming context runs', () => {
+    const diff = bigDiff()
+    const out = compressUnifiedDiff(diff, 100_000)
+    expect(out.length).toBeLessThan(diff.length)
+    expect(out).toContain('diff --git a/src/a.ts b/src/a.ts')
+    expect(out).toContain('@@ -1,40 +1,41 @@')
+    expect(out).toContain('@@ -100,30 +101,31 @@')
+    expect(out).toContain('-const removed = 1')
+    expect(out).toContain('+const added = 2')
+    expect(out).toContain('+const alsoAdded = 3')
+    expect(out).toContain('context lines omitted]')
+    // Each 20-line context run keeps DIFF_CONTEXT_KEEP per edge.
+    expect(out).toContain(' context one line 0')
+    expect(out).toContain(` context one line ${DIFF_CONTEXT_KEEP - 1}`)
+    expect(out).toContain(' context one line 19')
+    expect(out).not.toContain(' context one line 5')
+  })
+
+  it('drops whole trailing hunks when over budget but keeps the first hunk', () => {
+    const out = compressUnifiedDiff(bigDiff(), 400)
+    expect(out).toContain('@@ -1,40 +1,41 @@')
+    expect(out).toContain('+const added = 2')
+    expect(out).not.toContain('@@ -100,30 +101,31 @@')
+    expect(out).not.toContain('+const alsoAdded = 3')
+    expect(out).toContain('1 more hunks omitted]')
+  })
+
+  it('returns non-diff or unshrinkable input unchanged', () => {
+    const notDiff = 'just some text\nwith lines'
+    expect(compressUnifiedDiff(notDiff, 10)).toBe(notDiff)
+    const tiny = ['diff --git a/x b/x', '@@ -1,1 +1,1 @@', '-a', '+b'].join('\n')
+    expect(compressUnifiedDiff(tiny, 100_000)).toBe(tiny)
+  })
+})
+
+describe('stripHtml', () => {
+  it('strips tags, scripts, styles, comments and decodes entities', () => {
+    const html =
+      '<!DOCTYPE html><html><head><style>body{color:red}</style>' +
+      '<script>var x = "<div>";</script></head><body>' +
+      '<!-- comment --><h1>Title</h1><p>Hello &amp; welcome &#65;&#x42; &nbsp;end</p>' +
+      '<ul><li>one</li><li>two</li></ul></body></html>'
+    const out = stripHtml(html)
+    expect(out).not.toContain('<')
+    expect(out).not.toContain('color:red')
+    expect(out).not.toContain('var x')
+    expect(out).not.toContain('comment')
+    expect(out).toContain('Title')
+    expect(out).toContain('Hello & welcome AB')
+    expect(out).toContain('one')
+    expect(out).toContain('two')
+  })
+
+  it('turns block closers into newlines and collapses blank runs', () => {
+    const out = stripHtml('<div>a</div><div>b</div><br><br><br><div>c</div>')
+    expect(out).toBe('a\nb\n\nc')
+  })
+
+  it('leaves unknown entities and out-of-range codepoints alone', () => {
+    expect(stripHtml('&bogus; &#99999999; stays')).toBe('&bogus; &#99999999; stays')
+  })
+})
+
+describe('compressPrompt content-type routing', () => {
+  it('compacts big diffs structurally instead of slicing mid-hunk', () => {
+    const diff = bigDiff()
+    expect(diff.length).toBeGreaterThan(EXCERPT_HEAD_CHARS + EXCERPT_TAIL_CHARS + 200)
+    const prompt = oldToolPrompt({ type: 'text', value: diff })
+    const result = compressPrompt(prompt, opts)
+    expect(result.changed).toBe(true)
+    const value = outputOf(result.prompt[1]).value as string
+    expect(value.startsWith('diff --git a/src/a.ts')).toBe(true)
+    expect(value).toContain('+const added = 2')
+    expect(value).toContain('+const alsoAdded = 3')
+    expect(value).toContain('unified diff compacted')
+    expect(value).toContain('retrieve_full_output')
+    expect(value.length).toBeLessThan(diff.length)
+    expect(result.originals).toEqual([{ toolCallId: 'call-1', toolName: 'shell', text: diff }])
+  })
+
+  it('strips big HTML outputs to their text content', () => {
+    const html =
+      '<!DOCTYPE html><html><body>' +
+      Array.from({ length: 30 }, (_, i) => `<p>paragraph &amp; number ${i}</p>`).join('') +
+      '</body></html>'
+    const prompt = oldToolPrompt({ type: 'text', value: html })
+    const result = compressPrompt(prompt, opts)
+    expect(result.changed).toBe(true)
+    const value = outputOf(result.prompt[1]).value as string
+    expect(value).not.toContain('<p>')
+    expect(value).toContain('paragraph & number 3')
+    expect(result.originals[0].text).toBe(html)
+  })
+
+  it('crushes log outputs (timestamped duplicates) before line collapse', () => {
+    const noisy = Array.from(
+      { length: 12 },
+      (_, i) => `2024-01-01 12:00:${String(i).padStart(2, '0')} INFO retrying connection`
+    ).join('\n')
+    const prompt = oldToolPrompt({ type: 'text', value: noisy })
+    const result = compressPrompt(prompt, opts)
+    expect(result.changed).toBe(true)
+    const value = outputOf(result.prompt[1]).value as string
+    expect(value).toContain('2024-01-01 12:00:00 INFO retrying connection')
+    expect(value).toContain('previous line repeated 11 more times')
+    expect(value).not.toContain('12:00:07')
+  })
+
+  it('is idempotent across passes for routed content', () => {
+    const prompt = oldToolPrompt({ type: 'text', value: bigDiff() })
+    const first = compressPrompt(prompt, opts)
+    const second = compressPrompt(first.prompt, opts)
+    expect(second.changed).toBe(false)
+    expect(second.prompt).toBe(first.prompt)
   })
 })
 

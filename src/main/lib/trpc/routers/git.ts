@@ -5,11 +5,13 @@ import {
   commitFileDiff,
   commitFiles,
   createBranch,
+  diffNameStatus,
   discardFiles,
   fileDiff,
   gitLog,
   gitStatus,
   listBranches,
+  mergeBase,
   mergeIntoBase,
   pull,
   push,
@@ -132,6 +134,16 @@ export const gitRouter = router({
         message: input.message
       })
     ),
+
+  /** Merge base of a compare ref and HEAD (null when unknown/unrelated). */
+  mergeBase: publicProcedure
+    .input(cwdInput.extend({ ref: z.string().min(1) }))
+    .query(async ({ input }) => ({ sha: await mergeBase(input.cwd, input.ref) })),
+
+  /** Worktree changes vs a base ref, for the compare-branch view. */
+  diffAgainst: publicProcedure
+    .input(cwdInput.extend({ baseRef: z.string().min(1) }))
+    .query(({ input }) => diffNameStatus(input.cwd, input.baseRef)),
 
   commitFiles: publicProcedure
     .input(cwdInput.extend({ hash: z.string().min(1) }))

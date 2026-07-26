@@ -32,6 +32,20 @@ export type HostCommand =
   | { t: 'threadSwitch'; reqId: string; threadId: string }
   | { t: 'threadRename'; reqId: string; title: string }
   | { t: 'threadClone'; reqId: string; sourceThreadId?: string; title?: string }
+  /**
+   * Fork support: bind this (fresh) host to a truncated clone of another
+   * subchat's thread. Clones via the SDK (which binds the session to the
+   * clone), deletes the clone's messages after the anchor, and returns the
+   * clone id plus a source→clone message-id map for the retained prefix
+   * (clones get fresh message ids).
+   */
+  | {
+      t: 'forkThread'
+      reqId: string
+      sourceThreadId: string
+      anchorMessageId: string
+      title?: string
+    }
   | { t: 'threadDelete'; reqId: string; threadId: string }
   /**
    * Rollback support: delete the agent's memory of every thread message after
@@ -126,6 +140,17 @@ export type HostCommand =
   /** Abort the login flow identified by reqId. */
   | { t: 'oauthCancel'; reqId: string }
   | { t: 'oauthLogout'; reqId: string; provider: string }
+  /** Live MCP server statuses (empty array when the manager is unavailable). */
+  | { t: 'mcpStatus'; reqId: string }
+  /**
+   * Run the OAuth flow for an MCP server that reported needsAuth. Resolves
+   * with the final McpServerStatusInfo (inspect error/cancelled — the SDK
+   * call never rejects); the authorization URL arrives as an mcp-auth-url
+   * host message.
+   */
+  | { t: 'mcpAuthenticate'; reqId: string; serverName: string }
+  | { t: 'mcpCancelAuth'; reqId: string; serverName: string }
+  | { t: 'mcpReconnect'; reqId: string; serverName: string }
   | { t: 'shutdown' }
 
 /** host -> main */
@@ -153,6 +178,10 @@ export type HostMessage =
     }
   /** Cumulative estimated tokens saved by prompt compression since host start. */
   | { t: 'compression-stats'; tokensSaved: number }
+  /** Authorization URL for a pending mcpAuthenticate flow. */
+  | { t: 'mcp-auth-url'; serverName: string; url: string }
+  /** The SDK's background poll updated GitHub-installed plugins. */
+  | { t: 'github-plugins-updated'; names: string[] }
   | { t: 'log'; level: 'info' | 'error'; msg: string }
 
 /**
@@ -282,6 +311,33 @@ export interface PluginInfo {
 
 /** Where a plugin is installed: global (~/.mastracode) or project-local. */
 export type PluginScope = 'global' | 'project'
+
+/**
+ * MCP OAuth authorization URL relayed to the renderer (the main process
+ * already opened it in the system browser; the UI shows a fallback link).
+ */
+export interface McpAuthUrlEvent {
+  subchatId: string
+  serverName: string
+  url: string
+}
+
+/** Wire-safe projection of the SDK's McpServerStatus. */
+export interface McpServerStatusInfo {
+  name: string
+  connected: boolean
+  connecting?: boolean
+  toolCount: number
+  toolNames: string[]
+  transport: 'stdio' | 'http'
+  error?: string
+  /** Server requires OAuth before it can connect. */
+  needsAuth?: boolean
+  /** An OAuth flow is currently in progress for this server. */
+  authenticating?: boolean
+  /** The last OAuth flow was cancelled by the user (error is expected then). */
+  cancelled?: boolean
+}
 
 /** Base64 file attachment for Session.sendMessage. */
 export interface FileAttachment {

@@ -262,6 +262,21 @@ export async function commitFileDiff(
   return { path: filePath, oldContent, newContent, binary }
 }
 
+/** Merge base of a ref and HEAD (null when the ref is unknown/unrelated). */
+export async function mergeBase(cwd: string, ref: string): Promise<string | null> {
+  try {
+    return (await simpleGit(cwd).raw(['merge-base', ref, 'HEAD'])).trim() || null
+  } catch {
+    return null
+  }
+}
+
+/** Files changed between a base ref and the worktree (`git diff --name-status`). */
+export async function diffNameStatus(cwd: string, baseRef: string): Promise<CommitFileChange[]> {
+  const out = await simpleGit(cwd).raw(['diff', '--name-status', baseRef])
+  return parseNameStatus(out)
+}
+
 // ---- Checkpoints ----------------------------------------------------------
 
 /**

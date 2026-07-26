@@ -2,7 +2,7 @@ import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import type { SubchatStatusInfo } from '../../../shared/ui-message'
 
-export type MainTab = 'chat' | 'changes' | 'terminal' | 'files' | 'cli' | 'kanban'
+export type MainTab = 'chat' | 'changes' | 'terminal' | 'files' | 'cli' | 'kanban' | 'preview'
 export type Theme = 'light' | 'dark' | 'system'
 
 export const selectedProjectIdAtom = atomWithStorage<string | null>('cz.selectedProject', null)
@@ -29,6 +29,13 @@ export const newChatOpenAtom = atom(false)
 export const addProjectOpenAtom = atom<false | 'local' | 'clone'>(false)
 /** Threads popover in the active ChatView (also opened by Cmd+P). */
 export const threadsOpenAtom = atom(false)
+/** Split view: a second, independent chat pane on the right of the Chat tab. */
+export const splitOpenAtom = atom(false)
+/** Chat/subchat shown in the split pane (ephemeral — cleared on project switch). */
+export const splitChatIdAtom = atom<string | null>(null)
+export const splitSubchatIdAtom = atom<string | null>(null)
+/** Split divider position: the primary pane's width fraction (clamped 0.25–0.75 on use). */
+export const splitRatioAtom = atomWithStorage<number>('cz.splitRatio', 0.5)
 export type ProjectSettingsTab =
   'general' | 'mcp' | 'hooks' | 'commands' | 'agents' | 'instructions' | 'resource' | 'plugins'
 export const projectSettingsOpenAtom = atom(false)

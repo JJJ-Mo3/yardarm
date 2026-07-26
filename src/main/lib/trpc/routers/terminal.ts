@@ -1,6 +1,7 @@
 import { observable } from '@trpc/server/observable'
 import { z } from 'zod'
 import { buildMastracodeCommand, ptyManager } from '../../terminal/pty-manager'
+import { extractLocalhostUrls } from '../../terminal/url-detect'
 import { getMastracodeCliPath } from '../../system/mastracode-info'
 import { publicProcedure, router } from '../trpc'
 
@@ -73,5 +74,18 @@ export const terminalRouter = router({
 
   exists: publicProcedure.input(z.object({ id: z.string() })).query(({ input }) => {
     return ptyManager.exists(input.id)
-  })
+  }),
+
+  /** Localhost dev-server URLs seen in the given terminals' scrollback (Preview tab). */
+  detectUrls: publicProcedure
+    .input(z.object({ ids: z.array(z.string()).max(8) }))
+    .query(({ input }) => {
+      const urls: string[] = []
+      for (const id of input.ids) {
+        for (const url of extractLocalhostUrls(ptyManager.buffer(id))) {
+          if (!urls.includes(url)) urls.push(url)
+        }
+      }
+      return urls
+    })
 })
