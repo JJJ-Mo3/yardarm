@@ -10,6 +10,10 @@ No accounts or login — everything runs locally against mastracode's own config
     imports the bundled mastracode SDK and speaks the JSON protocol defined in
     `src/shared/ipc-types.ts`. These two files are the SDK boundary — they are what changes when
     the vendored mastracode version changes.
+  - `src/main/agent-host/` also holds the token-compression subsystem: `prompt-compression.ts`
+    (pure, prefix-stable prompt transforms + verbosity steering), `compression-processor.ts`
+    (the `inputProcessors` wrapper), and `retrieval-store.ts` (bounded originals store backing
+    the auto-approved `retrieve_full_output` extra tool).
   - `src/main/lib/agent/` — session manager, SDK-event → UI-message translation, storage clamp.
   - `src/main/lib/db/` — better-sqlite3 + drizzle; schema in `db/schema.ts`. The app DB
     (`yardarm.db`) lives in Electron userData, separate from mastracode's config.
@@ -21,7 +25,7 @@ No accounts or login — everything runs locally against mastracode's own config
 - `src/preload/index.ts` — sandboxed; `trpc-electron` is bundled in (it cannot `require()`
   external modules).
 - `src/renderer/src/` — React 19 UI. Feature folders under `features/<domain>/` (agents,
-  changes, file-viewer, settings, sidebar, terminal, onboarding, project-settings, boot).
+  changes, file-viewer, kanban, settings, sidebar, terminal, onboarding, project-settings, boot).
   Shared shadcn-style primitives in `components/ui/`; `lib/utils.ts` has `cn()` and `timeAgo()`.
 - `src/shared/` — types shared across processes (`ipc-types.ts`, `ui-message.ts`,
   `mastra-settings.ts`). Path aliases: `@shared` (all processes), `@` (renderer only).

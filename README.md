@@ -358,13 +358,13 @@ thread at once).
 
 **Keyboard shortcuts** (Cmd on macOS, Ctrl elsewhere):
 
-| Shortcut  | Action                                              |
-| --------- | --------------------------------------------------- |
-| `Cmd+N`   | New chat                                            |
-| `Cmd+P`   | Thread switcher                                     |
-| `Cmd+1–6` | Switch tab (chat/changes/terminal/files/cli/kanban) |
-| `Cmd+J`   | Toggle terminal tab                                 |
-| `Cmd+,`   | Settings                                            |
+| Shortcut  | Action                                            |
+| --------- | ------------------------------------------------- |
+| `Cmd+N`   | New chat                                          |
+| `Cmd+P`   | Thread switcher                                   |
+| `Cmd+1–6` | Switch tab (chat/changes/terminal/IDE/CLI/kanban) |
+| `Cmd+J`   | Toggle terminal tab                               |
+| `Cmd+,`   | Settings                                          |
 
 ## Configuration paths (shared with the mastracode CLI)
 

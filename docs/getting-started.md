@@ -22,7 +22,7 @@ shorter overview, see the [README](../README.md).
 - [Checkpoints and rollback](#checkpoints-and-rollback)
 - [Goals: let the agent run to completion](#goals-let-the-agent-run-to-completion)
 - [Threads and subchats](#threads-and-subchats)
-- [Terminal, Files, and CLI tabs](#terminal-files-and-cli-tabs)
+- [Terminal, IDE, and CLI tabs](#terminal-ide-and-cli-tabs)
 - [The Kanban board and sidebar indicators](#the-kanban-board-and-sidebar-indicators)
 - [Voice dictation](#voice-dictation)
 - [Slash commands](#slash-commands)
@@ -486,17 +486,17 @@ to the CLI tab.
 
 Open with `Cmd+,` (`Ctrl+,`).
 
-| Tab             | What's there                                                                                                       |
-| --------------- | ------------------------------------------------------------------------------------------------------------------ |
-| **Appearance**  | light / dark / system theme (also togglable from the sidebar footer)                                               |
-| **Preferences** | approval behavior, notifications, output limits, new-chat sandbox defaults, token compression + verbosity steering |
-| **API Keys**    | provider API keys (stored in mastracode's `auth.json`)                                                             |
-| **Models**      | default model per mode, subagent, goal judge, and memory role; model packs                                         |
-| **Providers**   | OAuth logins (Claude / Codex / Copilot), Ollama detection, custom local providers                                  |
-| **Voice**       | dictation engine, STT provider and model                                                                           |
-| **Browser**     | browser-automation settings for web tools                                                                          |
-| **MCP Servers** | global Model Context Protocol servers                                                                              |
-| **About**       | versions, runtime boot status, CLI install, updates, re-run setup                                                  |
+| Tab             | What's there                                                                                                                                            |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Appearance**  | light / dark / system theme (also togglable from the sidebar footer)                                                                                    |
+| **Preferences** | default auto-approve (yolo), CLI theme, default thinking level, tool-output previews, new-chat sandbox defaults, token compression + verbosity steering |
+| **API Keys**    | provider API keys (stored in mastracode's `auth.json`)                                                                                                  |
+| **Models**      | default model per mode, subagent, goal judge, and memory role; model packs                                                                              |
+| **Providers**   | OAuth logins (Claude / Codex / Copilot), Ollama detection, custom local providers                                                                       |
+| **Voice**       | dictation engine, STT provider and model                                                                                                                |
+| **Browser**     | browser-automation settings for web tools                                                                                                               |
+| **MCP Servers** | global Model Context Protocol servers                                                                                                                   |
+| **About**       | versions, runtime boot status, CLI install, updates, re-run setup                                                                                       |
 
 Everything you change here is written to mastracode's own config files
 (atomically, preserving keys the app doesn't know about), so the CLI picks up
@@ -548,16 +548,16 @@ providers you configured.
 
 `Cmd` on macOS, `Ctrl` on Windows/Linux.
 
-| Shortcut      | Action                                                        |
-| ------------- | ------------------------------------------------------------- |
-| `Cmd+N`       | new chat                                                      |
-| `Cmd+P`       | thread switcher                                               |
-| `Cmd+1`–`6`   | switch tab (Chat / Changes / Terminal / Files / CLI / Kanban) |
-| `Cmd+J`       | toggle the Terminal tab                                       |
-| `Cmd+,`       | settings                                                      |
-| `Enter`       | send (in composer)                                            |
-| `Shift+Enter` | newline (in composer)                                         |
-| `Escape`      | cancel voice recording / close autocomplete popups            |
+| Shortcut      | Action                                                      |
+| ------------- | ----------------------------------------------------------- |
+| `Cmd+N`       | new chat                                                    |
+| `Cmd+P`       | thread switcher                                             |
+| `Cmd+1`–`6`   | switch tab (Chat / Changes / Terminal / IDE / CLI / Kanban) |
+| `Cmd+J`       | toggle the Terminal tab                                     |
+| `Cmd+,`       | settings                                                    |
+| `Enter`       | send (in composer)                                          |
+| `Shift+Enter` | newline (in composer)                                       |
+| `Escape`      | cancel voice recording / close autocomplete popups          |
 
 ## Tips
 
