@@ -39,10 +39,10 @@ shorter overview, see the [README](../README.md).
 
 Grab the latest `.dmg` (or `.zip`) from the
 [Releases page](https://github.com/JJJ-Mo3/yardarm/releases) — currently
-[v0.8.0](https://github.com/JJJ-Mo3/yardarm/releases/tag/v0.8.0)
-([dmg](https://github.com/JJJ-Mo3/yardarm/releases/download/v0.8.0/Yardarm-0.8.0-arm64.dmg)
+[v0.9.0](https://github.com/JJJ-Mo3/yardarm/releases/tag/v0.9.0)
+([dmg](https://github.com/JJJ-Mo3/yardarm/releases/download/v0.9.0/Yardarm-0.9.0-arm64.dmg)
 ·
-[zip](https://github.com/JJJ-Mo3/yardarm/releases/download/v0.8.0/Yardarm-0.8.0-arm64.zip))
+[zip](https://github.com/JJJ-Mo3/yardarm/releases/download/v0.9.0/Yardarm-0.9.0-arm64.zip))
 — and drag `Yardarm.app` into `/Applications`.
 
 Release builds are not code-signed, so macOS Gatekeeper will refuse a plain
