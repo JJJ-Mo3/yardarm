@@ -132,8 +132,10 @@ export function ChatView({
   const setSelectedSubchatId = useSetAtom(selectedSubchatIdAtom)
   const setSplitSubchatId = useSetAtom(splitSubchatIdAtom)
   const fork = trpc.chats.fork.useMutation({
-    onSuccess: (res) => {
-      utils.invalidate()
+    onSuccess: async (res) => {
+      // Refetch before switching panes: the split pane resets selections it
+      // can't find in chat.data, so the fork must be in the lists first.
+      await utils.invalidate()
       if (primary) setSelectedSubchatId(res.subchatId)
       else setSplitSubchatId(res.subchatId)
     }

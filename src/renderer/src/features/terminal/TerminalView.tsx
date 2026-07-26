@@ -17,9 +17,13 @@ export function TerminalView({
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
 
-  const [attached, setAttached] = useState(false)
+  // The id the pty was actually created for: on a chat switch the id prop
+  // changes without a remount, and subscribing before terminal.create for
+  // the new id completes would register no-op listeners (dead terminal) —
+  // pty-manager's onData/onExit are no-ops for ids that don't exist yet.
+  const [attachedId, setAttachedId] = useState<string | null>(null)
   const create = trpc.terminal.create.useMutation({
-    onSuccess: () => setAttached(true),
+    onSuccess: (_data, vars) => setAttachedId(vars.id),
     onError: (e) => termRef.current?.write(`\r\n[failed to start: ${e.message}]\r\n`)
   })
   const write = trpc.terminal.write.useMutation()
@@ -69,7 +73,7 @@ export function TerminalView({
   trpc.terminal.stream.useSubscription(
     { id },
     {
-      enabled: attached,
+      enabled: attachedId === id,
       onData: (ev) => {
         if (ev.type === 'data') termRef.current?.write(ev.data)
         else {

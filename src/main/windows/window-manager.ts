@@ -61,6 +61,15 @@ export function createWindow(): BrowserWindow {
         shell.openExternal(url).catch(() => {})
       }
     })
+    // Server-side redirects (301/302) fire will-redirect, not will-navigate —
+    // without this a localhost page could redirect the webview off localhost.
+    guest.on('will-redirect', (ev, url) => {
+      if (isLocalhostHttpUrl(url)) return
+      ev.preventDefault()
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        shell.openExternal(url).catch(() => {})
+      }
+    })
   })
 
   ipcHandler?.attachWindow(win)
