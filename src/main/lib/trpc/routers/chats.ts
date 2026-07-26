@@ -188,6 +188,13 @@ export const chatsRouter = router({
       await deleteCheckpointRefs(project.path, stashShas)
     }
 
+    // Terminals are keyed by chat id (Terminal / CLI / Preview dev server) —
+    // kill them by id too: a chat without a worktree runs them in the project
+    // root, which the worktree-prefix cleanup below never covers.
+    for (const tid of [`chat-${chat.id}`, `cli-chat-${chat.id}`, `dev-chat-${chat.id}`]) {
+      ptyManager.kill(tid)
+    }
+
     if (chat.worktreePath) {
       ptyManager.killByCwdPrefix(chat.worktreePath)
       if (project) {
@@ -303,13 +310,15 @@ export const chatsRouter = router({
       }
       db.insert(schema.subchats).values(newSubchat).run()
 
+      let forkedThreadId: string | null = null
       try {
-        const { idMap } = await agentSessionManager.forkThread(
+        const { threadId, idMap } = await agentSessionManager.forkThread(
           newSubchat.id,
           subchat.mastraThreadId,
           anchor.id,
           `Fork of ${chat.title}`
         )
+        forkedThreadId = threadId
         // Copy the transcript prefix. Assistant rows take their clone-side
         // SDK ids (keeps rollback anchors working in the fork); everything
         // else gets a fresh id. checkpointRef is not copied — the stash
@@ -329,7 +338,12 @@ export const chatsRouter = router({
         }
         return { subchatId: newSubchat.id }
       } catch (err) {
-        // Roll the fork back — a half-made subchat must not survive.
+        // Roll the fork back — a half-made subchat must not survive. If the
+        // clone itself succeeded (i.e. the message copy failed), delete it
+        // too so no orphaned thread lingers in mastracode's storage.
+        if (forkedThreadId) {
+          await agentSessionManager.deleteThread(newSubchat.id, forkedThreadId).catch(() => {})
+        }
         await agentSessionManager.stopHostAndWait(newSubchat.id).catch(() => {})
         db.delete(schema.subchats).where(eq(schema.subchats.id, newSubchat.id)).run()
         throw err

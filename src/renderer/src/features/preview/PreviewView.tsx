@@ -75,6 +75,21 @@ export function PreviewView({
     onSuccess: () => utils.terminal.exists.invalidate({ id: devTerminalId })
   })
 
+  // The component stays mounted while chatId/projectId change (App keeps the
+  // Preview tab alive across tab switches), so reset per-context state when
+  // the context changes — otherwise the old chat's page keeps showing while
+  // the chips and dev-server controls act on the new one.
+  useEffect(() => {
+    autoLoadedRef.current = false
+    setSrc(null)
+    setInput('')
+    setInputError(null)
+    setCurrentUrl(null)
+    setCanBack(false)
+    setCanForward(false)
+    setLoadFailed(null)
+  }, [devTerminalId])
+
   const navigate = (raw: string): void => {
     const candidate = /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `http://${raw}`
     if (!isLocalhostHttpUrl(candidate)) {
@@ -237,26 +252,30 @@ export function PreviewView({
             <Tip
               content={`Start the project's dev server (${devCmd.data.command}) and preview it here`}
             >
-              <button
-                onClick={() => startDev.mutate({ id: devTerminalId, cwd })}
-                disabled={startDev.isPending}
-                className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
-              >
-                <Play size={9} />
-                {devCmd.data.command}
-              </button>
+              <span className="inline-flex">
+                <button
+                  onClick={() => startDev.mutate({ id: devTerminalId, cwd })}
+                  disabled={startDev.isPending}
+                  className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-50"
+                >
+                  <Play size={9} />
+                  {devCmd.data.command}
+                </button>
+              </span>
             </Tip>
           )}
           {devCmd.data && devRunning.data === true && (
             <Tip content="Stop the dev server started from this Preview tab">
-              <button
-                onClick={() => stopDev.mutate({ id: devTerminalId })}
-                disabled={stopDev.isPending}
-                className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
-              >
-                <Square size={9} />
-                stop dev server
-              </button>
+              <span className="inline-flex">
+                <button
+                  onClick={() => stopDev.mutate({ id: devTerminalId })}
+                  disabled={stopDev.isPending}
+                  className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-50"
+                >
+                  <Square size={9} />
+                  stop dev server
+                </button>
+              </span>
             </Tip>
           )}
           {startDev.error && (
@@ -306,16 +325,18 @@ export function PreviewView({
             </div>
             {devCmd.data && !devRunning.data && (
               <Tip content="Run the project's detected dev script in a background terminal and preview it here">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="mt-1"
-                  disabled={startDev.isPending}
-                  onClick={() => startDev.mutate({ id: devTerminalId, cwd })}
-                >
-                  <Play size={12} className="mr-1" />
-                  Start dev server ({devCmd.data.command})
-                </Button>
+                <span className="inline-flex">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-1"
+                    disabled={startDev.isPending}
+                    onClick={() => startDev.mutate({ id: devTerminalId, cwd })}
+                  >
+                    <Play size={12} className="mr-1" />
+                    Start dev server ({devCmd.data.command})
+                  </Button>
+                </span>
               </Tip>
             )}
             {devRunning.data === true && (
