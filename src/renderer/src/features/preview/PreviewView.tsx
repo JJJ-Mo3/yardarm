@@ -34,6 +34,11 @@ export function PreviewView({
   const [canForward, setCanForward] = useState(false)
   const [loadFailed, setLoadFailed] = useState<string | null>(null)
 
+  // Both actions go through the main process: window.open is unreliable in a
+  // sandboxed renderer, and the webview-tag openDevTools() silently no-ops.
+  const openExternal = trpc.system.openExternal.useMutation()
+  const devTools = trpc.system.previewDevTools.useMutation()
+
   const detected = trpc.terminal.detectUrls.useQuery(
     { ids: terminalIds },
     { enabled: active && terminalIds.length > 0, refetchInterval: 3000 }
@@ -170,7 +175,7 @@ export function PreviewView({
               variant="ghost"
               disabled={!mounted}
               onClick={() =>
-                call((wv) => (wv.isDevToolsOpened() ? wv.closeDevTools() : wv.openDevTools()))
+                call((wv) => devTools.mutate({ webContentsId: wv.getWebContentsId() }))
               }
             >
               <Wrench size={13} />
@@ -185,7 +190,7 @@ export function PreviewView({
               disabled={!mounted}
               onClick={() => {
                 const url = currentUrl ?? src
-                if (url) window.open(url)
+                if (url) openExternal.mutate({ url })
               }}
             >
               <ExternalLink size={13} />

@@ -143,6 +143,8 @@ export function AddLocalProviderDialog({
   const startOllamaMut = trpc.mastraSettings.startOllama.useMutation()
   const upsert = trpc.mastraSettings.upsertCustomProvider.useMutation()
   const applyRestart = trpc.mastraSettings.applyRestart.useMutation()
+  // window.open is unreliable in a sandboxed renderer — route through main.
+  const openExternal = trpc.system.openExternal.useMutation()
 
   // Save, then restart agent hosts (they read settings.json at boot) and
   // refresh the cached model catalog so the new models are usable immediately.
@@ -455,7 +457,11 @@ export function AddLocalProviderDialog({
                 </div>
                 <Button
                   size="sm"
-                  onClick={() => window.open(preset.downloadUrl ?? 'https://ollama.com/download')}
+                  onClick={() =>
+                    openExternal.mutate({
+                      url: preset.downloadUrl ?? 'https://ollama.com/download'
+                    })
+                  }
                 >
                   <ExternalLink size={12} className="mr-1" />
                   Download Ollama
@@ -479,7 +485,9 @@ export function AddLocalProviderDialog({
                   {preset.downloadUrl && presetId !== 'ollama' && (
                     <button
                       className="flex items-center gap-1 text-[11px] text-muted-foreground underline hover:text-foreground cursor-pointer"
-                      onClick={() => window.open(preset.downloadUrl)}
+                      onClick={() => {
+                        if (preset.downloadUrl) openExternal.mutate({ url: preset.downloadUrl })
+                      }}
                     >
                       <ExternalLink size={10} />
                       Get {preset.title}

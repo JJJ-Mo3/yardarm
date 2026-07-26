@@ -1,5 +1,6 @@
 import os from 'node:os'
-import { app } from 'electron'
+import { app, shell, webContents } from 'electron'
+import { z } from 'zod'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import {
   detectGlobalCli,
@@ -7,6 +8,7 @@ import {
   getMastracodeVersion
 } from '../../system/mastracode-info'
 import { ptyManager } from '../../terminal/pty-manager'
+import { isPreviewGuest } from '../../../windows/preview-guests'
 import { publicProcedure, router } from '../trpc'
 
 /** Terminal id used for the one-click global CLI install. */
@@ -55,5 +57,24 @@ export const systemRouter = router({
     })
     const fallback = setTimeout(send, 2000)
     return { terminalId: id }
-  })
+  }),
+
+  /** Opens an http(s) URL in the system browser (renderer window.open is unreliable when sandboxed). */
+  openExternal: publicProcedure.input(z.object({ url: z.string() })).mutation(({ input }) => {
+    if (!/^https?:\/\//i.test(input.url)) throw new Error('Only http(s) URLs can be opened')
+    void shell.openExternal(input.url)
+    return { ok: true }
+  }),
+
+  /** Toggles detached DevTools for a Preview webview (the webview-tag method is unreliable). */
+  previewDevTools: publicProcedure
+    .input(z.object({ webContentsId: z.number().int() }))
+    .mutation(({ input }) => {
+      if (!isPreviewGuest(input.webContentsId)) throw new Error('Not a preview webview')
+      const wc = webContents.fromId(input.webContentsId)
+      if (!wc || wc.isDestroyed()) throw new Error('Preview page is gone')
+      if (wc.isDevToolsOpened()) wc.closeDevTools()
+      else wc.openDevTools({ mode: 'detach' })
+      return { ok: true }
+    })
 })

@@ -2,6 +2,7 @@ import path from 'node:path'
 import { BrowserWindow, shell } from 'electron'
 import type { createIPCHandler } from 'trpc-electron/main'
 import { isLocalhostHttpUrl } from '../../shared/localhost-url'
+import { registerPreviewGuest, unregisterPreviewGuest } from './preview-guests'
 import icon from '../../../build/icon.png?asset'
 
 type IPCHandler = ReturnType<typeof createIPCHandler>
@@ -48,6 +49,10 @@ export function createWindow(): BrowserWindow {
     if (src && src !== 'about:blank' && !isLocalhostHttpUrl(src)) event.preventDefault()
   })
   win.webContents.on('did-attach-webview', (_event, guest) => {
+    // Captured here — a destroyed webContents throws on property access.
+    const guestId = guest.id
+    registerPreviewGuest(guestId)
+    guest.on('destroyed', () => unregisterPreviewGuest(guestId))
     guest.setWindowOpenHandler(({ url }) => {
       if (url.startsWith('http://') || url.startsWith('https://')) {
         shell.openExternal(url).catch(() => {})

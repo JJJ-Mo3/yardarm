@@ -16,9 +16,7 @@ export interface WebviewElement extends HTMLElement {
   goForward(): void
   reload(): void
   stop(): void
-  isDevToolsOpened(): boolean
-  openDevTools(): void
-  closeDevTools(): void
+  getWebContentsId(): number
 }
 
 declare module 'react' {
