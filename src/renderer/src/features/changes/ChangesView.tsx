@@ -230,140 +230,146 @@ export function ChangesView({
     <div className="flex h-full">
       {/* File list + commit box */}
       <div className="flex w-72 shrink-0 flex-col border-r border-border">
-        <div className="flex items-center gap-1 border-b border-border px-2 py-2">
-          <Select
-            value={currentBranch}
-            onValueChange={(branch) => {
-              if (branch !== currentBranch) checkout.mutate({ cwd, branch })
-            }}
-          >
-            <Tip content="Current git branch — select another to check it out">
-              <SelectTrigger className="h-7 min-w-0 flex-1 font-mono text-[11px]">
-                <SelectValue placeholder="branch" />
-              </SelectTrigger>
-            </Tip>
-            <SelectContent>
-              {(branchList.includes(currentBranch) || !currentBranch
-                ? branchList
-                : [currentBranch, ...branchList]
-              ).map((b) => (
-                <SelectItem key={b} value={b} className="font-mono text-[11px]">
-                  {b}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {status.data && (status.data.ahead > 0 || behind > 0) && (
-            <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-              {status.data.ahead > 0 && <>↑{status.data.ahead}</>}
-              {behind > 0 && <>↓{behind}</>}
-            </span>
-          )}
-          <Tip content="Create a new branch from the current HEAD and check it out">
-            <Button size="icon" variant="ghost" onClick={() => setNewBranchOpen(true)}>
-              <GitBranchPlus size={12} />
-            </Button>
-          </Tip>
-          {ghAvailable.data?.available && (
-            <Tip content="Open a pull request for this branch on GitHub (uses the gh CLI)">
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => {
-                  createPr.reset()
-                  setPrOpen(true)
-                }}
-              >
-                <GitPullRequestArrow size={12} />
+        <div className="border-b border-border px-2 py-1.5">
+          {/* Action icons on their own row — they crowd the branch selector otherwise. */}
+          <div className="flex items-center justify-end gap-1">
+            <Tip content="Create a new branch from the current HEAD and check it out">
+              <Button size="icon" variant="ghost" onClick={() => setNewBranchOpen(true)}>
+                <GitBranchPlus size={12} />
               </Button>
             </Tip>
-          )}
-          {review && (
-            <Tip content="Ask the agent to review the local changes on this branch">
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => {
-                  sendReview.mutate({
-                    subchatId: review.subchatId,
-                    content: buildLocalReviewPrompt({ baseBranch: review.baseBranch }),
-                    displayText: buildReviewMarker({ kind: 'local' }),
-                    displayKind: 'marker'
-                  })
-                  setMainTab('chat')
-                }}
-              >
-                <ScanSearch size={12} />
-              </Button>
-            </Tip>
-          )}
-          {merge && (
-            <Tip content={`Merge ${merge.branch} into ${merge.baseBranch} at the project root`}>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => {
-                  mergeMut.reset()
-                  setMergeOpen(true)
-                }}
-              >
-                <GitMerge size={12} />
-              </Button>
-            </Tip>
-          )}
-          <Popover open={compareOpen} onOpenChange={setCompareOpen}>
-            <Tip content="Compare the working tree against another branch (read-only diffs vs the merge base)">
-              <PopoverTrigger asChild>
+            {ghAvailable.data?.available && (
+              <Tip content="Open a pull request for this branch on GitHub (uses the gh CLI)">
                 <Button
                   size="icon"
                   variant="ghost"
-                  className={cn(compareRef && 'text-primary hover:text-primary')}
+                  onClick={() => {
+                    createPr.reset()
+                    setPrOpen(true)
+                  }}
                 >
-                  <GitCompareArrows size={12} />
+                  <GitPullRequestArrow size={12} />
                 </Button>
-              </PopoverTrigger>
-            </Tip>
-            <PopoverContent className="w-60 p-1" align="end">
-              <Input
-                autoFocus
-                placeholder="Filter branches"
-                value={compareFilter}
-                onChange={(e) => setCompareFilter(e.target.value)}
-                className="mb-1 h-7 text-[11px]"
-              />
-              <div className="max-h-56 overflow-y-auto">
-                <button
-                  onClick={() => setCompare(null)}
-                  className={cn(
-                    'block w-full cursor-pointer rounded px-2 py-1 text-left text-[11px] hover:bg-accent',
-                    !compareRef && 'text-primary'
-                  )}
+              </Tip>
+            )}
+            {review && (
+              <Tip content="Ask the agent to review the local changes on this branch">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => {
+                    sendReview.mutate({
+                      subchatId: review.subchatId,
+                      content: buildLocalReviewPrompt({ baseBranch: review.baseBranch }),
+                      displayText: buildReviewMarker({ kind: 'local' }),
+                      displayKind: 'marker'
+                    })
+                    setMainTab('chat')
+                  }}
                 >
-                  Current (HEAD)
-                </button>
-                {branchList
-                  .filter((b) => b !== currentBranch)
-                  .filter((b) => b.toLowerCase().includes(compareFilter.toLowerCase()))
-                  .map((b) => (
-                    <button
-                      key={b}
-                      onClick={() => setCompare(b)}
-                      className={cn(
-                        'block w-full cursor-pointer truncate rounded px-2 py-1 text-left font-mono text-[11px] hover:bg-accent',
-                        compareRef === b && 'text-primary'
-                      )}
-                    >
-                      {b}
-                    </button>
-                  ))}
-              </div>
-            </PopoverContent>
-          </Popover>
-          <Tip content="Re-read git status, diffs, and branches">
-            <Button size="icon" variant="ghost" onClick={() => invalidate()}>
-              <RefreshCw size={12} />
-            </Button>
-          </Tip>
+                  <ScanSearch size={12} />
+                </Button>
+              </Tip>
+            )}
+            {merge && (
+              <Tip content={`Merge ${merge.branch} into ${merge.baseBranch} at the project root`}>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => {
+                    mergeMut.reset()
+                    setMergeOpen(true)
+                  }}
+                >
+                  <GitMerge size={12} />
+                </Button>
+              </Tip>
+            )}
+            <Popover open={compareOpen} onOpenChange={setCompareOpen}>
+              <Tip content="Compare the working tree against another branch (read-only diffs vs the merge base)">
+                <PopoverTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className={cn(compareRef && 'text-primary hover:text-primary')}
+                  >
+                    <GitCompareArrows size={12} />
+                  </Button>
+                </PopoverTrigger>
+              </Tip>
+              <PopoverContent className="w-60 p-1" align="end">
+                <Input
+                  autoFocus
+                  placeholder="Filter branches"
+                  value={compareFilter}
+                  onChange={(e) => setCompareFilter(e.target.value)}
+                  className="mb-1 h-7 text-[11px]"
+                />
+                <div className="max-h-56 overflow-y-auto">
+                  <button
+                    onClick={() => setCompare(null)}
+                    className={cn(
+                      'block w-full cursor-pointer rounded px-2 py-1 text-left text-[11px] hover:bg-accent',
+                      !compareRef && 'text-primary'
+                    )}
+                  >
+                    Current (HEAD)
+                  </button>
+                  {branchList
+                    .filter((b) => b !== currentBranch)
+                    .filter((b) => b.toLowerCase().includes(compareFilter.toLowerCase()))
+                    .map((b) => (
+                      <button
+                        key={b}
+                        onClick={() => setCompare(b)}
+                        className={cn(
+                          'block w-full cursor-pointer truncate rounded px-2 py-1 text-left font-mono text-[11px] hover:bg-accent',
+                          compareRef === b && 'text-primary'
+                        )}
+                      >
+                        {b}
+                      </button>
+                    ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+            <Tip content="Re-read git status, diffs, and branches">
+              <Button size="icon" variant="ghost" onClick={() => invalidate()}>
+                <RefreshCw size={12} />
+              </Button>
+            </Tip>
+          </div>
+          {/* Branch selector below the icon row. */}
+          <div className="mt-1 flex items-center gap-1">
+            <Select
+              value={currentBranch}
+              onValueChange={(branch) => {
+                if (branch !== currentBranch) checkout.mutate({ cwd, branch })
+              }}
+            >
+              <Tip content="Current git branch — select another to check it out">
+                <SelectTrigger className="h-7 min-w-0 flex-1 font-mono text-[11px]">
+                  <SelectValue placeholder="branch" />
+                </SelectTrigger>
+              </Tip>
+              <SelectContent>
+                {(branchList.includes(currentBranch) || !currentBranch
+                  ? branchList
+                  : [currentBranch, ...branchList]
+                ).map((b) => (
+                  <SelectItem key={b} value={b} className="font-mono text-[11px]">
+                    {b}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {status.data && (status.data.ahead > 0 || behind > 0) && (
+              <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                {status.data.ahead > 0 && <>↑{status.data.ahead}</>}
+                {behind > 0 && <>↓{behind}</>}
+              </span>
+            )}
+          </div>
         </div>
         {compareRef && (
           <div className="flex items-center gap-1.5 border-b border-border bg-accent/30 px-2 py-1 text-[11px]">
