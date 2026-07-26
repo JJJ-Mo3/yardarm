@@ -467,8 +467,9 @@ export function ChatView({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header controls */}
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+      {/* Header controls — wraps so narrow panes (split view) flow onto
+          extra rows instead of overflowing the pane. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-border px-3 py-2">
         <ModeSelector value={currentMode} pending={pendingMode} onChange={changeMode} />
 
         {(() => {
