@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { packageManagerFromLockfiles, pickDevCommand } from './dev-command'
+import {
+  STATIC_SERVER_PORT,
+  packageManagerFromLockfiles,
+  pickDevCommand,
+  pickStaticCommand
+} from './dev-command'
 
 describe('packageManagerFromLockfiles', () => {
   it('maps each lockfile to its package manager', () => {
@@ -45,5 +50,23 @@ describe('pickDevCommand', () => {
       command: 'npm run start',
       script: 'start'
     })
+  })
+})
+
+describe('pickStaticCommand', () => {
+  it('serves the directory when a root .html file exists', () => {
+    expect(pickStaticCommand(['index.html', 'style.css'])).toEqual({
+      command: `python3 -m http.server ${STATIC_SERVER_PORT} --bind 127.0.0.1`,
+      script: 'static'
+    })
+  })
+
+  it('matches .html case-insensitively', () => {
+    expect(pickStaticCommand(['Hello-World.HTML'])?.script).toBe('static')
+  })
+
+  it('returns null when there is nothing html to serve', () => {
+    expect(pickStaticCommand(['main.ts', 'README.md'])).toBeNull()
+    expect(pickStaticCommand([])).toBeNull()
   })
 })

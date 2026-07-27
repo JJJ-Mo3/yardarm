@@ -91,7 +91,7 @@ export const terminalRouter = router({
     .input(z.object({ id: z.string(), cwd: z.string() }))
     .mutation(({ input }) => {
       const dev = detectDevCommand(input.cwd)
-      if (!dev) throw new Error('No dev/serve/start script found in package.json')
+      if (!dev) throw new Error('No dev/serve/start script or root .html files in this project')
       ptyManager.create(input.id, input.cwd, 80, 24, dev.command)
       return { ok: true }
     }),

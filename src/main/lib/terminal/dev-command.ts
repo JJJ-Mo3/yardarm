@@ -1,8 +1,10 @@
 /**
  * Detects the command that starts a project's dev server, for the Preview
  * tab's one-click "start dev server" chip: package.json scripts pick the
- * script, the lockfile picks the package manager. The pure pieces are
- * exported separately from the fs wrapper so they can be unit-tested.
+ * script, the lockfile picks the package manager, and plain static sites
+ * (root .html files, no dev script) fall back to a loopback-only python
+ * http.server. The pure pieces are exported separately from the fs wrapper
+ * so they can be unit-tested.
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -10,7 +12,7 @@ import path from 'node:path'
 export interface DevCommand {
   /** Full shell command, e.g. `pnpm run dev`. */
   command: string
-  /** The package.json script it runs, e.g. `dev`. */
+  /** The package.json script it runs, e.g. `dev`, or `static` for the fallback. */
   script: string
 }
 
@@ -45,16 +47,37 @@ export function pickDevCommand(
   return null
 }
 
-/** Reads the project at cwd; null when there is no package.json or no dev-like script. */
+/** Static-site fallback port; uncommon enough to rarely collide with real dev servers. */
+export const STATIC_SERVER_PORT = 4173
+
+/** A loopback-only static file server for projects that are just .html files. */
+export function pickStaticCommand(entries: string[]): DevCommand | null {
+  if (!entries.some((e) => e.toLowerCase().endsWith('.html'))) return null
+  return {
+    // python3 ships with the macOS command-line tools (a git prerequisite).
+    command: `python3 -m http.server ${STATIC_SERVER_PORT} --bind 127.0.0.1`,
+    script: 'static'
+  }
+}
+
+/**
+ * Reads the project at cwd: a package.json dev-like script wins, then the
+ * static-site fallback when the root has .html files; null when neither.
+ */
 export function detectDevCommand(cwd: string): DevCommand | null {
   try {
     const raw = fs.readFileSync(path.join(cwd, 'package.json'), 'utf8')
     const pkg = JSON.parse(raw) as { scripts?: Record<string, unknown> }
-    if (!pkg.scripts) return null
-    const lockfiles = LOCKFILE_TO_PM.map(([file]) => file).filter((file) =>
-      fs.existsSync(path.join(cwd, file))
-    )
-    return pickDevCommand(pkg.scripts, packageManagerFromLockfiles(lockfiles))
+    if (pkg.scripts) {
+      const lockfiles = LOCKFILE_TO_PM.map(([file]) => file).filter((file) =>
+        fs.existsSync(path.join(cwd, file))
+      )
+      const fromScripts = pickDevCommand(pkg.scripts, packageManagerFromLockfiles(lockfiles))
+      if (fromScripts) return fromScripts
+    }
+  } catch {}
+  try {
+    return pickStaticCommand(fs.readdirSync(cwd))
   } catch {
     return null
   }

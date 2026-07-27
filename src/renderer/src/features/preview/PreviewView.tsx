@@ -366,6 +366,12 @@ export function PreviewView({
             {devRunning.data === true && (
               <div className="text-xs">Dev server starting — waiting for a localhost URL…</div>
             )}
+            {devCmd.isSuccess && !devCmd.data && (
+              <div className="max-w-sm text-xs">
+                One-click start is unavailable: no dev/serve/start script in package.json and no
+                .html files in the project root were found.
+              </div>
+            )}
           </div>
         )}
       </div>
