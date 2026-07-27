@@ -327,6 +327,16 @@ async function main(): Promise<void> {
 
   const { session, controller, authStorage } = mc
 
+  // The SDK never connects MCP servers on its own — the mastracode TUI calls
+  // mcpManager.initInBackground() after boot. Mirror that here so server
+  // statuses and tools populate without needing an agent run (the Connectors
+  // UI polls mcpStatus on a host that may never run an agent).
+  if (mc.mcpManager?.hasServers()) {
+    void mc.mcpManager.initInBackground().catch((err: unknown) => {
+      post({ t: 'log', level: 'error', msg: `mcp init failed: ${String(err)}` })
+    })
+  }
+
   // SDK quirk: the tool-approval resume path omits the shared run budget
   // (maxSteps), capping the resumed run at the loop default of 5 steps — the
   // agent silently stops mid-task after an approval. Re-supply it at runtime.

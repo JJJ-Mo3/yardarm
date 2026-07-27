@@ -21,7 +21,9 @@ import {
   normalizeCustomProviderModels
 } from './custom-provider-models'
 import { readSettings } from '../mastra-config/settings-json'
+import { updateMcpServers, type McpServerConfig } from '../mastra-config/mcp-json'
 import { loadSubagentDefinitions } from '../mastra-config/agents-fs'
+import { isSettledMcpStatus, syntheticMcpFailureStatus } from './mcp-connect-helpers'
 import { MessageWriteBuffer } from './message-write-buffer'
 import { createUpsertThrottle } from './upsert-throttle'
 import type {
@@ -1788,13 +1790,17 @@ export class AgentSessionManager {
     })
   }
 
-  async mcpStatus(subchatId: string): Promise<McpServerStatusInfo[]> {
-    const handle = await this.ensureHost(subchatId)
+  /** null subchatId = run against the utility host (no chat required). */
+  async mcpStatus(subchatId: string | null): Promise<McpServerStatusInfo[]> {
+    const handle = subchatId ? await this.ensureHost(subchatId) : await this.ensureUtilityHost()
     return this.request<McpServerStatusInfo[]>(handle, { t: 'mcpStatus', reqId: randomUUID() })
   }
 
-  async mcpAuthenticate(subchatId: string, serverName: string): Promise<McpServerStatusInfo> {
-    const handle = await this.ensureHost(subchatId)
+  async mcpAuthenticate(
+    subchatId: string | null,
+    serverName: string
+  ): Promise<McpServerStatusInfo> {
+    const handle = subchatId ? await this.ensureHost(subchatId) : await this.ensureUtilityHost()
     // Human consent flow in a browser — outlive the host's own 4-minute cap
     // so the SDK's resolves-with-error status wins over an IPC timeout.
     return this.request<McpServerStatusInfo>(
@@ -1804,8 +1810,17 @@ export class AgentSessionManager {
     )
   }
 
-  async mcpCancelAuth(subchatId: string, serverName: string): Promise<{ cancelled: boolean }> {
-    const handle = await this.ensureHost(subchatId)
+  async mcpCancelAuth(
+    subchatId: string | null,
+    serverName: string
+  ): Promise<{ cancelled: boolean }> {
+    // With no subchat, prefer the pinned in-flight connect handle: it bypasses
+    // the op queue (which may be blocked on the very OAuth being cancelled)
+    // and is immune to ensureUtilityHost's preference for live chat hosts.
+    const handle = subchatId
+      ? await this.ensureHost(subchatId)
+      : (this.mcpConnectHandles.get(serverName) ?? (await this.ensureUtilityHost()))
+    if (handle.killed) return { cancelled: false }
     return this.request<{ cancelled: boolean }>(handle, {
       t: 'mcpCancelAuth',
       reqId: randomUUID(),
@@ -1813,14 +1828,102 @@ export class AgentSessionManager {
     })
   }
 
-  async mcpReconnect(subchatId: string, serverName: string): Promise<McpServerStatusInfo> {
-    const handle = await this.ensureHost(subchatId)
+  async mcpReconnect(subchatId: string | null, serverName: string): Promise<McpServerStatusInfo> {
+    const handle = subchatId ? await this.ensureHost(subchatId) : await this.ensureUtilityHost()
     // Reconnects can involve slow remote servers; give them a minute.
     return this.request<McpServerStatusInfo>(
       handle,
       { t: 'mcpReconnect', reqId: randomUUID(), serverName },
       60_000
     )
+  }
+
+  /**
+   * Serializes restart-causing MCP operations so a Disconnect or raw mcp.json
+   * save can't restart hosts out from under an in-flight connect/OAuth flow.
+   */
+  private mcpOpQueue: Promise<unknown> = Promise.resolve()
+
+  private queueMcpOp<T>(fn: () => Promise<T>): Promise<T> {
+    const task = this.mcpOpQueue.then(fn)
+    this.mcpOpQueue = task.catch(() => {})
+    return task
+  }
+
+  /** Host running each in-flight connector OAuth, for deterministic cancel routing. */
+  private mcpConnectHandles = new Map<string, HostHandle>()
+
+  /**
+   * Queued restartAll for global mcp.json edits: the config write itself can
+   * happen immediately (hosts only read mcp.json at boot), but the restart
+   * defers behind any in-flight connect so it can't kill that flow.
+   */
+  restartAllQueued(): Promise<void> {
+    return this.queueMcpOp(async () => this.restartAll())
+  }
+
+  /**
+   * Connect a server end-to-end and verify it: write the global mcp.json
+   * entry, restart hosts, wait for the fresh utility host to load the server,
+   * optionally run the OAuth consent flow, and return the final verified
+   * status (connected + toolCount, or needsAuth/error/cancelled). Never
+   * rejects for connection outcomes — failures come back as a status. Runs
+   * entirely in the main process, so it survives the Settings dialog closing.
+   */
+  async mcpConnect(
+    name: string,
+    config: McpServerConfig,
+    autoAuth: boolean
+  ): Promise<McpServerStatusInfo> {
+    return this.queueMcpOp(async () => {
+      await updateMcpServers((servers) => {
+        servers[name] = config
+      })
+      this.restartAll()
+      let handle: HostHandle
+      try {
+        handle = await this.ensureUtilityHost()
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        return syntheticMcpFailureStatus(name, config, message)
+      }
+      // The host loads mcp.json at boot but connects servers asynchronously —
+      // poll until this server settles (~18s budget).
+      let settled: McpServerStatusInfo | undefined
+      for (let i = 0; i < 24 && !settled; i++) {
+        if (handle.killed) {
+          return syntheticMcpFailureStatus(name, config, 'Agent host exited while connecting')
+        }
+        try {
+          const all = await this.request<McpServerStatusInfo[]>(handle, {
+            t: 'mcpStatus',
+            reqId: randomUUID()
+          })
+          const info = all.find((s) => s.name === name)
+          if (isSettledMcpStatus(info)) settled = info
+        } catch {}
+        if (!settled) await new Promise((resolve) => setTimeout(resolve, 750))
+      }
+      if (!settled) {
+        return syntheticMcpFailureStatus(name, config, 'Timed out waiting for the server to load')
+      }
+      if (!settled.needsAuth || !autoAuth) return settled
+      // OAuth consent flow — pin the handle so cancelAuth can reach this host
+      // directly even while the op queue is blocked on this very flow.
+      this.mcpConnectHandles.set(name, handle)
+      try {
+        return await this.request<McpServerStatusInfo>(
+          handle,
+          { t: 'mcpAuthenticate', reqId: randomUUID(), serverName: name },
+          5 * 60_000
+        )
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        return syntheticMcpFailureStatus(name, config, message)
+      } finally {
+        this.mcpConnectHandles.delete(name)
+      }
+    })
   }
 
   /**

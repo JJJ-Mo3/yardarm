@@ -10,7 +10,11 @@ import { agentSessionManager } from '../../agent/agent-session-manager'
 import { publicProcedure, router } from '../trpc'
 import type { McpAuthUrlEvent } from '../../../../shared/ipc-types'
 
-const serverNameInput = z.object({ subchatId: z.string().min(1), serverName: z.string().min(1) })
+// subchatId null = run against the shared utility host (no chat required).
+const serverNameInput = z.object({
+  subchatId: z.string().min(1).nullable(),
+  serverName: z.string().min(1)
+})
 
 const serverConfigSchema = z
   .object({
@@ -40,29 +44,30 @@ export const mcpRouter = router({
     .mutation(async ({ input }) => {
       await writeMcpServers(input.servers as Record<string, McpServerConfig>, input.projectPath)
       // Hosts read mcp.json at boot — restart so changes take effect.
-      // Project-scoped edits only affect that project's hosts.
+      // Project-scoped edits only affect that project's hosts; global
+      // restarts queue behind any in-flight connector OAuth flow.
       if (input.projectPath) agentSessionManager.restartByProject(input.projectPath)
-      else agentSessionManager.restartAll()
+      else void agentSessionManager.restartAllQueued()
       return { ok: true }
     }),
 
-  /** Add or replace a single server (used by the Connectors tab); restarts agents. */
-  setServer: publicProcedure
+  /**
+   * Connect a server end-to-end (used by the Connectors tab): write the
+   * global entry, restart hosts, wait for the server to load in the utility
+   * host, optionally run OAuth, and resolve with the final verified status.
+   * Long-running by design — there is no IPC mutation timeout.
+   */
+  connect: publicProcedure
     .input(
       z.object({
         name: z.string().min(1),
         config: serverConfigSchema,
-        projectPath: z.string().optional()
+        autoAuth: z.boolean()
       })
     )
-    .mutation(async ({ input }) => {
-      await updateMcpServers((servers) => {
-        servers[input.name] = input.config as McpServerConfig
-      }, input.projectPath)
-      if (input.projectPath) agentSessionManager.restartByProject(input.projectPath)
-      else agentSessionManager.restartAll()
-      return { ok: true }
-    }),
+    .mutation(({ input }) =>
+      agentSessionManager.mcpConnect(input.name, input.config as McpServerConfig, input.autoAuth)
+    ),
 
   /** Remove a single server (used by the Connectors tab); restarts agents. */
   removeServer: publicProcedure
@@ -72,13 +77,16 @@ export const mcpRouter = router({
         delete servers[input.name]
       }, input.projectPath)
       if (input.projectPath) agentSessionManager.restartByProject(input.projectPath)
-      else agentSessionManager.restartAll()
+      else void agentSessionManager.restartAllQueued()
       return { ok: true }
     }),
 
-  /** Live per-server connection status from the subchat's agent host. */
+  /**
+   * Live per-server connection status from an agent host. null subchatId
+   * uses the shared utility host, so status works with no chat open.
+   */
   status: publicProcedure
-    .input(z.object({ subchatId: z.string().min(1) }))
+    .input(z.object({ subchatId: z.string().min(1).nullable() }))
     .query(({ input }) => agentSessionManager.mcpStatus(input.subchatId)),
 
   /**
