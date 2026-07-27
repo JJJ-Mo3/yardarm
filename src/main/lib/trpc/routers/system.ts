@@ -1,5 +1,5 @@
 import os from 'node:os'
-import { app, shell, webContents } from 'electron'
+import { app, shell } from 'electron'
 import { z } from 'zod'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import {
@@ -9,6 +9,7 @@ import {
 } from '../../system/mastracode-info'
 import { ptyManager } from '../../terminal/pty-manager'
 import { isPreviewGuest } from '../../../windows/preview-guests'
+import { closePreviewDevTools, openOrMovePreviewDevTools } from '../../../windows/preview-devtools'
 import { publicProcedure, router } from '../trpc'
 
 /** Terminal id used for the one-click global CLI install. */
@@ -68,32 +69,35 @@ export const systemRouter = router({
   }),
 
   /**
-   * Docks DevTools for a Preview webview into the renderer's side-pane
-   * <webview> via setDevToolsWebContents (with it, 'detach' renders into the
-   * supplied webContents instead of a new window). Without a devtools id it
-   * closes them. Main-process because the webview-tag method is unreliable.
+   * Docks DevTools for a Preview webview into a main-process WebContentsView
+   * overlaid on the app window at the renderer-supplied placeholder bounds
+   * (a <webview> can't host them — see preview-devtools.ts). With bounds it
+   * opens or moves the overlay; without bounds it closes it.
    */
   previewDevTools: publicProcedure
     .input(
       z.object({
         pageWebContentsId: z.number().int(),
-        devtoolsWebContentsId: z.number().int().optional()
+        bounds: z
+          .object({
+            x: z.number().int(),
+            y: z.number().int(),
+            width: z.number().int().min(0),
+            height: z.number().int().min(0)
+          })
+          .optional()
       })
     )
     .mutation(({ input }) => {
-      if (!isPreviewGuest(input.pageWebContentsId)) throw new Error('Not a preview webview')
-      const page = webContents.fromId(input.pageWebContentsId)
-      if (!page || page.isDestroyed()) throw new Error('Preview page is gone')
-      if (input.devtoolsWebContentsId === undefined) {
-        page.closeDevTools()
+      if (!input.bounds) {
+        // Lenient: the page may already be destroyed by the time the renderer
+        // cleanup runs (e.g. chat switch unmounts the webview) — the close
+        // path only touches state this process owns.
+        closePreviewDevTools(input.pageWebContentsId)
         return { ok: true }
       }
-      // The pane host must also be one of our own webviews — never the app window.
-      if (!isPreviewGuest(input.devtoolsWebContentsId)) throw new Error('Not a preview webview')
-      const host = webContents.fromId(input.devtoolsWebContentsId)
-      if (!host || host.isDestroyed()) throw new Error('DevTools pane is gone')
-      page.setDevToolsWebContents(host)
-      page.openDevTools({ mode: 'detach' })
+      if (!isPreviewGuest(input.pageWebContentsId)) throw new Error('Not a preview webview')
+      openOrMovePreviewDevTools(input.pageWebContentsId, input.bounds)
       return { ok: true }
     })
 })

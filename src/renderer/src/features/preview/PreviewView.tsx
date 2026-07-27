@@ -40,7 +40,7 @@ export function PreviewView({
   devTerminalId: string
 }): React.JSX.Element {
   const webviewRef = useRef<WebviewElement | null>(null)
-  const devtoolsRef = useRef<WebviewElement | null>(null)
+  const devtoolsPaneRef = useRef<HTMLDivElement | null>(null)
   const autoLoadedRef = useRef(false)
   const [src, setSrc] = useState<string | null>(null)
   const [devToolsOpen, setDevToolsOpen] = useState(false)
@@ -53,8 +53,9 @@ export function PreviewView({
 
   // Both actions go through the main process: window.open is unreliable in a
   // sandboxed renderer, and the webview-tag openDevTools() silently no-ops.
-  // DevTools render docked into the right-side pane <webview> (devtoolsRef)
-  // via setDevToolsWebContents rather than in a separate window.
+  // DevTools render in a main-process WebContentsView overlaid on the
+  // right-side placeholder pane (devtoolsPaneRef) — see the bounds-sync
+  // effect below.
   const openExternal = trpc.system.openExternal.useMutation()
   const devTools = trpc.system.previewDevTools.useMutation()
 
@@ -155,25 +156,60 @@ export function PreviewView({
     }
   }, [mounted, src])
 
-  // Dock DevTools into the side pane: once the pane's host <webview> attaches
-  // (dom-ready on about:blank), hand both webContents ids to the main process,
-  // which points the page's devtools at the pane. once: true — dom-ready fires
-  // again when the devtools frontend itself loads into the host.
+  // Dock DevTools onto the side pane: a <webview> can't host another page's
+  // DevTools (Electron never injects the DevToolsAPI embedder binding into
+  // guest webContents — electron/electron#15874), so the main process overlays
+  // a WebContentsView on the placeholder pane instead. This keeps the
+  // overlay's bounds in sync with the placeholder (rAF-coalesced) and closes
+  // it on toggle-off/unmount. When the Preview tab is hidden (it stays
+  // mounted), the rect collapses to 0×0, which hides the overlay.
   useEffect(() => {
     if (!devToolsOpen || !mounted) return
-    const host = devtoolsRef.current
+    const pane = devtoolsPaneRef.current
     const page = webviewRef.current
-    if (!host || !page) return
-    const dock = (): void => {
-      try {
+    if (!pane || !page) return
+    let pageId: number | null = null
+    let raf = 0
+    const sync = (): void => {
+      if (pageId === null) return
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => {
+        if (pageId === null) return
+        const r = pane.getBoundingClientRect()
         devTools.mutate({
-          pageWebContentsId: page.getWebContentsId(),
-          devtoolsWebContentsId: host.getWebContentsId()
+          pageWebContentsId: pageId,
+          bounds: {
+            x: Math.round(r.x),
+            y: Math.round(r.y),
+            width: Math.round(r.width),
+            height: Math.round(r.height)
+          }
         })
-      } catch {}
+      })
     }
-    host.addEventListener('dom-ready', dock, { once: true })
-    return () => host.removeEventListener('dom-ready', dock)
+    const ro = new ResizeObserver(sync)
+    const start = (): void => {
+      try {
+        pageId = page.getWebContentsId()
+      } catch {
+        return // webview not attached yet — dom-ready below retries
+      }
+      sync()
+      ro.observe(pane)
+      window.addEventListener('resize', sync)
+    }
+    start()
+    if (pageId === null) page.addEventListener('dom-ready', start, { once: true })
+    return () => {
+      page.removeEventListener('dom-ready', start)
+      ro.disconnect()
+      window.removeEventListener('resize', sync)
+      cancelAnimationFrame(raf)
+      if (pageId !== null) {
+        devTools.mutate({ pageWebContentsId: pageId })
+        pageId = null
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [devToolsOpen, mounted])
 
@@ -258,14 +294,7 @@ export function PreviewView({
               variant="ghost"
               disabled={!mounted}
               className={cn(devToolsOpen && 'bg-accent text-foreground')}
-              onClick={() => {
-                if (devToolsOpen) {
-                  setDevToolsOpen(false)
-                  call((wv) => devTools.mutate({ pageWebContentsId: wv.getWebContentsId() }))
-                } else {
-                  setDevToolsOpen(true)
-                }
-              }}
+              onClick={() => setDevToolsOpen(!devToolsOpen)}
             >
               <Wrench size={13} />
             </Button>
@@ -378,16 +407,13 @@ export function PreviewView({
               />
             </div>
             {devToolsOpen && (
-              <div className="w-[45%] shrink-0 border-l border-border">
-                {/* DevTools host: starts on about:blank; the main process points
-                    the page's devtools frontend at it (see docking effect). */}
-                <webview
-                  ref={(el) => {
-                    devtoolsRef.current = el as WebviewElement | null
-                  }}
-                  src="about:blank"
-                  className="h-full w-full"
-                />
+              <div ref={devtoolsPaneRef} className="w-[45%] shrink-0 border-l border-border">
+                {/* Placeholder: a main-process WebContentsView with the DevTools
+                    frontend is overlaid at this element's bounds (see the
+                    bounds-sync effect). This text only shows if that fails. */}
+                <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                  DevTools
+                </div>
               </div>
             )}
           </>
