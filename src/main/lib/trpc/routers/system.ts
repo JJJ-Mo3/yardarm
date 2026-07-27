@@ -67,15 +67,33 @@ export const systemRouter = router({
     return { ok: true }
   }),
 
-  /** Toggles detached DevTools for a Preview webview (the webview-tag method is unreliable). */
+  /**
+   * Docks DevTools for a Preview webview into the renderer's side-pane
+   * <webview> via setDevToolsWebContents (with it, 'detach' renders into the
+   * supplied webContents instead of a new window). Without a devtools id it
+   * closes them. Main-process because the webview-tag method is unreliable.
+   */
   previewDevTools: publicProcedure
-    .input(z.object({ webContentsId: z.number().int() }))
+    .input(
+      z.object({
+        pageWebContentsId: z.number().int(),
+        devtoolsWebContentsId: z.number().int().optional()
+      })
+    )
     .mutation(({ input }) => {
-      if (!isPreviewGuest(input.webContentsId)) throw new Error('Not a preview webview')
-      const wc = webContents.fromId(input.webContentsId)
-      if (!wc || wc.isDestroyed()) throw new Error('Preview page is gone')
-      if (wc.isDevToolsOpened()) wc.closeDevTools()
-      else wc.openDevTools({ mode: 'detach', activate: true })
+      if (!isPreviewGuest(input.pageWebContentsId)) throw new Error('Not a preview webview')
+      const page = webContents.fromId(input.pageWebContentsId)
+      if (!page || page.isDestroyed()) throw new Error('Preview page is gone')
+      if (input.devtoolsWebContentsId === undefined) {
+        page.closeDevTools()
+        return { ok: true }
+      }
+      // The pane host must also be one of our own webviews — never the app window.
+      if (!isPreviewGuest(input.devtoolsWebContentsId)) throw new Error('Not a preview webview')
+      const host = webContents.fromId(input.devtoolsWebContentsId)
+      if (!host || host.isDestroyed()) throw new Error('DevTools pane is gone')
+      page.setDevToolsWebContents(host)
+      page.openDevTools({ mode: 'detach' })
       return { ok: true }
     })
 })

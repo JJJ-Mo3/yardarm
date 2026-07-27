@@ -40,8 +40,10 @@ export function PreviewView({
   devTerminalId: string
 }): React.JSX.Element {
   const webviewRef = useRef<WebviewElement | null>(null)
+  const devtoolsRef = useRef<WebviewElement | null>(null)
   const autoLoadedRef = useRef(false)
   const [src, setSrc] = useState<string | null>(null)
+  const [devToolsOpen, setDevToolsOpen] = useState(false)
   const [input, setInput] = useState('')
   const [inputError, setInputError] = useState<string | null>(null)
   const [currentUrl, setCurrentUrl] = useState<string | null>(null)
@@ -51,6 +53,8 @@ export function PreviewView({
 
   // Both actions go through the main process: window.open is unreliable in a
   // sandboxed renderer, and the webview-tag openDevTools() silently no-ops.
+  // DevTools render docked into the right-side pane <webview> (devtoolsRef)
+  // via setDevToolsWebContents rather than in a separate window.
   const openExternal = trpc.system.openExternal.useMutation()
   const devTools = trpc.system.previewDevTools.useMutation()
 
@@ -82,6 +86,7 @@ export function PreviewView({
   useEffect(() => {
     autoLoadedRef.current = false
     setSrc(null)
+    setDevToolsOpen(false)
     setInput('')
     setInputError(null)
     setCurrentUrl(null)
@@ -149,6 +154,28 @@ export function PreviewView({
       wv.removeEventListener('did-fail-load', onFail)
     }
   }, [mounted, src])
+
+  // Dock DevTools into the side pane: once the pane's host <webview> attaches
+  // (dom-ready on about:blank), hand both webContents ids to the main process,
+  // which points the page's devtools at the pane. once: true — dom-ready fires
+  // again when the devtools frontend itself loads into the host.
+  useEffect(() => {
+    if (!devToolsOpen || !mounted) return
+    const host = devtoolsRef.current
+    const page = webviewRef.current
+    if (!host || !page) return
+    const dock = (): void => {
+      try {
+        devTools.mutate({
+          pageWebContentsId: page.getWebContentsId(),
+          devtoolsWebContentsId: host.getWebContentsId()
+        })
+      } catch {}
+    }
+    host.addEventListener('dom-ready', dock, { once: true })
+    return () => host.removeEventListener('dom-ready', dock)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [devToolsOpen, mounted])
 
   const call = (fn: (wv: WebviewElement) => void): void => {
     const wv = webviewRef.current
@@ -218,9 +245,11 @@ export function PreviewView({
         </form>
         <Tip
           content={
-            mounted
-              ? 'Open DevTools for the previewed page'
-              : 'Open DevTools for the previewed page (load a page first)'
+            devToolsOpen
+              ? 'Close the DevTools pane'
+              : mounted
+                ? 'Open DevTools for the previewed page in a side pane'
+                : 'Open DevTools for the previewed page (load a page first)'
           }
         >
           <span className="inline-flex">
@@ -228,9 +257,15 @@ export function PreviewView({
               size="icon"
               variant="ghost"
               disabled={!mounted}
-              onClick={() =>
-                call((wv) => devTools.mutate({ webContentsId: wv.getWebContentsId() }))
-              }
+              className={cn(devToolsOpen && 'bg-accent text-foreground')}
+              onClick={() => {
+                if (devToolsOpen) {
+                  setDevToolsOpen(false)
+                  call((wv) => devTools.mutate({ pageWebContentsId: wv.getWebContentsId() }))
+                } else {
+                  setDevToolsOpen(true)
+                }
+              }}
             >
               <Wrench size={13} />
             </Button>
@@ -329,18 +364,35 @@ export function PreviewView({
         </div>
       )}
 
-      <div className="min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1">
         {src ? (
-          <webview
-            ref={(el) => {
-              webviewRef.current = el as WebviewElement | null
-            }}
-            src={src}
-            partition="preview"
-            className="h-full w-full"
-          />
+          <>
+            <div className="min-w-0 flex-1">
+              <webview
+                ref={(el) => {
+                  webviewRef.current = el as WebviewElement | null
+                }}
+                src={src}
+                partition="preview"
+                className="h-full w-full"
+              />
+            </div>
+            {devToolsOpen && (
+              <div className="w-[45%] shrink-0 border-l border-border">
+                {/* DevTools host: starts on about:blank; the main process points
+                    the page's devtools frontend at it (see docking effect). */}
+                <webview
+                  ref={(el) => {
+                    devtoolsRef.current = el as WebviewElement | null
+                  }}
+                  src="about:blank"
+                  className="h-full w-full"
+                />
+              </div>
+            )}
+          </>
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-2 px-8 text-center text-muted-foreground">
+          <div className="flex h-full flex-1 flex-col items-center justify-center gap-2 px-8 text-center text-muted-foreground">
             <Globe size={28} strokeWidth={1.5} />
             <div className="text-sm">Preview a local dev server</div>
             <div className="max-w-sm text-xs">
