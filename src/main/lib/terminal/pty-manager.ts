@@ -91,6 +91,10 @@ export class PtyManager {
     return this.sessions.has(id)
   }
 
+  ids(): string[] {
+    return [...this.sessions.keys()]
+  }
+
   buffer(id: string): string {
     return this.sessions.get(id)?.buffer ?? ''
   }

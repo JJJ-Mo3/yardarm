@@ -74,11 +74,33 @@ export function PreviewView({
     { enabled: active, refetchInterval: 3000 }
   )
   const startDev = trpc.terminal.startDevServer.useMutation({
-    onSuccess: () => utils.terminal.exists.invalidate({ id: devTerminalId })
+    onSuccess: () => {
+      utils.terminal.exists.invalidate({ id: devTerminalId })
+      utils.terminal.otherDevServers.invalidate()
+    }
   })
   const stopDev = trpc.terminal.kill.useMutation({
     onSuccess: () => utils.terminal.exists.invalidate({ id: devTerminalId })
   })
+
+  // Dev servers started from other chats' Preview tabs keep running across
+  // chat switches; they'd fight this chat's server for the same port, so the
+  // start action stops them first and the copy says so.
+  const otherDev = trpc.terminal.otherDevServers.useQuery(
+    { excludeId: devTerminalId },
+    { enabled: active, refetchInterval: 3000 }
+  )
+  const otherServers = otherDev.data ?? []
+  const startDevHere = (): void =>
+    startDev.mutate({ id: devTerminalId, cwd, stopIds: otherServers.map((o) => o.id) })
+  const startDevTip = (command: string): string =>
+    otherServers.length > 0
+      ? `Stop the dev server still running in ${otherServers
+          .map((o) => o.label)
+          .join(
+            ' and '
+          )} (servers in different chats clash over the same port), then run \`${command}\` here`
+      : `Run \`${command}\` in a background terminal and preview it here`
 
   // The component stays mounted while chatId/projectId change (App keeps the
   // Preview tab alive across tab switches), so reset per-context state when
@@ -337,12 +359,10 @@ export function PreviewView({
         <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-border px-2 py-1">
           {inputError && <span className="text-[11px] text-destructive">{inputError}</span>}
           {devCmd.data && !devRunning.data && (
-            <Tip
-              content={`Run \`${devCmd.data.command}\` in a background terminal and preview it here`}
-            >
+            <Tip content={startDevTip(devCmd.data.command)}>
               <span className="inline-flex">
                 <button
-                  onClick={() => startDev.mutate({ id: devTerminalId, cwd })}
+                  onClick={startDevHere}
                   disabled={startDev.isPending}
                   className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-50"
                 >
@@ -425,17 +445,21 @@ export function PreviewView({
               Start a dev server in the Terminal or via the agent — detected localhost URLs appear
               above. Or type a localhost URL in the address bar.
             </div>
+            {devCmd.data && !devRunning.data && otherServers.length > 0 && (
+              <div className="max-w-sm text-xs">
+                A dev server started from {otherServers.map((o) => o.label).join(' and ')} is still
+                running. Starting one here stops it first — both would use the same port.
+              </div>
+            )}
             {devCmd.data && !devRunning.data && (
-              <Tip
-                content={`Run \`${devCmd.data.command}\` in a background terminal and preview it here`}
-              >
+              <Tip content={startDevTip(devCmd.data.command)}>
                 <span className="inline-flex">
                   <Button
                     size="sm"
                     variant="outline"
                     className="mt-1"
                     disabled={startDev.isPending}
-                    onClick={() => startDev.mutate({ id: devTerminalId, cwd })}
+                    onClick={startDevHere}
                   >
                     <Play size={12} className="mr-1" />
                     Start {devCmd.data.label}

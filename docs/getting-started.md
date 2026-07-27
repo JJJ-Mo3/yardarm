@@ -470,7 +470,10 @@ shortcuts stay with the left (primary) pane.
   type a `localhost` / `127.0.0.1` URL into the address bar. If nothing is
   running yet, a **start chip** offers to launch the project's dev server
   (detected from the project; static sites get a simple fallback server) in
-  a dedicated terminal. Back/forward, reload, DevTools, and open-in-browser
+  a dedicated terminal. Dev servers are per chat (each runs in its own
+  worktree) and would clash over the same port, so if another chat's server
+  is still running, the start chip says so and stops it before starting
+  here. Back/forward, reload, DevTools, and open-in-browser
   controls are in the toolbar — the wrench button docks a full Chrome
   DevTools pane beside the page (elements, console, network) inspecting the
   previewed app. Navigation is locked to localhost — links to anywhere else

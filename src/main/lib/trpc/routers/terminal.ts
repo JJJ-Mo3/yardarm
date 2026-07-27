@@ -1,10 +1,36 @@
 import { observable } from '@trpc/server/observable'
+import { eq } from 'drizzle-orm'
 import { z } from 'zod'
+import { getDb, schema } from '../../db'
 import { detectDevCommand } from '../../terminal/dev-command'
 import { buildMastracodeCommand, ptyManager } from '../../terminal/pty-manager'
 import { extractLocalhostUrls } from '../../terminal/url-detect'
 import { getMastracodeCliPath } from '../../system/mastracode-info'
 import { publicProcedure, router } from '../trpc'
+
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+
+/** Human label for a Preview dev-server pty id (`dev-chat-<id>` / `dev-project-<id>`). */
+function devServerLabel(id: string): string {
+  const db = getDb()
+  if (id.startsWith('dev-chat-')) {
+    const chat = db
+      .select()
+      .from(schema.chats)
+      .where(eq(schema.chats.id, id.slice('dev-chat-'.length)))
+      .get()
+    return chat ? `chat “${chat.title}”` : 'another chat'
+  }
+  if (id.startsWith('dev-project-')) {
+    const project = db
+      .select()
+      .from(schema.projects)
+      .where(eq(schema.projects.id, id.slice('dev-project-'.length)))
+      .get()
+    return project ? `project “${project.name}”` : 'another project'
+  }
+  return 'another chat'
+}
 
 export type TerminalStreamEvent = { type: 'data'; data: string } | { type: 'exit'; code: number }
 
@@ -86,15 +112,40 @@ export const terminalRouter = router({
    * Starts the detected dev command in a dedicated pty (Preview tab). The
    * command is re-detected here rather than accepted from the renderer; the
    * pty ends when the command exits, so `exists` doubles as running-state.
+   * `stopIds` (other chats' Preview dev servers — they'd fight over the same
+   * port) are killed first, with a short grace period for the port to free.
    */
   startDevServer: publicProcedure
-    .input(z.object({ id: z.string(), cwd: z.string() }))
-    .mutation(({ input }) => {
+    .input(z.object({ id: z.string(), cwd: z.string(), stopIds: z.array(z.string()).default([]) }))
+    .mutation(async ({ input }) => {
       const dev = detectDevCommand(input.cwd)
       if (!dev) throw new Error('No dev/serve/start script or root .html files in this project')
+      const stopped = input.stopIds.filter(
+        (id) =>
+          id !== input.id &&
+          (id.startsWith('dev-chat-') || id.startsWith('dev-project-')) &&
+          ptyManager.exists(id)
+      )
+      for (const id of stopped) ptyManager.kill(id)
+      if (stopped.length > 0) await sleep(1000)
       ptyManager.create(input.id, input.cwd, 80, 24, dev.command)
       return { ok: true }
     }),
+
+  /**
+   * Preview dev servers currently running for *other* chats/projects. Ports
+   * clash across worktrees, so the Preview tab offers to stop these when
+   * starting its own server.
+   */
+  otherDevServers: publicProcedure.input(z.object({ excludeId: z.string() })).query(({ input }) => {
+    return ptyManager
+      .ids()
+      .filter(
+        (id) =>
+          id !== input.excludeId && (id.startsWith('dev-chat-') || id.startsWith('dev-project-'))
+      )
+      .map((id) => ({ id, label: devServerLabel(id) }))
+  }),
 
   /** Localhost dev-server URLs seen in the given terminals' scrollback (Preview tab). */
   detectUrls: publicProcedure

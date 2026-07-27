@@ -406,7 +406,9 @@ thread at once).
 Server URLs printed in the Terminal or CLI tabs are detected automatically
 and offered as chips (the first one loads by itself), and if nothing is
 running a start chip launches the project's dev server (static sites get a
-fallback server) in a dedicated terminal. The wrench button docks full
+fallback server) in a dedicated terminal. Dev servers are per chat and
+share ports, so starting one stops a server still running in another chat
+(the chip tells you which). The wrench button docks full
 Chrome DevTools for the previewed page beside it — elements, console, and
 network. Navigation is locked to localhost; links to anywhere else open in
 your system browser.

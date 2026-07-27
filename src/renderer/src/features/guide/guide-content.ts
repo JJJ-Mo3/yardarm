@@ -218,7 +218,9 @@ The Preview tab shows localhost dev servers in-app.
   are detected automatically and offered in the address bar.
 - **One-click start** — if nothing is running, a start chip offers to launch the project's
   dev server (detected from the project; static sites get a fallback server) in a dedicated
-  terminal.
+  terminal. Each chat runs the server in its own worktree, so if another chat's server is
+  still running, starting here stops that one first — two servers would fight over the same
+  port. Preview tells you which chat it is before you click.
 - **DevTools** — the wrench button opens a full Chrome DevTools pane docked beside the page:
   inspect elements, read the console, and watch network requests of the previewed app.
 - **Open externally** — the browser button opens the current URL in your default browser.
