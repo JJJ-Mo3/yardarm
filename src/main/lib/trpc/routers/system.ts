@@ -60,9 +60,10 @@ export const systemRouter = router({
   }),
 
   /** Opens an http(s) URL in the system browser (renderer window.open is unreliable when sandboxed). */
-  openExternal: publicProcedure.input(z.object({ url: z.string() })).mutation(({ input }) => {
+  openExternal: publicProcedure.input(z.object({ url: z.string() })).mutation(async ({ input }) => {
     if (!/^https?:\/\//i.test(input.url)) throw new Error('Only http(s) URLs can be opened')
-    void shell.openExternal(input.url)
+    // Awaited so a launch failure surfaces in the renderer instead of vanishing.
+    await shell.openExternal(input.url, { activate: true })
     return { ok: true }
   }),
 
@@ -74,7 +75,7 @@ export const systemRouter = router({
       const wc = webContents.fromId(input.webContentsId)
       if (!wc || wc.isDestroyed()) throw new Error('Preview page is gone')
       if (wc.isDevToolsOpened()) wc.closeDevTools()
-      else wc.openDevTools({ mode: 'detach' })
+      else wc.openDevTools({ mode: 'detach', activate: true })
       return { ok: true }
     })
 })

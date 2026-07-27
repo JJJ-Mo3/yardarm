@@ -88,6 +88,9 @@ export function PreviewView({
     setCanBack(false)
     setCanForward(false)
     setLoadFailed(null)
+    openExternal.reset()
+    devTools.reset()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [devTerminalId])
 
   const navigate = (raw: string): void => {
@@ -213,7 +216,13 @@ export function PreviewView({
             className={cn('h-6 font-mono text-[11px]', inputError && 'border-destructive')}
           />
         </form>
-        <Tip content="Open DevTools for the previewed page">
+        <Tip
+          content={
+            mounted
+              ? 'Open DevTools for the previewed page'
+              : 'Open DevTools for the previewed page (load a page first)'
+          }
+        >
           <span className="inline-flex">
             <Button
               size="icon"
@@ -227,7 +236,13 @@ export function PreviewView({
             </Button>
           </span>
         </Tip>
-        <Tip content="Open this URL in your browser">
+        <Tip
+          content={
+            mounted
+              ? 'Open this URL in your browser'
+              : 'Open this URL in your browser (load a page first)'
+          }
+        >
           <span className="inline-flex">
             <Button
               size="icon"
@@ -243,6 +258,15 @@ export function PreviewView({
           </span>
         </Tip>
       </div>
+
+      {/* Toolbar-action failures were previously swallowed — make them visible. */}
+      {(devTools.error || openExternal.error) && (
+        <div className="shrink-0 border-b border-border bg-destructive/10 px-3 py-1.5 text-[11px] text-destructive">
+          {devTools.error
+            ? `DevTools failed: ${devTools.error.message}`
+            : `Open in browser failed: ${openExternal.error?.message}`}
+        </div>
+      )}
 
       {/* Inline URL-bar rejection + dev-server start/stop + detected URL chips */}
       {(inputError || urls.length > 0 || devCmd.data) && (
