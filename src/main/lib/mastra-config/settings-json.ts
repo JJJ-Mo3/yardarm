@@ -182,6 +182,15 @@ export function setBrowserSettings(patch: BrowserSettingsPatch): Promise<MastraS
     setOrDelete(b, 'profile', patch.profile)
     setOrDelete(b, 'executablePath', patch.executablePath)
     setOrDelete(b, 'scope', patch.scope)
+    if (patch.viewport !== undefined) {
+      if (patch.viewport === null) delete b.viewport
+      else {
+        if (!b.viewport || typeof b.viewport !== 'object') b.viewport = {}
+        setOrDelete(b.viewport, 'width', patch.viewport.width)
+        setOrDelete(b.viewport, 'height', patch.viewport.height)
+        if (Object.keys(b.viewport).length === 0) delete b.viewport
+      }
+    }
     if (patch.stagehand) {
       if (!b.stagehand) b.stagehand = {}
       if (patch.stagehand.env !== undefined) b.stagehand.env = patch.stagehand.env

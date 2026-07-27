@@ -93,6 +93,8 @@ export interface MastraBrowserSettings {
   profile?: string
   executablePath?: string
   scope?: 'shared' | 'thread'
+  /** Browser window size in px; the SDK defaults missing fields to 1280×720. */
+  viewport?: { width?: number; height?: number; [key: string]: unknown }
   stagehand?: MastraStagehandSettings
   agentBrowser?: { storageState?: string; [key: string]: unknown }
   [key: string]: unknown
@@ -154,6 +156,8 @@ export interface BrowserSettingsPatch {
   profile?: string | null
   executablePath?: string | null
   scope?: 'shared' | 'thread' | null
+  /** Per-field merge; null field clears it (SDK default), null object clears both. */
+  viewport?: { width?: number | null; height?: number | null } | null
   stagehand?: {
     env?: 'LOCAL' | 'BROWSERBASE'
     apiKey?: string | null

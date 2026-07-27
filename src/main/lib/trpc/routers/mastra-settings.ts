@@ -118,6 +118,13 @@ export const mastraSettingsRouter = router({
         profile: z.string().nullable().optional(),
         executablePath: z.string().nullable().optional(),
         scope: z.enum(['shared', 'thread']).nullable().optional(),
+        viewport: z
+          .object({
+            width: z.number().int().positive().nullable().optional(),
+            height: z.number().int().positive().nullable().optional()
+          })
+          .nullable()
+          .optional(),
         stagehand: z
           .object({
             env: z.enum(['LOCAL', 'BROWSERBASE']).optional(),

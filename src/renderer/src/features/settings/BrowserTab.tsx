@@ -49,6 +49,12 @@ export function BrowserTab(): React.JSX.Element {
   const provider = b.provider ?? 'stagehand'
   const error = settings.error ?? setBrowser.error
 
+  const saveViewport = (field: 'width' | 'height', v: string | null): void => {
+    const n = v === null ? null : Math.floor(Number(v))
+    if (n !== null && (!Number.isFinite(n) || n <= 0)) return
+    setBrowser.mutate({ viewport: { [field]: n } })
+  }
+
   return (
     <div className="space-y-4">
       <div className="text-[11px] text-muted-foreground">
@@ -85,6 +91,31 @@ export function BrowserTab(): React.JSX.Element {
         />
         Headless
       </label>
+
+      <div className="flex items-center gap-2">
+        <span className="w-28 shrink-0 text-[11px] text-muted-foreground">Viewport</span>
+        <Tip content="Browser window width in pixels; blank uses the default (1280)">
+          <span className="inline-flex min-w-0 flex-1">
+            <BlurInput
+              type="number"
+              value={b.viewport?.width?.toString() ?? ''}
+              placeholder="1280"
+              onSave={(v) => saveViewport('width', v)}
+            />
+          </span>
+        </Tip>
+        <span className="text-[11px] text-muted-foreground">×</span>
+        <Tip content="Browser window height in pixels; blank uses the default (720)">
+          <span className="inline-flex min-w-0 flex-1">
+            <BlurInput
+              type="number"
+              value={b.viewport?.height?.toString() ?? ''}
+              placeholder="720"
+              onSave={(v) => saveViewport('height', v)}
+            />
+          </span>
+        </Tip>
+      </div>
 
       <div className="flex items-center gap-2">
         <span className="w-28 shrink-0 text-[11px] text-muted-foreground">Session scope</span>
