@@ -78,6 +78,8 @@ export class EventTranslator {
   running = false
   /** Latest agent task list (seeded from boot state, updated by task_updated). */
   tasks: TaskItem[] = []
+  /** Last cumulative usage_update snapshot (per host lifetime). */
+  private lastUsage: UsageInfo = {}
 
   constructor(private cb: TranslatorCallbacks) {}
 
@@ -212,9 +214,12 @@ export class EventTranslator {
         break
       }
 
-      case 'usage_update':
-        this.cb.emit({ type: 'usage', usage: (ev.usage ?? {}) as UsageInfo })
+      case 'usage_update': {
+        const usage = (ev.usage ?? {}) as UsageInfo
+        this.applyUsageDelta(usage)
+        this.cb.emit({ type: 'usage', usage })
         break
+      }
 
       case 'task_updated':
         this.tasks = (ev.tasks ?? []) as TaskItem[]
@@ -319,6 +324,33 @@ export class EventTranslator {
           this.cb.emit({ type: 'raw', event: ev })
         }
     }
+  }
+
+  /**
+   * usage_update totals are session-cumulative — attribute the delta since
+   * the previous update to the assistant message currently being streamed,
+   * so per-message usage can be aggregated later (Analytics). Negative
+   * deltas (thread switch resets the counter) only re-baseline the snapshot.
+   */
+  private applyUsageDelta(cumulative: UsageInfo): void {
+    const prev = this.lastUsage
+    this.lastUsage = cumulative
+    const msgId = this.currentAssistantId
+    if (!msgId) return
+    const stored = this.messages.get(msgId)
+    if (!stored) return
+    const merged: UsageInfo = { ...(stored.usage ?? {}) }
+    let changed = false
+    for (const [key, val] of Object.entries(cumulative)) {
+      if (typeof val !== 'number') continue
+      const delta = val - (typeof prev[key] === 'number' ? (prev[key] as number) : 0)
+      if (delta <= 0) continue
+      merged[key] = (merged[key] ?? 0) + delta
+      changed = true
+    }
+    if (!changed) return
+    stored.usage = merged
+    this.cb.persistMessage(stored)
   }
 
   private handleSubagent(ev: AgentControllerEventLike): void {

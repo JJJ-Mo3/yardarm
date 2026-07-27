@@ -52,7 +52,10 @@ export interface StoredMessage {
   id: string
   role: 'user' | 'assistant'
   parts: MessagePart[]
+  /** Per-message usage (deltas of cumulative usage_update events). */
   usage?: UsageInfo
+  /** Model that produced this assistant message (attached at persist time). */
+  modelId?: string
   checkpointRef?: string | null
   createdAt: number
 }

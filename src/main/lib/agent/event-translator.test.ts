@@ -405,3 +405,39 @@ describe('session meta and misc events', () => {
     expect(h.emitted.some((e) => e.type === 'raw')).toBe(true)
   })
 })
+
+describe('per-message usage attribution', () => {
+  it('attributes cumulative usage deltas to the streaming assistant message', () => {
+    const h = makeTranslator()
+    h.t.handle(msgEvent('message_start', 'm1', [{ type: 'text', text: 'a' }]))
+    h.t.handle({ type: 'usage_update', usage: { inputTokens: 100, outputTokens: 10 } })
+    h.t.handle({ type: 'usage_update', usage: { inputTokens: 150, outputTokens: 30 } })
+    expect(h.persisted.at(-1)?.message.usage).toEqual({ inputTokens: 150, outputTokens: 30 })
+    // A second message only gets the delta since the last snapshot.
+    h.t.handle(msgEvent('message_start', 'm2', [{ type: 'text', text: 'b' }]))
+    h.t.handle({ type: 'usage_update', usage: { inputTokens: 200, outputTokens: 45 } })
+    const m2 = h.persisted.at(-1)?.message
+    expect(m2?.id).toBe('m2')
+    expect(m2?.usage).toEqual({ inputTokens: 50, outputTokens: 15 })
+  })
+
+  it('re-baselines on counter resets instead of attributing negative deltas', () => {
+    const h = makeTranslator()
+    h.t.handle(msgEvent('message_start', 'm1', [{ type: 'text', text: 'a' }]))
+    h.t.handle({ type: 'usage_update', usage: { inputTokens: 100 } })
+    const persistedBefore = h.persisted.length
+    // Thread switch resets the cumulative counter — nothing to attribute.
+    h.t.handle({ type: 'usage_update', usage: { inputTokens: 20 } })
+    expect(h.persisted.length).toBe(persistedBefore)
+    // The next increase counts only from the reset baseline.
+    h.t.handle({ type: 'usage_update', usage: { inputTokens: 30 } })
+    expect(h.persisted.at(-1)?.message.usage).toEqual({ inputTokens: 110 })
+  })
+
+  it('drops usage that arrives before any assistant message', () => {
+    const h = makeTranslator()
+    h.t.handle({ type: 'usage_update', usage: { inputTokens: 5 } })
+    expect(h.persisted).toHaveLength(0)
+    expect(h.emitted.some((e) => e.type === 'usage')).toBe(true)
+  })
+})

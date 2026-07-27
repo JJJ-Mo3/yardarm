@@ -69,11 +69,31 @@ export const messages = sqliteTable(
     role: text('role').notNull(),
     parts: text('parts').notNull(),
     usage: text('usage'),
+    /** Model that produced this assistant message (populated from v6 on). */
+    modelId: text('model_id'),
     checkpointRef: text('checkpoint_ref'),
     seq: integer('seq').notNull(),
     createdAt: integer('created_at').notNull()
   },
   (t) => [index('messages_subchat_idx').on(t.subchatId, t.seq)]
+)
+
+/**
+ * Tokens saved by prompt compression. One row per agent-host lifetime; the
+ * host reports a cumulative figure, so each row is upserted with the latest
+ * value and totals are the sum across rows.
+ */
+export const compressionEvents = sqliteTable(
+  'compression_events',
+  {
+    id: text('id').primaryKey(),
+    subchatId: text('subchat_id')
+      .notNull()
+      .references(() => subchats.id, { onDelete: 'cascade' }),
+    tokensSaved: integer('tokens_saved').notNull(),
+    createdAt: integer('created_at').notNull()
+  },
+  (t) => [index('compression_events_subchat_idx').on(t.subchatId)]
 )
 
 export const appSettings = sqliteTable('app_settings', {

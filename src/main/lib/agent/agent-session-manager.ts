@@ -322,6 +322,7 @@ export class AgentSessionManager {
       role: r.role as StoredMessage['role'],
       parts: JSON.parse(r.parts) as StoredMessage['parts'],
       usage: r.usage ? (JSON.parse(r.usage) as StoredMessage['usage']) : undefined,
+      modelId: r.modelId ?? undefined,
       checkpointRef: r.checkpointRef,
       createdAt: r.createdAt
     }))
@@ -334,7 +335,12 @@ export class AgentSessionManager {
    */
   private persistMessage(subchatId: string, rawMessage: StoredMessage, flush = false): void {
     // Clamp oversized tool payloads before they hit disk.
-    const message = clampMessageForStorage(rawMessage)
+    let message = clampMessageForStorage(rawMessage)
+    // Attribute assistant messages to the session's current model (Analytics).
+    if (message.role === 'assistant' && !message.modelId) {
+      const modelId = this.hosts.get(subchatId)?.meta.modelId
+      if (modelId) message = { ...message, modelId }
+    }
     this.writeBuffer.enqueue(subchatId, message, { flush })
   }
 
@@ -350,13 +356,14 @@ export class AgentSessionManager {
         role: message.role,
         parts,
         usage,
+        modelId: message.modelId ?? null,
         checkpointRef: message.checkpointRef ?? null,
         seq: sql`(select coalesce(max(${schema.messages.seq}), 0) + 1 from ${schema.messages} where ${schema.messages.subchatId} = ${subchatId})`,
         createdAt: message.createdAt
       })
       .onConflictDoUpdate({
         target: schema.messages.id,
-        set: { parts, usage }
+        set: { parts, usage, ...(message.modelId ? { modelId: message.modelId } : {}) }
       })
       .run()
   }
@@ -526,6 +533,10 @@ export class AgentSessionManager {
       console.error(`[agent-host ${subchatId}]`, d.toString().trimEnd())
     })
 
+    // Compression savings are cumulative per host lifetime — one DB row per
+    // lifetime, upserted with the latest figure (Analytics sums the rows).
+    const compressionRowId = randomUUID()
+
     proc.on('message', (raw: unknown) => {
       const msg = raw as HostMessage
       switch (msg.t) {
@@ -604,6 +615,23 @@ export class AgentSessionManager {
         }
         case 'compression-stats':
           handle.meta.compressionSaved = msg.tokensSaved
+          if (msg.tokensSaved > 0) {
+            try {
+              getDb()
+                .insert(schema.compressionEvents)
+                .values({
+                  id: compressionRowId,
+                  subchatId,
+                  tokensSaved: msg.tokensSaved,
+                  createdAt: Date.now()
+                })
+                .onConflictDoUpdate({
+                  target: schema.compressionEvents.id,
+                  set: { tokensSaved: msg.tokensSaved }
+                })
+                .run()
+            } catch {}
+          }
           this.emitUI(subchatId, {
             type: 'session-meta',
             meta: { compressionSaved: msg.tokensSaved }

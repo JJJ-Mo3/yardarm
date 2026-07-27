@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
+  ChartColumn,
   Columns2,
   FileCode2,
   FolderGit2,
@@ -43,6 +44,7 @@ import { ChangesView } from './features/changes/ChangesView'
 import { TerminalView } from './features/terminal/TerminalView'
 import { FilesView } from './features/file-viewer/FilesView'
 import { KanbanView } from './features/kanban/KanbanView'
+import { AnalyticsView } from './features/analytics/AnalyticsView'
 import { PreviewView } from './features/preview/PreviewView'
 import { SettingsDialog } from './features/settings/SettingsDialog'
 import { UpdateRestartBanner } from './features/settings/UpdateRestartBanner'
@@ -84,6 +86,12 @@ const TABS: Array<{ id: MainTab; label: string; icon: React.ReactNode; tip: stri
     label: 'Kanban',
     icon: <SquareKanban size={13} />,
     tip: 'Board of this project’s chats grouped by live agent status — click a card to open it'
+  },
+  {
+    id: 'analytics',
+    label: 'Analytics',
+    icon: <ChartColumn size={13} />,
+    tip: 'Token usage and estimated cost for this project, by day, model, and chat'
   },
   {
     id: 'preview',
@@ -385,6 +393,8 @@ export default function App(): React.JSX.Element {
                 ))}
               {tab === 'kanban' &&
                 (projectId ? <KanbanView projectId={projectId} /> : <SelectProjectPane />)}
+              {tab === 'analytics' &&
+                (projectId ? <AnalyticsView projectId={projectId} /> : <SelectProjectPane />)}
               {/* Preview tab — kept mounted (hidden) so the previewed page
                   survives tab switches. The terminal ids must match the
                   Terminal/CLI mounts above. */}

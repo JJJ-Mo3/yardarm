@@ -74,7 +74,16 @@ const MIGRATIONS: string[] = [
   `ALTER TABLE projects ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;`,
   // v5 — full sandbox mode (OS-level isolation for agent shell commands)
   `ALTER TABLE subchats ADD COLUMN full_sandbox INTEGER NOT NULL DEFAULT 0;
-   ALTER TABLE subchats ADD COLUMN sandbox_network INTEGER NOT NULL DEFAULT 1;`
+   ALTER TABLE subchats ADD COLUMN sandbox_network INTEGER NOT NULL DEFAULT 1;`,
+  // v6 — analytics: per-message model attribution + compression savings
+  `ALTER TABLE messages ADD COLUMN model_id TEXT;
+   CREATE TABLE IF NOT EXISTS compression_events (
+     id TEXT PRIMARY KEY,
+     subchat_id TEXT NOT NULL REFERENCES subchats(id) ON DELETE CASCADE,
+     tokens_saved INTEGER NOT NULL,
+     created_at INTEGER NOT NULL
+   );
+   CREATE INDEX IF NOT EXISTS compression_events_subchat_idx ON compression_events(subchat_id);`
 ]
 
 export function initDb(): DB {

@@ -1,5 +1,6 @@
 import { publicProcedure, router } from '../trpc'
 import { agentRouter } from './agent'
+import { analyticsRouter } from './analytics'
 import { chatsRouter } from './chats'
 import { filesRouter } from './files'
 import { gitRouter } from './git'
@@ -18,6 +19,7 @@ export const appRouter = router({
   projects: projectsRouter,
   chats: chatsRouter,
   agent: agentRouter,
+  analytics: analyticsRouter,
   git: gitRouter,
   terminal: terminalRouter,
   files: filesRouter,
