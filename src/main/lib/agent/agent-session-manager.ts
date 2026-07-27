@@ -23,7 +23,11 @@ import {
 import { readSettings } from '../mastra-config/settings-json'
 import { updateMcpServers, type McpServerConfig } from '../mastra-config/mcp-json'
 import { loadSubagentDefinitions } from '../mastra-config/agents-fs'
-import { isSettledMcpStatus, syntheticMcpFailureStatus } from './mcp-connect-helpers'
+import {
+  isSettledMcpStatus,
+  syntheticMcpFailureStatus,
+  withNeedsAuthHeuristic
+} from './mcp-connect-helpers'
 import { MessageWriteBuffer } from './message-write-buffer'
 import { createUpsertThrottle } from './upsert-throttle'
 import type {
@@ -1793,7 +1797,11 @@ export class AgentSessionManager {
   /** null subchatId = run against the utility host (no chat required). */
   async mcpStatus(subchatId: string | null): Promise<McpServerStatusInfo[]> {
     const handle = subchatId ? await this.ensureHost(subchatId) : await this.ensureUtilityHost()
-    return this.request<McpServerStatusInfo[]>(handle, { t: 'mcpStatus', reqId: randomUUID() })
+    const all = await this.request<McpServerStatusInfo[]>(handle, {
+      t: 'mcpStatus',
+      reqId: randomUUID()
+    })
+    return all.map(withNeedsAuthHeuristic)
   }
 
   async mcpAuthenticate(
@@ -1900,7 +1908,10 @@ export class AgentSessionManager {
             reqId: randomUUID()
           })
           const info = all.find((s) => s.name === name)
-          if (isSettledMcpStatus(info)) settled = info
+          // The SDK's own needsAuth detection misses some platforms' error
+          // phrasing (e.g. Netlify's "unauthenticated") — re-derive it so the
+          // OAuth step below still triggers for them.
+          if (isSettledMcpStatus(info)) settled = withNeedsAuthHeuristic(info)
         } catch {}
         if (!settled) await new Promise((resolve) => setTimeout(resolve, 750))
       }
