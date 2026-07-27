@@ -237,7 +237,7 @@ export default function App(): React.JSX.Element {
               </Tip>
             )}
             <Tip
-              content="Analytics — token usage and estimated cost for this project, by day, model, and chat"
+              content="Analytics — token usage for this project, by day, model, and chat"
               side="bottom"
             >
               <button

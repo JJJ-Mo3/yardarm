@@ -1,5 +1,5 @@
 /**
- * Token-usage / estimated-cost analytics aggregated from persisted messages.
+ * Token-usage analytics aggregated from persisted messages.
  * Per-message usage and model attribution exist from migration v6 onward, so
  * older messages show up in counts but not in token totals.
  */

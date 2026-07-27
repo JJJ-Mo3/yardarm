@@ -1,12 +1,13 @@
 /**
- * Analytics tab: token usage and estimated cost for the selected project,
- * aggregated from per-message usage persisted by the agent session manager.
- * Usage is recorded from migration v6 onward, so older messages don't count.
+ * Analytics tab: token usage for the selected project, aggregated from
+ * per-message usage persisted by the agent session manager. Usage is recorded
+ * from migration v6 onward, so older messages don't count. No dollar figures —
+ * actual prices vary by provider/plan, so only tokens are reported, plus the
+ * tokens saved by the compression subsystem.
  */
 import React, { useState } from 'react'
 import { Download } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
-import { estimateCostUSD } from '../../../../shared/model-prices'
 import { BarChart } from '../../components/ui/bar-chart'
 import { Button } from '../../components/ui/button'
 import {
@@ -19,10 +20,6 @@ import {
 import { Tip } from '../../components/ui/tooltip'
 
 const nf = Intl.NumberFormat()
-
-function fmtCost(v: number): string {
-  return `$${v.toFixed(v >= 100 ? 0 : 2)}`
-}
 
 function SummaryCard({
   label,
@@ -56,12 +53,9 @@ export function AnalyticsView({ projectId }: { projectId: string }): React.JSX.E
       acc.inputTokens += r.inputTokens
       acc.outputTokens += r.outputTokens
       acc.totalTokens += r.totalTokens
-      const cost = estimateCostUSD(r.modelId, r)
-      if (cost == null) acc.unknownModels += 1
-      else acc.costUSD += cost
       return acc
     },
-    { inputTokens: 0, outputTokens: 0, totalTokens: 0, costUSD: 0, unknownModels: 0 }
+    { inputTokens: 0, outputTokens: 0, totalTokens: 0 }
   )
 
   const exportCsv = async (): Promise<void> => {
@@ -78,7 +72,7 @@ export function AnalyticsView({ projectId }: { projectId: string }): React.JSX.E
     <div className="h-full overflow-y-auto p-4">
       <div className="mx-auto max-w-3xl space-y-4">
         <div className="flex items-center gap-2">
-          <div className="text-sm font-semibold">Usage &amp; cost</div>
+          <div className="text-sm font-semibold">Token usage</div>
           <div className="ml-auto flex items-center gap-2">
             <Tip content="Time period for all figures on this page">
               <span className="inline-flex">
@@ -110,13 +104,9 @@ export function AnalyticsView({ projectId }: { projectId: string }): React.JSX.E
           <SummaryCard label="Input tokens" value={nf.format(totals.inputTokens)} />
           <SummaryCard label="Output tokens" value={nf.format(totals.outputTokens)} />
           <SummaryCard
-            label="Est. cost"
-            value={fmtCost(totals.costUSD)}
-            hint={
-              totals.unknownModels > 0
-                ? `${totals.unknownModels} model${totals.unknownModels > 1 ? 's' : ''} unpriced`
-                : 'static price estimates'
-            }
+            label="Compression saved"
+            value={nf.format(compression.data?.tokensSaved ?? 0)}
+            hint="tokens avoided by compression"
           />
         </div>
 
@@ -135,25 +125,22 @@ export function AnalyticsView({ projectId }: { projectId: string }): React.JSX.E
               <span className="text-right">Msgs</span>
               <span className="text-right">Input</span>
               <span className="text-right">Output</span>
-              <span className="text-right">Est. cost</span>
+              <span className="text-right">Total</span>
             </div>
-            {(byModel.data ?? []).map((r) => {
-              const cost = estimateCostUSD(r.modelId, r)
-              return (
-                <div
-                  key={r.modelId}
-                  className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4 border-t border-border px-3 py-1.5 text-[11px]"
-                >
-                  <span className="truncate" title={r.modelId}>
-                    {r.modelId}
-                  </span>
-                  <span className="text-right font-mono">{nf.format(r.messages)}</span>
-                  <span className="text-right font-mono">{nf.format(r.inputTokens)}</span>
-                  <span className="text-right font-mono">{nf.format(r.outputTokens)}</span>
-                  <span className="text-right font-mono">{cost == null ? '—' : fmtCost(cost)}</span>
-                </div>
-              )
-            })}
+            {(byModel.data ?? []).map((r) => (
+              <div
+                key={r.modelId}
+                className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4 border-t border-border px-3 py-1.5 text-[11px]"
+              >
+                <span className="truncate" title={r.modelId}>
+                  {r.modelId}
+                </span>
+                <span className="text-right font-mono">{nf.format(r.messages)}</span>
+                <span className="text-right font-mono">{nf.format(r.inputTokens)}</span>
+                <span className="text-right font-mono">{nf.format(r.outputTokens)}</span>
+                <span className="text-right font-mono">{nf.format(r.totalTokens)}</span>
+              </div>
+            ))}
             {(byModel.data ?? []).length === 0 && (
               <div className="border-t border-border px-3 py-3 text-[11px] text-muted-foreground">
                 No usage recorded in this period. Per-message usage is recorded for new agent turns
@@ -191,21 +178,6 @@ export function AnalyticsView({ projectId }: { projectId: string }): React.JSX.E
               </div>
             )}
           </div>
-        </div>
-
-        <div className="text-[10px] leading-4 text-muted-foreground">
-          Costs are rough estimates from a static price table; local models (Ollama, LM Studio,
-          llama.cpp) count as free.
-          {(compression.data?.tokensSaved ?? 0) > 0 && (
-            <>
-              {' '}
-              Token compression saved about{' '}
-              <span className="font-mono text-green-600 dark:text-green-500">
-                {nf.format(compression.data!.tokensSaved)}
-              </span>{' '}
-              tokens in this period.
-            </>
-          )}
         </div>
       </div>
     </div>
