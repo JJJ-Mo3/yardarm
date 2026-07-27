@@ -14,6 +14,8 @@ export interface DevCommand {
   command: string
   /** The package.json script it runs, e.g. `dev`, or `static` for the fallback. */
   script: string
+  /** Short human-friendly name for buttons/chips; the full command goes in tooltips. */
+  label: string
 }
 
 /** Most dev-server-like first; `start` last (often a prod server, still a server). */
@@ -41,7 +43,7 @@ export function pickDevCommand(
   for (const script of SCRIPT_PREFERENCE) {
     if (typeof scripts[script] === 'string') {
       // `<pm> run <script>` is valid for npm, pnpm, yarn, and bun alike.
-      return { command: `${packageManager} run ${script}`, script }
+      return { command: `${packageManager} run ${script}`, script, label: 'dev server' }
     }
   }
   return null
@@ -56,7 +58,8 @@ export function pickStaticCommand(entries: string[]): DevCommand | null {
   return {
     // python3 ships with the macOS command-line tools (a git prerequisite).
     command: `python3 -m http.server ${STATIC_SERVER_PORT} --bind 127.0.0.1`,
-    script: 'static'
+    script: 'static',
+    label: 'static file server'
   }
 }
 

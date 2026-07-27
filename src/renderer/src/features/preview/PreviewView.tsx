@@ -274,7 +274,7 @@ export function PreviewView({
           {inputError && <span className="text-[11px] text-destructive">{inputError}</span>}
           {devCmd.data && !devRunning.data && (
             <Tip
-              content={`Start the project's dev server (${devCmd.data.command}) and preview it here`}
+              content={`Run \`${devCmd.data.command}\` in a background terminal and preview it here`}
             >
               <span className="inline-flex">
                 <button
@@ -283,13 +283,13 @@ export function PreviewView({
                   className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-50"
                 >
                   <Play size={9} />
-                  {devCmd.data.command}
+                  start {devCmd.data.label}
                 </button>
               </span>
             </Tip>
           )}
           {devCmd.data && devRunning.data === true && (
-            <Tip content="Stop the dev server started from this Preview tab">
+            <Tip content={`Stop the ${devCmd.data.label} started from this Preview tab`}>
               <span className="inline-flex">
                 <button
                   onClick={() => stopDev.mutate({ id: devTerminalId })}
@@ -297,7 +297,7 @@ export function PreviewView({
                   className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-50"
                 >
                   <Square size={9} />
-                  stop dev server
+                  stop {devCmd.data.label}
                 </button>
               </span>
             </Tip>
@@ -348,7 +348,9 @@ export function PreviewView({
               above. Or type a localhost URL in the address bar.
             </div>
             {devCmd.data && !devRunning.data && (
-              <Tip content="Run the project's detected dev script in a background terminal and preview it here">
+              <Tip
+                content={`Run \`${devCmd.data.command}\` in a background terminal and preview it here`}
+              >
                 <span className="inline-flex">
                   <Button
                     size="sm"
@@ -358,7 +360,7 @@ export function PreviewView({
                     onClick={() => startDev.mutate({ id: devTerminalId, cwd })}
                   >
                     <Play size={12} className="mr-1" />
-                    Start dev server ({devCmd.data.command})
+                    Start {devCmd.data.label}
                   </Button>
                 </span>
               </Tip>

@@ -28,15 +28,18 @@ describe('pickDevCommand', () => {
   it('prefers dev over serve over start', () => {
     expect(pickDevCommand({ dev: 'vite', serve: 'x', start: 'y' }, 'pnpm')).toEqual({
       command: 'pnpm run dev',
-      script: 'dev'
+      script: 'dev',
+      label: 'dev server'
     })
     expect(pickDevCommand({ serve: 'x', start: 'y' }, 'npm')).toEqual({
       command: 'npm run serve',
-      script: 'serve'
+      script: 'serve',
+      label: 'dev server'
     })
     expect(pickDevCommand({ start: 'node server.js' }, 'yarn')).toEqual({
       command: 'yarn run start',
-      script: 'start'
+      script: 'start',
+      label: 'dev server'
     })
   })
 
@@ -48,7 +51,8 @@ describe('pickDevCommand', () => {
   it('ignores non-string script values', () => {
     expect(pickDevCommand({ dev: 42, start: 'node .' }, 'npm')).toEqual({
       command: 'npm run start',
-      script: 'start'
+      script: 'start',
+      label: 'dev server'
     })
   })
 })
@@ -57,7 +61,8 @@ describe('pickStaticCommand', () => {
   it('serves the directory when a root .html file exists', () => {
     expect(pickStaticCommand(['index.html', 'style.css'])).toEqual({
       command: `python3 -m http.server ${STATIC_SERVER_PORT} --bind 127.0.0.1`,
-      script: 'static'
+      script: 'static',
+      label: 'static file server'
     })
   })
 
