@@ -366,6 +366,7 @@ export default function App(): React.JSX.Element {
                         ? { subchatId, baseBranch: chat.data?.baseBranch ?? undefined }
                         : null
                     }
+                    checkpoints={chatId ? { chatId } : null}
                   />
                 ) : (
                   <SelectProjectPane />

@@ -185,6 +185,13 @@ export const chatsRouter = router({
       const stashShas = refs
         .map((r) => (r.checkpointRef ? checkpointStashSha(r.checkpointRef) : null))
         .filter((sha): sha is string => sha !== null)
+      // Named checkpoints pin stashes too (rows cascade-delete with the chat).
+      const named = db
+        .select({ stashSha: schema.checkpoints.stashSha })
+        .from(schema.checkpoints)
+        .where(eq(schema.checkpoints.chatId, chat.id))
+        .all()
+      for (const n of named) if (n.stashSha) stashShas.push(n.stashSha)
       await deleteCheckpointRefs(project.path, stashShas)
     }
 

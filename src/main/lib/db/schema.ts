@@ -96,6 +96,29 @@ export const compressionEvents = sqliteTable(
   (t) => [index('compression_events_subchat_idx').on(t.subchatId)]
 )
 
+/**
+ * Named checkpoints created from the checkpoint manager. Auto (per-message)
+ * checkpoints stay on messages.checkpoint_ref; a row here pins a snapshot
+ * with a user-given name so prune never collects it.
+ */
+export const checkpoints = sqliteTable(
+  'checkpoints',
+  {
+    id: text('id').primaryKey(),
+    chatId: text('chat_id')
+      .notNull()
+      .references(() => chats.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    tag: text('tag'),
+    headSha: text('head_sha').notNull(),
+    stashSha: text('stash_sha'),
+    source: text('source').notNull(),
+    messageId: text('message_id'),
+    createdAt: integer('created_at').notNull()
+  },
+  (t) => [index('checkpoints_chat_idx').on(t.chatId)]
+)
+
 /** One row per goal-judge verdict (goal_evaluation events), kept as history. */
 export const goalEvaluations = sqliteTable(
   'goal_evaluations',

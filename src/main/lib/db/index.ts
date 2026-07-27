@@ -98,7 +98,20 @@ const MIGRATIONS: string[] = [
      paused_reason TEXT,
      created_at INTEGER NOT NULL
    );
-   CREATE INDEX IF NOT EXISTS goal_evaluations_chat_idx ON goal_evaluations(chat_id);`
+   CREATE INDEX IF NOT EXISTS goal_evaluations_chat_idx ON goal_evaluations(chat_id);`,
+  // v8 — named checkpoints (manual snapshots alongside per-message auto ones)
+  `CREATE TABLE IF NOT EXISTS checkpoints (
+     id TEXT PRIMARY KEY,
+     chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+     name TEXT NOT NULL,
+     tag TEXT,
+     head_sha TEXT NOT NULL,
+     stash_sha TEXT,
+     source TEXT NOT NULL,
+     message_id TEXT,
+     created_at INTEGER NOT NULL
+   );
+   CREATE INDEX IF NOT EXISTS checkpoints_chat_idx ON checkpoints(chat_id);`
 ]
 
 export function initDb(): DB {

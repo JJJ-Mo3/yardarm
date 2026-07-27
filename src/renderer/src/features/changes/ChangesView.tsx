@@ -3,13 +3,12 @@
  * stage-all commits, push/pull, branch switching, PR creation, an
  * agent-review shortcut for the local changes, a commit history pane
  * (per-commit files + diffs), merging the chat's worktree branch into
- * the base branch at the project root, and a read-only compare mode that
- * diffs the working tree against the merge-base with another branch.
+ * the base branch at the project root, a read-only compare mode that
+ * diffs the working tree against the merge-base with another branch,
+ * and a checkpoint manager pane (named + auto snapshots, A/B compare).
  */
-import React, { useMemo, useState } from 'react'
+import React, { useState } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
-import { DiffModeEnum, DiffView } from '@git-diff-view/react'
-import { generateDiffFile } from '@git-diff-view/file'
 import {
   Download,
   GitBranchPlus,
@@ -45,55 +44,14 @@ import { Switch } from '../../components/ui/switch'
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
 import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
+import { DiffContent } from './diff-content'
+import { CheckpointDiffPanel, CheckpointsList, type SnapshotSel } from './CheckpointsPane'
 
 function statusColor(status: string): string {
   if (status.includes('?')) return 'text-green-500'
   if (status.includes('D')) return 'text-destructive'
   if (status.includes('A')) return 'text-green-500'
   return 'text-amber-500'
-}
-
-interface DiffData {
-  path: string
-  oldContent: string
-  newContent: string
-  binary: boolean
-}
-
-/** Shared diff renderer for working-tree and commit diffs. */
-function DiffContent({
-  diff,
-  isLoading
-}: {
-  diff: DiffData | undefined
-  isLoading: boolean
-}): React.JSX.Element {
-  const diffFile = useMemo(() => {
-    if (!diff || diff.binary) return null
-    try {
-      const file = generateDiffFile(diff.path, diff.oldContent, diff.path, diff.newContent, '', '')
-      file.initRaw()
-      return file
-    } catch (err) {
-      console.error('diff generation failed', err)
-      return null
-    }
-  }, [diff])
-
-  if (isLoading) {
-    return <div className="p-4 text-xs text-muted-foreground">Loading diff…</div>
-  }
-  if (diff?.binary) {
-    return <div className="p-4 text-xs text-muted-foreground">Binary file</div>
-  }
-  if (!diffFile) {
-    return <div className="p-4 text-xs text-muted-foreground">No diff available</div>
-  }
-  return (
-    <div className="selectable text-xs">
-      <DiffView diffFile={diffFile} diffViewMode={DiffModeEnum.Unified} diffViewFontSize={12} />
-    </div>
-  )
 }
 
 function FileDiffPanel({
@@ -131,12 +89,15 @@ export interface MergeTarget {
 export function ChangesView({
   cwd,
   merge = null,
-  review = null
+  review = null,
+  checkpoints = null
 }: {
   cwd: string
   merge?: MergeTarget | null
   /** When set, shows a button that asks this subchat's agent to review the local changes. */
   review?: { subchatId: string; baseBranch?: string } | null
+  /** When set, shows the checkpoint manager pane for this chat. */
+  checkpoints?: { chatId: string } | null
 }): React.JSX.Element {
   const utils = trpc.useUtils()
   const confirmDialog = useConfirm()
@@ -152,9 +113,18 @@ export function ChangesView({
   const [prOpen, setPrOpen] = useState(false)
   const [prTitle, setPrTitle] = useState('')
   const [prBody, setPrBody] = useState('')
-  const [pane, setPane] = useState<'changes' | 'history'>('changes')
+  const [pane, setPane] = useState<'changes' | 'history' | 'checkpoints'>('changes')
   const [selectedCommit, setSelectedCommit] = useState<string | null>(null)
   const [commitFile, setCommitFile] = useState<string | null>(null)
+  const [ckA, setCkA] = useState<SnapshotSel | null>(null)
+  const [ckB, setCkB] = useState<SnapshotSel | null>(null)
+  const [ckFile, setCkFile] = useState<string | null>(null)
+  const toggleCheckpoint = (sel: SnapshotSel): void => {
+    if (ckA?.id === sel.id) setCkA(null)
+    else if (ckB?.id === sel.id) setCkB(null)
+    else if (!ckA) setCkA(sel)
+    else setCkB(sel)
+  }
   const [mergeOpen, setMergeOpen] = useState(false)
   const [mergeSquash, setMergeSquash] = useState(false)
   const [mergeMsg, setMergeMsg] = useState('')
@@ -423,7 +393,36 @@ export function ChangesView({
               History
             </button>
           </Tip>
+          {checkpoints && (
+            <Tip content="Checkpoint snapshots: name the current tree, compare any two, prune old ones">
+              <button
+                onClick={() => {
+                  setPane('checkpoints')
+                  setSelectedCommit(null)
+                  setCommitFile(null)
+                }}
+                className={cn(
+                  'flex-1 cursor-pointer py-1.5',
+                  pane === 'checkpoints'
+                    ? 'border-b border-primary text-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                Snapshots
+              </button>
+            </Tip>
+          )}
         </div>
+        {pane === 'checkpoints' && checkpoints && (
+          <CheckpointsList
+            chatId={checkpoints.chatId}
+            a={ckA}
+            b={ckB}
+            onToggle={toggleCheckpoint}
+            file={ckFile}
+            onFile={setCkFile}
+          />
+        )}
         {pane === 'history' && (
           <div className="flex-1 overflow-y-auto p-1">
             {(log.data ?? []).length === 0 && (
@@ -673,7 +672,15 @@ export function ChangesView({
 
       {/* Diff */}
       <div className="min-w-0 flex-1 overflow-auto">
-        {pane === 'history' ? (
+        {pane === 'checkpoints' && checkpoints ? (
+          ckA && ckB && ckFile ? (
+            <CheckpointDiffPanel chatId={checkpoints.chatId} a={ckA} b={ckB} path={ckFile} />
+          ) : (
+            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+              Select two snapshots (A and B), then a file
+            </div>
+          )
+        ) : pane === 'history' ? (
           selectedCommit && commitFile ? (
             <CommitDiffPanel cwd={cwd} hash={selectedCommit} path={commitFile} />
           ) : (

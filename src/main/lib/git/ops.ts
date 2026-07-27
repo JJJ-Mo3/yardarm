@@ -304,6 +304,58 @@ export async function captureCheckpoint(cwd: string): Promise<string | null> {
   }
 }
 
+/** Stash shas currently pinned under refs/yardarm/checkpoints. */
+export async function listCheckpointRefs(cwd: string): Promise<string[]> {
+  try {
+    const out = await simpleGit(cwd).raw([
+      'for-each-ref',
+      '--format=%(refname)',
+      'refs/yardarm/checkpoints'
+    ])
+    return out
+      .split('\n')
+      .map((l) => l.trim().replace('refs/yardarm/checkpoints/', ''))
+      .filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
+/** Files changed between two refs (`git diff --name-status A B`). */
+export async function diffRefs(
+  cwd: string,
+  refA: string,
+  refB: string
+): Promise<CommitFileChange[]> {
+  const out = await simpleGit(cwd).raw(['diff', '--name-status', refA, refB])
+  return parseNameStatus(out)
+}
+
+/** Diff of one file between two refs: refA's version vs refB's. */
+export async function refFileDiff(
+  cwd: string,
+  refA: string,
+  refB: string,
+  filePath: string
+): Promise<FileDiff> {
+  const git = simpleGit(cwd)
+  let oldContent = ''
+  try {
+    oldContent = await git.show([`${refA}:${filePath}`])
+  } catch {
+    // absent in refA
+  }
+  let newContent = ''
+  try {
+    newContent = await git.show([`${refB}:${filePath}`])
+  } catch {
+    // absent in refB
+  }
+  const binary = oldContent.includes('\u0000') || newContent.includes('\u0000')
+  if (binary) return { path: filePath, oldContent: '', newContent: '', binary }
+  return { path: filePath, oldContent, newContent, binary }
+}
+
 /**
  * Delete checkpoint keep-alive refs so the pinned stash commits become
  * garbage-collectable. Best-effort: missing refs are ignored.
