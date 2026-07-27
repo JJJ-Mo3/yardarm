@@ -102,6 +102,12 @@ function ConnectorCard(props: CardProps): React.JSX.Element {
   // Platforms without OAuth dynamic client registration can't do browser
   // sign-in at all — the token form is the primary (and only) connect path.
   const tokenOnly = Boolean(def.tokenOnly && def.tokenAlt)
+  // Actionable guidance for known error phrasings, whether the error came
+  // from a connect attempt (card error) or the polled server status.
+  const rawError =
+    props.error ??
+    (state === 'managed' && info && !info.connected && !info.connecting ? info.error : undefined)
+  const errorHint = rawError ? (def.errorHint?.(rawError) ?? null) : null
 
   return (
     <div className="rounded border border-border px-3 py-2.5">
@@ -246,6 +252,10 @@ function ConnectorCard(props: CardProps): React.JSX.Element {
 
           {props.error && (
             <div className="mt-1 text-[10px] text-destructive selectable">{props.error}</div>
+          )}
+
+          {errorHint && (
+            <div className="mt-1 text-[10px] text-muted-foreground selectable">{errorHint}</div>
           )}
         </div>
 

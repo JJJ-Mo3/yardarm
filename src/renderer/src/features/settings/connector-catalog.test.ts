@@ -93,6 +93,34 @@ describe('tokenAlt builds', () => {
   })
 })
 
+describe('errorHint', () => {
+  const gitlab = byId('gitlab')
+
+  it('explains GitLab 404s as the account-gated beta MCP server', () => {
+    // Real phrasing from gitlab.com when Duo/beta features are off: OAuth
+    // succeeds, then the endpoint answers {"message":"404 Not Found"}.
+    const hint = gitlab.errorHint!(
+      'Failed to connect to MCP server gitlab: Error: Streamable HTTP error: Error POSTing to endpoint: {"message":"404 Not Found"}'
+    )
+    expect(hint).toMatch(/beta/i)
+    expect(hint).toMatch(/GitLab Duo/)
+  })
+
+  it('explains the post-auth SSE-fallback phrasing that hides the 404', () => {
+    // With credentials attached the SDK falls back to SSE on the 404 and
+    // surfaces this generic error instead (observed July 2026).
+    const hint = gitlab.errorHint!(
+      'Failed to connect to MCP server gitlab: Error: Could not connect to server with any available HTTP transport'
+    )
+    expect(hint).toMatch(/GitLab Duo/)
+  })
+
+  it('stays silent for unrelated GitLab errors', () => {
+    expect(gitlab.errorHint!('fetch failed: ECONNREFUSED')).toBeNull()
+    expect(gitlab.errorHint!('{"message":"401 Unauthorized"}')).toBeNull()
+  })
+})
+
 describe('connectorState', () => {
   const github = byId('github')
   const gitlab = byId('gitlab')

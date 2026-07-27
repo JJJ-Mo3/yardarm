@@ -40,6 +40,11 @@ export interface ConnectorDef {
   tokenOnly?: boolean
   build: (opts: { instanceUrl?: string }) => ConnectorServerConfig
   tokenAlt?: ConnectorTokenAlt
+  /**
+   * Translate a known raw connection error into actionable guidance shown on
+   * the card, or null when the error isn't one this connector can explain.
+   */
+  errorHint?: (error: string) => string | null
 }
 
 /**
@@ -85,12 +90,21 @@ export const CONNECTORS: ConnectorDef[] = [
     title: 'GitLab',
     description:
       'Projects, merge requests, issues, and pipelines via the official GitLab MCP server.',
-    docsUrl: 'https://docs.gitlab.com/user/gitlab_duo/model_context_protocol/mcp_server/',
+    docsUrl: 'https://docs.gitlab.com/user/model_context_protocol/mcp_server/',
     serverName: 'gitlab',
     needsInstanceUrl: true,
     build: ({ instanceUrl }) => ({
       url: gitlabMcpUrl(instanceUrl ?? 'https://gitlab.com') ?? 'https://gitlab.com/api/v4/mcp'
-    })
+    }),
+    // GitLab's MCP server (beta) is account-gated: with valid credentials it
+    // returns 404 when GitLab Duo or "experiment and beta features" are off
+    // (verified July 2026 — sign-in succeeds, then the endpoint 404s). The
+    // SDK surfaces that 404 as its generic HTTP-transport-fallback error, so
+    // match that phrasing too.
+    errorHint: (error) =>
+      /\b404\b|not found|any available HTTP transport/i.test(error)
+        ? 'This usually means GitLab\u2019s MCP server (beta) is turned off for your account — sign-in still succeeds, but the endpoint stays hidden (404). A group Owner must enable GitLab Duo (\u201cOn by default\u201d) and \u201cexperiment and beta GitLab Duo features\u201d in the group\u2019s GitLab Duo settings, then Reconnect.'
+        : null
   },
   {
     id: 'supabase',
