@@ -6,7 +6,7 @@
  *   Cmd+N     new chat
  *   Cmd+P     thread switcher
  *   Cmd+J     toggle terminal tab
- *   Cmd+1–8   main tabs in visual order (chat / CLI / IDE / changes / terminal / kanban / analytics / preview)
+ *   Cmd+1–9   main tabs in visual order (chat / CLI / IDE / changes / terminal / kanban / analytics / preview / guide)
  *   Cmd+,     settings
  */
 import { useEffect } from 'react'
@@ -28,7 +28,8 @@ const TAB_ORDER: MainTab[] = [
   'terminal',
   'kanban',
   'analytics',
-  'preview'
+  'preview',
+  'guide'
 ]
 
 export function useAppShortcuts(): void {
@@ -66,6 +67,7 @@ export function useAppShortcuts(): void {
         case '6':
         case '7':
         case '8':
+        case '9':
           e.preventDefault()
           setTab(TAB_ORDER[Number(e.key) - 1])
           break

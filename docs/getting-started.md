@@ -7,7 +7,8 @@ ship the result — all inside one window. The `mastracode` runtime is bundled
 with the app: there is no separate install, no account, and no telemetry.
 
 This guide walks through everything from installation to daily use. For a
-shorter overview, see the [README](../README.md).
+shorter overview, see the [README](../README.md); inside the app, the help
+button beside the theme toggle (or `Cmd+9`) opens a built-in guide + FAQ.
 
 ## Contents
 
@@ -24,6 +25,8 @@ shorter overview, see the [README](../README.md).
 - [Threads, subchats, forking, and split view](#threads-subchats-forking-and-split-view)
 - [Terminal, IDE, CLI, and Preview tabs](#terminal-ide-cli-and-preview-tabs)
 - [The Kanban board and sidebar indicators](#the-kanban-board-and-sidebar-indicators)
+- [Analytics](#analytics)
+- [Connectors](#connectors)
 - [Voice dictation](#voice-dictation)
 - [Slash commands](#slash-commands)
 - [Settings reference](#settings-reference)
@@ -370,6 +373,22 @@ A **fork pill** may appear beside the rollback pill — that branches the
 conversation into a new subchat tab instead of rewinding it. See
 [Threads, subchats, forking, and split view](#threads-subchats-forking-and-split-view).
 
+### The checkpoint manager
+
+The **checkpoints** panel in the Changes tab gives you the full picture:
+every checkpoint of the chat — the automatic per-message ones and any you
+created yourself — in one list. From there you can:
+
+- **Create a named checkpoint now**, before trying something risky.
+- **Rename or tag** checkpoints so the important ones stand out.
+- **Compare any two checkpoints** as a read-only diff to see exactly what
+  changed between two moments.
+- **Prune** stale automatic checkpoints that are no longer referenced by
+  any message (rollback targets are never pruned).
+
+Checkpoints are ordinary git refs inside the repository — they never leave
+your machine and don't appear on your branches.
+
 ## Goals: let the agent run to completion
 
 For bigger objectives, click the **goal** chip in the header (or use
@@ -393,6 +412,10 @@ In the goal popover you can:
 
 A banner above the transcript shows live goal status: blue while active,
 amber when paused, green when the judge signs off.
+
+The popover also keeps an **evaluation history**: every past objective with
+its per-iteration pass/fail verdicts and the judge's reasoning, so you can
+see how a goal converged (or why it kept failing) long after it finished.
 
 ## Threads, subchats, forking, and split view
 
@@ -431,23 +454,44 @@ shortcuts stay with the left (primary) pane.
   IDE edits" line either way; brand-new chats with no messages yet get the
   note alongside your first prompt. Clean files the agent changes refresh
   automatically, and saving over a file the agent just changed prompts you
-  to overwrite or reload.
+  to overwrite or reload. A **problems panel** below the editor shows
+  language-server diagnostics (errors and warnings) for the active file,
+  refreshed when you open or save it — click a problem to jump to it, and
+  the same markers appear inline in the editor. Language support comes from
+  servers found in the project (e.g. its own TypeScript) or on your PATH
+  (Python, Go, Rust).
 - **CLI** (`Cmd+2`) — the interactive Mastra Code terminal UI, embedded,
   running in the same worktree and seeing the same threads as the chat.
   Handy for CLI-only commands (terminal voice mode, …). Avoid
   driving the same thread from the chat and the CLI at the same time.
-- **Preview** (`Cmd+7`) — an in-app browser for localhost dev servers.
+- **Preview** (`Cmd+8`) — an in-app browser for localhost dev servers.
   Start your server in the Terminal or CLI tab and its URL appears as a
   chip within a few seconds (the first detection loads automatically); or
-  type a `localhost` / `127.0.0.1` URL into the address bar. Back/forward,
-  reload, DevTools, and open-in-browser controls are in the toolbar.
-  Navigation is locked to localhost — links to anywhere else open in your
-  system browser — and the page survives switching tabs.
+  type a `localhost` / `127.0.0.1` URL into the address bar. If nothing is
+  running yet, a **start chip** offers to launch the project's dev server
+  (detected from the project; static sites get a simple fallback server) in
+  a dedicated terminal. Back/forward, reload, DevTools, and open-in-browser
+  controls are in the toolbar — the wrench button docks a full Chrome
+  DevTools pane beside the page (elements, console, network) inspecting the
+  previewed app. Navigation is locked to localhost — links to anywhere else
+  open in your system browser — and the page survives switching tabs.
 
 ## The Kanban board and sidebar indicators
 
-When you're running several agents at once, the **Kanban** tab (`Cmd+6`)
-shows every chat in the project as a card in one of four live columns:
+The **Kanban** tab (`Cmd+6`) is a task board that can dispatch agents, plus
+a live overview of everything already running.
+
+**Author tasks.** Write cards — a title and the prompt to send — into the
+**Backlog** and **To do** columns. Drag cards to reorder them or move them
+between the two, edit or delete them anytime.
+
+**Dispatch.** Drag a card to **In progress** (or press its play button) and
+Yardarm creates a chat — in its own worktree if you choose — and sends the
+card's prompt to a fresh agent. From then on the card is linked to that
+chat: click it to open the conversation.
+
+**Live columns.** Dispatched cards (and every other chat in the project)
+move through the board based on the agent's real state:
 
 | Column              | Meaning                             |
 | ------------------- | ----------------------------------- |
@@ -455,6 +499,10 @@ shows every chat in the project as a card in one of four live columns:
 | **In progress**     | the agent is working right now      |
 | **Ready to review** | a run finished you haven't seen yet |
 | **Idle**            | nothing happening                   |
+
+Finished, reviewed cards can be marked **Done**. Because each dispatched
+task runs in its own worktree, it's practical to queue up a batch of
+independent tasks and let several agents work in parallel.
 
 The same states appear as dots on chat rows in the sidebar: amber = waiting
 for you, spinner = working, blue = finished and unseen.
@@ -464,6 +512,35 @@ row and click the **archive** icon: the chat disappears from the list and
 the board without deleting its worktree or history. Archived chats collapse
 into an **Archived** section at the bottom of the sidebar, where they can be
 restored or deleted.
+
+## Analytics
+
+The chart icon at the right of the tab bar (`Cmd+7`) opens **Analytics**:
+token usage for the current project.
+
+- **By day** — input/output tokens over time.
+- **By model** and **by chat** — see where the tokens actually went.
+- **Compression savings** — how many tokens
+  [token compression](#token-compression) saved.
+- **CSV export** — download the raw numbers for your own analysis.
+
+Figures are token counts, not prices — pricing varies by provider and plan,
+so Yardarm reports usage and lets you do the math that matches your billing.
+
+## Connectors
+
+**Settings → Connectors** offers one-click sign-ins for common services the
+agent can use as tools: **GitHub, GitLab, Supabase, Netlify, Vercel, and
+Sentry**. Each connector is a hosted MCP server with the OAuth flow handled
+for you — click **Connect**, approve in the browser, and every chat in the
+project can use that service's tools.
+
+The tab shows verified connection status per service (it actually exercises
+the connection, not just the token), and sign-ins are shared across all of
+a project's worktrees — one login covers every chat, present and future.
+For arbitrary MCP servers beyond these, see
+[Per-project configuration](#per-project-configuration) and Settings →
+MCP Servers.
 
 ## Voice dictation
 
@@ -528,7 +605,8 @@ Open with `Cmd+,` (`Ctrl+,`).
 | **Models**      | default model per mode, subagent, goal judge, and memory role; model packs                                                                              |
 | **Providers**   | OAuth logins (Claude / Codex / Copilot), Ollama detection, custom local providers                                                                       |
 | **Voice**       | dictation engine, STT provider and model                                                                                                                |
-| **Browser**     | browser-automation settings for web tools                                                                                                               |
+| **Browser**     | browser-automation settings for web tools, including the viewport size                                                                                  |
+| **Connectors**  | one-click OAuth sign-ins for GitHub, GitLab, Supabase, Netlify, Vercel, and Sentry (see [Connectors](#connectors))                                      |
 | **MCP Servers** | global Model Context Protocol servers                                                                                                                   |
 | **About**       | versions, runtime boot status, CLI install, updates, re-run setup                                                                                       |
 
@@ -563,7 +641,9 @@ single project:
 - **Agent instructions** (`.mastracode/agent-instructions.md`) — standing
   guidance the agent reads on every run
 - **Memory resource id** (`.mastracode/database.json`)
-- Installed **skills and plugins**
+- Installed **skills and plugins** — plugins that declare a configuration
+  schema get a generated settings form (toggles, text fields, and model
+  pickers), written back to the plugin's config
 
 Edits restart the affected agent processes, so they take effect immediately.
 
@@ -587,16 +667,16 @@ providers you configured.
 
 `Cmd` on macOS, `Ctrl` on Windows/Linux.
 
-| Shortcut      | Action                                                                |
-| ------------- | --------------------------------------------------------------------- |
-| `Cmd+N`       | new chat                                                              |
-| `Cmd+P`       | thread switcher                                                       |
-| `Cmd+1`–`7`   | switch tab (Chat / CLI / IDE / Changes / Terminal / Kanban / Preview) |
-| `Cmd+J`       | toggle the Terminal tab                                               |
-| `Cmd+,`       | settings                                                              |
-| `Enter`       | send (in composer)                                                    |
-| `Shift+Enter` | newline (in composer)                                                 |
-| `Escape`      | cancel voice recording / close autocomplete popups                    |
+| Shortcut      | Action                                                                                    |
+| ------------- | ----------------------------------------------------------------------------------------- |
+| `Cmd+N`       | new chat                                                                                  |
+| `Cmd+P`       | thread switcher                                                                           |
+| `Cmd+1`–`9`   | switch tab (Chat / CLI / IDE / Changes / Terminal / Kanban / Analytics / Preview / Guide) |
+| `Cmd+J`       | toggle the Terminal tab                                                                   |
+| `Cmd+,`       | settings                                                                                  |
+| `Enter`       | send (in composer)                                                                        |
+| `Shift+Enter` | newline (in composer)                                                                     |
+| `Escape`      | cancel voice recording / close autocomplete popups                                        |
 
 ## Tips
 
@@ -618,6 +698,9 @@ providers you configured.
 
 ## Where to get help
 
+- **The in-app guide** — the help button beside the theme toggle in the
+  sidebar (or `Cmd+9`) opens a built-in guide covering every part of the
+  app, plus an FAQ and troubleshooting section.
 - **Settings → About** shows the bundled runtime's boot status and the full
   error text if the agent fails to start.
 - The [README troubleshooting section](../README.md#troubleshooting) covers

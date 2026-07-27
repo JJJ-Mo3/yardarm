@@ -178,7 +178,9 @@ Yardarm puts a desktop workspace around the agent:
 - Goals (`/goal`) with a live goal banner and a color-coded header chip
   (blue active, amber paused, green done) whose popover sets, pauses/resumes,
   or clears the goal and tunes the judge model and run limit — setting a
-  goal can kick off a run toward it immediately
+  goal can kick off a run toward it immediately, and past goals stay
+  browsable in the popover's evaluation history with per-iteration
+  pass/fail results and the judge's reasoning
 - Agent code review from the **review** button in the header: review the
   chat's local changes against their base branch, or pick any open PR from
   a `gh`-powered list, optionally with a focus. Reviews run silently — the
@@ -236,19 +238,34 @@ Yardarm puts a desktop workspace around the agent:
   (merge-base based, read-only)
 - Checkpoints: every user message pins a restorable snapshot
   (`refs/yardarm/checkpoints/*`); roll back the conversation and the tree
-  together
+  together — plus a checkpoint manager in the Changes tab to create named
+  checkpoints on demand, rename or tag them, compare any two as a diff, and
+  prune stale automatic ones
 - IDE tab: file tree + Monaco editor with multiple tabs and ⌘S saves (the
   agent is told about your edits immediately while it's working, or with
   your next message; clean buffers refresh when the agent changes files),
-  and an integrated terminal (node-pty + xterm) that opens in the chat's
-  worktree
+  a problems panel with language-server diagnostics for the active file
+  (refreshed on open and save, with inline markers), and an integrated
+  terminal (node-pty + xterm) that opens in the chat's worktree
 - CLI tab that runs the interactive Mastra Code TUI in the chat's worktree,
   sharing the chat's thread history
 - Preview tab: an in-app browser for localhost dev servers — URLs are
-  auto-detected from the chat's terminals, navigation is locked to
-  localhost, and external links open in your system browser
-- Kanban board of every chat in the project (needs input / in progress /
-  ready to review / idle), with matching activity dots on sidebar chat rows
+  auto-detected from the chat's terminals, a one-click chip starts the
+  project's dev server (with a static-site fallback) in a dedicated
+  terminal, a wrench button docks full Chrome DevTools for the previewed
+  page beside it, navigation is locked to localhost, and external links
+  open in your system browser
+- Kanban task board: author cards (title + prompt) in Backlog / To do,
+  then drag one to In progress (or press play) to dispatch an agent —
+  Yardarm creates the chat (worktree optional) and sends the prompt.
+  Dispatched cards follow the agent's live status (needs input / in
+  progress / ready to review) and can be marked done; sidebar chat rows
+  show matching activity dots
+- Analytics (chart icon in the tab bar): per-project token usage by day,
+  model, and chat, token-compression savings, and CSV export — token
+  counts only, no price guessing
+- In-app guide & FAQ: the help button beside the theme toggle (or ⌘9)
+  opens a built-in guide covering every part of the app
 - Archive chats and projects to declutter the sidebar without deleting
   history or worktrees — archived items collapse into an "Archived" group
   and can be restored anytime; removing a project can optionally delete its
@@ -261,6 +278,10 @@ Yardarm puts a desktop workspace around the agent:
 - OAuth login for Anthropic (Claude subscriptions), OpenAI Codex, and GitHub
   Copilot in Settings → Providers — the browser flow runs inside the bundled
   runtime and credentials land in mastracode's `auth.json`
+- Connectors (Settings → Connectors): one-click OAuth sign-ins for the
+  GitHub, GitLab, Supabase, Netlify, Vercel, and Sentry MCP servers, with
+  verified connection status — sign-ins are shared across all of a
+  project's worktrees, so one login covers every chat
 - API keys for any supported provider in Settings → API Keys, plus custom
   OpenAI-compatible providers in Settings → Providers
 - Model defaults per mode, subagent, goal judge, and OM roles in
@@ -270,7 +291,8 @@ Yardarm puts a desktop workspace around the agent:
 
 - Project Settings dialog (gear in the sidebar): MCP servers, lifecycle
   hooks, custom commands, custom subagents, agent instructions, memory
-  `resourceId`, and installed skills/plugins
+  `resourceId`, and installed skills/plugins — plugins that declare a
+  config schema get a generated settings form
 - Live MCP server status in the MCP tab — connected state and tool counts
   per server, with one-click OAuth authentication for servers that need it
   (and reconnect for ones that dropped)
@@ -319,7 +341,8 @@ No API key, no network egress — prompts go to `localhost` only.
 
 This is the short version — the
 [Getting Started guide](docs/getting-started.md) covers every screen and
-workflow in detail.
+workflow in detail, and the app has a built-in guide + FAQ (help button
+beside the theme toggle, or ⌘9).
 
 **Modes.** Plan mode explores and proposes before touching files; Build mode
 edits; Fast mode is a lighter model for quick tasks. Switch with the
@@ -339,7 +362,9 @@ codegen), put commands in `.yardarm/worktree.json`:
 
 **Checkpoints.** Every user message pins a snapshot as a git ref. Use the
 message menu to roll back — both the conversation and the working tree are
-restored.
+restored. The checkpoint manager in the Changes tab lists every checkpoint,
+creates named ones on demand, renames/tags them, compares any two as a
+diff, and prunes stale automatic ones.
 
 **Changes.** The Changes tab shows worktree diffs with staging, commit, and
 push (uses the `gh` CLI when available for PR flows). A compare switcher
@@ -371,15 +396,27 @@ deleting the folder) from Project Settings → General.
 worktree; the IDE tab is a file tree + Monaco editor over the same
 (multiple tabs, ⌘S to save — the agent hears about your edits immediately
 while it's working, or with your next message, and clean buffers refresh
-when the agent changes files). The CLI
+when the agent changes files), with a problems panel showing
+language-server diagnostics for the active file. The CLI
 tab runs the interactive Mastra Code TUI in the same worktree — it sees the
 same threads as the chat (avoid running the chat and the CLI on the same
 thread at once).
 
 **Preview.** The Preview tab embeds a browser for localhost dev servers.
 Server URLs printed in the Terminal or CLI tabs are detected automatically
-and offered as chips (the first one loads by itself). Navigation is locked
-to localhost; links to anywhere else open in your system browser.
+and offered as chips (the first one loads by itself), and if nothing is
+running a start chip launches the project's dev server (static sites get a
+fallback server) in a dedicated terminal. The wrench button docks full
+Chrome DevTools for the previewed page beside it — elements, console, and
+network. Navigation is locked to localhost; links to anywhere else open in
+your system browser.
+
+**Kanban & Analytics.** The Kanban tab is a task board that dispatches
+agents: write cards (title + prompt) into Backlog / To do, drag one to In
+progress to create a chat and set the agent working, and watch cards move
+with the agent's live status. The chart icon in the tab bar opens
+Analytics — token usage for the project by day, model, and chat, plus
+compression savings and CSV export.
 
 **Split view & forking.** The columns button in the tab bar opens a second
 chat pane beside the current one (drag the divider to resize) — useful for
@@ -391,13 +428,13 @@ unchanged.
 
 **Keyboard shortcuts** (Cmd on macOS, Ctrl elsewhere):
 
-| Shortcut  | Action                                                    |
-| --------- | --------------------------------------------------------- |
-| `Cmd+N`   | New chat                                                  |
-| `Cmd+P`   | Thread switcher                                           |
-| `Cmd+1–7` | Switch tab (chat/CLI/IDE/changes/terminal/kanban/preview) |
-| `Cmd+J`   | Toggle terminal tab                                       |
-| `Cmd+,`   | Settings                                                  |
+| Shortcut  | Action                                                                    |
+| --------- | ------------------------------------------------------------------------- |
+| `Cmd+N`   | New chat                                                                  |
+| `Cmd+P`   | Thread switcher                                                           |
+| `Cmd+1–9` | Switch tab (chat/CLI/IDE/changes/terminal/kanban/analytics/preview/guide) |
+| `Cmd+J`   | Toggle terminal tab                                                       |
+| `Cmd+,`   | Settings                                                                  |
 
 ## Configuration paths (shared with the mastracode CLI)
 

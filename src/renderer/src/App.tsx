@@ -46,6 +46,7 @@ import { FilesView } from './features/file-viewer/FilesView'
 import { KanbanView } from './features/kanban/KanbanView'
 import { AnalyticsView } from './features/analytics/AnalyticsView'
 import { PreviewView } from './features/preview/PreviewView'
+import { GuideView } from './features/guide/GuideView'
 import { SettingsDialog } from './features/settings/SettingsDialog'
 import { UpdateRestartBanner } from './features/settings/UpdateRestartBanner'
 import { ProjectSettingsDialog } from './features/project-settings/ProjectSettingsDialog'
@@ -258,7 +259,7 @@ export default function App(): React.JSX.Element {
         <UpdateRestartBanner />
 
         <div className="min-h-0 flex-1">
-          {projects.data && projects.data.length === 0 ? (
+          {projects.data && projects.data.length === 0 && tab !== 'guide' ? (
             // Onboarding: no projects yet.
             <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
               <FolderGit2 size={40} strokeWidth={1.25} className="text-muted-foreground" />
@@ -431,6 +432,7 @@ export default function App(): React.JSX.Element {
                   <SelectProjectPane />
                 )}
               </div>
+              {tab === 'guide' && <GuideView />}
             </>
           )}
         </div>

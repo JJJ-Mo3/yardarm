@@ -4,6 +4,7 @@ import {
   Archive,
   ArchiveRestore,
   ChevronRight,
+  CircleHelp,
   Folder,
   FolderGit2,
   Loader2,
@@ -20,6 +21,7 @@ import { cn, timeAgo } from '../../lib/utils'
 import {
   addProjectOpenAtom,
   chatStatusesAtom,
+  mainTabAtom,
   newChatOpenAtom,
   projectSettingsOpenAtom,
   selectedChatIdAtom,
@@ -92,6 +94,7 @@ export function Sidebar(): React.JSX.Element {
   const [chatId, setChatId] = useAtom(selectedChatIdAtom)
   const setSubchatId = useSetAtom(selectedSubchatIdAtom)
   const setSettingsOpen = useSetAtom(settingsOpenAtom)
+  const setMainTab = useSetAtom(mainTabAtom)
   const setTheme = useSetAtom(themeAtom)
   const isDark = useIsDark()
   const setProjectSettingsOpen = useSetAtom(projectSettingsOpenAtom)
@@ -406,6 +409,11 @@ export function Sidebar(): React.JSX.Element {
           >
             <Settings size={13} />
             Settings
+          </Button>
+        </Tip>
+        <Tip content="Open the in-app guide — how every part of Yardarm works, plus FAQ" side="top">
+          <Button variant="ghost" size="icon" onClick={() => setMainTab('guide')}>
+            <CircleHelp size={13} />
           </Button>
         </Tip>
         <Tip content={isDark ? 'Switch to the light theme' : 'Switch to the dark theme'} side="top">
