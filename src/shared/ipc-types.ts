@@ -151,6 +151,8 @@ export type HostCommand =
   | { t: 'mcpAuthenticate'; reqId: string; serverName: string }
   | { t: 'mcpCancelAuth'; reqId: string; serverName: string }
   | { t: 'mcpReconnect'; reqId: string; serverName: string }
+  /** IDE diagnostics for one absolute file path via the SDK's LSP manager. */
+  | { t: 'lspDiagnostics'; reqId: string; path: string }
   | { t: 'shutdown' }
 
 /** host -> main */
@@ -348,6 +350,24 @@ export interface McpServerStatusInfo {
   authenticating?: boolean
   /** The last OAuth flow was cancelled by the user (error is expected then). */
   cancelled?: boolean
+}
+
+/** One IDE diagnostic. Positions are 1-based (Monaco marker convention). */
+export interface LspDiagnosticInfo {
+  line: number
+  col: number
+  endLine: number
+  endCol: number
+  severity: 'error' | 'warning' | 'info' | 'hint'
+  message: string
+  source?: string
+}
+
+/** Result of an lspDiagnostics host command. */
+export interface LspDiagnosticsResult {
+  diagnostics: LspDiagnosticInfo[]
+  /** Set when no diagnostics could be produced (no server, unsupported file…). */
+  unavailableReason?: string
 }
 
 /** Base64 file attachment for Session.sendMessage. */

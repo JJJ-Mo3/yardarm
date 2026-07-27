@@ -41,6 +41,7 @@ import type {
   HostMessage,
   IdeNoteResult,
   McpAuthUrlEvent,
+  LspDiagnosticsResult,
   McpServerStatusInfo,
   ModelInfo,
   OAuthProviderInfo,
@@ -1861,6 +1862,22 @@ export class AgentSessionManager {
       level: 'info',
       text: `GitHub plugins updated: ${names.join(', ')}`
     })
+  }
+
+  /**
+   * IDE diagnostics for one absolute path. Routed via the subchat's own host
+   * (its cwd is the workspace root the language servers must resolve against
+   * — the utility host runs from the home dir and would be wrong).
+   */
+  async lspDiagnostics(subchatId: string, path: string): Promise<LspDiagnosticsResult> {
+    const handle = await this.ensureHost(subchatId)
+    // First call can spawn + initialize a language server, then wait up to
+    // 8s for the publish — give the IPC round-trip comfortable headroom.
+    return this.request<LspDiagnosticsResult>(
+      handle,
+      { t: 'lspDiagnostics', reqId: randomUUID(), path },
+      45_000
+    )
   }
 
   /** null subchatId = run against the utility host (no chat required). */

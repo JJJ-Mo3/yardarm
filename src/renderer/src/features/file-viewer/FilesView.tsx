@@ -7,12 +7,27 @@
  * mtime conflict check (Overwrite / Reload / Cancel). files.write reports
  * each save to every chat working on this root. Tab state lives in a
  * per-root atom and the view stays mounted, so dirty buffers survive
- * tab/chat switches.
+ * tab/chat switches. When a chat is open, language-server diagnostics for
+ * the active file (fetched from its agent host on open/save/external
+ * change) feed Monaco markers and a collapsible problems panel.
  */
 import React, { useEffect, useRef, useState } from 'react'
 import Editor, { type OnMount } from '@monaco-editor/react'
-import { ChevronDown, ChevronRight, FileText, Folder, Save, X } from 'lucide-react'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  Folder,
+  Info,
+  RefreshCw,
+  Save,
+  X,
+  XCircle
+} from 'lucide-react'
 import { useAtom, useAtomValue } from 'jotai'
+import type { LspDiagnosticInfo, LspDiagnosticsResult } from '@shared/ipc-types'
 import '../../lib/monaco-setup'
 import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
@@ -56,6 +71,17 @@ function languageFor(path: string): string | undefined {
     sql: 'sql'
   }
   return ext ? map[ext] : undefined
+}
+
+function SeverityIcon({
+  severity
+}: {
+  severity: LspDiagnosticInfo['severity']
+}): React.JSX.Element {
+  if (severity === 'error') return <XCircle size={12} className="shrink-0 text-red-500" />
+  if (severity === 'warning')
+    return <AlertTriangle size={12} className="shrink-0 text-yellow-500" />
+  return <Info size={12} className="shrink-0 text-blue-400" />
 }
 
 function DirNode({
@@ -163,7 +189,13 @@ function FileNodeRow({
   )
 }
 
-export function FilesView({ root }: { root: string }): React.JSX.Element {
+export function FilesView({
+  root,
+  subchatId
+}: {
+  root: string
+  subchatId: string | null
+}): React.JSX.Element {
   const theme = useAtomValue(themeAtom)
   const mainTab = useAtomValue(mainTabAtom)
   const confirm = useConfirm()
@@ -173,7 +205,15 @@ export function FilesView({ root }: { root: string }): React.JSX.Element {
   const [allTabs, setAllTabs] = useAtom(editorTabsAtom)
   const [error, setError] = useState<string | null>(null)
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
+  const monacoRef = useRef<Parameters<OnMount>[1] | null>(null)
   const saveRef = useRef<() => void>(() => {})
+  const [diags, setDiags] = useState<{
+    path: string
+    result: LspDiagnosticsResult
+    loading: boolean
+  } | null>(null)
+  const [problemsOpen, setProblemsOpen] = useState(false)
+  const diagSeq = useRef(0)
 
   const state = allTabs[root] ?? emptyTabsState
   const activeTab = state.tabs.find((t) => t.path === state.activePath) ?? null
@@ -207,6 +247,34 @@ export function FilesView({ root }: { root: string }): React.JSX.Element {
     }
   }
 
+  // Language-server diagnostics for the active file, fetched from the chat's
+  // agent host (whose cwd is this root). Sequenced so a stale response can't
+  // overwrite a newer file's results.
+  const refreshDiagnostics = async (path: string): Promise<void> => {
+    if (!subchatId) return
+    const seq = ++diagSeq.current
+    setDiags((d) => ({
+      path,
+      result: d?.path === path ? d.result : { diagnostics: [] },
+      loading: true
+    }))
+    try {
+      const result = await utils.files.diagnostics.fetch({ subchatId, root, path })
+      if (seq === diagSeq.current) setDiags({ path, result, loading: false })
+    } catch (err) {
+      if (seq === diagSeq.current) {
+        setDiags({
+          path,
+          result: {
+            diagnostics: [],
+            unavailableReason: err instanceof Error ? err.message : String(err)
+          },
+          loading: false
+        })
+      }
+    }
+  }
+
   // Also refresh the read-query cache, or the poller's stale entry (old
   // content, old mtime) would look like an external change right after the
   // save and briefly revert the buffer.
@@ -216,6 +284,7 @@ export function FilesView({ root }: { root: string }): React.JSX.Element {
       { path, content, tooLarge: false, binary: false, mtimeMs }
     )
     update((s) => markSaved(s, path, content, mtimeMs))
+    void refreshDiagnostics(path)
   }
 
   const save = async (): Promise<void> => {
@@ -302,8 +371,49 @@ export function FilesView({ root }: { root: string }): React.JSX.Element {
     if (activeTab.dirty || data.mtimeMs === activeTab.mtimeMs) return
     const content = data.content
     update((s) => applyDiskUpdate(s, data.path, content, data.mtimeMs))
+    // The file changed on disk (usually the agent) — markers are stale now.
+    void refreshDiagnostics(data.path)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- update is stable per render
   }, [poll.data, activeTab])
+
+  // Fetch diagnostics when a text file becomes active.
+  const activePath = activeTab?.kind === 'text' ? activeTab.path : null
+  useEffect(() => {
+    if (!activePath || !subchatId) {
+      setDiags(null)
+      return
+    }
+    void refreshDiagnostics(activePath)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch only on file/chat switch
+  }, [activePath, subchatId])
+
+  // Project the active file's diagnostics onto its Monaco model as markers.
+  const activeDiags = diags && diags.path === activePath ? diags : null
+  useEffect(() => {
+    const monaco = monacoRef.current
+    const model = editorRef.current?.getModel()
+    if (!monaco || !model) return
+    const severities: Record<LspDiagnosticInfo['severity'], number> = {
+      error: monaco.MarkerSeverity.Error,
+      warning: monaco.MarkerSeverity.Warning,
+      info: monaco.MarkerSeverity.Info,
+      hint: monaco.MarkerSeverity.Hint
+    }
+    const list = activeDiags && !activeDiags.loading ? activeDiags.result.diagnostics : []
+    monaco.editor.setModelMarkers(
+      model,
+      'yardarm-lsp',
+      list.map((d) => ({
+        startLineNumber: d.line,
+        startColumn: d.col,
+        endLineNumber: d.endLine,
+        endColumn: d.endCol,
+        severity: severities[d.severity],
+        message: d.message,
+        ...(d.source ? { source: d.source } : {})
+      }))
+    )
+  }, [activeDiags, activePath])
 
   // Reconcile effect: the single place buffer content is set programmatically.
   // Covers external refreshes, reload-from-disk, and reopening a path whose
@@ -318,9 +428,24 @@ export function FilesView({ root }: { root: string }): React.JSX.Element {
 
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor
+    monacoRef.current = monaco
     // Registered on the editor (not window) so an always-mounted IDE view
     // can't steal Cmd+S while another main tab is visible.
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => saveRef.current())
+  }
+
+  const problems = activeDiags && !activeDiags.loading ? activeDiags.result.diagnostics : []
+  const errorCount = problems.filter((d) => d.severity === 'error').length
+  const warningCount = problems.filter((d) => d.severity === 'warning').length
+  const unavailable =
+    activeDiags && !activeDiags.loading ? activeDiags.result.unavailableReason : undefined
+
+  const goToProblem = (d: LspDiagnosticInfo): void => {
+    const ed = editorRef.current
+    if (!ed) return
+    ed.setPosition({ lineNumber: d.line, column: d.col })
+    ed.revealPositionInCenter({ lineNumber: d.line, column: d.col })
+    ed.focus()
   }
 
   return (
@@ -462,6 +587,96 @@ export function FilesView({ root }: { root: string }): React.JSX.Element {
             </div>
           )}
         </div>
+        {subchatId && activeTab?.kind === 'text' && (
+          <div className="shrink-0 border-t border-border">
+            <div className="flex h-7 items-center gap-1 px-1.5">
+              <Tip content={problemsOpen ? 'Hide the problems list' : 'Show the problems list'}>
+                <button
+                  onClick={() => setProblemsOpen((o) => !o)}
+                  className="flex min-w-0 cursor-pointer items-center gap-1.5 rounded px-1.5 py-0.5 text-[11px] hover:bg-accent"
+                >
+                  {problemsOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                  {activeDiags?.loading ? (
+                    <span className="text-muted-foreground">Checking…</span>
+                  ) : unavailable ? (
+                    <span className="truncate text-muted-foreground">Diagnostics unavailable</span>
+                  ) : problems.length === 0 ? (
+                    <>
+                      <CheckCircle2 size={12} className="text-green-500" />
+                      <span className="text-muted-foreground">No problems</span>
+                    </>
+                  ) : (
+                    <>
+                      {errorCount > 0 && (
+                        <span className="flex items-center gap-1">
+                          <XCircle size={12} className="text-red-500" />
+                          {errorCount}
+                        </span>
+                      )}
+                      {warningCount > 0 && (
+                        <span className="flex items-center gap-1">
+                          <AlertTriangle size={12} className="text-yellow-500" />
+                          {warningCount}
+                        </span>
+                      )}
+                      {problems.length - errorCount - warningCount > 0 && (
+                        <span className="flex items-center gap-1">
+                          <Info size={12} className="text-blue-400" />
+                          {problems.length - errorCount - warningCount}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </button>
+              </Tip>
+              <div className="flex-1" />
+              <Tip content="Re-run language-server diagnostics for this file">
+                <span className="inline-flex">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5"
+                    disabled={activeDiags?.loading ?? false}
+                    onClick={() => activeTab && void refreshDiagnostics(activeTab.path)}
+                  >
+                    <RefreshCw size={11} className={cn(activeDiags?.loading && 'animate-spin')} />
+                  </Button>
+                </span>
+              </Tip>
+            </div>
+            {problemsOpen && (
+              <div className="max-h-40 overflow-y-auto border-t border-border py-0.5">
+                {unavailable ? (
+                  <div className="px-3 py-1.5 text-[11px] text-muted-foreground">{unavailable}</div>
+                ) : problems.length === 0 ? (
+                  <div className="px-3 py-1.5 text-[11px] text-muted-foreground">
+                    {activeDiags?.loading
+                      ? 'Waiting for the language server…'
+                      : 'No problems reported for this file.'}
+                  </div>
+                ) : (
+                  problems.map((d, i) => (
+                    <Tip key={i} content={d.message}>
+                      <button
+                        onClick={() => goToProblem(d)}
+                        className="flex w-full cursor-pointer items-center gap-1.5 px-3 py-0.5 text-left text-[11px] hover:bg-accent"
+                      >
+                        <SeverityIcon severity={d.severity} />
+                        <span className="min-w-0 flex-1 truncate">{d.message}</span>
+                        {d.source && (
+                          <span className="shrink-0 text-muted-foreground">{d.source}</span>
+                        )}
+                        <span className="shrink-0 tabular-nums text-muted-foreground">
+                          {d.line}:{d.col}
+                        </span>
+                      </button>
+                    </Tip>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

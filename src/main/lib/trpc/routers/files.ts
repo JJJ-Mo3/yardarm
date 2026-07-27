@@ -154,6 +154,17 @@ export const filesRouter = router({
       return { ok: true as const, mtimeMs: stat.mtimeMs }
     }),
 
+  /**
+   * IDE problems panel: language-server diagnostics for one open file,
+   * produced by the subchat's agent host (whose cwd is this root).
+   */
+  diagnostics: publicProcedure
+    .input(z.object({ subchatId: z.string(), root: z.string(), path: z.string() }))
+    .query(({ input }) => {
+      const abs = resolveWithin(input.root, input.path)
+      return agentSessionManager.lspDiagnostics(input.subchatId, abs)
+    }),
+
   /** Substring/fuzzy filename search for @-mentions. */
   search: publicProcedure
     .input(

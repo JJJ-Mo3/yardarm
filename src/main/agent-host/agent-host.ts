@@ -12,12 +12,14 @@ import type {
   HostBootConfig,
   HostCommand,
   HostMessage,
+  LspDiagnosticsResult,
   SandboxRuntimeInfo,
   SttModelInfo
 } from '../../shared/ipc-types'
 import { z } from 'zod'
 import { patchApprovalRunBudget } from './approval-run-budget'
 import { createCompressionProcessor } from './compression-processor'
+import { lspUriCandidates, mapLspDiagnostics } from './lsp-diagnostics'
 import { installNoTimeoutFetch } from './no-timeout-fetch'
 import { RETRIEVAL_TOOL_NAME } from './prompt-compression'
 import { createRetrievalStore } from './retrieval-store'
@@ -102,6 +104,103 @@ function post(msg: HostMessage): void {
         msg: `Failed to serialize message: ${String(err)}`
       } satisfies HostMessage)
     }
+  }
+}
+
+// ---- LSP diagnostics (IDE problems panel) ---------------------------------
+
+interface LspClientLike {
+  notifyOpen(filePath: string, content: string, languageId: string): void
+  notifyClose(filePath: string): void
+  waitForDiagnostics(
+    filePath: string,
+    timeoutMs?: number,
+    waitForChange?: boolean
+  ): Promise<unknown>
+  /** Soft-private publish cache; polled directly for encoded-URI publishes. */
+  diagnostics?: Map<string, unknown[]>
+}
+
+/** Files this host has sent didOpen for (didClose+didOpen refreshes them). */
+const lspOpenedPaths = new Set<string>()
+
+/**
+ * Poll the client's publish cache for any URI key a server may use for the
+ * file. With requireNonEmpty the early empty syntax pass (tsls) is skipped
+ * until the semantic publish lands or the window closes.
+ */
+async function pollLspDiagnostics(
+  map: Map<string, unknown[]>,
+  uris: string[],
+  timeoutMs: number,
+  requireNonEmpty: boolean
+): Promise<unknown[] | undefined> {
+  const start = Date.now()
+  let last: unknown[] | undefined
+  while (Date.now() - start < timeoutMs) {
+    for (const uri of uris) {
+      const d = map.get(uri)
+      if (d !== undefined) {
+        last = d
+        if (!requireNonEmpty || d.length > 0) return d
+      }
+    }
+    await new Promise((r) => setTimeout(r, 100))
+  }
+  return last
+}
+
+/**
+ * Fetch fresh diagnostics for one absolute path via the SDK's LSP manager.
+ * process.cwd() is the subchat cwd (chdir at boot), i.e. the workspace root.
+ * Refreshes use didClose+didOpen so a stale publish is never mistaken for a
+ * fresh one. The publish cache is read directly (both raw and percent-encoded
+ * URI keys) because servers normalize URIs — under the SDK's raw-key lookups,
+ * paths with spaces (every Yardarm worktree) never see their diagnostics.
+ * Never throws — every failure degrades to an unavailableReason.
+ */
+async function collectLspDiagnostics(filePath: string): Promise<LspDiagnosticsResult> {
+  try {
+    const [{ lspManager }, { getLanguageId }] = await Promise.all([
+      runtimeImport<{
+        lspManager: {
+          getClient(filePath: string, workspaceRoot: string): Promise<LspClientLike | null>
+        }
+      }>('@mastra/code-sdk/lsp/index'),
+      runtimeImport<{ getLanguageId(filePath: string): string | undefined }>(
+        '@mastra/code-sdk/lsp/language'
+      )
+    ])
+    const languageId = getLanguageId(filePath)
+    if (!languageId) {
+      return { diagnostics: [], unavailableReason: 'No language server supports this file type' }
+    }
+    const client = await lspManager.getClient(filePath, process.cwd())
+    if (!client) {
+      return {
+        diagnostics: [],
+        unavailableReason: `No language server available for ${languageId} files in this project`
+      }
+    }
+    const content = readFileSync(filePath, 'utf8')
+    const uris = lspUriCandidates(filePath)
+    if (lspOpenedPaths.has(filePath)) client.notifyClose(filePath)
+    lspOpenedPaths.add(filePath)
+    // notifyClose only clears the raw-URI cache entry; drop encoded ones too
+    // so the polls below can't return a previous publish as fresh.
+    if (client.diagnostics) for (const uri of uris) client.diagnostics.delete(uri)
+    client.notifyOpen(filePath, content, languageId)
+    if (!client.diagnostics) {
+      // SDK internals changed shape — fall back to its own (raw-URI) wait.
+      return { diagnostics: mapLspDiagnostics(await client.waitForDiagnostics(filePath, 8000)) }
+    }
+    let raw = await pollLspDiagnostics(client.diagnostics, uris, 8000, false)
+    if (Array.isArray(raw) && raw.length === 0) {
+      raw = await pollLspDiagnostics(client.diagnostics, uris, 4000, true)
+    }
+    return { diagnostics: mapLspDiagnostics(raw ?? []) }
+  } catch (err) {
+    return { diagnostics: [], unavailableReason: `Language server error: ${String(err)}` }
   }
 }
 
@@ -1402,6 +1501,9 @@ async function main(): Promise<void> {
               if (!mm) throw new Error('MCP manager unavailable')
               return mapMcpStatus(await mm.reconnectServer(cmd.serverName))
             })
+            break
+          case 'lspDiagnostics':
+            await respond(cmd.reqId, () => collectLspDiagnostics(cmd.path))
             break
           case 'shutdown':
             process.exit(0)
