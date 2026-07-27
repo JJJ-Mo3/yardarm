@@ -60,6 +60,15 @@ describe('catalog integrity', () => {
     }
   })
 
+  it('marks GitHub token-only (no OAuth DCR) with a token form to fall back on', () => {
+    // GitHub's OAuth server has no dynamic client registration, so browser
+    // sign-in can't work; every tokenOnly entry must carry a tokenAlt.
+    expect(byId('github').tokenOnly).toBe(true)
+    for (const c of CONNECTORS) {
+      if (c.tokenOnly) expect(c.tokenAlt).toBeDefined()
+    }
+  })
+
   it('honors the GitLab instance URL and falls back to gitlab.com', () => {
     const gitlab = byId('gitlab')
     expect(gitlab.build({}).url).toBe('https://gitlab.com/api/v4/mcp')

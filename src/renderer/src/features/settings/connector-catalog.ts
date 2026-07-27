@@ -32,6 +32,12 @@ export interface ConnectorDef {
   serverName: string
   /** GitLab self-managed instances need a base URL input. */
   needsInstanceUrl?: boolean
+  /**
+   * The platform's OAuth server doesn't support dynamic client registration
+   * (RFC 7591), so the MCP browser sign-in flow cannot work — the token form
+   * (tokenAlt, required) is the only connect path.
+   */
+  tokenOnly?: boolean
   build: (opts: { instanceUrl?: string }) => ConnectorServerConfig
   tokenAlt?: ConnectorTokenAlt
 }
@@ -60,10 +66,14 @@ export const CONNECTORS: ConnectorDef[] = [
     description: 'Repos, issues, pull requests, and CI via the official GitHub MCP server.',
     docsUrl: 'https://github.com/github/github-mcp-server',
     serverName: 'github',
+    // GitHub's OAuth server has no dynamic client registration, so the MCP
+    // browser sign-in handshake is impossible — a personal access token is
+    // the only way in (verified July 2026).
+    tokenOnly: true,
     build: () => ({ url: 'https://api.githubcopilot.com/mcp/' }),
     tokenAlt: {
-      label: 'Use a personal access token instead',
-      hint: 'Create a token at github.com/settings/tokens. Stored in ~/.mastracode/mcp.json (shared with the CLI).',
+      label: 'Personal access token',
+      hint: 'GitHub\u2019s MCP server doesn\u2019t support browser sign-in — connect with a personal access token from github.com/settings/tokens (needs repo access). Stored in ~/.mastracode/mcp.json (shared with the CLI).',
       build: (token) => ({
         url: 'https://api.githubcopilot.com/mcp/',
         headers: { Authorization: `Bearer ${token}` }

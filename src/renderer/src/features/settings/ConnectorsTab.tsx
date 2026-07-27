@@ -99,6 +99,9 @@ function ConnectorCard(props: CardProps): React.JSX.Element {
   const instanceEndpoint = def.needsInstanceUrl ? gitlabMcpUrl(instanceUrl) : null
   const instanceInvalid = def.needsInstanceUrl && instanceEndpoint === null
   const connectPending = Boolean(phase)
+  // Platforms without OAuth dynamic client registration can't do browser
+  // sign-in at all — the token form is the primary (and only) connect path.
+  const tokenOnly = Boolean(def.tokenOnly && def.tokenAlt)
 
   return (
     <div className="rounded border border-border px-3 py-2.5">
@@ -182,19 +185,22 @@ function ConnectorCard(props: CardProps): React.JSX.Element {
             </div>
           )}
 
-          {/* Token alternative */}
+          {/* Token form — the only connect path for tokenOnly platforms, an
+              optional alternative to OAuth elsewhere. */}
           {state === 'none' && def.tokenAlt && (
             <div className="mt-2">
-              <Tip content={showToken ? 'Hide the access-token form' : def.tokenAlt.hint}>
-                <button
-                  className="text-[10px] text-muted-foreground underline hover:text-foreground cursor-pointer"
-                  onClick={() => setShowToken((v) => !v)}
-                >
-                  {def.tokenAlt.label}
-                </button>
-              </Tip>
-              {showToken && (
-                <div className="mt-1.5 space-y-1">
+              {!tokenOnly && (
+                <Tip content={showToken ? 'Hide the access-token form' : def.tokenAlt.hint}>
+                  <button
+                    className="text-[10px] text-muted-foreground underline hover:text-foreground cursor-pointer"
+                    onClick={() => setShowToken((v) => !v)}
+                  >
+                    {def.tokenAlt.label}
+                  </button>
+                </Tip>
+              )}
+              {(tokenOnly || showToken) && (
+                <div className={tokenOnly ? 'space-y-1' : 'mt-1.5 space-y-1'}>
                   <div className="flex gap-2">
                     <Input
                       type="password"
@@ -204,24 +210,37 @@ function ConnectorCard(props: CardProps): React.JSX.Element {
                       className="h-7 text-[11px]"
                       spellCheck={false}
                     />
-                    <Tip
-                      content={`Save the token and verify the ${def.title} connection without OAuth`}
-                    >
-                      <span className="inline-flex">
-                        <Button
-                          size="sm"
-                          className="h-7 px-2 text-[10px]"
-                          disabled={!token.trim() || connectPending}
-                          onClick={() => props.onConnect(def.tokenAlt!.build(token.trim()), false)}
-                        >
-                          {connectPending ? 'Verifying…' : 'Save'}
-                        </Button>
-                      </span>
-                    </Tip>
+                    {!tokenOnly && (
+                      <Tip
+                        content={`Save the token and verify the ${def.title} connection without OAuth`}
+                      >
+                        <span className="inline-flex">
+                          <Button
+                            size="sm"
+                            className="h-7 px-2 text-[10px]"
+                            disabled={!token.trim() || connectPending}
+                            onClick={() =>
+                              props.onConnect(def.tokenAlt!.build(token.trim()), false)
+                            }
+                          >
+                            {connectPending ? 'Verifying…' : 'Save'}
+                          </Button>
+                        </span>
+                      </Tip>
+                    )}
                   </div>
                   <div className="text-[10px] text-muted-foreground">{def.tokenAlt.hint}</div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Token platforms can't OAuth — a broken connection means the
+              stored token is missing, invalid, or expired. */}
+          {tokenOnly && state === 'managed' && info && !info.connected && !info.connecting && (
+            <div className="mt-1 text-[10px] text-muted-foreground">
+              {def.title} connects with a personal access token — if this keeps failing, disconnect
+              and connect again with a fresh token.
             </div>
           )}
 
@@ -234,17 +253,25 @@ function ConnectorCard(props: CardProps): React.JSX.Element {
         <div className="flex shrink-0 items-center gap-1.5">
           {state === 'none' && phase !== 'auth' && (
             <Tip
-              content={`Add the official ${def.title} MCP server, sign in in your browser, and verify the connection`}
+              content={
+                tokenOnly
+                  ? `Save the token and verify the ${def.title} connection`
+                  : `Add the official ${def.title} MCP server, sign in in your browser, and verify the connection`
+              }
             >
               <span className="inline-flex">
                 <Button
                   size="sm"
                   className="h-6 px-2 text-[10px]"
-                  disabled={connectPending || instanceInvalid}
+                  disabled={connectPending || instanceInvalid || (tokenOnly && !token.trim())}
                   onClick={() =>
                     props.onConnect(
-                      def.needsInstanceUrl ? def.build({ instanceUrl }) : def.build({}),
-                      true
+                      tokenOnly
+                        ? def.tokenAlt!.build(token.trim())
+                        : def.needsInstanceUrl
+                          ? def.build({ instanceUrl })
+                          : def.build({}),
+                      !tokenOnly
                     )
                   }
                 >
@@ -279,7 +306,7 @@ function ConnectorCard(props: CardProps): React.JSX.Element {
           )}
           {state === 'managed' && (
             <>
-              {info?.needsAuth && !info.authenticating && (
+              {info?.needsAuth && !info.authenticating && !tokenOnly && (
                 <Tip content="Run the OAuth flow for this server in your browser">
                   <span className="inline-flex">
                     <Button
@@ -311,7 +338,7 @@ function ConnectorCard(props: CardProps): React.JSX.Element {
               )}
               {info &&
                 !info.connected &&
-                !info.needsAuth &&
+                (!info.needsAuth || tokenOnly) &&
                 !info.authenticating &&
                 !info.connecting && (
                   <Tip content="Retry the connection to this server">
