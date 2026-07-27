@@ -6,6 +6,7 @@
 import type { AgentControllerEventLike } from '../../../shared/ipc-types'
 import type {
   AgentUIEvent,
+  GoalEvaluationInfo,
   MessagePart,
   PendingApproval,
   PendingSuspension,
@@ -66,6 +67,8 @@ export interface TranslatorCallbacks {
    * an info line instead of the raw provider error.
    */
   onAgentError?: (text: string) => boolean
+  /** Called with each goal-judge verdict so it can be persisted as history. */
+  onGoalEvaluation?: (goal: GoalEvaluationInfo) => void
 }
 
 export class EventTranslator {
@@ -291,18 +294,17 @@ export class EventTranslator {
 
       case 'goal_evaluation': {
         const p = (ev.payload ?? {}) as Record<string, unknown>
-        this.cb.emit({
-          type: 'goal-update',
-          goal: {
-            objective: (p.objective as string) ?? '',
-            iteration: (p.iteration as number) ?? 0,
-            maxRuns: (p.maxRuns as number) ?? 0,
-            passed: (p.passed as boolean) ?? false,
-            status: (p.status as 'active' | 'paused' | 'done') ?? 'active',
-            reason: p.reason as string | undefined,
-            pausedReason: p.pausedReason as string | undefined
-          }
-        })
+        const goal: GoalEvaluationInfo = {
+          objective: (p.objective as string) ?? '',
+          iteration: (p.iteration as number) ?? 0,
+          maxRuns: (p.maxRuns as number) ?? 0,
+          passed: (p.passed as boolean) ?? false,
+          status: (p.status as 'active' | 'paused' | 'done') ?? 'active',
+          reason: p.reason as string | undefined,
+          pausedReason: p.pausedReason as string | undefined
+        }
+        this.cb.onGoalEvaluation?.(goal)
+        this.cb.emit({ type: 'goal-update', goal })
         break
       }
 

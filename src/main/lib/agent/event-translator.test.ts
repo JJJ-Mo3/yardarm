@@ -441,3 +441,44 @@ describe('per-message usage attribution', () => {
     expect(h.emitted.some((e) => e.type === 'usage')).toBe(true)
   })
 })
+
+describe('goal evaluations', () => {
+  it('forwards each verdict to onGoalEvaluation and still emits goal-update', () => {
+    const seen: unknown[] = []
+    const emitted: AgentUIEvent[] = []
+    const t = new EventTranslator({
+      emit: (ev) => emitted.push(structuredClone(ev)),
+      persistMessage: () => {},
+      onThreadChanged: () => {},
+      onMetaChanged: () => {},
+      onRunStateChanged: () => {},
+      onGoalEvaluation: (goal) => seen.push(goal)
+    })
+    t.handle({
+      type: 'goal_evaluation',
+      payload: {
+        objective: 'tests pass',
+        iteration: 2,
+        maxRuns: 5,
+        passed: false,
+        status: 'active',
+        reason: 'suite still failing'
+      }
+    })
+    expect(seen).toEqual([
+      {
+        objective: 'tests pass',
+        iteration: 2,
+        maxRuns: 5,
+        passed: false,
+        status: 'active',
+        reason: 'suite still failing',
+        pausedReason: undefined
+      }
+    ])
+    const goalEv = emitted.find((e) => e.type === 'goal-update')
+    expect(goalEv && goalEv.type === 'goal-update' ? goalEv.goal.objective : null).toBe(
+      'tests pass'
+    )
+  })
+})

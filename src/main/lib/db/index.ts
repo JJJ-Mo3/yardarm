@@ -83,7 +83,22 @@ const MIGRATIONS: string[] = [
      tokens_saved INTEGER NOT NULL,
      created_at INTEGER NOT NULL
    );
-   CREATE INDEX IF NOT EXISTS compression_events_subchat_idx ON compression_events(subchat_id);`
+   CREATE INDEX IF NOT EXISTS compression_events_subchat_idx ON compression_events(subchat_id);`,
+  // v7 — goal evaluation history (one row per judge verdict)
+  `CREATE TABLE IF NOT EXISTS goal_evaluations (
+     id TEXT PRIMARY KEY,
+     subchat_id TEXT NOT NULL REFERENCES subchats(id) ON DELETE CASCADE,
+     chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+     objective TEXT NOT NULL,
+     iteration INTEGER NOT NULL,
+     max_runs INTEGER NOT NULL,
+     passed INTEGER NOT NULL,
+     status TEXT NOT NULL,
+     reason TEXT,
+     paused_reason TEXT,
+     created_at INTEGER NOT NULL
+   );
+   CREATE INDEX IF NOT EXISTS goal_evaluations_chat_idx ON goal_evaluations(chat_id);`
 ]
 
 export function initDb(): DB {

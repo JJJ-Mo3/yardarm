@@ -96,6 +96,29 @@ export const compressionEvents = sqliteTable(
   (t) => [index('compression_events_subchat_idx').on(t.subchatId)]
 )
 
+/** One row per goal-judge verdict (goal_evaluation events), kept as history. */
+export const goalEvaluations = sqliteTable(
+  'goal_evaluations',
+  {
+    id: text('id').primaryKey(),
+    subchatId: text('subchat_id')
+      .notNull()
+      .references(() => subchats.id, { onDelete: 'cascade' }),
+    chatId: text('chat_id')
+      .notNull()
+      .references(() => chats.id, { onDelete: 'cascade' }),
+    objective: text('objective').notNull(),
+    iteration: integer('iteration').notNull(),
+    maxRuns: integer('max_runs').notNull(),
+    passed: integer('passed', { mode: 'boolean' }).notNull(),
+    status: text('status').notNull(),
+    reason: text('reason'),
+    pausedReason: text('paused_reason'),
+    createdAt: integer('created_at').notNull()
+  },
+  (t) => [index('goal_evaluations_chat_idx').on(t.chatId)]
+)
+
 export const appSettings = sqliteTable('app_settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull()

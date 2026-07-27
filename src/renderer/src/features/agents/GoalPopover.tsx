@@ -4,9 +4,9 @@
  * limit, or clear it — no slash command needed.
  */
 import React, { useEffect, useState } from 'react'
-import { Pause, Pencil, Play, Target, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, Pause, Pencil, Play, Target, X } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
-import { cn } from '../../lib/utils'
+import { cn, timeAgo } from '../../lib/utils'
 import { Input } from '../../components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
 import { Tip } from '../../components/ui/tooltip'
@@ -92,6 +92,7 @@ export function GoalPopover({
   const utils = trpc.useUtils()
   // Ungated: the trigger reflects goal state (shares the cache key with GoalBanner).
   const goal = trpc.agent.goalGet.useQuery({ subchatId })
+  const history = trpc.goals.history.useQuery({ subchatId }, { enabled: open })
   const models = trpc.agent.listModels.useQuery({ subchatId }, { enabled: open, staleTime: 60_000 })
   // Global goal defaults (Settings → Models) — shown as resolved placeholders.
   const settings = trpc.mastraSettings.get.useQuery(undefined, { enabled: open, staleTime: 30_000 })
@@ -109,10 +110,15 @@ export function GoalPopover({
   const [startNow, setStartNow] = useState(true)
   // Editing state for an existing goal's objective.
   const [editing, setEditing] = useState(false)
+  // Which history group (index) is expanded to show per-iteration verdicts.
+  const [expandedGroup, setExpandedGroup] = useState<number | null>(null)
 
   // Each judge evaluation updates runsUsed/status server-side; refresh.
   useEffect(() => {
-    if (live) void utils.agent.goalGet.invalidate({ subchatId })
+    if (live) {
+      void utils.agent.goalGet.invalidate({ subchatId })
+      void utils.goals.history.invalidate({ subchatId })
+    }
   }, [live, subchatId, utils])
 
   useEffect(() => {
@@ -120,7 +126,17 @@ export function GoalPopover({
     setEditing(false)
     setObjective('')
     setStartNow(true)
+    setExpandedGroup(null)
   }, [open, subchatId])
+
+  // Group consecutive verdicts (newest first) by objective — each group is
+  // one goal's lifetime, expandable to its per-iteration verdicts.
+  const historyGroups: { objective: string; rows: NonNullable<typeof history.data> }[] = []
+  for (const row of history.data ?? []) {
+    const last = historyGroups[historyGroups.length - 1]
+    if (last && last.objective === row.objective) last.rows.push(row)
+    else historyGroups.push({ objective: row.objective, rows: [row] })
+  }
 
   const g = goal.data
   const busy = goalSet.isPending || goalUpdate.isPending || goalClear.isPending
@@ -393,6 +409,73 @@ export function GoalPopover({
                   </button>
                 </span>
               </Tip>
+            </div>
+          </div>
+        )}
+
+        {historyGroups.length > 0 && (
+          <div className="mt-3 border-t border-border pt-2">
+            <div className="mb-1 text-[11px] font-medium text-muted-foreground">History</div>
+            <div className="max-h-48 space-y-0.5 overflow-y-auto">
+              {historyGroups.map((grp, i) => {
+                const isOpen = expandedGroup === i
+                const latest = grp.rows[0]
+                return (
+                  <div key={`${latest.id}`}>
+                    <Tip
+                      content={
+                        isOpen
+                          ? 'Hide the judge verdicts for this objective'
+                          : 'Show each judge verdict for this objective'
+                      }
+                    >
+                      <button
+                        onClick={() => setExpandedGroup(isOpen ? null : i)}
+                        className="flex w-full items-start gap-1 rounded px-1 py-0.5 text-left text-[11px] hover:bg-accent cursor-pointer"
+                      >
+                        {isOpen ? (
+                          <ChevronDown size={11} className="mt-0.5 shrink-0" />
+                        ) : (
+                          <ChevronRight size={11} className="mt-0.5 shrink-0" />
+                        )}
+                        <span className="min-w-0 flex-1 truncate" title={grp.objective}>
+                          {grp.objective}
+                        </span>
+                        <span
+                          className={cn(
+                            'shrink-0 text-[10px]',
+                            latest.passed ? 'text-green-500' : 'text-muted-foreground'
+                          )}
+                        >
+                          {grp.rows.length}
+                          {grp.rows.length === 1 ? ' eval' : ' evals'} ·{' '}
+                          {latest.passed ? 'passed' : 'not yet'}
+                        </span>
+                      </button>
+                    </Tip>
+                    {isOpen && (
+                      <div className="ml-4 space-y-0.5 pb-1">
+                        {[...grp.rows].reverse().map((r) => (
+                          <div key={r.id} className="text-[10px] text-muted-foreground selectable">
+                            <span
+                              className={cn(
+                                'font-medium',
+                                r.passed ? 'text-green-500' : 'text-amber-500'
+                              )}
+                            >
+                              #{r.iteration} {r.passed ? 'passed' : 'failed'}
+                            </span>
+                            {' · '}
+                            {timeAgo(r.createdAt)}
+                            {r.reason ? ` — ${r.reason}` : ''}
+                            {r.pausedReason ? ` — paused: ${r.pausedReason}` : ''}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}

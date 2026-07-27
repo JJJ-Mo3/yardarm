@@ -509,6 +509,33 @@ export class AgentSessionManager {
           queueMicrotask(() => this.maybeAutoContinue(subchatId))
         }
         return true
+      },
+      onGoalEvaluation: (goal) => {
+        // Persist each judge verdict as history (best-effort).
+        try {
+          const row = getDb()
+            .select({ chatId: schema.subchats.chatId })
+            .from(schema.subchats)
+            .where(eq(schema.subchats.id, subchatId))
+            .get()
+          if (!row) return
+          getDb()
+            .insert(schema.goalEvaluations)
+            .values({
+              id: randomUUID(),
+              subchatId,
+              chatId: row.chatId,
+              objective: goal.objective,
+              iteration: goal.iteration,
+              maxRuns: goal.maxRuns,
+              passed: goal.passed,
+              status: goal.status,
+              reason: goal.reason ?? null,
+              pausedReason: goal.pausedReason ?? null,
+              createdAt: Date.now()
+            })
+            .run()
+        } catch {}
       }
     })
     translator.seed(this.loadMessages(subchatId))
