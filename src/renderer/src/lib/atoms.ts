@@ -19,6 +19,7 @@ export type SettingsTab =
   | 'providers'
   | 'voice'
   | 'browser'
+  | 'connectors'
   | 'mcp'
   | 'about'
 export const settingsTabAtom = atom<SettingsTab>('appearance')

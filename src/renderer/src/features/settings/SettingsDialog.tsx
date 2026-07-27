@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
 import {
   Boxes,
+  Cable,
   Globe,
   Info,
   KeyRound,
@@ -30,6 +31,7 @@ import { Switch } from '../../components/ui/switch'
 import { Tip } from '../../components/ui/tooltip'
 import { AboutTab } from './AboutTab'
 import { BrowserTab } from './BrowserTab'
+import { ConnectorsTab } from './ConnectorsTab'
 import { ModelsTab } from './ModelsTab'
 import { PreferencesTab } from './PreferencesTab'
 import { ProvidersTab } from './ProvidersTab'
@@ -292,6 +294,12 @@ export function SettingsDialog(): React.JSX.Element {
       tip: 'Browser automation settings for web tools'
     },
     {
+      id: 'connectors',
+      label: 'Connectors',
+      icon: <Cable size={13} />,
+      tip: 'One-click connections to GitHub, GitLab, Supabase, Netlify, Vercel, and Sentry'
+    },
+    {
       id: 'mcp',
       label: 'MCP Servers',
       icon: <Server size={13} />,
@@ -334,6 +342,7 @@ export function SettingsDialog(): React.JSX.Element {
             {tab === 'providers' && <ProvidersTab />}
             {tab === 'voice' && <VoiceTab />}
             {tab === 'browser' && <BrowserTab />}
+            {tab === 'connectors' && <ConnectorsTab />}
             {tab === 'mcp' && <McpTab />}
             {tab === 'about' && <AboutTab />}
           </div>

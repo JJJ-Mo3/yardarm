@@ -39,15 +39,44 @@ export async function readMcpJson(projectPath?: string): Promise<McpJson> {
   }
 }
 
-export async function writeMcpServers(
-  servers: Record<string, McpServerConfig>,
-  projectPath?: string
-): Promise<void> {
+/** Serializes all mcp.json writes so concurrent writers can't lose each other's changes. */
+let writeQueue: Promise<unknown> = Promise.resolve()
+
+async function writeMcpJsonFile(next: McpJson, projectPath?: string): Promise<void> {
   const file = mcpJsonPath(projectPath)
-  const existing = await readMcpJson(projectPath)
-  const next: McpJson = { ...existing, mcpServers: servers }
   await fs.mkdir(path.dirname(file), { recursive: true })
   const tmp = `${file}.tmp-${process.pid}`
   await fs.writeFile(tmp, JSON.stringify(next, null, 2) + '\n', { mode: 0o600 })
   await fs.rename(tmp, file)
+}
+
+export function writeMcpServers(
+  servers: Record<string, McpServerConfig>,
+  projectPath?: string
+): Promise<void> {
+  const task = writeQueue.then(async () => {
+    const existing = await readMcpJson(projectPath)
+    await writeMcpJsonFile({ ...existing, mcpServers: servers }, projectPath)
+  })
+  writeQueue = task.catch(() => {})
+  return task
+}
+
+/**
+ * Queued read-modify-write of the mcpServers map (unknown top-level keys
+ * preserved). Returns the servers map after the mutation.
+ */
+export function updateMcpServers(
+  mutate: (servers: Record<string, McpServerConfig>) => void,
+  projectPath?: string
+): Promise<Record<string, McpServerConfig>> {
+  const task = writeQueue.then(async () => {
+    const existing = await readMcpJson(projectPath)
+    const servers = existing.mcpServers ?? {}
+    mutate(servers)
+    await writeMcpJsonFile({ ...existing, mcpServers: servers }, projectPath)
+    return servers
+  })
+  writeQueue = task.catch(() => {})
+  return task
 }

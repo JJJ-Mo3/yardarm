@@ -1,6 +1,11 @@
 import { z } from 'zod'
 import { observable } from '@trpc/server/observable'
-import { readMcpJson, writeMcpServers, type McpServerConfig } from '../../mastra-config/mcp-json'
+import {
+  readMcpJson,
+  updateMcpServers,
+  writeMcpServers,
+  type McpServerConfig
+} from '../../mastra-config/mcp-json'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import { publicProcedure, router } from '../trpc'
 import type { McpAuthUrlEvent } from '../../../../shared/ipc-types'
@@ -36,6 +41,36 @@ export const mcpRouter = router({
       await writeMcpServers(input.servers as Record<string, McpServerConfig>, input.projectPath)
       // Hosts read mcp.json at boot — restart so changes take effect.
       // Project-scoped edits only affect that project's hosts.
+      if (input.projectPath) agentSessionManager.restartByProject(input.projectPath)
+      else agentSessionManager.restartAll()
+      return { ok: true }
+    }),
+
+  /** Add or replace a single server (used by the Connectors tab); restarts agents. */
+  setServer: publicProcedure
+    .input(
+      z.object({
+        name: z.string().min(1),
+        config: serverConfigSchema,
+        projectPath: z.string().optional()
+      })
+    )
+    .mutation(async ({ input }) => {
+      await updateMcpServers((servers) => {
+        servers[input.name] = input.config as McpServerConfig
+      }, input.projectPath)
+      if (input.projectPath) agentSessionManager.restartByProject(input.projectPath)
+      else agentSessionManager.restartAll()
+      return { ok: true }
+    }),
+
+  /** Remove a single server (used by the Connectors tab); restarts agents. */
+  removeServer: publicProcedure
+    .input(z.object({ name: z.string().min(1), projectPath: z.string().optional() }))
+    .mutation(async ({ input }) => {
+      await updateMcpServers((servers) => {
+        delete servers[input.name]
+      }, input.projectPath)
       if (input.projectPath) agentSessionManager.restartByProject(input.projectPath)
       else agentSessionManager.restartAll()
       return { ok: true }
