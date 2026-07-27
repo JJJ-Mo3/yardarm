@@ -17,6 +17,7 @@ import {
   Trash2,
   Webhook
 } from 'lucide-react'
+import type { PluginConfigOption } from '@shared/ipc-types'
 import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
 import {
@@ -29,10 +30,12 @@ import {
 } from '../../lib/atoms'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
+import { Switch } from '../../components/ui/switch'
 import { Textarea } from '../../components/ui/textarea'
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
 import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
+import { ModelSelect } from '../../components/ModelSelect'
 import { AgentsTab } from './AgentsTab'
 
 function GeneralTab({
@@ -782,6 +785,88 @@ function ResourceTab({
   )
 }
 
+/** Schema-declared plugin settings rendered as typed fields (boolean/string/model). */
+function PluginConfigForm({
+  subchatId,
+  pluginId,
+  scope,
+  schema,
+  values
+}: {
+  subchatId: string
+  pluginId: string
+  scope: 'global' | 'project'
+  schema: Record<string, PluginConfigOption>
+  values: Record<string, string | boolean | undefined>
+}): React.JSX.Element {
+  const utils = trpc.useUtils()
+  const setConfig = trpc.projectConfig.pluginSetConfig.useMutation({
+    onSuccess: (list) => utils.projectConfig.pluginsList.setData({ subchatId }, list)
+  })
+  const needsModels = Object.values(schema).some((o) => o.type === 'model')
+  const models = trpc.agent.listModels.useQuery(
+    { subchatId },
+    { enabled: needsModels, staleTime: 60_000 }
+  )
+  const save = (key: string, value: string | boolean): void =>
+    setConfig.mutate({ subchatId, pluginId, scope, key, value })
+  return (
+    <div className="mt-1.5 space-y-1.5">
+      {Object.entries(schema).map(([key, opt]) => {
+        const current = values[key] ?? opt.default
+        const label = opt.label ?? key
+        const tip = opt.description ?? `Set the plugin's ${label} option`
+        return (
+          <div key={key} className="flex items-center gap-2">
+            <span className="w-36 shrink-0 truncate text-[10px] text-muted-foreground" title={key}>
+              {label}
+            </span>
+            {opt.type === 'boolean' ? (
+              <Tip content={tip}>
+                <span className="inline-flex">
+                  <Switch
+                    checked={current === true || current === 'true'}
+                    disabled={setConfig.isPending}
+                    onCheckedChange={(v) => save(key, v)}
+                  />
+                </span>
+              </Tip>
+            ) : opt.type === 'model' ? (
+              <Tip content={tip}>
+                <span className="inline-flex min-w-0 flex-1">
+                  <ModelSelect
+                    value={typeof current === 'string' ? current : ''}
+                    onChange={(v) => save(key, v)}
+                    models={models.data ?? []}
+                    placeholder="(default model)"
+                  />
+                </span>
+              </Tip>
+            ) : (
+              <Tip content={tip}>
+                <span className="inline-flex min-w-0 flex-1">
+                  <Input
+                    className="h-6 font-mono text-[10px]"
+                    defaultValue={typeof current === 'string' ? current : ''}
+                    placeholder={typeof opt.default === 'string' ? opt.default : undefined}
+                    onBlur={(e) => {
+                      const v = e.target.value
+                      if (v !== (typeof current === 'string' ? current : '')) save(key, v)
+                    }}
+                  />
+                </span>
+              </Tip>
+            )}
+          </div>
+        )
+      })}
+      {setConfig.error && (
+        <div className="text-[10px] text-destructive selectable">{setConfig.error.message}</div>
+      )}
+    </div>
+  )
+}
+
 function PluginConfigRow({
   subchatId,
   pluginId,
@@ -1001,7 +1086,18 @@ function PluginsTab({ subchatId }: { subchatId: string | null }): React.JSX.Elem
               </div>
               {p.error && <div className="text-[10px] text-destructive selectable">{p.error}</div>}
               {configFor === p.id && (
-                <PluginConfigRow subchatId={subchatId} pluginId={p.id} scope={scope} />
+                <>
+                  {p.configSchema && Object.keys(p.configSchema).length > 0 && (
+                    <PluginConfigForm
+                      subchatId={subchatId}
+                      pluginId={p.id}
+                      scope={scope}
+                      schema={p.configSchema}
+                      values={p.configValues ?? {}}
+                    />
+                  )}
+                  <PluginConfigRow subchatId={subchatId} pluginId={p.id} scope={scope} />
+                </>
               )}
             </div>
           )

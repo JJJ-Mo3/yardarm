@@ -296,6 +296,14 @@ export interface ResourceInfo {
   resourceId: string
 }
 
+/** One declared config field on a plugin (plain JSON from the SDK). */
+export interface PluginConfigOption {
+  type: 'model' | 'boolean' | 'string'
+  label?: string
+  description?: string
+  default?: string | boolean
+}
+
 /** A loaded mastracode plugin/skill pack. */
 export interface PluginInfo {
   id: string
@@ -307,6 +315,9 @@ export interface PluginInfo {
   skillCount: number
   commandCount: number
   error?: string
+  /** Declared config form; keys line up with configValues. */
+  configSchema?: Record<string, PluginConfigOption>
+  configValues?: Record<string, string | boolean | undefined>
 }
 
 /** Where a plugin is installed: global (~/.mastracode) or project-local. */

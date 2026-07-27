@@ -424,7 +424,11 @@ async function main(): Promise<void> {
       toolNames: p.toolNames,
       skillCount: p.skillPaths?.length ?? 0,
       commandCount: p.commandPaths?.length ?? 0,
-      error: p.error
+      error: p.error,
+      // Plain JSON data declared by the plugin (MastraCodePluginConfigSchema)
+      // — safe to send over the wire as-is.
+      configSchema: p.configSchema,
+      configValues: p.configValues
     }))
 
   /** Project the SDK's McpServerStatus onto the wire-safe McpServerStatusInfo shape. */
