@@ -22,6 +22,7 @@ import {
 } from './custom-provider-models'
 import { readSettings } from '../mastra-config/settings-json'
 import { updateMcpServers, type McpServerConfig } from '../mastra-config/mcp-json'
+import { mirrorMcpOAuthTokens } from '../mastra-config/mcp-oauth-mirror'
 import { loadSubagentDefinitions } from '../mastra-config/agents-fs'
 import {
   isSettledMcpStatus,
@@ -414,6 +415,19 @@ export class AgentSessionManager {
       compression: this.compressionSettings(),
       subagents
     }
+
+    // MCP OAuth tokens are fingerprinted by projectDir (git toplevel of the
+    // host cwd), so a worktree cwd would never see sign-ins made from the
+    // project root or Connectors (utility host, cwd=$HOME). Mirror the
+    // newest tokens across all of this project's cwds before boot.
+    const siblingWorktrees = db
+      .select({ worktreePath: schema.chats.worktreePath })
+      .from(schema.chats)
+      .where(eq(schema.chats.projectId, chat.projectId))
+      .all()
+      .map((r) => r.worktreePath)
+      .filter((p): p is string => !!p)
+    await mirrorMcpOAuthTokens([cwd, project.path, os.homedir(), ...siblingWorktrees])
 
     const handle = this.spawnHost(subchatId, boot)
     this.hosts.set(subchatId, handle)
@@ -1866,11 +1880,36 @@ export class AgentSessionManager {
     const handle = subchatId ? await this.ensureHost(subchatId) : await this.ensureUtilityHost()
     // Human consent flow in a browser — outlive the host's own 4-minute cap
     // so the SDK's resolves-with-error status wins over an IPC timeout.
-    return this.request<McpServerStatusInfo>(
+    const status = await this.request<McpServerStatusInfo>(
       handle,
       { t: 'mcpAuthenticate', reqId: randomUUID(), serverName },
       5 * 60_000
     )
+    // Spread the fresh token to every other cwd's fingerprint (worktrees,
+    // project roots) so existing hosts pick it up on their next boot.
+    this.mirrorMcpTokensEverywhere()
+    return status
+  }
+
+  /**
+   * Best-effort outward mirror of MCP OAuth tokens across every cwd a host
+   * can boot with (home dir for the utility host, project roots, worktrees).
+   */
+  private mirrorMcpTokensEverywhere(): void {
+    try {
+      const db = getDb()
+      const projectPaths = db.select({ path: schema.projects.path }).from(schema.projects).all()
+      const worktreePaths = db
+        .select({ worktreePath: schema.chats.worktreePath })
+        .from(schema.chats)
+        .all()
+      const cwds = [
+        os.homedir(),
+        ...projectPaths.map((r) => r.path),
+        ...worktreePaths.map((r) => r.worktreePath).filter((p): p is string => !!p)
+      ]
+      void mirrorMcpOAuthTokens(cwds)
+    } catch {}
   }
 
   async mcpCancelAuth(
@@ -1978,11 +2017,14 @@ export class AgentSessionManager {
       // directly even while the op queue is blocked on this very flow.
       this.mcpConnectHandles.set(name, handle)
       try {
-        return await this.request<McpServerStatusInfo>(
+        const status = await this.request<McpServerStatusInfo>(
           handle,
           { t: 'mcpAuthenticate', reqId: randomUUID(), serverName: name },
           5 * 60_000
         )
+        // Share the fresh sign-in with every project/worktree cwd fingerprint.
+        this.mirrorMcpTokensEverywhere()
+        return status
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)
         return syntheticMcpFailureStatus(name, config, message)

@@ -72,8 +72,11 @@ No accounts or login — everything runs locally against mastracode's own config
   soft-private `Workspace._sandbox` field and builds an isolated `LocalSandbox` via
   `ws.sandbox.constructor` (`src/main/agent-host/sandbox-isolation.ts`), so check that field,
   the `nativeSandbox` option names, and static `detectIsolation()` against the new SDK →
-  `pnpm package` restages `vendor/` → packaged boot-check + a real agent turn. Dev typecheck
-  alone does not prove the packaged runtime (npm-staged vs pnpm dev trees).
+  re-verify `src/main/lib/mastra-config/mcp-oauth-mirror.ts` against the SDK's
+  `getOAuthStoragePath`/`getStorageKeyFingerprint` (dist/mcp/manager.js) — the cross-worktree
+  sign-in mirror reimplements that unversioned fingerprint, and its vitest known-vector test is
+  the tripwire → `pnpm package` restages `vendor/` → packaged boot-check + a real agent turn.
+  Dev typecheck alone does not prove the packaged runtime (npm-staged vs pnpm dev trees).
 - Native modules (better-sqlite3, node-pty) are `asarUnpack`ed — see `electron-builder.yml`.
 - Each chat can run in its own git worktree under Electron userData
   (`worktrees/<projectId>/<chatId>`, branch prefix `yardarm/`); rollback checkpoints are stored
