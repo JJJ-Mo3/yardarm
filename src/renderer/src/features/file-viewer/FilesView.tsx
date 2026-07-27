@@ -91,6 +91,23 @@ function DirNode({
         <Folder size={12} className="shrink-0 text-muted-foreground" />
         <span className="truncate">{name}</span>
       </button>
+      {open && children.isLoading && (
+        <div
+          style={{ paddingLeft: (depth + 1) * 12 + 8 }}
+          className="px-2 py-1 text-[12px] text-muted-foreground"
+        >
+          Loading…
+        </div>
+      )}
+      {open && children.error && (
+        <div
+          style={{ paddingLeft: (depth + 1) * 12 + 8 }}
+          className="px-2 py-1 text-[12px] text-destructive"
+          title={children.error.message}
+        >
+          Failed to read directory
+        </div>
+      )}
       {open &&
         (children.data ?? []).map((n) =>
           n.type === 'dir' ? (
@@ -309,6 +326,11 @@ export function FilesView({ root }: { root: string }): React.JSX.Element {
   return (
     <div className="flex h-full">
       <div className="w-64 shrink-0 overflow-y-auto border-r border-border py-1">
+        {tree.error && (
+          <div className="px-3 py-2 text-[12px] text-destructive">
+            Failed to read project folder: {tree.error.message}
+          </div>
+        )}
         {(tree.data ?? []).map((n) =>
           n.type === 'dir' ? (
             <DirNode

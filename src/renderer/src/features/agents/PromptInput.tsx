@@ -299,22 +299,29 @@ export function PromptInput({
         }
       }}
     >
-      {mentionQuery !== null && files.length > 0 && (
-        <div className="absolute bottom-full left-3 right-3 mb-1 rounded-md border border-border bg-background shadow-lg overflow-hidden z-10">
-          {files.map((f, i) => (
-            <button
-              key={f}
-              onClick={() => insertMention(f)}
-              className={cn(
-                'block w-full truncate px-2.5 py-1.5 text-left font-mono text-[11px] cursor-pointer',
-                i === mentionIndex ? 'bg-accent' : 'hover:bg-accent'
-              )}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
-      )}
+      {mentionQuery !== null &&
+        (files.length > 0 || mentionResults.isLoading || mentionResults.isError) && (
+          <div className="absolute bottom-full left-3 right-3 mb-1 rounded-md border border-border bg-background shadow-lg overflow-hidden z-10">
+            {files.length === 0 && mentionResults.isLoading && (
+              <div className="px-2.5 py-1.5 text-[11px] text-muted-foreground">Searching…</div>
+            )}
+            {files.length === 0 && mentionResults.isError && (
+              <div className="px-2.5 py-1.5 text-[11px] text-destructive">Search failed</div>
+            )}
+            {files.map((f, i) => (
+              <button
+                key={f}
+                onClick={() => insertMention(f)}
+                className={cn(
+                  'block w-full truncate px-2.5 py-1.5 text-left font-mono text-[11px] cursor-pointer',
+                  i === mentionIndex ? 'bg-accent' : 'hover:bg-accent'
+                )}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        )}
       {slashMatches.length > 0 && (
         <div className="absolute bottom-full left-3 right-3 mb-1 max-h-72 overflow-y-auto rounded-md border border-border bg-background shadow-lg z-10">
           {slashMatches.map((c, i) => (

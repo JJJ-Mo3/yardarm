@@ -1823,10 +1823,22 @@ export class AgentSessionManager {
     )
   }
 
+  /**
+   * Drop a subchat's EventEmitter if nothing is subscribed, so the emitters
+   * map doesn't accumulate an entry for every subchat ever touched. Live
+   * subscriptions hold the emitter instance via closure, so it must stay;
+   * emitterFor() recreates it transparently on next use.
+   */
+  private pruneEmitter(subchatId: string): void {
+    const em = this.emitters.get(subchatId)
+    if (em && em.listenerCount('event') === 0) this.emitters.delete(subchatId)
+  }
+
   /** Stop the host for a subchat (e.g. on chat delete or app quit). */
   stopHost(subchatId: string): void {
     this.clearIdeNoteTimer(subchatId)
     this.writeBuffer.flush(subchatId)
+    this.pruneEmitter(subchatId)
     const handle = this.hosts.get(subchatId)
     if (!handle) return
     this.sendCommand(handle, { t: 'shutdown' })
@@ -1844,6 +1856,7 @@ export class AgentSessionManager {
   async stopHostAndWait(subchatId: string, timeoutMs = 3000): Promise<void> {
     this.clearIdeNoteTimer(subchatId)
     this.writeBuffer.flush(subchatId)
+    this.pruneEmitter(subchatId)
     const handle = this.hosts.get(subchatId)
     this.hosts.delete(subchatId)
     if (!handle || handle.killed) return
