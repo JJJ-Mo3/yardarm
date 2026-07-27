@@ -109,8 +109,8 @@ export function CheckpointsList({
       <div className="flex-1 overflow-y-auto p-1">
         {entries.length === 0 && !list.isLoading && (
           <div className="p-4 text-center text-[11px] text-muted-foreground">
-            No checkpoints yet — snapshots are captured automatically before each message, or name
-            one below.
+            No checkpoints yet — one is captured automatically before each message, or name one
+            below.
           </div>
         )}
         {entries.map((e) => {
@@ -216,7 +216,7 @@ export function CheckpointsList({
                         ev.stopPropagation()
                         void confirmDialog({
                           title: 'Delete checkpoint?',
-                          description: `"${e.name}" will be removed. Its snapshot is freed unless something else still references it.`,
+                          description: `"${e.name}" will be removed. Its saved working-tree state is freed unless something else still references it.`,
                           confirmLabel: 'Delete'
                         }).then((ok) => {
                           if (ok) remove.mutate({ chatId, id: e.id })
@@ -280,7 +280,7 @@ export function CheckpointsList({
             }}
             className="h-7 flex-1 text-[11px]"
           />
-          <Tip content="Snapshot the working tree right now as a named checkpoint">
+          <Tip content="Save the working tree right now as a named checkpoint">
             <span className="inline-flex">
               <Button
                 size="sm"
@@ -291,7 +291,7 @@ export function CheckpointsList({
               </Button>
             </span>
           </Tip>
-          <Tip content="Delete snapshot refs nothing references anymore (no message rollback and no named checkpoint, project-wide)">
+          <Tip content="Delete checkpoint refs nothing references anymore (no message rollback and no named checkpoint, project-wide)">
             <span className="inline-flex">
               <Button
                 size="sm"
@@ -302,7 +302,7 @@ export function CheckpointsList({
                   void confirmDialog({
                     title: 'Prune checkpoint refs?',
                     description:
-                      'Snapshots no message rollback or named checkpoint references anymore are deleted from the repo.',
+                      'Checkpoint refs no message rollback or named checkpoint references anymore are deleted from the repo.',
                     confirmLabel: 'Prune'
                   }).then((ok) => {
                     if (ok) prune.mutate({ chatId })
@@ -316,7 +316,7 @@ export function CheckpointsList({
         </div>
         {pruned !== null && (
           <div className="text-[11px] text-muted-foreground">
-            Pruned {pruned} unreferenced snapshot{pruned === 1 ? '' : 's'}.
+            Pruned {pruned} unreferenced checkpoint{pruned === 1 ? '' : 's'}.
           </div>
         )}
         {mutationError && (

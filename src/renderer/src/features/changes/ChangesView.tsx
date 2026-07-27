@@ -394,7 +394,7 @@ export function ChangesView({
             </button>
           </Tip>
           {checkpoints && (
-            <Tip content="Checkpoint snapshots: name the current tree, compare any two, prune old ones">
+            <Tip content="Checkpoints: name the current tree, compare any two, prune old ones">
               <button
                 onClick={() => {
                   setPane('checkpoints')
@@ -408,7 +408,7 @@ export function ChangesView({
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                Snapshots
+                Checkpoints
               </button>
             </Tip>
           )}
@@ -677,7 +677,7 @@ export function ChangesView({
             <CheckpointDiffPanel chatId={checkpoints.chatId} a={ckA} b={ckB} path={ckFile} />
           ) : (
             <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-              Select two snapshots (A and B), then a file
+              Select two checkpoints (A and B), then a file
             </div>
           )
         ) : pane === 'history' ? (
