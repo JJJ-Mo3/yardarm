@@ -5,7 +5,9 @@
  * the interactive Session API to the main process over parentPort messages.
  * This is the single integration point with the mastracode SDK.
  */
+import { spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type {
@@ -82,6 +84,17 @@ async function runtimeImport<T>(spec: string): Promise<T> {
   return (await import(pathToFileURL(path.join(pkgDir, target)).href)) as T
 }
 
+/**
+ * Absolute path of a file inside a package in the active runtime tree: the
+ * vendored Resources/agent-runtime when packaged, the app's node_modules in
+ * dev (resolved from this bundle's location — process.cwd() is the worktree).
+ */
+function resolveRuntimeFile(pkg: string, sub: string): string {
+  if (runtimeDir) return path.join(runtimeDir, 'node_modules', pkg, sub)
+  const req = createRequire(__filename)
+  return path.join(path.dirname(req.resolve(`${pkg}/package.json`)), sub)
+}
+
 interface ParentPort {
   on(event: 'message', listener: (ev: { data: HostCommand }) => void): void
   postMessage(data: unknown): void
@@ -123,6 +136,83 @@ interface LspClientLike {
 
 /** Files this host has sent didOpen for (didClose+didOpen refreshes them). */
 const lspOpenedPaths = new Set<string>()
+
+const TS_LANGUAGE_IDS = new Set(['typescript', 'typescriptreact', 'javascript', 'javascriptreact'])
+
+/** Bundled typescript-language-server clients, keyed by project root. */
+const tsLspClients = new Map<string, Promise<LspClientLike>>()
+
+/** Nearest ancestor with tsconfig.json/package.json (LSP workspace root). */
+function findTsProjectRoot(fileDir: string): string {
+  let current = fileDir
+  for (;;) {
+    if (
+      existsSync(path.join(current, 'tsconfig.json')) ||
+      existsSync(path.join(current, 'package.json'))
+    ) {
+      return current
+    }
+    const parent = path.dirname(current)
+    if (parent === current) return process.cwd()
+    current = parent
+  }
+}
+
+/**
+ * TS-family LSP client backed by the bundled typescript-language-server,
+ * spawned as Electron-run-as-node. The SDK's own spawn path needs
+ * `typescript-language-server` preinstalled in the project or `npx` on PATH —
+ * neither holds for a packaged GUI app (bare launchd PATH) or a plain
+ * project, which is why the problems panel showed "no language server
+ * available" everywhere. The project's own `typescript` is preferred for
+ * tsserver so diagnostics match its version; the bundled one is the fallback.
+ */
+function getTsLspClient(filePath: string): Promise<LspClientLike> {
+  const root = findTsProjectRoot(path.dirname(filePath))
+  const cached = tsLspClients.get(root)
+  if (cached) return cached
+  const promise = (async (): Promise<LspClientLike> => {
+    const { LSPClient } = await runtimeImport<{
+      LSPClient: new (
+        serverInfo: unknown,
+        workspaceRoot: string
+      ) => LspClientLike & { initialize(): Promise<void> }
+    }>('@mastra/code-sdk/lsp/client')
+    const cliPath = resolveRuntimeFile('typescript-language-server', 'lib/cli.mjs')
+    let tsserverPath: string
+    try {
+      tsserverPath = createRequire(path.join(root, 'package.json')).resolve(
+        'typescript/lib/tsserver.js'
+      )
+    } catch {
+      tsserverPath = resolveRuntimeFile('typescript', 'lib/tsserver.js')
+    }
+    const serverInfo = {
+      id: 'typescript',
+      name: 'TypeScript Language Server (bundled)',
+      languageIds: [...TS_LANGUAGE_IDS],
+      root: () => root,
+      spawn: () => ({
+        process: spawn(process.execPath, [cliPath, '--stdio'], {
+          cwd: root,
+          stdio: ['pipe', 'pipe', 'pipe'] as const,
+          env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
+        }),
+        initialization: { tsserver: { path: tsserverPath, logVerbosity: 'off' } }
+      })
+    }
+    const client = new LSPClient(serverInfo, root)
+    await client.initialize()
+    return client
+  })()
+  // Drop failed initializations from the cache so a later request retries.
+  const guarded = promise.catch((err) => {
+    tsLspClients.delete(root)
+    throw err
+  })
+  tsLspClients.set(root, guarded)
+  return guarded
+}
 
 /**
  * Poll the client's publish cache for any URI key a server may use for the
@@ -175,11 +265,15 @@ async function collectLspDiagnostics(filePath: string): Promise<LspDiagnosticsRe
     if (!languageId) {
       return { diagnostics: [], unavailableReason: 'No language server supports this file type' }
     }
-    const client = await lspManager.getClient(filePath, process.cwd())
+    // TS-family files use the bundled server (see getTsLspClient); the rest
+    // go through the SDK manager, which needs the server binary on PATH.
+    const client = TS_LANGUAGE_IDS.has(languageId)
+      ? await getTsLspClient(filePath)
+      : await lspManager.getClient(filePath, process.cwd())
     if (!client) {
       return {
         diagnostics: [],
-        unavailableReason: `No language server available for ${languageId} files in this project`
+        unavailableReason: `No language server available for ${languageId} files — is its language server (e.g. pyright, gopls, rust-analyzer) installed and on your PATH?`
       }
     }
     const content = readFileSync(filePath, 'utf8')

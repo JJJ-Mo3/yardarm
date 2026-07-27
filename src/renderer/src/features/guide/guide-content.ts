@@ -192,8 +192,9 @@ The IDE tab is a multi-tab code editor (Monaco) rooted at the chat's worktree.
   refreshed when you open or save it. Click a problem to jump to it; markers also appear
   inline in the editor.
 
-Language support comes from language servers found in the project (e.g. the project's own
-TypeScript) or on your PATH (Python, Go, Rust).
+TypeScript and JavaScript support is built in (a bundled language server, using your project's
+own TypeScript when it has one). Other languages use their language server from your PATH
+(pyright for Python, gopls for Go, rust-analyzer for Rust).
 `
   },
   {

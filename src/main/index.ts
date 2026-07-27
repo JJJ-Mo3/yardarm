@@ -7,6 +7,7 @@ import { normalizeModelIdsInSettings } from './lib/mastra-config/normalize-model
 import { ptyManager } from './lib/terminal/pty-manager'
 import { createWindow, setIpcHandler } from './windows/window-manager'
 import { updateManager } from './lib/updates/update-manager'
+import { warmLoginPath } from './lib/system/login-path'
 import icon from '../../build/icon.png?asset'
 
 // Two OS-level instances would contend over the same SQLite database and
@@ -45,11 +46,13 @@ app.whenReady().then(() => {
   createWindow()
   updateManager.init()
 
-  // Heal gateway-prefixed model ids saved before catalog normalization, then
-  // warm up + verify the bundled mastracode runtime (hosts read settings.json
-  // at boot, so the migration runs before the first host spawns); renderer
-  // preflight queries reuse the booted utility host.
-  normalizeModelIdsInSettings()
+  // Capture the login-shell PATH (packaged apps launch with the bare launchd
+  // one), heal gateway-prefixed model ids saved before catalog normalization,
+  // then warm up + verify the bundled mastracode runtime (hosts read
+  // settings.json at boot and inherit the captured PATH, so both run before
+  // the first host spawns); renderer preflight queries reuse the booted host.
+  warmLoginPath()
+    .then(() => normalizeModelIdsInSettings())
     .catch(() => {})
     .then(() => agentSessionManager.preflight())
     .then((res) => {

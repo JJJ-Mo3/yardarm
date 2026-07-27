@@ -24,7 +24,12 @@ const appPkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
 const version = (name) => appPkg.dependencies?.[name] ?? appPkg.devDependencies?.[name]
 const deps = {
   mastracode: version('mastracode'),
-  '@mastra/code-sdk': version('@mastra/code-sdk')
+  '@mastra/code-sdk': version('@mastra/code-sdk'),
+  // IDE problems panel: the agent host spawns this bundled TypeScript
+  // language server (with the bundled typescript as tsserver fallback) so
+  // TS/JS diagnostics work without any user-installed tooling.
+  'typescript-language-server': version('typescript-language-server'),
+  typescript: version('typescript')
 }
 for (const [name, v] of Object.entries(deps)) {
   if (!v) {

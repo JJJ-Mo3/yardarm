@@ -78,7 +78,12 @@ No accounts or login — everything runs locally against mastracode's own config
   the tripwire → re-verify the IDE diagnostics collector (`collectLspDiagnostics` in
   agent-host.ts): it reads the LSP client's soft-private `diagnostics` map under both raw and
   percent-encoded `file://` keys because servers normalize URIs and the SDK's raw-key lookups
-  miss publishes for paths with spaces (every worktree under "Application Support") →
+  miss publishes for paths with spaces (every worktree under "Application Support"), and
+  TS/JS diagnostics bypass the SDK's LSPManager entirely: `getTsLspClient` constructs the
+  SDK's `LSPClient` class (deep import `@mastra/code-sdk/lsp/client`) around the bundled
+  `typescript-language-server` (staged into the runtime by build-agent-runtime.mjs, run via
+  `process.execPath` + `ELECTRON_RUN_AS_NODE`), so check that class's constructor/initialize
+  signatures and the `{ process, initialization }` spawn-result shape against the new SDK →
   `pnpm package` restages `vendor/` → packaged boot-check + a real agent turn.
   Dev typecheck alone does not prove the packaged runtime (npm-staged vs pnpm dev trees).
 - Native modules (better-sqlite3, node-pty) are `asarUnpack`ed — see `electron-builder.yml`.

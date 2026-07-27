@@ -23,6 +23,7 @@ import {
 import { readSettings } from '../mastra-config/settings-json'
 import { updateMcpServers, type McpServerConfig } from '../mastra-config/mcp-json'
 import { mirrorMcpOAuthTokens } from '../mastra-config/mcp-oauth-mirror'
+import { getLoginPath } from '../system/login-path'
 import { loadSubagentDefinitions } from '../mastra-config/agents-fs'
 import {
   isSettledMcpStatus,
@@ -448,6 +449,9 @@ export class AgentSessionManager {
       stdio: 'pipe',
       env: {
         ...process.env,
+        // Login-shell PATH so hosts can spawn user-installed tools (language
+        // servers, gh, ...) — packaged apps inherit the bare launchd PATH.
+        PATH: getLoginPath() ?? process.env.PATH,
         YARDARM_BOOT: JSON.stringify(boot)
       }
     })

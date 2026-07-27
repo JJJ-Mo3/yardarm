@@ -457,9 +457,10 @@ shortcuts stay with the left (primary) pane.
   to overwrite or reload. A **problems panel** below the editor shows
   language-server diagnostics (errors and warnings) for the active file,
   refreshed when you open or save it — click a problem to jump to it, and
-  the same markers appear inline in the editor. Language support comes from
-  servers found in the project (e.g. its own TypeScript) or on your PATH
-  (Python, Go, Rust).
+  the same markers appear inline in the editor. TypeScript and JavaScript
+  support is built in (a bundled language server, using your project's own
+  TypeScript when it has one); other languages use their language server
+  from your PATH (pyright, gopls, rust-analyzer).
 - **CLI** (`Cmd+2`) — the interactive Mastra Code terminal UI, embedded,
   running in the same worktree and seeing the same threads as the chat.
   Handy for CLI-only commands (terminal voice mode, …). Avoid
