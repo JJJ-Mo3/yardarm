@@ -88,12 +88,6 @@ const TABS: Array<{ id: MainTab; label: string; icon: React.ReactNode; tip: stri
     tip: 'Board of this project’s chats grouped by live agent status — click a card to open it'
   },
   {
-    id: 'analytics',
-    label: 'Analytics',
-    icon: <ChartColumn size={13} />,
-    tip: 'Token usage and estimated cost for this project, by day, model, and chat'
-  },
-  {
     id: 'preview',
     label: 'Preview',
     icon: <Globe size={13} />,
@@ -219,28 +213,46 @@ export default function App(): React.JSX.Element {
               </button>
             </Tip>
           ))}
-          {tab === 'chat' && chatId && (
+          <div className="ml-auto flex items-center gap-1">
+            {tab === 'chat' && chatId && (
+              <Tip
+                content={
+                  splitOpen
+                    ? 'Close the split pane'
+                    : 'Split the chat view — show a second chat of this project side by side'
+                }
+                side="bottom"
+              >
+                <button
+                  onClick={() => (splitOpen ? closeSplit() : setSplitOpen(true))}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs cursor-pointer',
+                    splitOpen
+                      ? 'bg-accent font-medium'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <Columns2 size={13} />
+                </button>
+              </Tip>
+            )}
             <Tip
-              content={
-                splitOpen
-                  ? 'Close the split pane'
-                  : 'Split the chat view — show a second chat of this project side by side'
-              }
+              content="Analytics — token usage and estimated cost for this project, by day, model, and chat"
               side="bottom"
             >
               <button
-                onClick={() => (splitOpen ? closeSplit() : setSplitOpen(true))}
+                onClick={() => setTab('analytics')}
                 className={cn(
-                  'ml-auto flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs cursor-pointer',
-                  splitOpen
+                  'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs cursor-pointer',
+                  tab === 'analytics'
                     ? 'bg-accent font-medium'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                <Columns2 size={13} />
+                <ChartColumn size={13} />
               </button>
             </Tip>
-          )}
+          </div>
         </div>
 
         <UpdateRestartBanner />
