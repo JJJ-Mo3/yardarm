@@ -111,7 +111,21 @@ const MIGRATIONS: string[] = [
      message_id TEXT,
      created_at INTEGER NOT NULL
    );
-   CREATE INDEX IF NOT EXISTS checkpoints_chat_idx ON checkpoints(chat_id);`
+   CREATE INDEX IF NOT EXISTS checkpoints_chat_idx ON checkpoints(chat_id);`,
+  // v9 — kanban cards (authored task cards that can dispatch agent chats)
+  `CREATE TABLE IF NOT EXISTS kanban_cards (
+     id TEXT PRIMARY KEY,
+     project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+     title TEXT NOT NULL,
+     prompt TEXT NOT NULL,
+     column_id TEXT NOT NULL,
+     sort_order REAL NOT NULL,
+     chat_id TEXT REFERENCES chats(id) ON DELETE SET NULL,
+     use_worktree INTEGER NOT NULL,
+     created_at INTEGER NOT NULL,
+     updated_at INTEGER NOT NULL
+   );
+   CREATE INDEX IF NOT EXISTS kanban_cards_project_idx ON kanban_cards(project_id);`
 ]
 
 export function initDb(): DB {

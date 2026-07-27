@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, uniqueIndex, index } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, text, integer, real, uniqueIndex, index } from 'drizzle-orm/sqlite-core'
 
 export const projects = sqliteTable(
   'projects',
@@ -140,6 +140,31 @@ export const goalEvaluations = sqliteTable(
     createdAt: integer('created_at').notNull()
   },
   (t) => [index('goal_evaluations_chat_idx').on(t.chatId)]
+)
+
+/**
+ * Kanban task cards. Undispatched cards live in their authored column
+ * ('backlog' | 'todo'); dispatching creates a chat (stored in chat_id) and
+ * the board then shows the chat's live derived column until the card is
+ * marked 'done'.
+ */
+export const kanbanCards = sqliteTable(
+  'kanban_cards',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    prompt: text('prompt').notNull(),
+    column: text('column_id').notNull(),
+    sortOrder: real('sort_order').notNull(),
+    chatId: text('chat_id').references(() => chats.id, { onDelete: 'set null' }),
+    useWorktree: integer('use_worktree', { mode: 'boolean' }).notNull(),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull()
+  },
+  (t) => [index('kanban_cards_project_idx').on(t.projectId)]
 )
 
 export const appSettings = sqliteTable('app_settings', {

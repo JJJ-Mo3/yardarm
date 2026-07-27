@@ -6,6 +6,7 @@ import { checkpointsRouter } from './checkpoints'
 import { filesRouter } from './files'
 import { gitRouter } from './git'
 import { goalsRouter } from './goals'
+import { kanbanRouter } from './kanban'
 import { mastraSettingsRouter } from './mastra-settings'
 import { mcpRouter } from './mcp'
 import { projectConfigRouter } from './project-config'
@@ -25,6 +26,7 @@ export const appRouter = router({
   checkpoints: checkpointsRouter,
   git: gitRouter,
   goals: goalsRouter,
+  kanban: kanbanRouter,
   terminal: terminalRouter,
   files: filesRouter,
   settings: settingsRouter,
