@@ -232,10 +232,10 @@ export function ChangesView({
       <div className="flex w-72 shrink-0 flex-col border-r border-border">
         <div className="border-b border-border px-2 py-1.5">
           {/* Action icons on their own row — they crowd the branch selector otherwise. */}
-          <div className="flex items-center justify-end gap-1">
+          <div className="flex items-center justify-evenly">
             <Tip content="Create a new branch from the current HEAD and check it out">
               <Button size="icon" variant="ghost" onClick={() => setNewBranchOpen(true)}>
-                <GitBranchPlus size={12} />
+                <GitBranchPlus size={15} />
               </Button>
             </Tip>
             {ghAvailable.data?.available && (
@@ -248,7 +248,7 @@ export function ChangesView({
                     setPrOpen(true)
                   }}
                 >
-                  <GitPullRequestArrow size={12} />
+                  <GitPullRequestArrow size={15} />
                 </Button>
               </Tip>
             )}
@@ -267,7 +267,7 @@ export function ChangesView({
                     setMainTab('chat')
                   }}
                 >
-                  <ScanSearch size={12} />
+                  <ScanSearch size={15} />
                 </Button>
               </Tip>
             )}
@@ -281,7 +281,7 @@ export function ChangesView({
                     setMergeOpen(true)
                   }}
                 >
-                  <GitMerge size={12} />
+                  <GitMerge size={15} />
                 </Button>
               </Tip>
             )}
@@ -293,7 +293,7 @@ export function ChangesView({
                     variant="ghost"
                     className={cn(compareRef && 'text-primary hover:text-primary')}
                   >
-                    <GitCompareArrows size={12} />
+                    <GitCompareArrows size={15} />
                   </Button>
                 </PopoverTrigger>
               </Tip>
@@ -335,7 +335,7 @@ export function ChangesView({
             </Popover>
             <Tip content="Re-read git status, diffs, and branches">
               <Button size="icon" variant="ghost" onClick={() => invalidate()}>
-                <RefreshCw size={12} />
+                <RefreshCw size={15} />
               </Button>
             </Tip>
           </div>
