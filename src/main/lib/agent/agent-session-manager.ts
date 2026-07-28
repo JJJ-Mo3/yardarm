@@ -114,6 +114,8 @@ const IDE_NOTE_DEBOUNCE_MS = 1200
 
 export class AgentSessionManager {
   private hosts = new Map<string, HostHandle>()
+  /** In-flight boots per subchat so concurrent ensureHost calls share one. */
+  private bootingHosts = new Map<string, Promise<HostHandle>>()
   private emitters = new Map<string, EventEmitter>()
   /** A host with cwd=$HOME used for auth/model queries when no chat host exists. */
   private utilityHost: HostHandle | null = null
@@ -378,7 +380,19 @@ export class AgentSessionManager {
       await existing.readyPromise
       return existing
     }
+    // Concurrent callers share one boot: the awaits in bootHost (settings,
+    // subagents, token mirror) would otherwise let a second caller fork a
+    // duplicate utilityProcess that leaks when both reach hosts.set.
+    const inFlight = this.bootingHosts.get(subchatId)
+    if (inFlight) return inFlight
+    const boot = this.bootHost(subchatId).finally(() => {
+      this.bootingHosts.delete(subchatId)
+    })
+    this.bootingHosts.set(subchatId, boot)
+    return boot
+  }
 
+  private async bootHost(subchatId: string): Promise<HostHandle> {
     const db = getDb()
     const subchat = db.select().from(schema.subchats).where(eq(schema.subchats.id, subchatId)).get()
     if (!subchat) throw new Error(`Subchat not found: ${subchatId}`)
