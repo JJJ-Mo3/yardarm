@@ -7,9 +7,10 @@
  * mtime conflict check (Overwrite / Reload / Cancel). files.write reports
  * each save to every chat working on this root. Tab state lives in a
  * per-root atom and the view stays mounted, so dirty buffers survive
- * tab/chat switches. When a chat is open, language-server diagnostics for
- * the active file (fetched from its agent host on open/save/external
- * change) feed Monaco markers and a collapsible problems panel.
+ * tab/chat switches. Language-server diagnostics for the active file —
+ * fetched from the chat's agent host, or the shared utility host when no
+ * chat is selected, on open/typing (debounced, unsaved buffer)/save/external
+ * change — feed Monaco markers and a collapsible problems panel.
  */
 import React, { useEffect, useRef, useState } from 'react'
 import Editor, { type OnMount } from '@monaco-editor/react'
@@ -214,6 +215,13 @@ export function FilesView({
   } | null>(null)
   const [problemsOpen, setProblemsOpen] = useState(false)
   const diagSeq = useRef(0)
+  // Typing debounce: diagnose the unsaved buffer shortly after edits pause.
+  const diagDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    return () => {
+      if (diagDebounce.current) clearTimeout(diagDebounce.current)
+    }
+  }, [])
   // Bumped when Monaco mounts so the marker effect re-runs: diagnostics can
   // arrive before the first editor instance exists.
   const [editorEpoch, setEditorEpoch] = useState(0)
@@ -251,10 +259,11 @@ export function FilesView({
   }
 
   // Language-server diagnostics for the active file, fetched from the chat's
-  // agent host (whose cwd is this root). Sequenced so a stale response can't
-  // overwrite a newer file's results.
-  const refreshDiagnostics = async (path: string): Promise<void> => {
-    if (!subchatId) return
+  // agent host (or the shared utility host when no chat is selected).
+  // Optional content diagnoses the unsaved buffer instead of the file on
+  // disk. Sequenced so a stale response can't overwrite a newer file's
+  // results.
+  const refreshDiagnostics = async (path: string, content?: string): Promise<void> => {
     const seq = ++diagSeq.current
     setDiags((d) => ({
       path,
@@ -262,7 +271,7 @@ export function FilesView({
       loading: true
     }))
     try {
-      const result = await utils.files.diagnostics.fetch({ subchatId, root, path })
+      const result = await utils.files.diagnostics.fetch({ subchatId, root, path, content })
       if (seq === diagSeq.current) setDiags({ path, result, loading: false })
     } catch (err) {
       if (seq === diagSeq.current) {
@@ -287,6 +296,8 @@ export function FilesView({
       { path, content, tooLarge: false, binary: false, mtimeMs }
     )
     update((s) => markSaved(s, path, content, mtimeMs))
+    // The disk refresh below supersedes any pending unsaved-buffer refresh.
+    if (diagDebounce.current) clearTimeout(diagDebounce.current)
     void refreshDiagnostics(path)
   }
 
@@ -379,10 +390,12 @@ export function FilesView({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- update is stable per render
   }, [poll.data, activeTab])
 
-  // Fetch diagnostics when a text file becomes active.
+  // Fetch diagnostics when a text file becomes active. A pending typing
+  // debounce belongs to the previous file/chat — drop it.
   const activePath = activeTab?.kind === 'text' ? activeTab.path : null
   useEffect(() => {
-    if (!activePath || !subchatId) {
+    if (diagDebounce.current) clearTimeout(diagDebounce.current)
+    if (!activePath) {
       setDiags(null)
       return
     }
@@ -571,11 +584,17 @@ export function FilesView({
                 onMount={handleMount}
                 onChange={(v) => {
                   const val = v ?? ''
+                  const path = activeTab.path
                   update((s) => {
-                    const tab = s.tabs.find((t) => t.path === activeTab.path)
+                    const tab = s.tabs.find((t) => t.path === path)
                     if (!tab) return s
                     return setDirty(s, tab.path, val !== tab.savedContent)
                   })
+                  // Re-diagnose the unsaved buffer once typing pauses.
+                  if (diagDebounce.current) clearTimeout(diagDebounce.current)
+                  diagDebounce.current = setTimeout(() => {
+                    void refreshDiagnostics(path, val)
+                  }, 800)
                 }}
                 options={{
                   minimap: { enabled: false },
@@ -591,7 +610,7 @@ export function FilesView({
             </div>
           )}
         </div>
-        {subchatId && activeTab?.kind === 'text' && (
+        {activeTab?.kind === 'text' && (
           <div className="shrink-0 border-t border-border">
             <div className="flex h-7 items-center gap-1 px-1.5">
               <Tip content={problemsOpen ? 'Hide the problems list' : 'Show the problems list'}>

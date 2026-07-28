@@ -156,13 +156,22 @@ export const filesRouter = router({
 
   /**
    * IDE problems panel: language-server diagnostics for one open file,
-   * produced by the subchat's agent host (whose cwd is this root).
+   * produced by the subchat's agent host (null subchatId = the shared
+   * utility host, no chat required). Optional content diagnoses an unsaved
+   * editor buffer instead of the on-disk file.
    */
   diagnostics: publicProcedure
-    .input(z.object({ subchatId: z.string(), root: z.string(), path: z.string() }))
+    .input(
+      z.object({
+        subchatId: z.string().min(1).nullable(),
+        root: z.string(),
+        path: z.string(),
+        content: z.string().optional()
+      })
+    )
     .query(({ input }) => {
       const abs = resolveWithin(input.root, input.path)
-      return agentSessionManager.lspDiagnostics(input.subchatId, abs)
+      return agentSessionManager.lspDiagnostics(input.subchatId, abs, input.root, input.content)
     }),
 
   /** Substring/fuzzy filename search for @-mentions. */

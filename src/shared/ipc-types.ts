@@ -151,8 +151,14 @@ export type HostCommand =
   | { t: 'mcpAuthenticate'; reqId: string; serverName: string }
   | { t: 'mcpCancelAuth'; reqId: string; serverName: string }
   | { t: 'mcpReconnect'; reqId: string; serverName: string }
-  /** IDE diagnostics for one absolute file path via the SDK's LSP manager. */
-  | { t: 'lspDiagnostics'; reqId: string; path: string }
+  /**
+   * IDE diagnostics for one absolute file path via the SDK's LSP manager.
+   * `root` bounds the LSP workspace-root walk (needed when the utility host
+   * serves the request — its cwd is the home dir, not the workspace).
+   * `content` overrides the on-disk file so unsaved editor buffers can be
+   * diagnosed.
+   */
+  | { t: 'lspDiagnostics'; reqId: string; path: string; root?: string; content?: string }
   | { t: 'shutdown' }
 
 /** host -> main */

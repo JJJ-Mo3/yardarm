@@ -463,8 +463,9 @@ shortcuts stay with the left (primary) pane.
   automatically, and saving over a file the agent just changed prompts you
   to overwrite or reload. A **problems panel** below the editor shows
   language-server diagnostics (errors and warnings) for the active file,
-  refreshed when you open or save it — click a problem to jump to it, and
-  the same markers appear inline in the editor. Language servers for
+  refreshed as you type (shortly after edits pause), on open and on save —
+  no chat needs to be selected. Click a problem to jump to it, and the
+  same markers appear inline in the editor. Language servers for
   TypeScript/JavaScript (using your project's own TypeScript when it has
   one), HTML, CSS, JSON, YAML and Python are bundled — no setup needed. Go
   and Rust use gopls / rust-analyzer from your PATH.

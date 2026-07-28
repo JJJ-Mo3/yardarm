@@ -191,8 +191,8 @@ The IDE tab is a multi-tab code editor (Monaco) rooted at the chat's worktree.
 - **Edit alongside the agent** — your saves are delivered to the agent as notes, so it knows
   what you changed mid-conversation and won't clobber your edits.
 - **Problems panel** — language-server diagnostics (errors and warnings) for the active file,
-  refreshed when you open or save it. Click a problem to jump to it; markers also appear
-  inline in the editor.
+  refreshed as you type (shortly after edits pause), on open and on save — no chat needs to
+  be selected. Click a problem to jump to it; markers also appear inline in the editor.
 
 Language servers for TypeScript/JavaScript (using your project's own TypeScript when it has
 one), HTML, CSS, JSON, YAML and Python are bundled — no setup needed. Go and Rust use gopls /

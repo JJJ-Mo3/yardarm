@@ -1884,16 +1884,23 @@ export class AgentSessionManager {
 
   /**
    * IDE diagnostics for one absolute path. Routed via the subchat's own host
-   * (its cwd is the workspace root the language servers must resolve against
-   * — the utility host runs from the home dir and would be wrong).
+   * when a chat is selected, else the shared utility host — `root` carries
+   * the workspace root explicitly so the language servers resolve against it
+   * regardless of the serving host's cwd. `content` overrides the on-disk
+   * file so unsaved editor buffers can be diagnosed.
    */
-  async lspDiagnostics(subchatId: string, path: string): Promise<LspDiagnosticsResult> {
-    const handle = await this.ensureHost(subchatId)
+  async lspDiagnostics(
+    subchatId: string | null,
+    path: string,
+    root: string,
+    content?: string
+  ): Promise<LspDiagnosticsResult> {
+    const handle = subchatId ? await this.ensureHost(subchatId) : await this.ensureUtilityHost()
     // First call can spawn + initialize a language server, then wait up to
     // 8s for the publish — give the IPC round-trip comfortable headroom.
     return this.request<LspDiagnosticsResult>(
       handle,
-      { t: 'lspDiagnostics', reqId: randomUUID(), path },
+      { t: 'lspDiagnostics', reqId: randomUUID(), path, root, content },
       45_000
     )
   }

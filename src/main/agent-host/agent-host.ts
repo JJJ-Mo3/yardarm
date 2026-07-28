@@ -246,23 +246,28 @@ const bundledLspClients = new Map<string, Promise<LspClientLike>>()
 
 /**
  * Nearest ancestor containing one of the marker files (LSP workspace root).
- * The walk stops at the subchat cwd so a marker in an unrelated ancestor
- * (e.g. a package.json above the worktrees dir) can't hijack the root.
+ * The walk stops at `stopAt` (the workspace root — the subchat cwd, or the
+ * explicit root a utility-host request carries) so a marker in an unrelated
+ * ancestor (e.g. a package.json above the worktrees dir) can't hijack the
+ * root.
  */
-function findLspRoot(fileDir: string, markers: string[]): string {
-  const cwd = process.cwd()
+function findLspRoot(fileDir: string, markers: string[], stopAt: string): string {
   let current = fileDir
   for (;;) {
     if (markers.some((m) => existsSync(path.join(current, m)))) return current
-    if (current === cwd) return cwd
+    if (current === stopAt) return stopAt
     const parent = path.dirname(current)
-    if (parent === current) return cwd
+    if (parent === current) return stopAt
     current = parent
   }
 }
 
-function getBundledLspClient(server: BundledLspServer, filePath: string): Promise<LspClientLike> {
-  const root = findLspRoot(path.dirname(filePath), server.rootMarkers)
+function getBundledLspClient(
+  server: BundledLspServer,
+  filePath: string,
+  stopAt: string
+): Promise<LspClientLike> {
+  const root = findLspRoot(path.dirname(filePath), server.rootMarkers, stopAt)
   const key = `${server.id}:${root}`
   const cached = bundledLspClients.get(key)
   if (cached) return cached
@@ -356,22 +361,34 @@ async function pollLspDiagnostics(
   return last
 }
 
+/** Options for collectLspDiagnostics (see the lspDiagnostics host command). */
+interface LspCollectOptions {
+  /** Workspace root override — required when this host's cwd is not it. */
+  root?: string
+  /** Buffer content override so unsaved editor buffers can be diagnosed. */
+  content?: string
+}
+
 /**
  * Fetch fresh diagnostics for one absolute path via the SDK's LSP manager.
- * process.cwd() is the subchat cwd (chdir at boot), i.e. the workspace root.
- * Refreshes use didClose+didOpen so a stale publish is never mistaken for a
- * fresh one. The publish cache is read directly (both raw and percent-encoded
- * URI keys) because servers normalize URIs — under the SDK's raw-key lookups,
- * paths with spaces (every Yardarm worktree) never see their diagnostics.
+ * The workspace root is opts.root when given, else process.cwd() (the
+ * subchat cwd, chdir at boot). Refreshes use didClose+didOpen so a stale
+ * publish is never mistaken for a fresh one. The publish cache is read
+ * directly (both raw and percent-encoded URI keys) because servers normalize
+ * URIs — under the SDK's raw-key lookups, paths with spaces (every Yardarm
+ * worktree) never see their diagnostics.
  * Never throws — every failure degrades to an unavailableReason.
  */
-async function collectLspDiagnostics(filePath: string): Promise<LspDiagnosticsResult> {
+async function collectLspDiagnostics(
+  filePath: string,
+  opts?: LspCollectOptions
+): Promise<LspDiagnosticsResult> {
   // Serialize per file: concurrent collects share the client's publish cache
   // and would race each other's delete/didOpen cycles for the same URIs.
   const prev = lspCollectChains.get(filePath)
   const next = prev
-    ? prev.then(() => collectLspDiagnosticsNow(filePath))
-    : collectLspDiagnosticsNow(filePath)
+    ? prev.then(() => collectLspDiagnosticsNow(filePath, opts))
+    : collectLspDiagnosticsNow(filePath, opts)
   lspCollectChains.set(filePath, next)
   void next.finally(() => {
     if (lspCollectChains.get(filePath) === next) lspCollectChains.delete(filePath)
@@ -382,7 +399,10 @@ async function collectLspDiagnostics(filePath: string): Promise<LspDiagnosticsRe
 /** In-flight collects per file (see collectLspDiagnostics). */
 const lspCollectChains = new Map<string, Promise<LspDiagnosticsResult>>()
 
-async function collectLspDiagnosticsNow(filePath: string): Promise<LspDiagnosticsResult> {
+async function collectLspDiagnosticsNow(
+  filePath: string,
+  opts?: LspCollectOptions
+): Promise<LspDiagnosticsResult> {
   try {
     const [{ lspManager }, { getLanguageId }] = await Promise.all([
       runtimeImport<{
@@ -401,10 +421,11 @@ async function collectLspDiagnosticsNow(filePath: string): Promise<LspDiagnostic
     // Bundled languages use the servers shipped in the agent runtime (see
     // BUNDLED_LSP_SERVERS); the rest go through the SDK manager, which needs
     // the server binary on PATH.
+    const workspaceRoot = opts?.root ?? process.cwd()
     const bundled = bundledServerByLanguage.get(languageId)
     const client = bundled
-      ? await getBundledLspClient(bundled, filePath)
-      : await lspManager.getClient(filePath, process.cwd())
+      ? await getBundledLspClient(bundled, filePath, workspaceRoot)
+      : await lspManager.getClient(filePath, workspaceRoot)
     if (!client) {
       const hint = PATH_SERVER_HINTS[languageId]
       return {
@@ -414,7 +435,7 @@ async function collectLspDiagnosticsNow(filePath: string): Promise<LspDiagnostic
           : `No diagnostics support for ${languageId} files.`
       }
     }
-    const content = readFileSync(filePath, 'utf8')
+    const content = opts?.content ?? readFileSync(filePath, 'utf8')
     const uris = lspUriCandidates(filePath)
     if (lspOpenedPaths.has(filePath)) client.notifyClose(filePath)
     lspOpenedPaths.add(filePath)
@@ -1762,7 +1783,9 @@ async function main(): Promise<void> {
             })
             break
           case 'lspDiagnostics':
-            await respond(cmd.reqId, () => collectLspDiagnostics(cmd.path))
+            await respond(cmd.reqId, () =>
+              collectLspDiagnostics(cmd.path, { root: cmd.root, content: cmd.content })
+            )
             break
           case 'shutdown':
             // Bundled language servers are not in this process group and
