@@ -118,12 +118,16 @@ export function ChatView({
       )
     }
   })
+  // Filled in below once the action mutations exist; used by the reset effect.
+  const actionMutationsRef = useRef<Array<[string, { reset: () => void }]>>([])
   useEffect(() => {
     setRollbackNotice(null)
     setPrefill(null)
     setPendingMode(null)
     setDismissedErrorTs(0)
     setDismissedReviewId(null)
+    // Stale action errors must not follow the pane to another subchat.
+    for (const [, m] of actionMutationsRef.current) m.reset()
   }, [subchatId])
   const confirmDialog = useConfirm()
 
@@ -268,6 +272,7 @@ export function ChatView({
       ['clear goal', goalClear],
       ['update goal', goalUpdate]
     ]
+  actionMutationsRef.current = actionMutations
   const failedActions = actionMutations.filter(([, m]) => m.error)
 
   // Newest agent error from the event stream, unless the user dismissed it.

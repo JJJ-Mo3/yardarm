@@ -358,7 +358,9 @@ export function PreviewView({
       {(inputError || urls.length > 0 || devCmd.data) && (
         <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-border px-2 py-1">
           {inputError && <span className="text-[11px] text-destructive">{inputError}</span>}
-          {devCmd.data && !devRunning.data && (
+          {/* devRunning.isSuccess gates the chip so it can't flash "start"
+              while the running-state query is still loading. */}
+          {devCmd.data && devRunning.isSuccess && !devRunning.data && (
             <Tip content={startDevTip(devCmd.data.command)}>
               <span className="inline-flex">
                 <button
@@ -386,8 +388,10 @@ export function PreviewView({
               </span>
             </Tip>
           )}
-          {startDev.error && (
-            <span className="text-[11px] text-destructive">{startDev.error.message}</span>
+          {(startDev.error || stopDev.error) && (
+            <span className="text-[11px] text-destructive">
+              {startDev.error?.message ?? stopDev.error?.message}
+            </span>
           )}
           {urls.map((u) => (
             <Tip key={u} content="Dev-server URL detected in a terminal — click to preview it">
@@ -445,13 +449,13 @@ export function PreviewView({
               Start a dev server in the Terminal or via the agent — detected localhost URLs appear
               above. Or type a localhost URL in the address bar.
             </div>
-            {devCmd.data && !devRunning.data && otherServers.length > 0 && (
+            {devCmd.data && devRunning.isSuccess && !devRunning.data && otherServers.length > 0 && (
               <div className="max-w-sm text-xs">
                 A dev server started from {otherServers.map((o) => o.label).join(' and ')} is still
                 running. Starting one here stops it first — both would use the same port.
               </div>
             )}
-            {devCmd.data && !devRunning.data && (
+            {devCmd.data && devRunning.isSuccess && !devRunning.data && (
               <Tip content={startDevTip(devCmd.data.command)}>
                 <span className="inline-flex">
                   <Button

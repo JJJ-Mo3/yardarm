@@ -107,7 +107,12 @@ export function CheckpointsList({
   return (
     <>
       <div className="flex-1 overflow-y-auto p-1">
-        {entries.length === 0 && !list.isLoading && (
+        {list.error && (
+          <div className="selectable p-4 text-center text-[11px] text-destructive">
+            Couldn&apos;t load checkpoints: {list.error.message}
+          </div>
+        )}
+        {entries.length === 0 && !list.isLoading && !list.error && (
           <div className="p-4 text-center text-[11px] text-muted-foreground">
             No checkpoints yet — one is captured automatically before each message, or name one
             below.

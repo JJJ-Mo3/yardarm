@@ -76,7 +76,7 @@ its reasoning, tool calls, and file edits into the transcript.
 
 ### Models
 
-The model selector in the composer switches the model per chat. Models come from the
+The model selector in the chat header switches the model per chat. Models come from the
 providers you configured in Settings; local models (e.g. via Ollama) work too — models with
 at least a 64k context window are required, 128k+ recommended.
 `
@@ -118,8 +118,9 @@ deny inline.
     body: `
 A **goal** gives the agent an objective to iterate on until it passes. Set one from the goal
 chip in the chat header: describe the objective (e.g. "all tests pass") and a maximum number
-of runs. The agent works, self-evaluates against the objective, and keeps iterating until it
-passes, pauses for your input, or hits the run limit.
+of runs. The agent works, a judge model (selectable in the goal popover) evaluates the result
+against the objective, and the agent keeps iterating until it passes, pauses for your input,
+or hits the run limit.
 
 The goal chip is color-coded by state, and the goal popover keeps an **evaluation history**:
 every past objective with its per-iteration pass/fail results and the evaluator's reasoning,

@@ -6,6 +6,15 @@ import { agentSessionManager } from '../../agent/agent-session-manager'
 import type { OAuthStatusEvent } from '../../../../shared/ipc-types'
 import { publicProcedure, router } from '../trpc'
 
+/** Parse a stored settings value; a corrupt row reads as null instead of throwing. */
+function parseSetting(value: string): unknown {
+  try {
+    return JSON.parse(value) as unknown
+  } catch {
+    return null
+  }
+}
+
 export const settingsRouter = router({
   get: publicProcedure.input(z.object({ key: z.string() })).query(({ input }) => {
     const row = getDb()
@@ -13,13 +22,13 @@ export const settingsRouter = router({
       .from(schema.appSettings)
       .where(eq(schema.appSettings.key, input.key))
       .get()
-    return row ? (JSON.parse(row.value) as unknown) : null
+    return row ? parseSetting(row.value) : null
   }),
 
   getAll: publicProcedure.query(() => {
     const rows = getDb().select().from(schema.appSettings).all()
     const out: Record<string, unknown> = {}
-    for (const r of rows) out[r.key] = JSON.parse(r.value)
+    for (const r of rows) out[r.key] = parseSetting(r.value)
     return out
   }),
 

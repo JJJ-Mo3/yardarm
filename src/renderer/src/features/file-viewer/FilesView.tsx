@@ -214,6 +214,9 @@ export function FilesView({
   } | null>(null)
   const [problemsOpen, setProblemsOpen] = useState(false)
   const diagSeq = useRef(0)
+  // Bumped when Monaco mounts so the marker effect re-runs: diagnostics can
+  // arrive before the first editor instance exists.
+  const [editorEpoch, setEditorEpoch] = useState(0)
 
   const state = allTabs[root] ?? emptyTabsState
   const activeTab = state.tabs.find((t) => t.path === state.activePath) ?? null
@@ -384,8 +387,8 @@ export function FilesView({
       return
     }
     void refreshDiagnostics(activePath)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch only on file/chat switch
-  }, [activePath, subchatId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch only on file/chat/root switch
+  }, [activePath, subchatId, root])
 
   // Project the active file's diagnostics onto its Monaco model as markers.
   const activeDiags = diags && diags.path === activePath ? diags : null
@@ -413,7 +416,7 @@ export function FilesView({
         ...(d.source ? { source: d.source } : {})
       }))
     )
-  }, [activeDiags, activePath])
+  }, [activeDiags, activePath, editorEpoch])
 
   // Reconcile effect: the single place buffer content is set programmatically.
   // Covers external refreshes, reload-from-disk, and reopening a path whose
@@ -429,6 +432,7 @@ export function FilesView({
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor
     monacoRef.current = monaco
+    setEditorEpoch((n) => n + 1)
     // Registered on the editor (not window) so an always-mounted IDE view
     // can't steal Cmd+S while another main tab is visible.
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => saveRef.current())

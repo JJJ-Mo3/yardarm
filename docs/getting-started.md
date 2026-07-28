@@ -70,8 +70,10 @@ pnpm dist        # installers into dist/ (dmg/zip, nsis, AppImage/deb)
 pnpm package     # unpacked app bundle, e.g. dist/mac-arm64/Yardarm.app
 ```
 
-Targets: macOS (arm64 + x64), Windows (x64), Linux (AppImage + deb). Apps you
-build yourself are not quarantined and open normally.
+Targets: macOS (arm64). Windows/Linux electron-builder config exists but is
+untested, and the bundled agent runtime is staged for the build machine's
+platform — build on the platform you're targeting. Apps you build yourself are
+not quarantined and open normally.
 
 ## First launch: the setup wizard
 

@@ -657,12 +657,23 @@ export function ChangesView({
                   </span>
                 </Tip>
               </div>
-              {(commit.error || push.error || pullMut.error || checkout.error) && (
+              {(commit.error ||
+                push.error ||
+                pullMut.error ||
+                checkout.error ||
+                stage.error ||
+                unstage.error ||
+                discard.error ||
+                sendReview.error) && (
                 <div className="text-[11px] text-destructive selectable">
                   {commit.error?.message ??
                     push.error?.message ??
                     pullMut.error?.message ??
-                    checkout.error?.message}
+                    checkout.error?.message ??
+                    stage.error?.message ??
+                    unstage.error?.message ??
+                    discard.error?.message ??
+                    sendReview.error?.message}
                 </div>
               )}
             </div>

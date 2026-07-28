@@ -448,7 +448,9 @@ async function collectLspDiagnosticsNow(filePath: string): Promise<LspDiagnostic
 function sanitizeEvent(ev: Record<string, unknown>): Record<string, unknown> {
   // Errors nested inside objects stringify to {} — project them explicitly.
   const replacer = (_key: string, value: unknown): unknown =>
-    value instanceof Error ? { name: value.name, message: value.message, stack: value.stack } : value
+    value instanceof Error
+      ? { name: value.name, message: value.message, stack: value.stack }
+      : value
   const out: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(ev)) {
     if (v instanceof Error) {

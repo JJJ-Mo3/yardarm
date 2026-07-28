@@ -360,6 +360,9 @@ export default function App(): React.JSX.Element {
               {tab === 'changes' &&
                 (cwd ? (
                   <ChangesView
+                    // Remount on chat switch: selection, commit message and
+                    // checkpoint compare state must not bleed across chats.
+                    key={chatId ?? cwd}
                     cwd={cwd}
                     merge={
                       chat.data?.worktreePath &&

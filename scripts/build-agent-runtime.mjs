@@ -50,7 +50,10 @@ function stagedVersion(name) {
   }
 }
 
-if (Object.entries(deps).every(([name, version]) => stagedVersion(name) === version)) {
+if (
+  Object.entries(deps).every(([name, version]) => stagedVersion(name) === version) &&
+  stagedVersion('@mastra/core') // hoist-dependent transitive dep, see assert below
+) {
   console.log(`[agent-runtime] up to date (mastracode ${deps.mastracode})`)
   process.exit(0)
 }
@@ -70,5 +73,14 @@ const result = spawnSync(
 if (result.status !== 0) {
   console.error('[agent-runtime] npm install failed')
   process.exit(result.status ?? 1)
+}
+
+// The agent host's runtimeImport() resolves deep imports like
+// `@mastra/core/tools` against the staged tree's *top-level* node_modules.
+// @mastra/core is only a transitive dependency, so assert npm hoisted it
+// there — otherwise the packaged app would fail at runtime, not build time.
+if (!stagedVersion('@mastra/core')) {
+  console.error('[agent-runtime] @mastra/core was not hoisted to the top of the staged tree')
+  process.exit(1)
 }
 console.log('[agent-runtime] staged successfully')
