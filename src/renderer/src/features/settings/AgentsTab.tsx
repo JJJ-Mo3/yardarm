@@ -1,12 +1,15 @@
 /**
- * Custom subagents editor (Project settings → Agents). Manages the .md
- * definitions in .mastracode/agents (project) and ~/.mastracode/agents
- * (global) that the main agent can delegate tasks to via the `subagent`
- * tool. Saving restarts the affected agent hosts so definitions take effect.
+ * Custom subagents editor (Settings → Agents). Manages the .md definitions
+ * in ~/.mastracode/agents (global, the default scope) and per-project
+ * .mastracode/agents (picked from existing projects) that the main agent can
+ * delegate tasks to via the `subagent` tool. Saving restarts the affected
+ * agent hosts so definitions take effect.
  */
 import React, { useEffect, useState } from 'react'
+import { useAtomValue } from 'jotai'
 import { ExternalLink, Trash2 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
+import { selectedProjectIdAtom } from '../../lib/atoms'
 import { cn } from '../../lib/utils'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -36,21 +39,29 @@ const EMPTY_EDITOR: EditorState = {
   forked: false
 }
 
-export function AgentsTab({ projectPath }: { projectPath: string }): React.JSX.Element {
+export function AgentsTab(): React.JSX.Element {
   const utils = trpc.useUtils()
   const confirmDialog = useConfirm()
-  const [scope, setScope] = useState<Scope>('project')
+  const currentProjectId = useAtomValue(selectedProjectIdAtom)
+  const [scope, setScope] = useState<Scope>('global')
+  const [projectId, setProjectId] = useState<string | null>(currentProjectId)
   const [selected, setSelected] = useState<string | null>(null)
   const [editor, setEditor] = useState<EditorState>(EMPTY_EDITOR)
   const [dirty, setDirty] = useState(false)
   const [newId, setNewId] = useState('')
 
+  const projects = trpc.projects.list.useQuery()
+  const activeProjects = (projects.data ?? []).filter((p) => !p.archived)
+  const project = activeProjects.find((p) => p.id === projectId) ?? null
+  const projectPath = project?.path
+  const scopeReady = scope === 'global' || !!projectPath
+
   const scopeInput = { scope, projectPath: scope === 'project' ? projectPath : undefined }
-  const list = trpc.projectConfig.agentsList.useQuery(scopeInput)
+  const list = trpc.projectConfig.agentsList.useQuery(scopeInput, { enabled: scopeReady })
   const models = trpc.agent.listModels.useQuery(undefined, { staleTime: 60_000 })
   const file = trpc.projectConfig.agentRead.useQuery(
     { ...scopeInput, id: selected ?? '' },
-    { enabled: selected !== null }
+    { enabled: selected !== null && scopeReady }
   )
   useEffect(() => {
     if (file.data && !dirty) {
@@ -101,6 +112,11 @@ export function AgentsTab({ projectPath }: { projectPath: string }): React.JSX.E
     setSelected(null)
     setDirty(false)
   }
+  const switchProject = (id: string): void => {
+    setProjectId(id)
+    setSelected(null)
+    setDirty(false)
+  }
   const edit = (patch: Partial<EditorState>): void => {
     setEditor((e) => ({ ...e, ...patch }))
     setDirty(true)
@@ -124,19 +140,15 @@ export function AgentsTab({ projectPath }: { projectPath: string }): React.JSX.E
   return (
     <div className="space-y-2">
       <div className="text-[11px] text-muted-foreground">
-        Markdown files in <code>.mastracode/agents/</code> define <b>subagents</b> — helpers the
-        main agent can delegate tasks to (it picks one by its description via the{' '}
-        <code>subagent</code> tool).
+        Markdown files in <code>~/.mastracode/agents/</code> (global) or a project&apos;s{' '}
+        <code>.mastracode/agents/</code> define <b>subagents</b> — helpers the main agent can
+        delegate tasks to (it picks one by its description via the <code>subagent</code> tool).
       </div>
-      <div className="flex gap-1">
+      <div className="flex items-center gap-1">
         {(
           [
-            [
-              'project',
-              'Project',
-              `Agents in ${projectPath}/.mastracode/agents — this project only`
-            ],
-            ['global', 'Global', 'Agents in ~/.mastracode/agents — available in every project']
+            ['global', 'Global', 'Agents in ~/.mastracode/agents — available in every project'],
+            ['project', 'Project', "Agents in a project's .mastracode/agents — that project only"]
           ] as Array<[Scope, string, string]>
         ).map(([id, label, tip]) => (
           <Tip key={id} content={tip}>
@@ -151,53 +163,79 @@ export function AgentsTab({ projectPath }: { projectPath: string }): React.JSX.E
             </button>
           </Tip>
         ))}
-      </div>
-      <div className="space-y-1">
-        {(list.data ?? []).map((a) => (
-          <div
-            key={a.id}
-            className={cn(
-              'group flex cursor-pointer items-center gap-2 rounded px-2 py-1',
-              selected === a.id ? 'bg-accent' : 'hover:bg-accent/50'
-            )}
-            onClick={() => selectAgent(a.id)}
-          >
-            <span className="font-mono text-[11px]">{a.id}</span>
-            <span className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground">
-              {a.description ?? ''}
+        {scope === 'project' && activeProjects.length > 0 && (
+          <Tip content="Which project's .mastracode/agents to manage">
+            <span className="inline-flex">
+              <select
+                value={project?.id ?? ''}
+                onChange={(e) => switchProject(e.target.value)}
+                className="ml-1 rounded border border-border bg-background px-2 py-1 text-[11px]"
+              >
+                {!project && <option value="">Select a project…</option>}
+                {activeProjects.map((p) => (
+                  <option key={p.id} value={p.id} title={p.path}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
             </span>
-            <Tip content="Open this agent file in your system editor">
-              <button
-                className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  openInEditor.mutate({ path: a.path })
-                }}
-              >
-                <ExternalLink size={11} />
-              </button>
-            </Tip>
-            <Tip content="Delete this subagent — the agent hosts restart without it">
-              <button
-                className="hidden group-hover:block text-muted-foreground hover:text-destructive cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  void confirmDialog({
-                    title: `Delete subagent "${a.id}"?`,
-                    description:
-                      'The definition file will be removed and the affected agent hosts restarted.',
-                    confirmLabel: 'Delete'
-                  }).then((ok) => {
-                    if (ok) remove.mutate({ ...scopeInput, id: a.id })
-                  })
-                }}
-              >
-                <Trash2 size={11} />
-              </button>
-            </Tip>
-          </div>
-        ))}
-        {(list.data ?? []).length === 0 && (
+          </Tip>
+        )}
+      </div>
+      {!scopeReady && (
+        <div className="px-2 py-2 text-[11px] text-muted-foreground">
+          {activeProjects.length === 0
+            ? 'No projects yet — add a project first to create project-specific subagents.'
+            : 'Select a project to manage its subagents.'}
+        </div>
+      )}
+      <div className="space-y-1">
+        {scopeReady &&
+          (list.data ?? []).map((a) => (
+            <div
+              key={a.id}
+              className={cn(
+                'group flex cursor-pointer items-center gap-2 rounded px-2 py-1',
+                selected === a.id ? 'bg-accent' : 'hover:bg-accent/50'
+              )}
+              onClick={() => selectAgent(a.id)}
+            >
+              <span className="font-mono text-[11px]">{a.id}</span>
+              <span className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground">
+                {a.description ?? ''}
+              </span>
+              <Tip content="Open this agent file in your system editor">
+                <button
+                  className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    openInEditor.mutate({ path: a.path })
+                  }}
+                >
+                  <ExternalLink size={11} />
+                </button>
+              </Tip>
+              <Tip content="Delete this subagent — the agent hosts restart without it">
+                <button
+                  className="hidden group-hover:block text-muted-foreground hover:text-destructive cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    void confirmDialog({
+                      title: `Delete subagent "${a.id}"?`,
+                      description:
+                        'The definition file will be removed and the affected agent hosts restarted.',
+                      confirmLabel: 'Delete'
+                    }).then((ok) => {
+                      if (ok) remove.mutate({ ...scopeInput, id: a.id })
+                    })
+                  }}
+                >
+                  <Trash2 size={11} />
+                </button>
+              </Tip>
+            </div>
+          ))}
+        {scopeReady && (list.data ?? []).length === 0 && (
           <div className="px-2 py-2 text-[11px] text-muted-foreground">
             No custom subagents yet.
           </div>
@@ -214,7 +252,7 @@ export function AgentsTab({ projectPath }: { projectPath: string }): React.JSX.E
           <span className="inline-flex">
             <Button
               size="sm"
-              disabled={!newId.trim() || create.isPending}
+              disabled={!newId.trim() || !scopeReady || create.isPending}
               onClick={() => create.mutate({ ...scopeInput, id: newId.trim() })}
             >
               Create

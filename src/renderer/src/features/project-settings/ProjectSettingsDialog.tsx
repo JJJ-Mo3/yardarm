@@ -7,7 +7,6 @@ import React, { useEffect, useState } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
 import {
   BookOpenText,
-  Bot,
   Database,
   ExternalLink,
   FileCode2,
@@ -36,7 +35,6 @@ import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
 import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { ModelSelect } from '../../components/ModelSelect'
-import { AgentsTab } from './AgentsTab'
 
 function GeneralTab({
   projectId,
@@ -1202,12 +1200,6 @@ export function ProjectSettingsDialog({
       tip: 'Custom /slash commands from markdown prompt files'
     },
     {
-      id: 'agents',
-      label: 'Agents',
-      icon: <Bot size={13} />,
-      tip: 'Custom subagents the main agent can delegate tasks to'
-    },
-    {
       id: 'instructions',
       label: 'Instructions',
       icon: <BookOpenText size={13} />,
@@ -1263,7 +1255,6 @@ export function ProjectSettingsDialog({
               {tab === 'mcp' && <McpTab projectPath={projectPath} subchatId={subchatId} />}
               {tab === 'hooks' && <HooksTab projectPath={projectPath} subchatId={subchatId} />}
               {tab === 'commands' && <CommandsTab projectPath={projectPath} />}
-              {tab === 'agents' && <AgentsTab projectPath={projectPath} />}
               {tab === 'instructions' && <InstructionsTab projectPath={projectPath} />}
               {tab === 'resource' && (
                 <ResourceTab projectPath={projectPath} subchatId={subchatId} />

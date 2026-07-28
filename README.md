@@ -291,20 +291,21 @@ Yardarm puts a desktop workspace around the agent:
   OpenAI-compatible providers in Settings → Providers
 - Model defaults per mode, subagent, goal judge, and OM roles in
   Settings → Models — written to the shared `settings.json`
+- Custom subagents editor (Settings → Agents, `/subagents`): create and
+  edit the `.md` agent definitions (frontmatter
+  `name`/`description`/`model`/`tools` + an instructions body) that the
+  agent can delegate to via the `subagent` tool — global by default, or
+  project-specific via the scope toggle and project picker
 
 **Per-project configuration**
 
 - Project Settings dialog (gear in the sidebar): MCP servers, lifecycle
-  hooks, custom commands, custom subagents, agent instructions, memory
-  `resourceId`, and installed skills/plugins — plugins that declare a
-  config schema get a generated settings form
+  hooks, custom commands, agent instructions, memory `resourceId`, and
+  installed skills/plugins — plugins that declare a config schema get a
+  generated settings form
 - Live MCP server status in the MCP tab — connected state and tool counts
   per server, with one-click OAuth authentication for servers that need it
   (and reconnect for ones that dropped)
-- Custom subagents editor (`/subagents`): create and edit the `.md` agent
-  definitions (frontmatter `name`/`description`/`model`/`tools` + an
-  instructions body) that the agent can delegate to via the `subagent`
-  tool, per project or globally
 - Edits are atomic, preserve unknown keys, and restart affected agent
   processes so they take effect immediately
 

@@ -298,11 +298,14 @@ App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
 - **Browser** — the agent's built-in browser tool, including viewport size.
 - **Connectors** — one-click service sign-ins (see the Connectors section).
 - **MCP Servers** — global MCP server list.
+- **Agents** — custom subagents the main agent can delegate tasks to. Global by default
+  (available in every project); switch the scope to Project and pick a project to manage
+  project-specific subagents. \`/subagents\` opens this tab.
 - **About** — versions, bundled runtime updates, and "Run setup again" to redo onboarding.
 
 **Project settings** (gear on the project row) cover per-project MCP servers, hooks, custom
-slash commands, custom subagents, agent instructions, resources, and plugins — plugins with
-configuration schemas get generated settings forms.
+slash commands, agent instructions, resources, and plugins — plugins with configuration
+schemas get generated settings forms.
 `
   },
   {

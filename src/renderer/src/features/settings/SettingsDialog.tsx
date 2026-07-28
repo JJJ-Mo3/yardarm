@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
 import {
+  Bot,
   Boxes,
   Cable,
   Globe,
@@ -30,6 +31,7 @@ import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
 import { Switch } from '../../components/ui/switch'
 import { Tip } from '../../components/ui/tooltip'
 import { AboutTab } from './AboutTab'
+import { AgentsTab } from './AgentsTab'
 import { BrowserTab } from './BrowserTab'
 import { ConnectorsTab } from './ConnectorsTab'
 import { ModelsTab } from './ModelsTab'
@@ -306,6 +308,12 @@ export function SettingsDialog(): React.JSX.Element {
       tip: 'External tool servers (Model Context Protocol) available to agents'
     },
     {
+      id: 'agents',
+      label: 'Agents',
+      icon: <Bot size={13} />,
+      tip: 'Custom subagents the main agent can delegate tasks to — global or per-project'
+    },
+    {
       id: 'about',
       label: 'About',
       icon: <Info size={13} />,
@@ -344,6 +352,7 @@ export function SettingsDialog(): React.JSX.Element {
             {tab === 'browser' && <BrowserTab />}
             {tab === 'connectors' && <ConnectorsTab />}
             {tab === 'mcp' && <McpTab />}
+            {tab === 'agents' && <AgentsTab />}
             {tab === 'about' && <AboutTab />}
           </div>
         </div>

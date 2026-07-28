@@ -619,11 +619,24 @@ Open with `Cmd+,` (`Ctrl+,`).
 | **Browser**     | browser-automation settings for web tools, including the viewport size                                                                                  |
 | **Connectors**  | one-click OAuth sign-ins for GitHub, GitLab, Supabase, Netlify, Vercel, and Sentry (see [Connectors](#connectors))                                      |
 | **MCP Servers** | global Model Context Protocol servers                                                                                                                   |
+| **Agents**      | custom subagents — global by default, or project-specific via the scope toggle + project picker (see below)                                             |
 | **About**       | versions, runtime boot status, CLI install, updates, re-run setup                                                                                       |
 
 Everything you change here is written to mastracode's own config files
 (atomically, preserving keys the app doesn't know about), so the CLI picks up
 the same configuration.
+
+### Custom subagents (Settings → Agents)
+
+Custom subagents (`~/.mastracode/agents/*.md` globally, or a project's
+`.mastracode/agents/*.md`) are helpers the main agent can delegate tasks to
+via the `subagent` tool (`/subagents` opens this tab). The editor defaults to
+the **Global** scope — agents available in every project; switch to
+**Project** and pick one of your projects to manage agents for that project
+only. Each file has a frontmatter block (`name`, `description` — required,
+`model`, `maxSteps`, `forked`) and the body is the subagent's instructions.
+Saving restarts the affected agent processes; the ids `explore`, `plan`,
+`execute` and `general` are reserved.
 
 ## Per-project configuration
 
@@ -643,18 +656,15 @@ single project:
   servers that dropped.
 - **Lifecycle hooks** (`.mastracode/hooks.json`, appended after global hooks)
 - **Custom slash commands** (`.mastracode/commands/**/*.md`)
-- **Custom subagents** (`.mastracode/agents/*.md`, or `~/.mastracode/agents/`
-  for every project) — helpers the main agent can delegate tasks to via the
-  `subagent` tool (`/subagents` opens this tab). Each file has a frontmatter
-  block (`name`, `description` — required, `model`, `maxSteps`, `forked`) and
-  the body is the subagent's instructions. Saving restarts the affected agent
-  processes; the ids `explore`, `plan`, `execute` and `general` are reserved.
 - **Agent instructions** (`.mastracode/agent-instructions.md`) — standing
   guidance the agent reads on every run
 - **Memory resource id** (`.mastracode/database.json`)
 - Installed **skills and plugins** — plugins that declare a configuration
   schema get a generated settings form (toggles, text fields, and model
   pickers), written back to the plugin's config
+
+Project-specific custom subagents are managed in **Settings → Agents** (pick
+the project there).
 
 Edits restart the affected agent processes, so they take effect immediately.
 
