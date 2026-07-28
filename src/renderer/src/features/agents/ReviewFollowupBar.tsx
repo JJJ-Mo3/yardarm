@@ -1,17 +1,21 @@
 /**
  * Post-review follow-up strip shown above the composer once a review run
- * finishes: post the findings back to the PR as comments, or turn them into
- * an implementation plan. Derived from the transcript (findCompletedReview)
- * — nothing is persisted; dismissal is per marker id in ChatView state.
+ * finishes: post the findings back to the PR/MR as comments, or turn them
+ * into an implementation plan. Derived from the transcript
+ * (findCompletedReview) — nothing is persisted; dismissal is per marker id
+ * in ChatView state.
  */
 import React from 'react'
 import { ListTodo, MessageSquareText, ScanSearch, X } from 'lucide-react'
+import type { RepoProvider } from '@shared/ipc-types'
 import { trpc } from '../../lib/trpc'
+import { forgeCopy } from '../../lib/forge-copy'
 import { Tip } from '../../components/ui/tooltip'
 
 export function ReviewFollowupBar({
   target,
   cwd,
+  provider,
   busy,
   onPostComments,
   onBuildPlan,
@@ -19,16 +23,19 @@ export function ReviewFollowupBar({
 }: {
   /** What the finished review looked at (from the transcript marker). */
   target: { kind: 'local' } | { kind: 'pr'; prNumber: string }
-  /** Worktree (or project) path used to look up the branch's PR after a local review. */
+  /** Worktree (or project) path used to look up the branch's PR/MR after a local review. */
   cwd: string | null
+  /** Repo host for copy (PR vs MR); null while unknown (GitHub wording). */
+  provider: RepoProvider | null
   /** Disable the actions while a send is in flight. */
   busy: boolean
   onPostComments: (prNumber?: string) => void
   onBuildPlan: () => void
   onDismiss: () => void
 }): React.JSX.Element {
+  const fc = forgeCopy(provider)
   // After a local review, comments can only go somewhere if the branch has an
-  // open PR; a failed lookup (no gh, no PR, detached worktree) just hides it.
+  // open PR/MR; a failed lookup (no CLI, no PR, detached worktree) just hides it.
   const branchPr = trpc.git.branchPr.useQuery(
     { cwd: cwd ?? '' },
     { enabled: target.kind === 'local' && !!cwd, staleTime: 30_000, retry: false }
@@ -50,8 +57,8 @@ export function ReviewFollowupBar({
           <Tip
             content={
               prNumber
-                ? `Post the review findings as comments on PR #${prNumber}`
-                : 'Post the review findings as comments on the pull request'
+                ? `Post the review findings as comments on ${fc.short} ${fc.refPrefix}${prNumber}`
+                : `Post the review findings as comments on the ${fc.long}`
             }
           >
             <span className="inline-flex">
@@ -61,7 +68,7 @@ export function ReviewFollowupBar({
                 className="flex items-center gap-1 rounded-md border border-border bg-background px-2 py-0.5 text-[11px] hover:bg-accent disabled:opacity-50 cursor-pointer"
               >
                 <MessageSquareText size={11} />
-                Post review as PR comments
+                Post review as {fc.short} comments
               </button>
             </span>
           </Tip>

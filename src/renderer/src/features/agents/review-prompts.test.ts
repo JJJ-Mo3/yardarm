@@ -28,6 +28,15 @@ describe('parseReviewArgs', () => {
     })
   })
 
+  it('parses a GitLab-style MR reference', () => {
+    expect(parseReviewArgs('!5')).toEqual({ kind: 'pr', prNumber: '5', focus: undefined })
+    expect(parseReviewArgs('!5 error handling')).toEqual({
+      kind: 'pr',
+      prNumber: '5',
+      focus: 'error handling'
+    })
+  })
+
   it('parses changes with optional focus', () => {
     expect(parseReviewArgs('changes')).toEqual({ kind: 'changes', focus: undefined })
     expect(parseReviewArgs('changes error handling')).toEqual({
@@ -59,8 +68,27 @@ describe('prompt templates', () => {
     expect(prompt).not.toContain('Pay special attention to')
   })
 
+  it('MR list prompt uses glab', () => {
+    expect(buildPrListPrompt('gitlab')).toBe(
+      "List the open merge requests for this repository using `glab mr list --per-page 20`. Present them in a clear table with MR number, title, and author. Then ask me which MR I'd like you to review."
+    )
+  })
+
+  it('MR review prompt uses glab commands and interpolates the number', () => {
+    const prompt = buildPrReviewPrompt('5', 'gitlab')
+    expect(prompt).toContain('Do a thorough code review of MR !5.')
+    expect(prompt).toContain('1. Run `glab mr view 5` to get the MR description and metadata.')
+    expect(prompt).toContain('2. Run `glab mr diff 5` to get the full diff.')
+    expect(prompt).toContain('3. Run `glab ci status --branch <source branch>`')
+    expect(prompt).toContain('Final verdict (approve/request changes/comment)')
+    expect(prompt).not.toContain('gh pr')
+  })
+
   it('appends the focus suffix like the CLI', () => {
-    expect(buildPrReviewPrompt('42', 'security')).toContain(
+    expect(buildPrReviewPrompt('42', 'github', 'security')).toContain(
+      '\nPay special attention to: security\n'
+    )
+    expect(buildPrReviewPrompt('5', 'gitlab', 'security')).toContain(
       '\nPay special attention to: security\n'
     )
     expect(buildLocalReviewPrompt({ focus: 'tests' })).toContain(
@@ -97,6 +125,15 @@ describe('review markers', () => {
     expect(parseReviewMarker(bare)).toEqual({ kind: 'pr', prNumber: '7' })
   })
 
+  it('round-trips a GitLab MR review', () => {
+    const withTitle = buildReviewMarker({ kind: 'pr', prNumber: '5', title: 'fix auth' }, 'gitlab')
+    expect(withTitle).toBe('Review: MR !5 — fix auth')
+    expect(parseReviewMarker(withTitle)).toEqual({ kind: 'pr', prNumber: '5' })
+    const bare = buildReviewMarker({ kind: 'pr', prNumber: '9' }, 'gitlab')
+    expect(bare).toBe('Review: MR !9')
+    expect(parseReviewMarker(bare)).toEqual({ kind: 'pr', prNumber: '9' })
+  })
+
   it('rejects non-review text, follow-up markers, and the list marker', () => {
     expect(parseReviewMarker('hello')).toBeNull()
     expect(parseReviewMarker('Review follow-up: post PR comments')).toBeNull()
@@ -108,7 +145,7 @@ describe('review markers', () => {
 
 describe('follow-up prompts', () => {
   it('PR comments prompt interpolates the number and uses gh comment-only commands', () => {
-    const prompt = buildPrCommentsPrompt('42')
+    const prompt = buildPrCommentsPrompt('github', '42')
     expect(prompt).toContain('The PR is #42.')
     expect(prompt).toContain('gh pr review <number> --comment --body')
     expect(prompt).toContain('gh pr comment <number> --body')
@@ -118,6 +155,14 @@ describe('follow-up prompts', () => {
   it('PR comments prompt resolves the branch PR when no number is given', () => {
     const prompt = buildPrCommentsPrompt()
     expect(prompt).toContain('gh pr view --json number')
+  })
+
+  it('MR comments prompt uses glab note commands', () => {
+    const prompt = buildPrCommentsPrompt('gitlab', '5')
+    expect(prompt).toContain('The MR is !5.')
+    expect(prompt).toContain('glab mr note create <number> --message')
+    expect(prompt).not.toContain('glab mr view --output json')
+    expect(buildPrCommentsPrompt('gitlab')).toContain('glab mr view --output json')
   })
 
   it('plan prompt turns the findings into an implementation plan', () => {

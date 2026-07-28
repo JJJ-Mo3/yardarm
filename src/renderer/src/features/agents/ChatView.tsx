@@ -90,6 +90,12 @@ export function ChatView({
   const setModel = trpc.agent.setModel.useMutation()
   const setThinking = trpc.agent.setThinking.useMutation()
   const setYolo = trpc.agent.setYolo.useMutation()
+  // Repo host (GitHub/GitLab) for provider-aware review prompts and follow-up copy.
+  const forge = trpc.git.forgeInfo.useQuery(
+    { cwd: projectRoot ?? '' },
+    { enabled: !!projectRoot, staleTime: 60_000 }
+  )
+  const provider = forge.data?.provider ?? null
   // Optimistic mode switching: show the requested mode immediately (pulsing)
   // until the session-meta round-trip confirms it or the mutation fails.
   const [pendingMode, setPendingMode] = useState<Mode | null>(null)
@@ -370,8 +376,8 @@ export function ChatView({
         if (parsed.kind === 'invalid') return 'Usage: /review [<pr-number>|changes] [focus]'
         if (parsed.kind === 'pr') {
           sendMarked(
-            buildPrReviewPrompt(parsed.prNumber, parsed.focus),
-            buildReviewMarker({ kind: 'pr', prNumber: parsed.prNumber })
+            buildPrReviewPrompt(parsed.prNumber, provider ?? 'github', parsed.focus),
+            buildReviewMarker({ kind: 'pr', prNumber: parsed.prNumber }, provider ?? 'github')
           )
         } else if (parsed.kind === 'changes') {
           sendMarked(
@@ -381,7 +387,7 @@ export function ChatView({
         } else {
           // Deliberately not a parseable review marker — listing PRs is not a
           // review, so it must not trigger the follow-up bar.
-          sendMarked(buildPrListPrompt(), 'Review: list open PRs')
+          sendMarked(buildPrListPrompt(provider ?? 'github'), 'Review: list open PRs')
         }
         return
       }
@@ -802,9 +808,13 @@ export function ChatView({
           <ReviewFollowupBar
             target={completedReview.target}
             cwd={projectRoot}
+            provider={provider}
             busy={busy}
             onPostComments={(prNumber) =>
-              sendMarked(buildPrCommentsPrompt(prNumber), 'Review follow-up: post PR comments')
+              sendMarked(
+                buildPrCommentsPrompt(provider ?? 'github', prNumber),
+                'Review follow-up: post PR comments'
+              )
             }
             onBuildPlan={() => {
               const go = (): void =>

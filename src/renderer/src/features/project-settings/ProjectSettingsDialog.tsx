@@ -17,7 +17,7 @@ import {
   Trash2,
   Webhook
 } from 'lucide-react'
-import type { PluginConfigOption } from '@shared/ipc-types'
+import type { PluginConfigOption, RepoHostSetting } from '@shared/ipc-types'
 import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
 import {
@@ -92,6 +92,17 @@ function GeneralTab({
     }
   })
 
+  // Repository host override (GitHub vs GitLab) for PR/MR features.
+  const settings = trpc.projects.getSettings.useQuery({ id: projectId })
+  const detected = trpc.git.forgeInfo.useQuery({ cwd: projectPath }, { staleTime: 60_000 })
+  const setRepoHost = trpc.projects.setRepoHost.useMutation({
+    onSuccess: () => {
+      utils.projects.getSettings.invalidate({ id: projectId })
+      // Every Changes view / review picker (project root and worktrees) must re-resolve.
+      utils.git.forgeInfo.invalidate()
+    }
+  })
+
   const trimmed = name.trim()
   return (
     <div className="space-y-4">
@@ -127,6 +138,40 @@ function GeneralTab({
       <div className="space-y-1">
         <div className="text-xs font-medium">Path</div>
         <div className="font-mono text-[11px] text-muted-foreground selectable">{projectPath}</div>
+      </div>
+
+      <div className="space-y-1.5">
+        <div className="text-xs font-medium">Repository host</div>
+        <div className="text-[11px] text-muted-foreground">
+          Used for pull/merge request features (create, review, comment). Auto-detect reads the
+          origin remote; pick one explicitly for self-hosted instances it can&apos;t recognize.
+        </div>
+        <Tip content="Which forge this repo lives on — GitHub uses the gh CLI, GitLab uses glab. Auto-detect reads the origin remote URL">
+          <span className="inline-flex">
+            <select
+              value={settings.data?.repoHost ?? 'auto'}
+              disabled={settings.isLoading || setRepoHost.isPending}
+              onChange={(e) =>
+                setRepoHost.mutate({ id: projectId, repoHost: e.target.value as RepoHostSetting })
+              }
+              className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+            >
+              <option value="auto">Auto-detect</option>
+              <option value="github">GitHub</option>
+              <option value="gitlab">GitLab</option>
+            </select>
+          </span>
+        </Tip>
+        {(settings.data?.repoHost ?? 'auto') === 'auto' && detected.data && (
+          <div className="text-[11px] text-muted-foreground">
+            {detected.data.provider
+              ? `Detected from origin: ${detected.data.provider === 'gitlab' ? 'GitLab' : 'GitHub'}`
+              : 'No GitHub or GitLab remote detected.'}
+          </div>
+        )}
+        {setRepoHost.error && (
+          <div className="text-xs text-destructive selectable">{setRepoHost.error.message}</div>
+        )}
       </div>
 
       <div className="space-y-2 rounded-md border border-border p-3">

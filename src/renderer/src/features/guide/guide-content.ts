@@ -34,7 +34,7 @@ The main window has a project sidebar on the left and a set of tabs across the t
     id: 'projects',
     title: 'Projects, chats & worktrees',
     body: `
-A **project** is a local git repository (add a folder or clone from GitHub via the sidebar).
+A **project** is a local git repository (add a folder or clone a repository via the sidebar).
 Inside a project you create **chats** — independent conversations with the agent.
 
 ### Worktrees
@@ -156,10 +156,11 @@ root).
   working tree.
 - **Merge & pull** — worktree chats can merge their branch back into the base branch from
   here, and pull the base to stay current.
-- **Review** — the review action (also \`/review\`) has the agent review local changes or a
-  PR and post findings back into the chat.
-- **Pull requests** — with the GitHub CLI (\`gh\`) installed and authenticated, you can open
-  PRs from the app.
+- **Review** — the review action (also \`/review\`) has the agent review local changes or an
+  open PR/MR and post findings back into the chat.
+- **Pull / merge requests** — with the GitHub CLI (\`gh\`) or GitLab CLI (\`glab\`) installed
+  and authenticated, you can open PRs/MRs from the app. The host is auto-detected from the
+  origin remote; for self-hosted instances, set it in Project Settings → General.
 `
   },
   {

@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { mainTabAtom } from '../../lib/atoms'
+import { forgeCopy } from '../../lib/forge-copy'
 import { compareRefAtomFamily } from './compare-ref-atom'
 import { buildLocalReviewPrompt, buildReviewMarker } from '../agents/review-prompts'
 import { cn, timeAgo } from '../../lib/utils'
@@ -105,7 +106,8 @@ export function ChangesView({
   const sendReview = trpc.agent.send.useMutation()
   const status = trpc.git.status.useQuery({ cwd }, { refetchInterval: 4000 })
   const branches = trpc.git.branches.useQuery({ cwd }, { staleTime: 10_000 })
-  const ghAvailable = trpc.git.ghAvailable.useQuery(undefined, { staleTime: Infinity })
+  const forge = trpc.git.forgeInfo.useQuery({ cwd }, { staleTime: 60_000 })
+  const fc = forgeCopy(forge.data?.provider)
   const [selected, setSelected] = useState<string | null>(null)
   const [commitMsg, setCommitMsg] = useState('')
   const [newBranchOpen, setNewBranchOpen] = useState(false)
@@ -208,8 +210,10 @@ export function ChangesView({
                 <GitBranchPlus size={15} />
               </Button>
             </Tip>
-            {ghAvailable.data?.available && (
-              <Tip content="Open a pull request for this branch on GitHub (uses the gh CLI)">
+            {forge.data?.provider && forge.data.cliAvailable && (
+              <Tip
+                content={`Open a ${fc.long} for this branch on ${fc.host} (uses the ${fc.cli} CLI)`}
+              >
                 <Button
                   size="icon"
                   variant="ghost"
@@ -748,13 +752,15 @@ export function ChangesView({
         </DialogContent>
       </Dialog>
 
-      {/* Create PR dialog (gh CLI) */}
+      {/* Create PR/MR dialog (gh / glab CLI) */}
       <Dialog open={prOpen} onOpenChange={setPrOpen}>
         <DialogContent>
-          <DialogTitle>Create pull request</DialogTitle>
+          <DialogTitle>Create {fc.long}</DialogTitle>
           {createPr.data ? (
             <div className="space-y-3">
-              <div className="text-[13px]">Pull request created:</div>
+              <div className="text-[13px]">
+                {fc.long.charAt(0).toUpperCase() + fc.long.slice(1)} created:
+              </div>
               <a
                 href={createPr.data.url}
                 target="_blank"
@@ -805,7 +811,7 @@ export function ChangesView({
                   disabled={!prTitle.trim() || createPr.isPending}
                   onClick={() => createPr.mutate({ cwd, title: prTitle.trim(), body: prBody })}
                 >
-                  {createPr.isPending ? 'Creating…' : 'Create PR'}
+                  {createPr.isPending ? 'Creating…' : `Create ${fc.short}`}
                 </Button>
               </div>
               {createPr.error && (

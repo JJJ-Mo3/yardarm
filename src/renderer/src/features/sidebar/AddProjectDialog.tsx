@@ -90,9 +90,9 @@ export function AddProjectDialog(): React.JSX.Element {
                 },
                 {
                   id: 'clone',
-                  label: 'Clone from GitHub',
+                  label: 'Clone repository',
                   icon: <GitFork size={12} />,
-                  tip: 'Download a repository from a git URL into a local folder'
+                  tip: 'Download a repository from a git URL (GitHub, GitLab, …) into a local folder'
                 }
               ] as const
             ).map((m) => (
@@ -151,7 +151,7 @@ export function AddProjectDialog(): React.JSX.Element {
             <div className="space-y-3">
               <Input
                 autoFocus
-                placeholder="https://github.com/owner/repo.git"
+                placeholder="https://github.com/owner/repo.git or https://gitlab.com/owner/repo.git"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
               />
