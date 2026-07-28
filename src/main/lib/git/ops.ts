@@ -6,6 +6,10 @@
  * capture / hard reset for rollback).
  */
 import { simpleGit } from 'simple-git'
+import { randomUUID } from 'crypto'
+import { rm } from 'fs/promises'
+import os from 'os'
+import path from 'path'
 
 export interface FileChange {
   path: string
@@ -280,23 +284,51 @@ export async function diffNameStatus(cwd: string, baseRef: string): Promise<Comm
 // ---- Checkpoints ----------------------------------------------------------
 
 /**
- * Capture a checkpoint before a user message: HEAD sha plus a stash commit
- * capturing uncommitted changes (if any). Encoded as JSON string.
+ * Capture a checkpoint before a user message: HEAD sha plus a stash-like
+ * commit capturing uncommitted changes (if any). Encoded as JSON string.
+ *
+ * The stash commit is built by hand from a temporary index (never touching
+ * the real index or working tree) because `git stash create` skips untracked
+ * files — and restoreCheckpoint's `clean -fd` would then permanently delete
+ * untracked files that existed before the message. The two-parent shape
+ * (HEAD + an index commit) is what `git stash apply` requires.
  */
 export async function captureCheckpoint(cwd: string): Promise<string | null> {
   try {
     const git = simpleGit(cwd)
     const head = (await git.revparse(['HEAD'])).trim()
     let stash: string | null = null
+    const tmpIndex = path.join(os.tmpdir(), `yardarm-ckpt-index-${randomUUID()}`)
     try {
-      const out = (await git.raw(['stash', 'create'])).trim()
-      if (out) {
-        stash = out
+      const envGit = simpleGit(cwd).env({ ...process.env, GIT_INDEX_FILE: tmpIndex })
+      await envGit.raw(['read-tree', head])
+      // Stages modified + untracked (gitignore respected), temp index only.
+      await envGit.raw(['add', '-A'])
+      const tree = (await envGit.raw(['write-tree'])).trim()
+      const headTree = (await git.revparse([`${head}^{tree}`])).trim()
+      if (tree !== headTree) {
+        const indexCommit = (
+          await envGit.raw(['commit-tree', headTree, '-p', head, '-m', 'yardarm checkpoint index'])
+        ).trim()
+        stash = (
+          await envGit.raw([
+            'commit-tree',
+            tree,
+            '-p',
+            head,
+            '-p',
+            indexCommit,
+            '-m',
+            'yardarm checkpoint'
+          ])
+        ).trim()
         // Keep the dangling commit alive against GC.
         await git.raw(['update-ref', `refs/yardarm/checkpoints/${stash}`, stash]).catch(() => {})
       }
     } catch {
-      // clean tree or stash unsupported
+      // clean tree or capture unsupported
+    } finally {
+      await rm(tmpIndex, { force: true }).catch(() => {})
     }
     return JSON.stringify({ head, stash })
   } catch {
