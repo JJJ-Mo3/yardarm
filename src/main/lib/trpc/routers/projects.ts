@@ -8,6 +8,7 @@ import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm'
 import { simpleGit } from 'simple-git'
 import { z } from 'zod'
 import { getDb, schema } from '../../db'
+import { parseProjectSettings } from '../../db/project-settings'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import { checkpointStashSha, deleteCheckpointRefs } from '../../git/ops'
 import {
@@ -217,6 +218,41 @@ export const projectsRouter = router({
       getDb()
         .update(schema.projects)
         .set({ name: input.name, updatedAt: Date.now() })
+        .where(eq(schema.projects.id, input.id))
+        .run()
+      return { ok: true }
+    }),
+
+  /** Per-project settings (currently just the repo-host override). */
+  getSettings: publicProcedure.input(z.object({ id: z.string() })).query(({ input }) => {
+    const project = getDb()
+      .select()
+      .from(schema.projects)
+      .where(eq(schema.projects.id, input.id))
+      .get()
+    const settings = parseProjectSettings(project?.settings ?? null)
+    const repoHost = settings.repoHost
+    return { repoHost: repoHost === 'github' || repoHost === 'gitlab' ? repoHost : 'auto' }
+  }),
+
+  /** Set the repo-host override; 'auto' clears it (detect from the origin remote). */
+  setRepoHost: publicProcedure
+    .input(z.object({ id: z.string(), repoHost: z.enum(['auto', 'github', 'gitlab']) }))
+    .mutation(({ input }) => {
+      const db = getDb()
+      const project = db
+        .select()
+        .from(schema.projects)
+        .where(eq(schema.projects.id, input.id))
+        .get()
+      if (!project) throw new Error('Project not found')
+      // Read-modify-write the JSON blob so unknown keys are preserved.
+      const settings = parseProjectSettings(project.settings)
+      if (input.repoHost === 'auto') delete settings.repoHost
+      else settings.repoHost = input.repoHost
+      const serialized = Object.keys(settings).length > 0 ? JSON.stringify(settings) : null
+      db.update(schema.projects)
+        .set({ settings: serialized, updatedAt: Date.now() })
         .where(eq(schema.projects.id, input.id))
         .run()
       return { ok: true }

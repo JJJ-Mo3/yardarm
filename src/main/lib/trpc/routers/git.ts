@@ -18,7 +18,7 @@ import {
   stageFiles,
   unstageFiles
 } from '../../git/ops'
-import { createPr, ghPath, listPrs, prForBranch } from '../../git/gh'
+import { forgeCreatePr, forgeInfo, forgeListPrs, forgePrForBranch } from '../../git/forge'
 import { publicProcedure, router } from '../trpc'
 
 const cwdInput = z.object({ cwd: z.string() })
@@ -79,16 +79,16 @@ export const gitRouter = router({
       return { ok: true }
     }),
 
-  /** Whether the GitHub CLI is installed (enables the Create PR flow). */
-  ghAvailable: publicProcedure.query(async () => ({ available: (await ghPath()) !== null })),
+  /** Repo host (GitHub/GitLab) + CLI availability for the working tree at cwd. */
+  forgeInfo: publicProcedure.input(cwdInput).query(({ input }) => forgeInfo(input.cwd)),
 
-  /** Open PRs for the repo at cwd (feeds the review picker). */
+  /** Open PRs/MRs for the repo at cwd (feeds the review picker). */
   listPrs: publicProcedure
     .input(cwdInput.extend({ limit: z.number().int().positive().max(50).default(20) }))
-    .query(({ input }) => listPrs(input.cwd, input.limit)),
+    .query(({ input }) => forgeListPrs(input.cwd, input.limit)),
 
-  /** Open PR for the branch checked out at cwd, or null (gates review follow-ups). */
-  branchPr: publicProcedure.input(cwdInput).query(({ input }) => prForBranch(input.cwd)),
+  /** Open PR/MR for the branch checked out at cwd, or null (gates review follow-ups). */
+  branchPr: publicProcedure.input(cwdInput).query(({ input }) => forgePrForBranch(input.cwd)),
 
   createPr: publicProcedure
     .input(
@@ -100,7 +100,7 @@ export const gitRouter = router({
       })
     )
     .mutation(({ input }) =>
-      createPr(input.cwd, {
+      forgeCreatePr(input.cwd, {
         title: input.title,
         body: input.body,
         base: input.base,

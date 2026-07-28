@@ -370,6 +370,12 @@ export interface LspDiagnosticsResult {
   unavailableReason?: string
 }
 
+/** Repository hosting provider a project's PR/MR features talk to. */
+export type RepoProvider = 'github' | 'gitlab'
+
+/** Per-project repo-host setting: auto-detect from the origin remote, or forced. */
+export type RepoHostSetting = RepoProvider | 'auto'
+
 /** Base64 file attachment for Session.sendMessage. */
 export interface FileAttachment {
   data: string
