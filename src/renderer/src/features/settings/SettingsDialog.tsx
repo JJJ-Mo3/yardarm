@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { useAtom } from 'jotai'
 import {
   Bot,
@@ -26,7 +26,6 @@ import {
 } from '../../lib/atoms'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
-import { Textarea } from '../../components/ui/textarea'
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
 import { Switch } from '../../components/ui/switch'
 import { Tip } from '../../components/ui/tooltip'
@@ -34,6 +33,7 @@ import { AboutTab } from './AboutTab'
 import { AgentsTab } from './AgentsTab'
 import { BrowserTab } from './BrowserTab'
 import { ConnectorsTab } from './ConnectorsTab'
+import { McpTab } from './McpTab'
 import { ModelsTab } from './ModelsTab'
 import { PreferencesTab } from './PreferencesTab'
 import { ProvidersTab } from './ProvidersTab'
@@ -188,71 +188,6 @@ export function KeysTab(): React.JSX.Element {
   )
 }
 
-function McpTab(): React.JSX.Element {
-  const utils = trpc.useUtils()
-  const servers = trpc.mcp.get.useQuery({})
-  const [text, setText] = useState('')
-  const [dirty, setDirty] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (servers.data && !dirty) {
-      setText(JSON.stringify(servers.data, null, 2))
-    }
-  }, [servers.data, dirty])
-
-  const save = trpc.mcp.set.useMutation({
-    onSuccess: () => {
-      setDirty(false)
-      utils.mcp.get.invalidate()
-    }
-  })
-
-  return (
-    <div className="space-y-2">
-      <div className="text-[11px] text-muted-foreground">
-        Edits <code>~/.mastracode/mcp.json</code> (shared with the CLI). Agent processes restart on
-        save.
-      </div>
-      <Textarea
-        rows={14}
-        value={text}
-        onChange={(e) => {
-          setText(e.target.value)
-          setDirty(true)
-          setError(null)
-        }}
-        className="font-mono text-[11px]"
-        spellCheck={false}
-      />
-      <div className="flex items-center gap-2">
-        <Tip content="Write mcp.json and restart agent processes so the new servers load">
-          <span className="inline-flex">
-            <Button
-              size="sm"
-              disabled={!dirty || save.isPending}
-              onClick={() => {
-                try {
-                  const parsed = JSON.parse(text) as Record<string, Record<string, unknown>>
-                  save.mutate({ servers: parsed })
-                } catch {
-                  setError('Invalid JSON')
-                }
-              }}
-            >
-              Save & restart agents
-            </Button>
-          </span>
-        </Tip>
-        {error && <span className="text-xs text-destructive">{error}</span>}
-        {save.error && (
-          <span className="text-xs text-destructive selectable">{save.error.message}</span>
-        )}
-      </div>
-    </div>
-  )
-}
-
 export function SettingsDialog(): React.JSX.Element {
   const [open, setOpen] = useAtom(settingsOpenAtom)
   const [tab, setTab] = useAtom(settingsTabAtom)
@@ -305,7 +240,7 @@ export function SettingsDialog(): React.JSX.Element {
       id: 'mcp',
       label: 'MCP Servers',
       icon: <Server size={13} />,
-      tip: 'External tool servers (Model Context Protocol) available to agents'
+      tip: 'External tool servers (Model Context Protocol) — global or per-project'
     },
     {
       id: 'agents',

@@ -258,9 +258,11 @@ Agents can use external tools via the **Model Context Protocol (MCP)**.
 - **Connectors** (Settings → Connectors) — one-click sign-ins for common services: GitHub,
   GitLab, Supabase, Netlify, Vercel, and Sentry. Sign in once and every chat can use that
   service's tools; sign-ins are shared across all worktrees of a project.
-- **MCP servers** (Settings → MCP Servers, or per-project in Project Settings) — add any MCP
-  server yourself: local commands or remote URLs, with OAuth handled in-app when a server
-  requires it. Configuration lives in the same \`mcp.json\` files the CLI uses.
+- **MCP servers** (Settings → MCP Servers) — add any MCP server yourself: local commands or
+  remote URLs, with OAuth handled in-app when a server requires it. Global by default
+  (available in every project); switch the scope to Project and pick a project to manage its
+  project-specific servers. The tab also shows each server's live status with authenticate /
+  reconnect actions. Configuration lives in the same \`mcp.json\` files the CLI uses.
 
 Tools exposed by connected servers appear to the agent automatically and go through the same
 approval flow as built-in tools.
@@ -297,15 +299,16 @@ App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
 - **Voice** — speech-to-text for the composer microphone.
 - **Browser** — the agent's built-in browser tool, including viewport size.
 - **Connectors** — one-click service sign-ins (see the Connectors section).
-- **MCP Servers** — global MCP server list.
+- **MCP Servers** — MCP server lists and live status, global or per-project (scope toggle +
+  project picker). \`/mcp\` opens this tab.
 - **Agents** — custom subagents the main agent can delegate tasks to. Global by default
   (available in every project); switch the scope to Project and pick a project to manage
   project-specific subagents. \`/subagents\` opens this tab.
 - **About** — versions, bundled runtime updates, and "Run setup again" to redo onboarding.
 
-**Project settings** (gear on the project row) cover per-project MCP servers, hooks, custom
-slash commands, agent instructions, resources, and plugins — plugins with configuration
-schemas get generated settings forms.
+**Project settings** (gear on the project row) cover per-project hooks, custom slash
+commands, agent instructions, resources, and plugins — plugins with configuration schemas
+get generated settings forms.
 `
   },
   {

@@ -40,7 +40,7 @@ export const splitSubchatIdAtom = atom<string | null>(null)
 /** Split divider position: the primary pane's width fraction (clamped 0.25–0.75 on use). */
 export const splitRatioAtom = atomWithStorage<number>('cz.splitRatio', 0.5)
 export type ProjectSettingsTab =
-  'general' | 'mcp' | 'hooks' | 'commands' | 'instructions' | 'resource' | 'plugins'
+  'general' | 'hooks' | 'commands' | 'instructions' | 'resource' | 'plugins'
 export const projectSettingsOpenAtom = atom(false)
 export const projectSettingsTabAtom = atom<ProjectSettingsTab>('general')
 export const debugEventsAtom = atomWithStorage<boolean>('cz.debugEvents', false)

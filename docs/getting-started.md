@@ -549,9 +549,8 @@ project can use that service's tools.
 The tab shows verified connection status per service (it actually exercises
 the connection, not just the token), and sign-ins are shared across all of
 a project's worktrees — one login covers every chat, present and future.
-For arbitrary MCP servers beyond these, see
-[Per-project configuration](#per-project-configuration) and Settings →
-MCP Servers.
+For arbitrary MCP servers beyond these, see Settings → MCP Servers
+(below).
 
 ## Voice dictation
 
@@ -618,13 +617,29 @@ Open with `Cmd+,` (`Ctrl+,`).
 | **Voice**       | dictation engine, STT provider and model                                                                                                                |
 | **Browser**     | browser-automation settings for web tools, including the viewport size                                                                                  |
 | **Connectors**  | one-click OAuth sign-ins for GitHub, GitLab, Supabase, Netlify, Vercel, and Sentry (see [Connectors](#connectors))                                      |
-| **MCP Servers** | global Model Context Protocol servers                                                                                                                   |
+| **MCP Servers** | Model Context Protocol servers — global by default, or project-specific via the scope toggle + project picker, with live status (see below)             |
 | **Agents**      | custom subagents — global by default, or project-specific via the scope toggle + project picker (see below)                                             |
 | **About**       | versions, runtime boot status, CLI install, updates, re-run setup                                                                                       |
 
 Everything you change here is written to mastracode's own config files
 (atomically, preserving keys the app doesn't know about), so the CLI picks up
 the same configuration.
+
+### MCP servers (Settings → MCP Servers)
+
+MCP servers (`~/.mastracode/mcp.json` globally, or a project's
+`.mastracode/mcp.json`, merged over global) are edited as raw JSON
+(`/mcp` opens this tab). The editor defaults to the **Global** scope —
+servers available in every project; switch to **Project** and pick one of
+your projects to manage servers for that project only. Saving restarts the
+affected agent processes.
+
+The tab also shows each server's live status (connected + tool count,
+connecting, or an error) — for the global scope this works even without a
+chat open; for a project it needs a chat open in that project. Servers that
+use OAuth show **Needs authentication** with an **Authenticate** button:
+the sign-in opens in your browser, and the server connects when it
+completes. A **Reconnect** button revives servers that dropped.
 
 ### Custom subagents (Settings → Agents)
 
@@ -648,12 +663,6 @@ single project:
   can be reopened and unarchived. Removing a project deletes its chats and
   worktrees but keeps the project folder on disk unless you tick the option to
   delete it too.
-- **MCP servers** (`.mastracode/mcp.json`) — the tab also shows each
-  server's live status (connected + tool count, connecting, or an error)
-  with a chat open. Servers that use OAuth show **Needs authentication**
-  with an **Authenticate** button: the sign-in opens in your browser, and
-  the server connects when it completes. A **Reconnect** button revives
-  servers that dropped.
 - **Lifecycle hooks** (`.mastracode/hooks.json`, appended after global hooks)
 - **Custom slash commands** (`.mastracode/commands/**/*.md`)
 - **Agent instructions** (`.mastracode/agent-instructions.md`) — standing
@@ -663,8 +672,9 @@ single project:
   schema get a generated settings form (toggles, text fields, and model
   pickers), written back to the plugin's config
 
-Project-specific custom subagents are managed in **Settings → Agents** (pick
-the project there).
+Project-specific MCP servers and custom subagents are managed in
+**Settings → MCP Servers** and **Settings → Agents** (pick the project
+there).
 
 Edits restart the affected agent processes, so they take effect immediately.
 

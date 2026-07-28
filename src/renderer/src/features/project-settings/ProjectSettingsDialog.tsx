@@ -1,6 +1,6 @@
 /**
- * Per-project .mastracode configuration: MCP servers, hooks, custom .md
- * commands, agent instructions, memory resource id, and loaded plugins.
+ * Per-project .mastracode configuration: hooks, custom .md commands, agent
+ * instructions, memory resource id, and loaded plugins.
  * Opened from the Sidebar gear or /hooks /commands /resource /skills.
  */
 import React, { useEffect, useState } from 'react'
@@ -11,7 +11,6 @@ import {
   ExternalLink,
   FileCode2,
   Puzzle,
-  Server,
   Settings2,
   Trash2,
   Webhook
@@ -254,218 +253,6 @@ function GeneralTab({
           <div className="text-xs text-destructive selectable">{remove.error.message}</div>
         )}
       </div>
-    </div>
-  )
-}
-
-/**
- * Live per-server MCP status from this chat's agent, with OAuth actions for
- * servers that require authentication (SDK 1.0.1 MCP OAuth support).
- */
-function McpStatusSection({ subchatId }: { subchatId: string | null }): React.JSX.Element {
-  const utils = trpc.useUtils()
-  const status = trpc.mcp.status.useQuery(
-    { subchatId: subchatId ?? '' },
-    { enabled: !!subchatId, refetchInterval: 5000 }
-  )
-  // Fallback links for in-flight OAuth flows (main already opened the browser).
-  const [authUrls, setAuthUrls] = useState<Record<string, string>>({})
-  trpc.mcp.onAuthUrl.useSubscription(undefined, {
-    onData: (ev) => setAuthUrls((prev) => ({ ...prev, [ev.serverName]: ev.url }))
-  })
-  const invalidate = (): void => {
-    if (subchatId) utils.mcp.status.invalidate({ subchatId })
-  }
-  const authenticate = trpc.mcp.authenticate.useMutation({ onSettled: invalidate })
-  const cancelAuth = trpc.mcp.cancelAuth.useMutation({ onSettled: invalidate })
-  const reconnect = trpc.mcp.reconnect.useMutation({ onSettled: invalidate })
-
-  if (!subchatId) {
-    return (
-      <div className="rounded border border-border px-2 py-1.5 text-[11px] text-muted-foreground">
-        Open a chat in this project to query live MCP server status.
-      </div>
-    )
-  }
-  const servers = status.data ?? []
-  return (
-    <div className="space-y-1.5">
-      {status.error && (
-        <div className="text-xs text-destructive selectable">{status.error.message}</div>
-      )}
-      {servers.length === 0 && !status.isLoading && !status.error && (
-        <div className="text-[11px] text-muted-foreground">
-          No MCP servers loaded by this chat&apos;s agent.
-        </div>
-      )}
-      {servers.map((s) => {
-        // The SDK resolves authentication with a status instead of rejecting;
-        // a user-cancelled flow carries cancelled so its error isn't alarming.
-        const statusEl = s.connecting ? (
-          <span className="text-muted-foreground">Connecting…</span>
-        ) : s.connected ? (
-          <span className="text-green-600 dark:text-green-500">
-            Connected · {s.toolCount} tool{s.toolCount === 1 ? '' : 's'}
-          </span>
-        ) : s.authenticating ? (
-          <span className="text-amber-600 dark:text-amber-500">Authenticating…</span>
-        ) : s.needsAuth ? (
-          <span className="text-amber-600 dark:text-amber-500">Needs authentication</span>
-        ) : s.cancelled ? (
-          <span className="text-muted-foreground">Authentication cancelled</span>
-        ) : s.error ? (
-          <span className="text-destructive" title={s.error}>
-            {s.error.length > 80 ? `${s.error.slice(0, 80)}…` : s.error}
-          </span>
-        ) : (
-          <span className="text-muted-foreground">Not connected</span>
-        )
-        return (
-          <div key={s.name} className="rounded border border-border px-2 py-1.5">
-            <div className="flex items-center gap-2">
-              <span className="min-w-0 flex-1 truncate text-xs font-medium" title={s.name}>
-                {s.name}
-              </span>
-              <span className="text-[10px] text-muted-foreground">{s.transport}</span>
-              {s.needsAuth && !s.authenticating && (
-                <Tip content="Run the OAuth flow for this server in your browser, then reconnect it">
-                  <span className="inline-flex">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-6 px-2 text-[10px]"
-                      disabled={authenticate.isPending}
-                      onClick={() => authenticate.mutate({ subchatId, serverName: s.name })}
-                    >
-                      Authenticate
-                    </Button>
-                  </span>
-                </Tip>
-              )}
-              {s.authenticating && (
-                <Tip content="Cancel the pending authentication — the server returns to “needs authentication” and can be retried">
-                  <span className="inline-flex">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-6 px-2 text-[10px]"
-                      disabled={cancelAuth.isPending}
-                      onClick={() => cancelAuth.mutate({ subchatId, serverName: s.name })}
-                    >
-                      Cancel
-                    </Button>
-                  </span>
-                </Tip>
-              )}
-              {!s.connected && !s.needsAuth && !s.authenticating && !s.connecting && (
-                <Tip content="Retry the connection to this server">
-                  <span className="inline-flex">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-6 px-2 text-[10px]"
-                      disabled={reconnect.isPending}
-                      onClick={() => reconnect.mutate({ subchatId, serverName: s.name })}
-                    >
-                      Reconnect
-                    </Button>
-                  </span>
-                </Tip>
-              )}
-            </div>
-            <div className="mt-0.5 text-[10px]">{statusEl}</div>
-            {s.authenticating && authUrls[s.name] && (
-              <div className="mt-0.5 text-[10px] text-muted-foreground">
-                Browser didn&apos;t open?{' '}
-                <a
-                  href={authUrls[s.name]}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline hover:text-foreground"
-                >
-                  Open the authorization page
-                </a>
-              </div>
-            )}
-          </div>
-        )
-      })}
-      {(authenticate.error ?? cancelAuth.error ?? reconnect.error) && (
-        <div className="text-xs text-destructive selectable">
-          {(authenticate.error ?? cancelAuth.error ?? reconnect.error)?.message}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function McpTab({
-  projectPath,
-  subchatId
-}: {
-  projectPath: string
-  subchatId: string | null
-}): React.JSX.Element {
-  const utils = trpc.useUtils()
-  const servers = trpc.mcp.get.useQuery({ projectPath })
-  const [text, setText] = useState('')
-  const [dirty, setDirty] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (servers.data && !dirty) setText(JSON.stringify(servers.data, null, 2))
-  }, [servers.data, dirty])
-
-  const save = trpc.mcp.set.useMutation({
-    onSuccess: () => {
-      setDirty(false)
-      utils.mcp.get.invalidate({ projectPath })
-    }
-  })
-
-  return (
-    <div className="space-y-2">
-      <div className="text-[11px] text-muted-foreground">
-        Edits <code>.mastracode/mcp.json</code> in this project (merged over global servers). This
-        project&apos;s agents restart on save.
-      </div>
-      <Textarea
-        rows={14}
-        value={text}
-        onChange={(e) => {
-          setText(e.target.value)
-          setDirty(true)
-          setError(null)
-        }}
-        className="font-mono text-[11px]"
-        spellCheck={false}
-      />
-      <div className="flex items-center gap-2">
-        <Tip content="Write .mastracode/mcp.json and restart this project's agents so the servers load">
-          <span className="inline-flex">
-            <Button
-              size="sm"
-              disabled={!dirty || save.isPending}
-              onClick={() => {
-                try {
-                  const parsed = JSON.parse(text) as Record<string, Record<string, unknown>>
-                  save.mutate({ servers: parsed, projectPath })
-                } catch {
-                  setError('Invalid JSON')
-                }
-              }}
-            >
-              Save & restart agents
-            </Button>
-          </span>
-        </Tip>
-        {error && <span className="text-xs text-destructive">{error}</span>}
-        {save.error && (
-          <span className="text-xs text-destructive selectable">{save.error.message}</span>
-        )}
-      </div>
-      <div className="pt-1 text-xs font-medium">Server status</div>
-      <McpStatusSection subchatId={subchatId} />
     </div>
   )
 }
@@ -1182,12 +969,6 @@ export function ProjectSettingsDialog({
       tip: 'Rename, archive, or remove this project'
     },
     {
-      id: 'mcp',
-      label: 'MCP Servers',
-      icon: <Server size={13} />,
-      tip: 'External tool servers this project’s agents connect to'
-    },
-    {
       id: 'hooks',
       label: 'Hooks',
       icon: <Webhook size={13} />,
@@ -1252,7 +1033,6 @@ export function ProjectSettingsDialog({
                   projectArchived={projectArchived}
                 />
               )}
-              {tab === 'mcp' && <McpTab projectPath={projectPath} subchatId={subchatId} />}
               {tab === 'hooks' && <HooksTab projectPath={projectPath} subchatId={subchatId} />}
               {tab === 'commands' && <CommandsTab projectPath={projectPath} />}
               {tab === 'instructions' && <InstructionsTab projectPath={projectPath} />}

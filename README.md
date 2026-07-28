@@ -296,16 +296,18 @@ Yardarm puts a desktop workspace around the agent:
   `name`/`description`/`model`/`tools` + an instructions body) that the
   agent can delegate to via the `subagent` tool — global by default, or
   project-specific via the scope toggle and project picker
+- MCP servers editor (Settings → MCP Servers, `/mcp`): edit the `mcp.json`
+  server lists — global by default, or project-specific via the scope
+  toggle and project picker — with live server status (connected state and
+  tool counts), one-click OAuth authentication for servers that need it,
+  and reconnect for ones that dropped
 
 **Per-project configuration**
 
-- Project Settings dialog (gear in the sidebar): MCP servers, lifecycle
-  hooks, custom commands, agent instructions, memory `resourceId`, and
-  installed skills/plugins — plugins that declare a config schema get a
-  generated settings form
-- Live MCP server status in the MCP tab — connected state and tool counts
-  per server, with one-click OAuth authentication for servers that need it
-  (and reconnect for ones that dropped)
+- Project Settings dialog (gear in the sidebar): lifecycle hooks, custom
+  commands, agent instructions, memory `resourceId`, and installed
+  skills/plugins — plugins that declare a config schema get a generated
+  settings form
 - Edits are atomic, preserve unknown keys, and restart affected agent
   processes so they take effect immediately
 
