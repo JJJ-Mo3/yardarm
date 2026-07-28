@@ -49,6 +49,22 @@ interface MastraMessageLike {
   createdAt?: number | string | Date
 }
 
+/** sdk 1.0.1 usage_update fields → UsageInfo keys (analytics/cost popover). */
+const USAGE_KEY_MAP: Record<string, string> = {
+  promptTokens: 'inputTokens',
+  completionTokens: 'outputTokens'
+}
+
+function normalizeUsage(raw: Record<string, unknown>): UsageInfo {
+  const out: UsageInfo = {}
+  for (const [k, v] of Object.entries(raw)) {
+    if (typeof v !== 'number') continue
+    const key = USAGE_KEY_MAP[k] ?? k
+    out[key] = (out[key] ?? 0) + v
+  }
+  return out
+}
+
 export interface TranslatorCallbacks {
   emit: (event: AgentUIEvent) => void
   /** `final` marks a completed message that must be durable immediately. */
@@ -81,8 +97,8 @@ export class EventTranslator {
   running = false
   /** Latest agent task list (seeded from boot state, updated by task_updated). */
   tasks: TaskItem[] = []
-  /** Last cumulative usage_update snapshot (per host lifetime). */
-  private lastUsage: UsageInfo = {}
+  /** Session-cumulative usage (sum of per-step usage_updates, host lifetime). */
+  private sessionUsage: UsageInfo = {}
 
   constructor(private cb: TranslatorCallbacks) {}
 
@@ -218,9 +234,7 @@ export class EventTranslator {
       }
 
       case 'usage_update': {
-        const usage = (ev.usage ?? {}) as UsageInfo
-        this.applyUsageDelta(usage)
-        this.cb.emit({ type: 'usage', usage })
+        this.applyStepUsage(normalizeUsage((ev.usage ?? {}) as Record<string, unknown>))
         break
       }
 
@@ -329,25 +343,27 @@ export class EventTranslator {
   }
 
   /**
-   * usage_update totals are session-cumulative — attribute the delta since
-   * the previous update to the assistant message currently being streamed,
-   * so per-message usage can be aggregated later (Analytics). Negative
-   * deltas (thread switch resets the counter) only re-baseline the snapshot.
+   * usage_update carries PER-STEP usage (promptTokens/completionTokens on
+   * each step-finish, sdk 1.0.1) — normalize to UsageInfo keys, accumulate
+   * into the session total for the cost popover (documented as cumulative),
+   * and attribute the step's tokens to the assistant message currently
+   * streaming so per-message usage can be aggregated later (Analytics).
    */
-  private applyUsageDelta(cumulative: UsageInfo): void {
-    const prev = this.lastUsage
-    this.lastUsage = cumulative
+  private applyStepUsage(step: UsageInfo): void {
+    for (const [key, val] of Object.entries(step)) {
+      if (typeof val !== 'number') continue
+      this.sessionUsage[key] = (this.sessionUsage[key] ?? 0) + val
+    }
+    this.cb.emit({ type: 'usage', usage: { ...this.sessionUsage } })
     const msgId = this.currentAssistantId
     if (!msgId) return
     const stored = this.messages.get(msgId)
     if (!stored) return
     const merged: UsageInfo = { ...(stored.usage ?? {}) }
     let changed = false
-    for (const [key, val] of Object.entries(cumulative)) {
-      if (typeof val !== 'number') continue
-      const delta = val - (typeof prev[key] === 'number' ? (prev[key] as number) : 0)
-      if (delta <= 0) continue
-      merged[key] = (merged[key] ?? 0) + delta
+    for (const [key, val] of Object.entries(step)) {
+      if (typeof val !== 'number' || val <= 0) continue
+      merged[key] = (merged[key] ?? 0) + val
       changed = true
     }
     if (!changed) return
@@ -435,6 +451,7 @@ export class EventTranslator {
       id: msg.id,
       role: 'assistant',
       parts,
+      usage: existing?.usage,
       checkpointRef: existing?.checkpointRef ?? null,
       createdAt: existing?.createdAt ?? this.toMillis(msg.createdAt)
     }

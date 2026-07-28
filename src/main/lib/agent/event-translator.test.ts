@@ -407,36 +407,47 @@ describe('session meta and misc events', () => {
 })
 
 describe('per-message usage attribution', () => {
-  it('attributes cumulative usage deltas to the streaming assistant message', () => {
+  it('normalizes per-step usage and accumulates it onto the streaming message', () => {
     const h = makeTranslator()
     h.t.handle(msgEvent('message_start', 'm1', [{ type: 'text', text: 'a' }]))
-    h.t.handle({ type: 'usage_update', usage: { inputTokens: 100, outputTokens: 10 } })
-    h.t.handle({ type: 'usage_update', usage: { inputTokens: 150, outputTokens: 30 } })
+    // sdk 1.0.1 emits per-step usage with AI-SDK field names.
+    h.t.handle({ type: 'usage_update', usage: { promptTokens: 100, completionTokens: 10 } })
+    h.t.handle({ type: 'usage_update', usage: { promptTokens: 50, completionTokens: 20 } })
     expect(h.persisted.at(-1)?.message.usage).toEqual({ inputTokens: 150, outputTokens: 30 })
-    // A second message only gets the delta since the last snapshot.
+    // A second message starts from zero — steps attach to the current message.
     h.t.handle(msgEvent('message_start', 'm2', [{ type: 'text', text: 'b' }]))
-    h.t.handle({ type: 'usage_update', usage: { inputTokens: 200, outputTokens: 45 } })
+    h.t.handle({ type: 'usage_update', usage: { promptTokens: 40, completionTokens: 15 } })
     const m2 = h.persisted.at(-1)?.message
     expect(m2?.id).toBe('m2')
-    expect(m2?.usage).toEqual({ inputTokens: 50, outputTokens: 15 })
+    expect(m2?.usage).toEqual({ inputTokens: 40, outputTokens: 15 })
   })
 
-  it('re-baselines on counter resets instead of attributing negative deltas', () => {
+  it('emits cumulative session totals as usage UI events', () => {
     const h = makeTranslator()
     h.t.handle(msgEvent('message_start', 'm1', [{ type: 'text', text: 'a' }]))
-    h.t.handle({ type: 'usage_update', usage: { inputTokens: 100 } })
-    const persistedBefore = h.persisted.length
-    // Thread switch resets the cumulative counter — nothing to attribute.
-    h.t.handle({ type: 'usage_update', usage: { inputTokens: 20 } })
-    expect(h.persisted.length).toBe(persistedBefore)
-    // The next increase counts only from the reset baseline.
-    h.t.handle({ type: 'usage_update', usage: { inputTokens: 30 } })
-    expect(h.persisted.at(-1)?.message.usage).toEqual({ inputTokens: 110 })
+    h.t.handle({ type: 'usage_update', usage: { promptTokens: 100, completionTokens: 10 } })
+    h.t.handle({ type: 'usage_update', usage: { promptTokens: 50, completionTokens: 20 } })
+    const usageEvents = h.emitted.filter((e) => e.type === 'usage')
+    expect(usageEvents).toEqual([
+      { type: 'usage', usage: { inputTokens: 100, outputTokens: 10 } },
+      { type: 'usage', usage: { inputTokens: 150, outputTokens: 30 } }
+    ])
+  })
+
+  it('preserves accumulated usage across later message upserts', () => {
+    const h = makeTranslator()
+    h.t.handle(msgEvent('message_start', 'm1', [{ type: 'text', text: 'a' }]))
+    h.t.handle({ type: 'usage_update', usage: { promptTokens: 100, completionTokens: 10 } })
+    // message_update/message_end rebuild the StoredMessage — usage must survive.
+    h.t.handle(msgEvent('message_end', 'm1', [{ type: 'text', text: 'ab' }]))
+    const final = h.persisted.at(-1)
+    expect(final?.final).toBe(true)
+    expect(final?.message.usage).toEqual({ inputTokens: 100, outputTokens: 10 })
   })
 
   it('drops usage that arrives before any assistant message', () => {
     const h = makeTranslator()
-    h.t.handle({ type: 'usage_update', usage: { inputTokens: 5 } })
+    h.t.handle({ type: 'usage_update', usage: { promptTokens: 5 } })
     expect(h.persisted).toHaveLength(0)
     expect(h.emitted.some((e) => e.type === 'usage')).toBe(true)
   })
