@@ -126,11 +126,12 @@ Yardarm puts a desktop workspace around the agent:
   checkpoint (a real git ref). Roll back and both the transcript and the
   working tree return to that moment, with the agent told what happened.
 - **Review and ship in one place** — side-by-side Monaco diffs of exactly
-  what the agent changed, staging, commit, and push (with `gh` for PR
-  flows), plus a real terminal and a light IDE scoped to the chat's worktree.
-  A **review** button in the chat header has the agent code-review the
-  chat's changes or any open PR, with one-click follow-ups to post the
-  findings as PR comments or turn them into a plan.
+  what the agent changed, staging, commit, and push (with `gh` for GitHub
+  PR flows or `glab` for GitLab MRs), plus a real terminal and a light IDE
+  scoped to the chat's worktree. A **review** button in the chat header has
+  the agent code-review the chat's changes or any open PR/MR, with
+  one-click follow-ups to post the findings as comments or turn them into a
+  plan.
 - **Persistent, organized history** — projects and chats with full
   transcripts survive restarts in a local SQLite database.
 - **Everything visible at a glance** — a color-coded mode selector, tool
@@ -184,12 +185,12 @@ Yardarm puts a desktop workspace around the agent:
   browsable in the popover's evaluation history with per-iteration
   pass/fail results and the judge's reasoning
 - Agent code review from the **review** button in the header: review the
-  chat's local changes against their base branch, or pick any open PR from
-  a `gh`-powered list, optionally with a focus. Reviews run silently — the
-  transcript shows a compact "Review: …" marker line instead of a user
-  message — and finish with follow-up actions: post the findings as PR
-  comments, or switch to Plan mode and build a plan to execute them
-  (`/review` does the same from the keyboard)
+  chat's local changes against their base branch, or pick any open PR/MR
+  from a `gh`/`glab`-powered list, optionally with a focus. Reviews run
+  silently — the transcript shows a compact "Review: …" marker line instead
+  of a user message — and finish with follow-up actions: post the findings
+  as PR/MR comments, or switch to Plan mode and build a plan to execute
+  them (`/review` does the same from the keyboard)
 - Observational Memory status (`/om`) showing observer/reflector activity
   and token budgets
 - Threads (`/threads`): switch, rename, clone, delete, open in a new subchat,
@@ -371,19 +372,22 @@ creates named ones on demand, renames/tags them, compares any two as a
 diff, and prunes stale automatic ones.
 
 **Changes.** The Changes tab shows worktree diffs with staging, commit, and
-push (uses the `gh` CLI when available for PR flows). A compare switcher
+push (uses the `gh` CLI for GitHub PR flows, or the
+[`glab` CLI](https://gitlab.com/gitlab-org/cli) for GitLab MRs — the host is
+auto-detected from the origin remote, with a per-project override in
+Project Settings for self-hosted instances). A compare switcher
 diffs the worktree against any other branch (from their merge-base) for a
 read-only look at how far the work has drifted.
 
 **Review.** The **review** button in the chat header (next to the goal chip)
 asks the agent for a thorough code review — of the chat's local changes
-against their base branch, or of any open PR picked from a `gh`-powered
-list, with an optional focus. The review runs without posting a user
-message (the transcript shows a compact "Review: …" marker line), and when
-it finishes a follow-up bar offers to post the findings as comments on the
-PR or to switch to Plan mode and turn them into an implementation plan.
-`/review changes`, `/review <pr-number>`, and `/review` (list open PRs) do
-the same from the keyboard.
+against their base branch, or of any open PR/MR picked from a
+`gh`/`glab`-powered list, with an optional focus. The review runs without
+posting a user message (the transcript shows a compact "Review: …" marker
+line), and when it finishes a follow-up bar offers to post the findings as
+comments on the PR/MR or to switch to Plan mode and turn them into an
+implementation plan. `/review changes`, `/review <pr-number>`, and
+`/review` (list open PRs/MRs) do the same from the keyboard.
 
 **Goals.** Click the **goal** chip (or `/goal`) to give the agent an
 objective; a judge model evaluates each run and the agent keeps going until

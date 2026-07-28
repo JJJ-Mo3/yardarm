@@ -314,8 +314,10 @@ chat's worktree:
 - **Stage / unstage** files and **commit** with a message.
 - **Commit history** for the worktree branch.
 - **Push**, **pull**, and **merge into base** — merge the `yardarm/…` branch
-  back into the branch you started from, or use the `gh` CLI integration for
-  PR flows if `gh` is installed.
+  back into the branch you started from, or use the CLI integration for
+  PR/MR flows: `gh` for GitHub repos, `glab` for GitLab. The host is
+  auto-detected from the origin remote; for self-hosted instances set it
+  explicitly in Project Settings → General → Repository host.
 - **Agent review** — the magnifier button asks the chat's agent to review
   the branch's local changes. See [Agent code review](#agent-code-review).
 - **Compare against any branch** — the compare button in the header diffs
@@ -333,8 +335,10 @@ open the review picker:
 
 - **Review local changes** — reviews the branch's committed work against
   its base branch, plus anything uncommitted.
-- **Open PRs** — pick any open pull request from the list to review it
-  (requires the [GitHub CLI](https://cli.github.com), `gh`).
+- **Open PRs / MRs** — pick any open pull request (GitHub, requires the
+  [GitHub CLI](https://cli.github.com), `gh`) or merge request (GitLab,
+  requires the [GitLab CLI](https://gitlab.com/gitlab-org/cli), `glab`)
+  from the list to review it.
 - The optional **focus** field steers the review toward a specific concern
   ("error handling", "security", a file name, …).
 
@@ -345,16 +349,17 @@ review queues behind it.
 
 When the review finishes, a follow-up bar appears above the composer:
 
-- **Post review as PR comments** — the agent posts its findings on the PR
-  with `gh` (comment only — it never approves or requests changes). Offered
-  after PR reviews, and after local reviews when the branch has an open PR.
+- **Post review as PR/MR comments** — the agent posts its findings on the
+  PR with `gh` (or the MR with `glab`; comment only — it never approves or
+  requests changes). Offered after PR/MR reviews, and after local reviews
+  when the branch has an open PR/MR.
 - **Build a plan to execute** — switches to Plan mode and turns the
   findings into a prioritized implementation plan for approval.
 
 The same review can be started from the magnifier button on the Changes tab
 or from the keyboard: `/review changes` (local), `/review <pr-number>` (a
-PR), `/review` alone (list open PRs to pick from); append a focus to either
-form, e.g. `/review 42 security`.
+PR or MR), `/review` alone (list open PRs/MRs to pick from); append a focus
+to either form, e.g. `/review 42 security`.
 
 ## Checkpoints and rollback
 
