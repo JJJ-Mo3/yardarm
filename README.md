@@ -245,8 +245,9 @@ Yardarm puts a desktop workspace around the agent:
   agent is told about your edits immediately while it's working, or with
   your next message; clean buffers refresh when the agent changes files),
   a problems panel with language-server diagnostics for the active file
-  (refreshed on open and save, with inline markers; TypeScript/JavaScript
-  support is bundled, other languages use servers from your PATH), and an integrated
+  (refreshed on open and save, with inline markers; servers for
+  TypeScript/JavaScript, HTML/CSS/JSON, YAML and Python are bundled, Go and
+  Rust use gopls/rust-analyzer from your PATH), and an integrated
   terminal (node-pty + xterm) that opens in the chat's worktree
 - CLI tab that runs the interactive Mastra Code TUI in the chat's worktree,
   sharing the chat's thread history

@@ -132,44 +132,139 @@ interface LspClientLike {
   ): Promise<unknown>
   /** Soft-private publish cache; polled directly for encoded-URI publishes. */
   diagnostics?: Map<string, unknown[]>
+  /** Soft-private jsonrpc connection; used to answer workspace/configuration. */
+  connection?: { onRequest(method: string, handler: (params: unknown) => unknown): void }
+  /** Soft-private server child process; used for crash eviction + cleanup. */
+  process?: { once(event: 'exit', listener: () => void): void; kill(): void } | null
+  shutdown?: () => Promise<void>
 }
 
 /** Files this host has sent didOpen for (didClose+didOpen refreshes them). */
 const lspOpenedPaths = new Set<string>()
 
-const TS_LANGUAGE_IDS = new Set(['typescript', 'typescriptreact', 'javascript', 'javascriptreact'])
+/**
+ * Language servers shipped inside the agent runtime and spawned as
+ * Electron-run-as-node. The SDK's own spawn path needs each server binary
+ * preinstalled (project-local or on PATH) — neither holds for a packaged GUI
+ * app (bare launchd PATH) or a plain project, which is why the problems panel
+ * showed "no language server available" everywhere. Only Go (gopls) and Rust
+ * (rust-analyzer) still come from the user's PATH: they are native toolchain
+ * binaries that can't reasonably be bundled.
+ *
+ * `settings(root)` is returned as the spawn result's `initialization`: the
+ * SDK client sends it as initializationOptions AND re-sends it as
+ * `workspace/didChangeConfiguration` settings, which is how the css/json/yaml
+ * servers receive their validate flags.
+ */
+interface BundledLspServer {
+  id: string
+  languageIds: string[]
+  /** package + node entry script within it, run via ELECTRON_RUN_AS_NODE */
+  entry: [pkg: string, sub: string]
+  /** Marker files pinning the workspace root (nearest ancestor wins). */
+  rootMarkers: string[]
+  settings?: (root: string) => unknown
+}
 
-/** Bundled typescript-language-server clients, keyed by project root. */
-const tsLspClients = new Map<string, Promise<LspClientLike>>()
+const BUNDLED_LSP_SERVERS: BundledLspServer[] = [
+  {
+    id: 'typescript',
+    languageIds: ['typescript', 'typescriptreact', 'javascript', 'javascriptreact'],
+    entry: ['typescript-language-server', 'lib/cli.mjs'],
+    rootMarkers: ['tsconfig.json', 'package.json'],
+    // The project's own typescript is preferred for tsserver so diagnostics
+    // match its version; the bundled one is the fallback.
+    settings: (root) => {
+      let tsserverPath: string
+      try {
+        tsserverPath = createRequire(path.join(root, 'package.json')).resolve(
+          'typescript/lib/tsserver.js'
+        )
+      } catch {
+        tsserverPath = resolveRuntimeFile('typescript', 'lib/tsserver.js')
+      }
+      return { tsserver: { path: tsserverPath, logVerbosity: 'off' } }
+    }
+  },
+  {
+    id: 'html',
+    languageIds: ['html'],
+    entry: ['vscode-langservers-extracted', 'bin/vscode-html-language-server'],
+    rootMarkers: ['package.json'],
+    // js/ts.implicitProjectConfig must be a real object: the embedded JS mode
+    // dereferences it unguarded, and an empty workspace/configuration answer
+    // crashes validation for the whole document (including embedded CSS).
+    settings: () => ({
+      html: { validate: { scripts: true, styles: true } },
+      css: {},
+      javascript: {},
+      'js/ts': { implicitProjectConfig: { strictNullChecks: false, experimentalDecorators: false } }
+    })
+  },
+  {
+    id: 'css',
+    languageIds: ['css', 'scss', 'less'],
+    entry: ['vscode-langservers-extracted', 'bin/vscode-css-language-server'],
+    rootMarkers: ['package.json'],
+    settings: () => ({
+      css: { validate: true },
+      scss: { validate: true },
+      less: { validate: true }
+    })
+  },
+  {
+    id: 'json',
+    languageIds: ['json', 'jsonc'],
+    entry: ['vscode-langservers-extracted', 'bin/vscode-json-language-server'],
+    rootMarkers: ['package.json'],
+    settings: () => ({ json: { validate: { enable: true }, schemas: [] } })
+  },
+  {
+    id: 'yaml',
+    languageIds: ['yaml'],
+    entry: ['yaml-language-server', 'bin/yaml-language-server'],
+    rootMarkers: ['package.json'],
+    // schemaStore off: no network fetches from the diagnostics path.
+    settings: () => ({
+      yaml: { validate: true, hover: false, completion: false, schemaStore: { enable: false } }
+    })
+  },
+  {
+    id: 'python',
+    languageIds: ['python'],
+    entry: ['pyright', 'langserver.index.js'],
+    rootMarkers: ['pyrightconfig.json', 'pyproject.toml', 'setup.py', 'requirements.txt']
+  }
+]
 
-/** Nearest ancestor with tsconfig.json/package.json (LSP workspace root). */
-function findTsProjectRoot(fileDir: string): string {
+const bundledServerByLanguage = new Map<string, BundledLspServer>(
+  BUNDLED_LSP_SERVERS.flatMap((s) => s.languageIds.map((l) => [l, s] as const))
+)
+
+/** Bundled language-server clients, keyed by `${server.id}:${root}`. */
+const bundledLspClients = new Map<string, Promise<LspClientLike>>()
+
+/**
+ * Nearest ancestor containing one of the marker files (LSP workspace root).
+ * The walk stops at the subchat cwd so a marker in an unrelated ancestor
+ * (e.g. a package.json above the worktrees dir) can't hijack the root.
+ */
+function findLspRoot(fileDir: string, markers: string[]): string {
+  const cwd = process.cwd()
   let current = fileDir
   for (;;) {
-    if (
-      existsSync(path.join(current, 'tsconfig.json')) ||
-      existsSync(path.join(current, 'package.json'))
-    ) {
-      return current
-    }
+    if (markers.some((m) => existsSync(path.join(current, m)))) return current
+    if (current === cwd) return cwd
     const parent = path.dirname(current)
-    if (parent === current) return process.cwd()
+    if (parent === current) return cwd
     current = parent
   }
 }
 
-/**
- * TS-family LSP client backed by the bundled typescript-language-server,
- * spawned as Electron-run-as-node. The SDK's own spawn path needs
- * `typescript-language-server` preinstalled in the project or `npx` on PATH —
- * neither holds for a packaged GUI app (bare launchd PATH) or a plain
- * project, which is why the problems panel showed "no language server
- * available" everywhere. The project's own `typescript` is preferred for
- * tsserver so diagnostics match its version; the bundled one is the fallback.
- */
-function getTsLspClient(filePath: string): Promise<LspClientLike> {
-  const root = findTsProjectRoot(path.dirname(filePath))
-  const cached = tsLspClients.get(root)
+function getBundledLspClient(server: BundledLspServer, filePath: string): Promise<LspClientLike> {
+  const root = findLspRoot(path.dirname(filePath), server.rootMarkers)
+  const key = `${server.id}:${root}`
+  const cached = bundledLspClients.get(key)
   if (cached) return cached
   const promise = (async (): Promise<LspClientLike> => {
     const { LSPClient } = await runtimeImport<{
@@ -178,41 +273,62 @@ function getTsLspClient(filePath: string): Promise<LspClientLike> {
         workspaceRoot: string
       ) => LspClientLike & { initialize(): Promise<void> }
     }>('@mastra/code-sdk/lsp/client')
-    const cliPath = resolveRuntimeFile('typescript-language-server', 'lib/cli.mjs')
-    let tsserverPath: string
-    try {
-      tsserverPath = createRequire(path.join(root, 'package.json')).resolve(
-        'typescript/lib/tsserver.js'
-      )
-    } catch {
-      tsserverPath = resolveRuntimeFile('typescript', 'lib/tsserver.js')
-    }
+    const entryPath = resolveRuntimeFile(server.entry[0], server.entry[1])
     const serverInfo = {
-      id: 'typescript',
-      name: 'TypeScript Language Server (bundled)',
-      languageIds: [...TS_LANGUAGE_IDS],
+      id: server.id,
+      name: `${server.id} language server (bundled)`,
+      languageIds: server.languageIds,
       root: () => root,
       spawn: () => ({
-        process: spawn(process.execPath, [cliPath, '--stdio'], {
+        process: spawn(process.execPath, [entryPath, '--stdio'], {
           cwd: root,
           stdio: ['pipe', 'pipe', 'pipe'] as const,
           env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
         }),
-        initialization: { tsserver: { path: tsserverPath, logVerbosity: 'off' } }
+        initialization: server.settings?.(root)
       })
     }
     const client = new LSPClient(serverInfo, root)
-    await client.initialize()
+    try {
+      await client.initialize()
+    } catch (err) {
+      // initialize can time out with the server process still alive — reap it
+      // so a retry doesn't stack orphaned servers.
+      try {
+        client.process?.kill()
+      } catch {}
+      throw err
+    }
+    // A crashed/exited server must not keep serving requests from the cache —
+    // evict it so the next request spawns a fresh one.
+    client.process?.once('exit', () => {
+      bundledLspClients.delete(key)
+    })
+    // The SDK answers workspace/configuration with {} per item, which loses
+    // the settings above for servers that use scoped config lookups (and the
+    // html server's embedded JS mode crashes on it). Re-register the handler
+    // (vscode-jsonrpc replaces same-method handlers) to answer each item's
+    // section from this server's settings.
+    const cfg = server.settings?.(root) as Record<string, unknown> | undefined
+    if (cfg && client.connection) {
+      client.connection.onRequest('workspace/configuration', (params) => {
+        const items = (params as { items?: { section?: string }[] } | undefined)?.items ?? []
+        return items.map((item) => cfg[item.section ?? ''] ?? {})
+      })
+    }
     return client
   })()
   // Drop failed initializations from the cache so a later request retries.
   const guarded = promise.catch((err) => {
-    tsLspClients.delete(root)
+    bundledLspClients.delete(key)
     throw err
   })
-  tsLspClients.set(root, guarded)
+  bundledLspClients.set(key, guarded)
   return guarded
 }
+
+/** Languages whose server must come from the user's PATH. */
+const PATH_SERVER_HINTS: Record<string, string> = { go: 'gopls', rust: 'rust-analyzer' }
 
 /**
  * Poll the client's publish cache for any URI key a server may use for the
@@ -250,6 +366,23 @@ async function pollLspDiagnostics(
  * Never throws — every failure degrades to an unavailableReason.
  */
 async function collectLspDiagnostics(filePath: string): Promise<LspDiagnosticsResult> {
+  // Serialize per file: concurrent collects share the client's publish cache
+  // and would race each other's delete/didOpen cycles for the same URIs.
+  const prev = lspCollectChains.get(filePath)
+  const next = prev
+    ? prev.then(() => collectLspDiagnosticsNow(filePath))
+    : collectLspDiagnosticsNow(filePath)
+  lspCollectChains.set(filePath, next)
+  void next.finally(() => {
+    if (lspCollectChains.get(filePath) === next) lspCollectChains.delete(filePath)
+  })
+  return next
+}
+
+/** In-flight collects per file (see collectLspDiagnostics). */
+const lspCollectChains = new Map<string, Promise<LspDiagnosticsResult>>()
+
+async function collectLspDiagnosticsNow(filePath: string): Promise<LspDiagnosticsResult> {
   try {
     const [{ lspManager }, { getLanguageId }] = await Promise.all([
       runtimeImport<{
@@ -265,15 +398,20 @@ async function collectLspDiagnostics(filePath: string): Promise<LspDiagnosticsRe
     if (!languageId) {
       return { diagnostics: [], unavailableReason: 'No language server supports this file type' }
     }
-    // TS-family files use the bundled server (see getTsLspClient); the rest
-    // go through the SDK manager, which needs the server binary on PATH.
-    const client = TS_LANGUAGE_IDS.has(languageId)
-      ? await getTsLspClient(filePath)
+    // Bundled languages use the servers shipped in the agent runtime (see
+    // BUNDLED_LSP_SERVERS); the rest go through the SDK manager, which needs
+    // the server binary on PATH.
+    const bundled = bundledServerByLanguage.get(languageId)
+    const client = bundled
+      ? await getBundledLspClient(bundled, filePath)
       : await lspManager.getClient(filePath, process.cwd())
     if (!client) {
+      const hint = PATH_SERVER_HINTS[languageId]
       return {
         diagnostics: [],
-        unavailableReason: `No language server available for ${languageId} files — is its language server (e.g. pyright, gopls, rust-analyzer) installed and on your PATH?`
+        unavailableReason: hint
+          ? `No ${languageId} language server found — install ${hint} and make sure it is on your PATH.`
+          : `No diagnostics support for ${languageId} files.`
       }
     }
     const content = readFileSync(filePath, 'utf8')
@@ -292,7 +430,15 @@ async function collectLspDiagnostics(filePath: string): Promise<LspDiagnosticsRe
     if (Array.isArray(raw) && raw.length === 0) {
       raw = await pollLspDiagnostics(client.diagnostics, uris, 4000, true)
     }
-    return { diagnostics: mapLspDiagnostics(raw ?? []) }
+    if (raw === undefined) {
+      // No publish at all inside the window — distinguish "server silent"
+      // from a genuinely clean file so the UI doesn't show a false all-clear.
+      return {
+        diagnostics: [],
+        unavailableReason: 'The language server did not respond in time — try refreshing.'
+      }
+    }
+    return { diagnostics: mapLspDiagnostics(raw) }
   } catch (err) {
     return { diagnostics: [], unavailableReason: `Language server error: ${String(err)}` }
   }
@@ -300,6 +446,9 @@ async function collectLspDiagnostics(filePath: string): Promise<LspDiagnosticsRe
 
 /** Make an arbitrary SDK event JSON/structured-clone safe. */
 function sanitizeEvent(ev: Record<string, unknown>): Record<string, unknown> {
+  // Errors nested inside objects stringify to {} — project them explicitly.
+  const replacer = (_key: string, value: unknown): unknown =>
+    value instanceof Error ? { name: value.name, message: value.message, stack: value.stack } : value
   const out: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(ev)) {
     if (v instanceof Error) {
@@ -310,7 +459,7 @@ function sanitizeEvent(ev: Record<string, unknown>): Record<string, unknown> {
       // drop
     } else if (v !== null && typeof v === 'object') {
       try {
-        out[k] = JSON.parse(JSON.stringify(v))
+        out[k] = JSON.parse(JSON.stringify(v, replacer))
       } catch {
         out[k] = String(v)
       }
@@ -929,7 +1078,21 @@ async function main(): Promise<void> {
             }
             break
           case 'setModel':
-            await session.model.switch({ modelId: cmd.modelId })
+            try {
+              await session.model.switch({ modelId: cmd.modelId })
+            } catch (err) {
+              post({ t: 'log', level: 'error', msg: `model.switch failed: ${String(err)}` })
+              post({
+                t: 'event',
+                ev: { type: 'error', error: { message: `Model switch failed: ${String(err)}` } }
+              })
+              // The manager persisted the requested model optimistically; emit
+              // the session's true model so DB and UI revert to reality.
+              post({
+                t: 'event',
+                ev: { type: 'model_changed', modelId: session.model.get() }
+              })
+            }
             break
           case 'setYolo':
             await session.state.set({ yolo: cmd.yolo } as never)
@@ -1600,6 +1763,17 @@ async function main(): Promise<void> {
             await respond(cmd.reqId, () => collectLspDiagnostics(cmd.path))
             break
           case 'shutdown':
+            // Bundled language servers are not in this process group and
+            // would outlive the host as orphans — reap them (best effort,
+            // bounded so shutdown can't hang).
+            try {
+              await Promise.race([
+                Promise.allSettled(
+                  [...bundledLspClients.values()].map((p) => p.then((c) => c.shutdown?.()))
+                ),
+                new Promise((r) => setTimeout(r, 1500))
+              ])
+            } catch {}
             process.exit(0)
         }
       } catch (err) {
