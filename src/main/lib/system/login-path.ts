@@ -17,11 +17,20 @@ export function warmLoginPath(): Promise<void> {
   if (!warmPromise) {
     warmPromise = new Promise((resolve) => {
       const shell = process.env.SHELL ?? '/bin/zsh'
-      execFile(shell, ['-l', '-c', 'printf %s "$PATH"'], { timeout: 5000 }, (err, stdout) => {
-        const captured = stdout?.trim()
-        if (!err && captured) loginPath = captured
-        resolve()
-      })
+      // Read PATH from `env` output rather than expanding "$PATH": fish
+      // treats PATH as a list and would expand it space-joined, poisoning
+      // every child environment it is merged into.
+      execFile(
+        shell,
+        ['-l', '-c', 'command env'],
+        { timeout: 5000, maxBuffer: 1024 * 1024 },
+        (err, stdout) => {
+          const line = stdout?.split('\n').find((l) => l.startsWith('PATH='))
+          const captured = line?.slice('PATH='.length).trim()
+          if (!err && captured) loginPath = captured
+          resolve()
+        }
+      )
     })
   }
   return warmPromise

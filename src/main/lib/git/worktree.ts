@@ -7,6 +7,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { app } from 'electron'
 import { simpleGit } from 'simple-git'
+import { getLoginPath } from '../system/login-path'
 
 export interface WorktreeInfo {
   worktreePath: string
@@ -150,9 +151,11 @@ export async function createWorktree(
     const { exec } = await import('node:child_process')
     const { promisify } = await import('node:util')
     const execAsync = promisify(exec)
+    // Login-shell PATH so npm/pnpm etc. resolve in the packaged app.
+    const env = { ...process.env, PATH: getLoginPath() ?? process.env.PATH }
     for (const cmd of commands) {
       try {
-        await execAsync(cmd, { cwd: worktreePath, timeout: 300_000 })
+        await execAsync(cmd, { cwd: worktreePath, timeout: 300_000, env })
       } catch (err) {
         console.error(`[worktree] setup command failed: ${cmd}`, err)
       }
