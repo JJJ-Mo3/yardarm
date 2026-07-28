@@ -65,6 +65,8 @@ function languageFor(path: string): string | undefined {
     go: 'go',
     java: 'java',
     rb: 'ruby',
+    // Monaco has no ERB mode — HTML is the useful approximation for views.
+    erb: 'html',
     sh: 'shell',
     yml: 'yaml',
     yaml: 'yaml',

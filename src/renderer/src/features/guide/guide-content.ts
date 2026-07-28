@@ -195,8 +195,10 @@ The IDE tab is a multi-tab code editor (Monaco) rooted at the chat's worktree.
   be selected. Click a problem to jump to it; markers also appear inline in the editor.
 
 Language servers for TypeScript/JavaScript (using your project's own TypeScript when it has
-one), HTML, CSS, JSON, YAML and Python are bundled — no setup needed. Go and Rust use gopls /
-rust-analyzer from your PATH.
+one), HTML, CSS, JSON, YAML, Python and ERB (HTML+ERB Rails views) are bundled — no setup
+needed. Go, Rust and Ruby use gopls / rust-analyzer / ruby-lsp from your PATH (well-known
+install dirs like \`~/go/bin\` and \`~/.cargo/bin\` are searched too); Rails smarts come from
+your project's ruby-lsp-rails gem.
 `
   },
   {

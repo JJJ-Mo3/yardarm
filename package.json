@@ -40,6 +40,7 @@
     "@eslint/js": "^9.39.5",
     "@git-diff-view/file": "^0.1.7",
     "@git-diff-view/react": "^0.1.7",
+    "@herb-tools/language-server": "0.10.2",
     "@mastra/code-sdk": "1.0.1",
     "@monaco-editor/react": "^4.7.0",
     "@radix-ui/react-dialog": "^1.1.19",

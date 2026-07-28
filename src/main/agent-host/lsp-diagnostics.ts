@@ -1,8 +1,12 @@
 /**
- * Pure mapping from LSP-protocol diagnostics (0-based positions, numeric
- * severity 1–4) to the plain 1-based LspDiagnosticInfo shape shared with the
- * renderer, which feeds Monaco markers and the IDE problems panel directly.
+ * Small testable helpers behind the agent host's LSP diagnostics collector:
+ * mapping LSP-protocol diagnostics (0-based positions, numeric severity 1–4)
+ * to the plain 1-based LspDiagnosticInfo shape shared with the renderer,
+ * language-id fallbacks for extensions the SDK's map lacks (Ruby/ERB), and
+ * executable resolution for external PATH-based language servers.
  */
+import { accessSync, constants as fsConstants, statSync } from 'node:fs'
+import path from 'node:path'
 import type { LspDiagnosticInfo } from '../../shared/ipc-types'
 
 const SEVERITIES: Record<number, LspDiagnosticInfo['severity']> = {
@@ -37,6 +41,53 @@ export function lspUriCandidates(filePath: string): string[] {
   const raw = `file://${filePath}`
   const encoded = `file://${encodeURI(filePath)}`
   return raw === encoded ? [raw] : [raw, encoded]
+}
+
+/** Extensions the SDK's language map lacks; consulted after getLanguageId. */
+const FALLBACK_EXTENSION_IDS: Record<string, string> = {
+  '.rb': 'ruby',
+  '.rake': 'ruby',
+  '.gemspec': 'ruby',
+  '.erb': 'erb'
+}
+
+/** Extensionless well-known filenames (Ruby build/dependency files). */
+const FALLBACK_BASENAME_IDS: Record<string, string> = {
+  Gemfile: 'ruby',
+  Rakefile: 'ruby'
+}
+
+/**
+ * Language id for files the SDK's getLanguageId doesn't know (it has no
+ * Ruby/ERB entries at all). `.html.erb` resolves via its final `.erb` suffix.
+ */
+export function fallbackLanguageId(filePath: string): string | undefined {
+  const base = path.basename(filePath)
+  return FALLBACK_BASENAME_IDS[base] ?? FALLBACK_EXTENSION_IDS[path.extname(base).toLowerCase()]
+}
+
+/**
+ * Resolve an executable by name against a PATH-style env value plus extra
+ * well-known install dirs (GUI/login PATHs regularly miss ~/go/bin and
+ * friends). Returns the first hit that is an executable regular file.
+ */
+export function findExecutable(
+  name: string,
+  pathEnv: string | undefined,
+  extraDirs: string[]
+): string | null {
+  const dirs = [...(pathEnv ? pathEnv.split(path.delimiter) : []), ...extraDirs]
+  for (const dir of dirs) {
+    if (!dir) continue
+    const candidate = path.join(dir, name)
+    try {
+      accessSync(candidate, fsConstants.X_OK)
+      if (statSync(candidate).isFile()) return candidate
+    } catch {
+      // not there / not executable — keep looking
+    }
+  }
+  return null
 }
 
 export function mapLspDiagnostics(raw: unknown): LspDiagnosticInfo[] {

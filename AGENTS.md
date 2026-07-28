@@ -79,14 +79,17 @@ No accounts or login — everything runs locally against mastracode's own config
   agent-host.ts): it reads the LSP client's soft-private `diagnostics` map under both raw and
   percent-encoded `file://` keys because servers normalize URIs and the SDK's raw-key lookups
   miss publishes for paths with spaces (every worktree under "Application Support"), and
-  TS/JS, web, YAML and Python diagnostics bypass the SDK's LSPManager entirely:
-  `getBundledLspClient` constructs the SDK's `LSPClient` class (deep import
-  `@mastra/code-sdk/lsp/client`) around the bundled servers in the `BUNDLED_LSP_SERVERS`
-  table (typescript-language-server, vscode-langservers-extracted, yaml-language-server,
-  pyright — staged into the runtime by build-agent-runtime.mjs, run via `process.execPath` +
-  `ELECTRON_RUN_AS_NODE`), so check that class's constructor/initialize signatures, the
+  TS/JS, web, YAML, Python, ERB, Go, Rust and Ruby diagnostics bypass the SDK's LSPManager
+  entirely: `getLspClient` constructs the SDK's `LSPClient` class (deep import
+  `@mastra/code-sdk/lsp/client`) around the servers in the `LSP_SERVERS` table — bundled
+  node servers (typescript-language-server, vscode-langservers-extracted,
+  yaml-language-server, pyright, @herb-tools/language-server — staged into the runtime by
+  build-agent-runtime.mjs, run via `process.execPath` + `ELECTRON_RUN_AS_NODE`) plus external
+  toolchain binaries (gopls / rust-analyzer / ruby-lsp, resolved from PATH + well-known
+  install dirs by `findExecutable`) — so check that class's constructor/initialize
+  signatures, the
   `{ process, initialization }` spawn-result shape, and the soft-private `connection` field
-  against the new SDK — after initialize, `getBundledLspClient` re-registers the client's
+  against the new SDK — after initialize, `getLspClient` re-registers the client's
   `workspace/configuration` handler to answer per-section from the server's settings, because
   the SDK's stock `{}` answers drop the validate flags and crash the html server's embedded
   JS mode →

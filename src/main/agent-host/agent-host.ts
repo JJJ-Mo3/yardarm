@@ -8,6 +8,7 @@
 import { spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type {
@@ -21,7 +22,12 @@ import type {
 import { z } from 'zod'
 import { patchApprovalRunBudget } from './approval-run-budget'
 import { createCompressionProcessor } from './compression-processor'
-import { lspUriCandidates, mapLspDiagnostics } from './lsp-diagnostics'
+import {
+  fallbackLanguageId,
+  findExecutable,
+  lspUriCandidates,
+  mapLspDiagnostics
+} from './lsp-diagnostics'
 import { installNoTimeoutFetch } from './no-timeout-fetch'
 import { RETRIEVAL_TOOL_NAME } from './prompt-compression'
 import { createRetrievalStore } from './retrieval-store'
@@ -143,30 +149,53 @@ interface LspClientLike {
 const lspOpenedPaths = new Set<string>()
 
 /**
- * Language servers shipped inside the agent runtime and spawned as
- * Electron-run-as-node. The SDK's own spawn path needs each server binary
- * preinstalled (project-local or on PATH) — neither holds for a packaged GUI
- * app (bare launchd PATH) or a plain project, which is why the problems panel
- * showed "no language server available" everywhere. Only Go (gopls) and Rust
- * (rust-analyzer) still come from the user's PATH: they are native toolchain
- * binaries that can't reasonably be bundled.
+ * Language servers behind the IDE problems panel. Two flavors share one
+ * table, cache and client-construction path:
+ *
+ * - `entry` servers ship inside the agent runtime and are spawned as
+ *   Electron-run-as-node. The SDK's own spawn path needs each server binary
+ *   preinstalled (project-local or on PATH) — neither holds for a packaged
+ *   GUI app (bare launchd PATH) or a plain project, which is why the problems
+ *   panel showed "no language server available" everywhere.
+ * - `binary` servers are native toolchain binaries that can't reasonably be
+ *   bundled (gopls, rust-analyzer, ruby-lsp). They are resolved from the
+ *   host's PATH plus well-known install dirs (EXTERNAL_LSP_DIRS); when
+ *   missing, the panel shows the entry's install `hint`. This replaces the
+ *   SDK manager's own go/rust spawns, which broke on typical setups (gopls
+ *   in ~/go/bin off the GUI PATH; a bogus `rust-analyzer --stdio` flag).
  *
  * `settings(root)` is returned as the spawn result's `initialization`: the
  * SDK client sends it as initializationOptions AND re-sends it as
  * `workspace/didChangeConfiguration` settings, which is how the css/json/yaml
  * servers receive their validate flags.
  */
-interface BundledLspServer {
+interface LspServerDef {
   id: string
   languageIds: string[]
-  /** package + node entry script within it, run via ELECTRON_RUN_AS_NODE */
-  entry: [pkg: string, sub: string]
   /** Marker files pinning the workspace root (nearest ancestor wins). */
   rootMarkers: string[]
   settings?: (root: string) => unknown
+  /** Bundled: package + node entry script, run via ELECTRON_RUN_AS_NODE. */
+  entry?: [pkg: string, sub: string]
+  /** External: binary name resolved from PATH + EXTERNAL_LSP_DIRS. */
+  binary?: string
+  /** External: arguments for the binary (stdio transport assumed). */
+  args?: string[]
+  /** External: install instructions shown when the binary is missing. */
+  hint?: string
 }
 
-const BUNDLED_LSP_SERVERS: BundledLspServer[] = [
+/** Well-known install dirs GUI/login PATHs regularly miss. */
+const EXTERNAL_LSP_DIRS = [
+  path.join(os.homedir(), 'go', 'bin'),
+  path.join(os.homedir(), '.cargo', 'bin'),
+  '/opt/homebrew/bin',
+  '/usr/local/bin',
+  path.join(os.homedir(), '.rbenv', 'shims'),
+  path.join(os.homedir(), '.asdf', 'shims')
+]
+
+const LSP_SERVERS: LspServerDef[] = [
   {
     id: 'typescript',
     languageIds: ['typescript', 'typescriptreact', 'javascript', 'javascriptreact'],
@@ -234,15 +263,47 @@ const BUNDLED_LSP_SERVERS: BundledLspServer[] = [
     languageIds: ['python'],
     entry: ['pyright', 'langserver.index.js'],
     rootMarkers: ['pyrightconfig.json', 'pyproject.toml', 'setup.py', 'requirements.txt']
+  },
+  {
+    id: 'erb',
+    languageIds: ['erb'],
+    entry: ['@herb-tools/language-server', 'bin/herb-language-server'],
+    rootMarkers: ['Gemfile', 'package.json']
+  },
+  {
+    id: 'go',
+    languageIds: ['go'],
+    binary: 'gopls',
+    args: ['serve'],
+    rootMarkers: ['go.mod'],
+    hint: 'install gopls ("brew install gopls" or "go install golang.org/x/tools/gopls@latest").'
+  },
+  {
+    id: 'rust',
+    languageIds: ['rust'],
+    binary: 'rust-analyzer',
+    // rust-analyzer speaks stdio by default and rejects unknown flags — no
+    // --stdio here (the SDK's own spawn passes it and dies immediately).
+    args: [],
+    rootMarkers: ['Cargo.toml'],
+    hint: 'install rust-analyzer ("rustup component add rust-analyzer" or "brew install rust-analyzer").'
+  },
+  {
+    id: 'ruby',
+    languageIds: ['ruby'],
+    binary: 'ruby-lsp',
+    args: [],
+    rootMarkers: ['Gemfile', '.ruby-version'],
+    hint: 'install ruby-lsp ("gem install ruby-lsp"); Rails features come from your project\'s ruby-lsp-rails gem.'
   }
 ]
 
-const bundledServerByLanguage = new Map<string, BundledLspServer>(
-  BUNDLED_LSP_SERVERS.flatMap((s) => s.languageIds.map((l) => [l, s] as const))
+const lspServerByLanguage = new Map<string, LspServerDef>(
+  LSP_SERVERS.flatMap((s) => s.languageIds.map((l) => [l, s] as const))
 )
 
-/** Bundled language-server clients, keyed by `${server.id}:${root}`. */
-const bundledLspClients = new Map<string, Promise<LspClientLike>>()
+/** Language-server clients, keyed by `${server.id}:${root}`. */
+const lspClients = new Map<string, Promise<LspClientLike>>()
 
 /**
  * Nearest ancestor containing one of the marker files (LSP workspace root).
@@ -262,14 +323,15 @@ function findLspRoot(fileDir: string, markers: string[], stopAt: string): string
   }
 }
 
-function getBundledLspClient(
-  server: BundledLspServer,
+function getLspClient(
+  server: LspServerDef,
   filePath: string,
-  stopAt: string
+  stopAt: string,
+  binaryPath?: string
 ): Promise<LspClientLike> {
   const root = findLspRoot(path.dirname(filePath), server.rootMarkers, stopAt)
   const key = `${server.id}:${root}`
-  const cached = bundledLspClients.get(key)
+  const cached = lspClients.get(key)
   if (cached) return cached
   const promise = (async (): Promise<LspClientLike> => {
     const { LSPClient } = await runtimeImport<{
@@ -278,18 +340,28 @@ function getBundledLspClient(
         workspaceRoot: string
       ) => LspClientLike & { initialize(): Promise<void> }
     }>('@mastra/code-sdk/lsp/client')
-    const entryPath = resolveRuntimeFile(server.entry[0], server.entry[1])
+    const spawnServer = server.entry
+      ? (): ReturnType<typeof spawn> => {
+          const entryPath = resolveRuntimeFile(server.entry![0], server.entry![1])
+          return spawn(process.execPath, [entryPath, '--stdio'], {
+            cwd: root,
+            stdio: ['pipe', 'pipe', 'pipe'] as const,
+            env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
+          })
+        }
+      : (): ReturnType<typeof spawn> =>
+          // External toolchain binary — plain spawn, no ELECTRON_RUN_AS_NODE.
+          spawn(binaryPath ?? server.binary!, server.args ?? [], {
+            cwd: root,
+            stdio: ['pipe', 'pipe', 'pipe'] as const
+          })
     const serverInfo = {
       id: server.id,
-      name: `${server.id} language server (bundled)`,
+      name: `${server.id} language server${server.entry ? ' (bundled)' : ''}`,
       languageIds: server.languageIds,
       root: () => root,
       spawn: () => ({
-        process: spawn(process.execPath, [entryPath, '--stdio'], {
-          cwd: root,
-          stdio: ['pipe', 'pipe', 'pipe'] as const,
-          env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
-        }),
+        process: spawnServer(),
         initialization: server.settings?.(root)
       })
     }
@@ -307,7 +379,7 @@ function getBundledLspClient(
     // A crashed/exited server must not keep serving requests from the cache —
     // evict it so the next request spawns a fresh one.
     client.process?.once('exit', () => {
-      bundledLspClients.delete(key)
+      lspClients.delete(key)
     })
     // The SDK answers workspace/configuration with {} per item, which loses
     // the settings above for servers that use scoped config lookups (and the
@@ -325,15 +397,12 @@ function getBundledLspClient(
   })()
   // Drop failed initializations from the cache so a later request retries.
   const guarded = promise.catch((err) => {
-    bundledLspClients.delete(key)
+    lspClients.delete(key)
     throw err
   })
-  bundledLspClients.set(key, guarded)
+  lspClients.set(key, guarded)
   return guarded
 }
-
-/** Languages whose server must come from the user's PATH. */
-const PATH_SERVER_HINTS: Record<string, string> = { go: 'gopls', rust: 'rust-analyzer' }
 
 /**
  * Poll the client's publish cache for any URI key a server may use for the
@@ -414,25 +483,35 @@ async function collectLspDiagnosticsNow(
         '@mastra/code-sdk/lsp/language'
       )
     ])
-    const languageId = getLanguageId(filePath)
+    // The SDK's extension map has no Ruby/ERB entries — fall back locally.
+    const languageId = getLanguageId(filePath) ?? fallbackLanguageId(filePath)
     if (!languageId) {
       return { diagnostics: [], unavailableReason: 'No language server supports this file type' }
     }
-    // Bundled languages use the servers shipped in the agent runtime (see
-    // BUNDLED_LSP_SERVERS); the rest go through the SDK manager, which needs
-    // the server binary on PATH.
+    // Languages in LSP_SERVERS use our own client path (bundled node servers
+    // or external toolchain binaries); anything else goes through the SDK
+    // manager, which needs the server binary on PATH.
     const workspaceRoot = opts?.root ?? process.cwd()
-    const bundled = bundledServerByLanguage.get(languageId)
-    const client = bundled
-      ? await getBundledLspClient(bundled, filePath, workspaceRoot)
-      : await lspManager.getClient(filePath, workspaceRoot)
+    const def = lspServerByLanguage.get(languageId)
+    let client: LspClientLike | null
+    if (def?.binary) {
+      const binaryPath = findExecutable(def.binary, process.env.PATH, EXTERNAL_LSP_DIRS)
+      if (!binaryPath) {
+        return {
+          diagnostics: [],
+          unavailableReason: `No ${languageId} language server found — ${def.hint ?? `install ${def.binary} and make sure it is on your PATH.`}`
+        }
+      }
+      client = await getLspClient(def, filePath, workspaceRoot, binaryPath)
+    } else if (def) {
+      client = await getLspClient(def, filePath, workspaceRoot)
+    } else {
+      client = await lspManager.getClient(filePath, workspaceRoot)
+    }
     if (!client) {
-      const hint = PATH_SERVER_HINTS[languageId]
       return {
         diagnostics: [],
-        unavailableReason: hint
-          ? `No ${languageId} language server found — install ${hint} and make sure it is on your PATH.`
-          : `No diagnostics support for ${languageId} files.`
+        unavailableReason: `No diagnostics support for ${languageId} files.`
       }
     }
     const content = opts?.content ?? readFileSync(filePath, 'utf8')
@@ -1788,13 +1867,13 @@ async function main(): Promise<void> {
             )
             break
           case 'shutdown':
-            // Bundled language servers are not in this process group and
+            // Our language servers are not in this process group and
             // would outlive the host as orphans — reap them (best effort,
             // bounded so shutdown can't hang).
             try {
               await Promise.race([
                 Promise.allSettled(
-                  [...bundledLspClients.values()].map((p) => p.then((c) => c.shutdown?.()))
+                  [...lspClients.values()].map((p) => p.then((c) => c.shutdown?.()))
                 ),
                 new Promise((r) => setTimeout(r, 1500))
               ])

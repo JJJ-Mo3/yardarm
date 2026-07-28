@@ -26,13 +26,15 @@ const deps = {
   mastracode: version('mastracode'),
   '@mastra/code-sdk': version('@mastra/code-sdk'),
   // IDE problems panel: the agent host spawns these bundled language servers
-  // (see BUNDLED_LSP_SERVERS in agent-host.ts) so diagnostics for TS/JS,
-  // HTML/CSS/JSON, YAML and Python work without any user-installed tooling.
+  // (the `entry` rows of LSP_SERVERS in agent-host.ts) so diagnostics for
+  // TS/JS, HTML/CSS/JSON, YAML, Python and ERB work without any
+  // user-installed tooling.
   'typescript-language-server': version('typescript-language-server'),
   typescript: version('typescript'),
   'vscode-langservers-extracted': version('vscode-langservers-extracted'),
   'yaml-language-server': version('yaml-language-server'),
-  pyright: version('pyright')
+  pyright: version('pyright'),
+  '@herb-tools/language-server': version('@herb-tools/language-server')
 }
 for (const [name, v] of Object.entries(deps)) {
   if (!v) {

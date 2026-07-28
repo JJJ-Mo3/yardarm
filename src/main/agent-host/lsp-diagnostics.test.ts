@@ -1,5 +1,13 @@
-import { describe, expect, it } from 'vitest'
-import { lspUriCandidates, mapLspDiagnostics } from './lsp-diagnostics'
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { afterAll, describe, expect, it } from 'vitest'
+import {
+  fallbackLanguageId,
+  findExecutable,
+  lspUriCandidates,
+  mapLspDiagnostics
+} from './lsp-diagnostics'
 
 describe('lspUriCandidates', () => {
   it('returns raw and percent-encoded URIs for paths with spaces', () => {
@@ -11,6 +19,63 @@ describe('lspUriCandidates', () => {
 
   it('returns a single URI when encoding changes nothing', () => {
     expect(lspUriCandidates('/tmp/project/main.rs')).toEqual(['file:///tmp/project/main.rs'])
+  })
+})
+
+describe('fallbackLanguageId', () => {
+  it('maps Ruby extensions and well-known basenames', () => {
+    expect(fallbackLanguageId('/app/models/user.rb')).toBe('ruby')
+    expect(fallbackLanguageId('/app/tasks/build.rake')).toBe('ruby')
+    expect(fallbackLanguageId('/app/my_gem.gemspec')).toBe('ruby')
+    expect(fallbackLanguageId('/app/Gemfile')).toBe('ruby')
+    expect(fallbackLanguageId('/app/Rakefile')).toBe('ruby')
+  })
+
+  it('maps .erb including the .html.erb double extension', () => {
+    expect(fallbackLanguageId('/app/views/users/show.html.erb')).toBe('erb')
+    expect(fallbackLanguageId('/app/views/mail.text.ERB')).toBe('erb')
+  })
+
+  it('returns undefined for extensions it does not know', () => {
+    expect(fallbackLanguageId('/app/main.swift')).toBeUndefined()
+    expect(fallbackLanguageId('/app/gemfile')).toBeUndefined()
+  })
+})
+
+describe('findExecutable', () => {
+  const tmp = mkdtempSync(path.join(os.tmpdir(), 'yardarm-lsp-'))
+  const pathDir = path.join(tmp, 'onpath')
+  const extraDir = path.join(tmp, 'extra')
+  const emptyDir = path.join(tmp, 'empty')
+  mkdirSync(pathDir)
+  mkdirSync(extraDir)
+  mkdirSync(emptyDir)
+  writeFileSync(path.join(pathDir, 'gopls'), '#!/bin/sh\n')
+  chmodSync(path.join(pathDir, 'gopls'), 0o755)
+  writeFileSync(path.join(extraDir, 'ruby-lsp'), '#!/bin/sh\n')
+  chmodSync(path.join(extraDir, 'ruby-lsp'), 0o755)
+  writeFileSync(path.join(extraDir, 'not-exec'), 'data')
+  chmodSync(path.join(extraDir, 'not-exec'), 0o644)
+
+  afterAll(() => {
+    rmSync(tmp, { recursive: true, force: true })
+  })
+
+  it('finds an executable via the PATH env value', () => {
+    const env = [emptyDir, pathDir].join(path.delimiter)
+    expect(findExecutable('gopls', env, [])).toBe(path.join(pathDir, 'gopls'))
+  })
+
+  it('falls back to extra well-known dirs when PATH misses', () => {
+    expect(findExecutable('ruby-lsp', emptyDir, [extraDir])).toBe(path.join(extraDir, 'ruby-lsp'))
+  })
+
+  it('returns null when the binary is nowhere', () => {
+    expect(findExecutable('rust-analyzer', emptyDir, [extraDir])).toBeNull()
+  })
+
+  it('skips non-executable files and tolerates an unset PATH', () => {
+    expect(findExecutable('not-exec', undefined, [extraDir])).toBeNull()
   })
 })
 
