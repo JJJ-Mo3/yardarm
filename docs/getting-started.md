@@ -659,7 +659,9 @@ Custom subagents (`~/.mastracode/agents/*.md` globally, or a project's
 via the `subagent` tool (`/subagents` opens this tab). The editor defaults to
 the **Global** scope — agents available in every project; switch to
 **Project** and pick one of your projects to manage agents for that project
-only. Each file has a frontmatter block (`name`, `description` — required,
+only. Your agents are listed below the create field; creating an agent (or
+clicking one in the list) opens its editor in a dialog. Each file has a
+frontmatter block (`name`, `description` — required,
 `model`, `maxSteps`, `forked`) and the body is the subagent's instructions.
 Saving restarts the affected agent processes; the ids `explore`, `plan`,
 `execute` and `general` are reserved.

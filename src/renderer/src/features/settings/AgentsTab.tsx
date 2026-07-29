@@ -2,8 +2,9 @@
  * Custom subagents editor (Settings → Agents). Manages the .md definitions
  * in ~/.mastracode/agents (global, the default scope) and per-project
  * .mastracode/agents (picked from existing projects) that the main agent can
- * delegate tasks to via the `subagent` tool. Saving restarts the affected
- * agent hosts so definitions take effect. A Templates section lists the
+ * delegate tasks to via the `subagent` tool. Clicking an agent (or creating
+ * one) opens the editor in a dialog; saving restarts the affected agent
+ * hosts so definitions take effect. A Templates section lists the
  * built-in catalog (team roles + domain specialists) with one-click add;
  * added templates become ordinary editable files and existing files are
  * never overwritten.
@@ -19,6 +20,7 @@ import { Input } from '../../components/ui/input'
 import { Textarea } from '../../components/ui/textarea'
 import { Switch } from '../../components/ui/switch'
 import { Tip } from '../../components/ui/tooltip'
+import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
 import { ModelSelect } from '../../components/ModelSelect'
 import { useConfirm } from '../../components/ConfirmDialog'
 
@@ -213,6 +215,25 @@ export function AgentsTab(): React.JSX.Element {
             : 'Select a project to manage its subagents.'}
         </div>
       )}
+      <div className="flex gap-2">
+        <Input
+          placeholder="new-agent-id"
+          value={newId}
+          onChange={(e) => setNewId(e.target.value)}
+          className="font-mono text-[11px]"
+        />
+        <Tip content="Create a new subagent definition file (ids explore/plan/execute/general are reserved)">
+          <span className="inline-flex">
+            <Button
+              size="sm"
+              disabled={!newId.trim() || !scopeReady || create.isPending}
+              onClick={() => create.mutate({ ...scopeInput, id: newId.trim() })}
+            >
+              Create
+            </Button>
+          </span>
+        </Tip>
+      </div>
       <div className="space-y-1">
         {scopeReady &&
           (list.data ?? []).map((a) => (
@@ -261,28 +282,9 @@ export function AgentsTab(): React.JSX.Element {
           ))}
         {scopeReady && (list.data ?? []).length === 0 && (
           <div className="px-2 py-2 text-[11px] text-muted-foreground">
-            No custom subagents yet — create one below, or add a ready-made one from the templates.
+            No custom subagents yet — create one above, or add a ready-made one from the templates.
           </div>
         )}
-      </div>
-      <div className="flex gap-2">
-        <Input
-          placeholder="new-agent-id"
-          value={newId}
-          onChange={(e) => setNewId(e.target.value)}
-          className="font-mono text-[11px]"
-        />
-        <Tip content="Create a new subagent definition file (ids explore/plan/execute/general are reserved)">
-          <span className="inline-flex">
-            <Button
-              size="sm"
-              disabled={!newId.trim() || !scopeReady || create.isPending}
-              onClick={() => create.mutate({ ...scopeInput, id: newId.trim() })}
-            >
-              Create
-            </Button>
-          </span>
-        </Tip>
       </div>
       {scopeReady && templates.length > 0 && (
         <div className="space-y-1 pt-2">
@@ -384,16 +386,24 @@ export function AgentsTab(): React.JSX.Element {
             })}
         </div>
       )}
-      {selected !== null && (
-        <div className="space-y-2 rounded-md border border-border p-3">
-          <div className="font-mono text-[10px] text-muted-foreground">{selected}.md</div>
+      <Dialog
+        open={selected !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelected(null)
+            setDirty(false)
+          }
+        }}
+      >
+        <DialogContent className="max-h-[80vh] max-w-xl space-y-2 overflow-y-auto">
+          <DialogTitle className="font-mono text-xs">{selected}.md</DialogTitle>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <div className="text-[11px] font-medium">Name</div>
               <Input
                 value={editor.name}
                 onChange={(e) => edit({ name: e.target.value })}
-                placeholder={selected}
+                placeholder={selected ?? ''}
                 className="text-[11px]"
               />
             </div>
@@ -460,11 +470,14 @@ export function AgentsTab(): React.JSX.Element {
             Saving restarts {scope === 'project' ? "this project's" : 'all'} agent hosts so the new
             definition takes effect.
           </div>
-        </div>
-      )}
-      {(create.error ?? write.error ?? remove.error ?? installDefaults.error) && (
+          {write.error && (
+            <div className="text-xs text-destructive selectable">{write.error.message}</div>
+          )}
+        </DialogContent>
+      </Dialog>
+      {(create.error ?? remove.error ?? installDefaults.error) && (
         <div className="text-xs text-destructive selectable">
-          {(create.error ?? write.error ?? remove.error ?? installDefaults.error)?.message}
+          {(create.error ?? remove.error ?? installDefaults.error)?.message}
         </div>
       )}
     </div>
