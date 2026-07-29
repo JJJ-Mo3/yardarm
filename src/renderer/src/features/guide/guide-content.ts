@@ -308,9 +308,9 @@ App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
   project picker). \`/mcp\` opens this tab.
 - **Agents** — custom subagents the main agent can delegate tasks to. Global by default
   (available in every project); switch the scope to Project and pick a project to manage
-  project-specific subagents. A Defaults catalog installs ready-made subagents — team roles
+  project-specific subagents. A Templates section lists ready-made subagents — team roles
   (product manager, developer, QA, …) and domain specialists (SaaS, mobile, AI apps, …) —
-  you can then edit. \`/subagents\` opens this tab.
+  added with one click and editable like any other. \`/subagents\` opens this tab.
 - **About** — versions, bundled runtime updates, and "Run setup again" to redo onboarding.
 
 **Project settings** (gear on the project row) cover per-project hooks, custom slash

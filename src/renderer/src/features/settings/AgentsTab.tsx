@@ -3,11 +3,14 @@
  * in ~/.mastracode/agents (global, the default scope) and per-project
  * .mastracode/agents (picked from existing projects) that the main agent can
  * delegate tasks to via the `subagent` tool. Saving restarts the affected
- * agent hosts so definitions take effect.
+ * agent hosts so definitions take effect. A Templates section lists the
+ * built-in catalog (team roles + domain specialists) with one-click add;
+ * added templates become ordinary editable files and existing files are
+ * never overwritten.
  */
 import React, { useEffect, useState } from 'react'
 import { useAtomValue } from 'jotai'
-import { ExternalLink, Trash2 } from 'lucide-react'
+import { ExternalLink, Plus, Trash2 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { selectedProjectIdAtom } from '../../lib/atoms'
 import { cn } from '../../lib/utils'
@@ -18,9 +21,13 @@ import { Switch } from '../../components/ui/switch'
 import { Tip } from '../../components/ui/tooltip'
 import { ModelSelect } from '../../components/ModelSelect'
 import { useConfirm } from '../../components/ConfirmDialog'
-import { DefaultAgentsDialog } from './DefaultAgentsDialog'
 
 type Scope = 'global' | 'project'
+
+const TEMPLATE_GROUPS = [
+  ['role', 'Role subagents'],
+  ['specialist', 'Domain specialists']
+] as const
 
 interface EditorState {
   name: string
@@ -50,7 +57,6 @@ export function AgentsTab(): React.JSX.Element {
   const [editor, setEditor] = useState<EditorState>(EMPTY_EDITOR)
   const [dirty, setDirty] = useState(false)
   const [newId, setNewId] = useState('')
-  const [defaultsOpen, setDefaultsOpen] = useState(false)
 
   const projects = trpc.projects.list.useQuery()
   const activeProjects = (projects.data ?? []).filter((p) => !p.archived)
@@ -60,6 +66,9 @@ export function AgentsTab(): React.JSX.Element {
 
   const scopeInput = { scope, projectPath: scope === 'project' ? projectPath : undefined }
   const list = trpc.projectConfig.agentsList.useQuery(scopeInput, { enabled: scopeReady })
+  const catalog = trpc.projectConfig.agentDefaultsCatalog.useQuery(undefined, {
+    staleTime: Infinity
+  })
   const models = trpc.agent.listModels.useQuery(undefined, { staleTime: 60_000 })
   const file = trpc.projectConfig.agentRead.useQuery(
     { ...scopeInput, id: selected ?? '' },
@@ -103,11 +112,20 @@ export function AgentsTab(): React.JSX.Element {
     }
   })
   const openInEditor = trpc.projectConfig.openInEditor.useMutation()
+  const installDefaults = trpc.projectConfig.agentsInstallDefaults.useMutation({
+    onSuccess: () => invalidate()
+  })
 
   const selectAgent = (id: string): void => {
     setSelected(id)
     setDirty(false)
     setEditor(EMPTY_EDITOR)
+  }
+  const addTemplates = (ids: string[]): void => {
+    installDefaults.mutate(
+      { ...scopeInput, ids },
+      { onSuccess: () => (ids.length === 1 ? selectAgent(ids[0]) : undefined) }
+    )
   }
   const switchScope = (next: Scope): void => {
     setScope(next)
@@ -123,6 +141,9 @@ export function AgentsTab(): React.JSX.Element {
     setEditor((e) => ({ ...e, ...patch }))
     setDirty(true)
   }
+
+  const installedIds = new Set((list.data ?? []).map((a) => a.id))
+  const templates = (catalog.data ?? []).filter((t) => !installedIds.has(t.id))
 
   const maxStepsNum = Number.parseInt(editor.maxSteps, 10)
   const save = (): void => {
@@ -239,7 +260,7 @@ export function AgentsTab(): React.JSX.Element {
           ))}
         {scopeReady && (list.data ?? []).length === 0 && (
           <div className="px-2 py-2 text-[11px] text-muted-foreground">
-            No custom subagents yet.
+            No custom subagents yet — create one below, or add a ready-made one from the templates.
           </div>
         )}
       </div>
@@ -261,31 +282,80 @@ export function AgentsTab(): React.JSX.Element {
             </Button>
           </span>
         </Tip>
-        <Tip content="Install ready-made default subagents (team roles and domain specialists) — existing agents are never overwritten">
-          <span className="inline-flex">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!scopeReady}
-              onClick={() => setDefaultsOpen(true)}
-            >
-              Defaults
-            </Button>
-          </span>
-        </Tip>
       </div>
-      <DefaultAgentsDialog
-        open={defaultsOpen}
-        onOpenChange={setDefaultsOpen}
-        scopeInput={scopeInput}
-        scopeLabel={
-          scope === 'global'
-            ? '~/.mastracode/agents (all projects)'
-            : `${project?.name ?? 'the project'}'s .mastracode/agents`
-        }
-        installedIds={new Set((list.data ?? []).map((a) => a.id))}
-        onInstalled={invalidate}
-      />
+      {scopeReady && templates.length > 0 && (
+        <div className="space-y-1 pt-2">
+          <div className="text-[11px] font-medium">Templates</div>
+          <div className="text-[10px] text-muted-foreground">
+            Ready-made subagents, added to{' '}
+            {scope === 'global' ? (
+              <code>~/.mastracode/agents</code>
+            ) : (
+              <code>.mastracode/agents</code>
+            )}{' '}
+            as ordinary files you can edit like any other agent. Adding restarts{' '}
+            {scope === 'project' ? "this project's" : 'all'} agent hosts.
+          </div>
+          {TEMPLATE_GROUPS.map(([group, label]) => {
+            const entries = templates.filter((t) => t.group === group)
+            if (entries.length === 0) return null
+            return (
+              <div key={group} className="space-y-0.5">
+                <div className="flex items-center justify-between pt-1">
+                  <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    {label}
+                  </div>
+                  <Tip
+                    content={`Add all ${entries.length} remaining ${label.toLowerCase()} — existing agents are never overwritten`}
+                  >
+                    <span className="inline-flex">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-5 px-2 text-[10px]"
+                        disabled={installDefaults.isPending}
+                        onClick={() => addTemplates(entries.map((t) => t.id))}
+                      >
+                        Add all
+                      </Button>
+                    </span>
+                  </Tip>
+                </div>
+                {entries.map((t) => (
+                  <div
+                    key={t.id}
+                    className="group flex items-center gap-2 rounded px-2 py-1 hover:bg-accent/50"
+                  >
+                    <span className="font-mono text-[11px]">{t.id}</span>
+                    <span
+                      className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground"
+                      title={t.description}
+                    >
+                      {t.description}
+                    </span>
+                    <Tip
+                      content={`Add the ${t.name} template as an editable ${t.id}.md — the agent hosts restart with it`}
+                    >
+                      <span className="inline-flex">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-5 gap-1 px-2 text-[10px]"
+                          disabled={installDefaults.isPending}
+                          onClick={() => addTemplates([t.id])}
+                        >
+                          <Plus size={10} />
+                          Add
+                        </Button>
+                      </span>
+                    </Tip>
+                  </div>
+                ))}
+              </div>
+            )
+          })}
+        </div>
+      )}
       {selected !== null && (
         <div className="space-y-2 rounded-md border border-border p-3">
           <div className="font-mono text-[10px] text-muted-foreground">{selected}.md</div>
@@ -364,9 +434,9 @@ export function AgentsTab(): React.JSX.Element {
           </div>
         </div>
       )}
-      {(create.error ?? write.error ?? remove.error) && (
+      {(create.error ?? write.error ?? remove.error ?? installDefaults.error) && (
         <div className="text-xs text-destructive selectable">
-          {(create.error ?? write.error ?? remove.error)?.message}
+          {(create.error ?? write.error ?? remove.error ?? installDefaults.error)?.message}
         </div>
       )}
     </div>

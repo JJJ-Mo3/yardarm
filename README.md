@@ -313,11 +313,11 @@ Yardarm puts a desktop workspace around the agent:
   edit the `.md` agent definitions (frontmatter
   `name`/`description`/`model`/`tools` + an instructions body) that the
   agent can delegate to via the `subagent` tool — global by default, or
-  project-specific via the scope toggle and project picker — plus an
-  installable catalog of 18 default subagents (12 team roles such as
-  developer, QA engineer, and security engineer, plus 6 domain
-  specialists such as SaaS, mobile, and AI apps) that never overwrites
-  your customizations
+  project-specific via the scope toggle and project picker — plus a
+  Templates section listing 18 ready-made subagents (12 team roles such
+  as developer, QA engineer, and security engineer, plus 6 domain
+  specialists such as SaaS, mobile, and AI apps) added with one click
+  and fully editable afterwards
 - MCP servers editor (Settings → MCP Servers, `/mcp`): edit the `mcp.json`
   server lists — global by default, or project-specific via the scope
   toggle and project picker — with live server status (connected state and
