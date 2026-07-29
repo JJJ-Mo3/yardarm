@@ -653,6 +653,16 @@ only. Each file has a frontmatter block (`name`, `description` — required,
 Saving restarts the affected agent processes; the ids `explore`, `plan`,
 `execute` and `general` are reserved.
 
+The **Defaults** button opens a catalog of 18 ready-made subagents — 12
+team roles (product manager, architect, developer, QA engineer, security
+engineer, tech writer, …) and 6 domain specialists (SaaS, Shopify, mobile,
+Chrome extensions, AI apps, e-commerce). Pick the ones you want and they
+are installed as ordinary `.md` files into the selected scope, so you can
+edit them like any other agent afterwards. Agents you already have are
+marked as installed and skipped — installing never overwrites an existing
+file, so your customizations are safe. On an id collision, a
+project-scoped agent overrides the global one.
+
 ## Per-project configuration
 
 Click the **gear** next to the project name in the sidebar to configure a

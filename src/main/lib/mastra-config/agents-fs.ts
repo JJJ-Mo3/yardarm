@@ -233,6 +233,26 @@ export async function createAgentFile(
   return { id, path: file, description: AGENT_TEMPLATE.description }
 }
 
+/**
+ * Write an agent file only if it doesn't exist yet (exclusive create, so a
+ * user's customized file is never overwritten). Returns false when skipped.
+ */
+export async function writeAgentFileIfAbsent(
+  projectPath: string | undefined,
+  id: string,
+  data: AgentFileData
+): Promise<boolean> {
+  const file = resolveAgentFile(projectPath, id)
+  await fs.mkdir(path.dirname(file), { recursive: true })
+  try {
+    await fs.writeFile(file, serializeAgentMarkdown(data), { mode: 0o644, flag: 'wx' })
+    return true
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'EEXIST') return false
+    throw err
+  }
+}
+
 export async function deleteAgentFile(projectPath: string | undefined, id: string): Promise<void> {
   await fs.rm(resolveAgentFile(projectPath, id))
 }

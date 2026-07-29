@@ -18,6 +18,7 @@ import { Switch } from '../../components/ui/switch'
 import { Tip } from '../../components/ui/tooltip'
 import { ModelSelect } from '../../components/ModelSelect'
 import { useConfirm } from '../../components/ConfirmDialog'
+import { DefaultAgentsDialog } from './DefaultAgentsDialog'
 
 type Scope = 'global' | 'project'
 
@@ -49,6 +50,7 @@ export function AgentsTab(): React.JSX.Element {
   const [editor, setEditor] = useState<EditorState>(EMPTY_EDITOR)
   const [dirty, setDirty] = useState(false)
   const [newId, setNewId] = useState('')
+  const [defaultsOpen, setDefaultsOpen] = useState(false)
 
   const projects = trpc.projects.list.useQuery()
   const activeProjects = (projects.data ?? []).filter((p) => !p.archived)
@@ -259,7 +261,31 @@ export function AgentsTab(): React.JSX.Element {
             </Button>
           </span>
         </Tip>
+        <Tip content="Install ready-made default subagents (team roles and domain specialists) — existing agents are never overwritten">
+          <span className="inline-flex">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!scopeReady}
+              onClick={() => setDefaultsOpen(true)}
+            >
+              Defaults
+            </Button>
+          </span>
+        </Tip>
       </div>
+      <DefaultAgentsDialog
+        open={defaultsOpen}
+        onOpenChange={setDefaultsOpen}
+        scopeInput={scopeInput}
+        scopeLabel={
+          scope === 'global'
+            ? '~/.mastracode/agents (all projects)'
+            : `${project?.name ?? 'the project'}'s .mastracode/agents`
+        }
+        installedIds={new Set((list.data ?? []).map((a) => a.id))}
+        onInstalled={invalidate}
+      />
       {selected !== null && (
         <div className="space-y-2 rounded-md border border-border p-3">
           <div className="font-mono text-[10px] text-muted-foreground">{selected}.md</div>

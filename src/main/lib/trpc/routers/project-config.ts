@@ -21,6 +21,7 @@ import {
   readAgentFile,
   writeAgentFile
 } from '../../mastra-config/agents-fs'
+import { DEFAULT_AGENTS, installDefaultAgents } from '../../mastra-config/default-agents'
 import { readDatabaseJson, writeResourceId } from '../../mastra-config/database-json'
 import { readInstructions, writeInstructions } from '../../mastra-config/agent-instructions'
 import { HOOK_EVENTS, readHooksJson, writeHooksJson } from '../../mastra-config/hooks-json'
@@ -172,6 +173,25 @@ export const projectConfigRouter = router({
       await deleteAgentFile(agentScopePath(input), input.id)
       restartForAgentScope(input)
       return { ok: true }
+    }),
+
+  /** The built-in defaults catalog (ids + display metadata, no bodies). */
+  agentDefaultsCatalog: publicProcedure.query(() => {
+    return DEFAULT_AGENTS.map(({ id, group, data }) => ({
+      id,
+      group,
+      name: data.name,
+      description: data.description
+    }))
+  }),
+
+  /** Install selected defaults; existing files are skipped, never overwritten. */
+  agentsInstallDefaults: publicProcedure
+    .input(agentScopeInput.extend({ ids: z.array(z.string().min(1)).min(1) }))
+    .mutation(async ({ input }) => {
+      const result = await installDefaultAgents(agentScopePath(input), input.ids)
+      if (result.installed.length > 0) restartForAgentScope(input)
+      return result
     }),
 
   openInEditor: publicProcedure
