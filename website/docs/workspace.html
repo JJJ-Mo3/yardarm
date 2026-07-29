@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Workspace — Yardarm documentation</title>
+    <meta
+      name="description"
+      content="The Yardarm workspace tabs: Terminal, IDE with language-server diagnostics, the embedded Mastra Code CLI, localhost Preview, the Kanban board that dispatches agents, Analytics, Connectors, and voice dictation."
+    />
+    <link rel="canonical" href="https://yardarmdev.com/docs/workspace.html" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="Yardarm" />
+    <meta property="og:title" content="Workspace — Yardarm documentation" />
+    <meta
+      property="og:description"
+      content="Terminal, IDE, CLI, and Preview tabs, the Kanban board, Analytics, Connectors, and voice dictation."
+    />
+    <meta property="og:url" content="https://yardarmdev.com/docs/workspace.html" />
+    <meta property="og:image" content="https://yardarmdev.com/assets/img/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#14608f" />
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="../assets/img/favicon-16.png" />
+    <link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png" />
+    <link rel="stylesheet" href="../assets/css/site.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav container" aria-label="Main">
+        <a class="brand" href="../index.html">
+          <img src="../assets/img/icon-1024.png" alt="Yardarm logo" width="28" height="28" />
+          <span>Yardarm</span>
+        </a>
+        <button
+          class="nav-toggle"
+          type="button"
+          aria-label="Toggle navigation"
+          aria-expanded="false"
+        >
+          &#9776;
+        </button>
+        <div class="nav-links">
+          <a href="index.html">Docs</a>
+          <a href="faq.html">FAQ</a>
+          <a href="../support.html">Support</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm">GitHub</a>
+          <a class="btn btn-small nav-cta" href="../index.html#install">Install</a>
+        </div>
+      </nav>
+    </header>
+
+    <div class="docs-layout container">
+      <aside class="docs-sidebar">
+        <nav aria-label="Documentation">
+          <p class="sidebar-title">Documentation</p>
+          <ul>
+            <li><a href="index.html">Getting started</a></li>
+            <li><a href="using-the-app.html">Using the app</a></li>
+            <li><a href="workspace.html" class="current">Workspace</a></li>
+            <li><a href="configuration.html">Configuration</a></li>
+            <li><a href="shortcuts.html">Keyboard shortcuts</a></li>
+            <li><a href="faq.html">FAQ</a></li>
+            <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          </ul>
+          <p class="sidebar-title">On this page</p>
+          <ul class="toc">
+            <li><a href="#terminal">Terminal</a></li>
+            <li><a href="#ide">IDE</a></li>
+            <li><a href="#cli">CLI</a></li>
+            <li><a href="#preview">Preview</a></li>
+            <li><a href="#kanban">Kanban board</a></li>
+            <li><a href="#analytics">Analytics</a></li>
+            <li><a href="#connectors">Connectors</a></li>
+            <li><a href="#voice-dictation">Voice dictation</a></li>
+          </ul>
+        </nav>
+      </aside>
+
+      <article class="docs-content">
+        <h1>Workspace</h1>
+        <p class="lead">
+          Beyond the chat, each conversation carries a full workspace scoped to its worktree: a real
+          terminal, a light IDE, the embedded Mastra Code CLI, a localhost preview browser, a Kanban
+          board that dispatches agents, and usage analytics.
+        </p>
+
+        <h2 id="terminal">Terminal</h2>
+        <p>
+          The <strong>Terminal</strong> tab (<kbd>Cmd+5</kbd>, or toggle with <kbd>Cmd+J</kbd>) is a
+          real shell that opens in the chat's worktree. Build, test, poke around; you and the agent
+          are looking at the same files.
+        </p>
+
+        <h2 id="ide">IDE</h2>
+        <p>
+          The <strong>IDE</strong> tab (<kbd>Cmd+3</kbd>) is a file tree + Monaco editor scoped to
+          the worktree. Open multiple files as tabs and save with <kbd>⌘S</kbd>.
+        </p>
+        <ul>
+          <li>
+            Every save is tracked per project/worktree and survives app restarts: each chat working
+            on that root is told about your edit immediately — pushed into the run while its agent
+            is working, or written into the chat's memory while it's idle, no message needed (edits
+            saved during a permission prompt are delivered right after you answer it). The
+            transcript shows a "Told the agent about IDE edits" line either way; brand-new chats
+            with no messages yet get the note alongside your first prompt.
+          </li>
+          <li>
+            Clean files the agent changes refresh automatically, and saving over a file the agent
+            just changed prompts you to overwrite or reload.
+          </li>
+          <li>
+            A <strong>problems panel</strong> below the editor shows language-server diagnostics
+            (errors and warnings) for the active file, refreshed as you type (shortly after edits
+            pause), on open and on save — no chat needs to be selected. Click a problem to jump to
+            it, and the same markers appear inline in the editor.
+          </li>
+          <li>
+            Language servers for TypeScript/JavaScript (using your project's own TypeScript when it
+            has one), HTML, CSS, JSON, YAML, Python and ERB (HTML+ERB Rails views) are bundled — no
+            setup needed. Go, Rust and Ruby use gopls / rust-analyzer / ruby-lsp from your PATH
+            (well-known install dirs like <code>~/go/bin</code> and <code>~/.cargo/bin</code> are
+            searched too); Rails smarts come from your project's ruby-lsp-rails gem.
+          </li>
+        </ul>
+
+        <h2 id="cli">CLI</h2>
+        <p>
+          The <strong>CLI</strong> tab (<kbd>Cmd+2</kbd>) runs the interactive Mastra Code terminal
+          UI, embedded, in the same worktree and seeing the same threads as the chat. Handy for
+          CLI-only commands (terminal voice mode, …). Avoid driving the same thread from the chat
+          and the CLI at the same time.
+        </p>
+
+        <h2 id="preview">Preview</h2>
+        <p>
+          The <strong>Preview</strong> tab (<kbd>Cmd+8</kbd>) is an in-app browser for localhost dev
+          servers.
+        </p>
+        <ul>
+          <li>
+            Start your server in the Terminal or CLI tab and its URL appears as a chip within a few
+            seconds (the first detection loads automatically); or type a <code>localhost</code> /
+            <code>127.0.0.1</code> URL into the address bar.
+          </li>
+          <li>
+            If nothing is running yet, a <strong>start chip</strong> offers to launch the project's
+            dev server (detected from the project; static sites get a simple fallback server) in a
+            dedicated terminal.
+          </li>
+          <li>
+            Dev servers are per chat (each runs in its own worktree) and would clash over the same
+            port, so if another chat's server is still running, the start chip says so and stops it
+            before starting here.
+          </li>
+          <li>
+            Back/forward, reload, DevTools, and open-in-browser controls are in the toolbar — the
+            wrench button docks a full Chrome DevTools pane beside the page (elements, console,
+            network) inspecting the previewed app.
+          </li>
+          <li>
+            Navigation is locked to localhost — links to anywhere else open in your system browser —
+            and the page survives switching tabs.
+          </li>
+        </ul>
+
+        <h2 id="kanban">The Kanban board and sidebar indicators</h2>
+        <p>
+          The <strong>Kanban</strong> tab (<kbd>Cmd+6</kbd>) is a task board that can dispatch
+          agents, plus a live overview of everything already running.
+        </p>
+        <p>
+          <strong>Author tasks.</strong> Write cards — a title and the prompt to send — into the
+          <strong>Backlog</strong> and <strong>To do</strong> columns. Drag cards to reorder them or
+          move them between the two, edit or delete them anytime.
+        </p>
+        <p>
+          <strong>Dispatch.</strong> Drag a card to <strong>In progress</strong> (or press its play
+          button) and Yardarm creates a chat — in its own worktree if you choose — and sends the
+          card's prompt to a fresh agent. From then on the card is linked to that chat: click it to
+          open the conversation.
+        </p>
+        <p>
+          <strong>Live columns.</strong> Dispatched cards (and every other chat in the project) move
+          through the board based on the agent's real state:
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Column</th>
+              <th>Meaning</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Needs input</strong></td>
+              <td>the agent asked you something</td>
+            </tr>
+            <tr>
+              <td><strong>In progress</strong></td>
+              <td>the agent is working right now</td>
+            </tr>
+            <tr>
+              <td><strong>Ready to review</strong></td>
+              <td>a run finished you haven't seen yet</td>
+            </tr>
+            <tr>
+              <td><strong>Idle</strong></td>
+              <td>nothing happening</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          Finished, reviewed cards can be marked <strong>Done</strong>. Because each dispatched task
+          runs in its own worktree, it's practical to queue up a batch of independent tasks and let
+          several agents work in parallel.
+        </p>
+        <p>
+          The same states appear as dots on chat rows in the sidebar: amber = waiting for you,
+          spinner = working, blue = finished and unseen.
+        </p>
+        <p>
+          When a chat is finished but you want to keep it around, hover its sidebar row and click
+          the <strong>archive</strong> icon: the chat disappears from the list and the board without
+          deleting its worktree or history. Archived chats collapse into an
+          <strong>Archived</strong> section at the bottom of the sidebar, where they can be restored
+          or deleted.
+        </p>
+
+        <h2 id="analytics">Analytics</h2>
+        <p>
+          The chart icon at the right of the tab bar (<kbd>Cmd+7</kbd>) opens
+          <strong>Analytics</strong>: token usage for the current project.
+        </p>
+        <ul>
+          <li><strong>By day</strong> — input/output tokens over time.</li>
+          <li>
+            <strong>By model</strong> and <strong>by chat</strong> — see where the tokens actually
+            went.
+          </li>
+          <li>
+            <strong>Compression savings</strong> — how many tokens
+            <a href="using-the-app.html#token-compression">token compression</a> saved.
+          </li>
+          <li><strong>CSV export</strong> — download the raw numbers for your own analysis.</li>
+        </ul>
+        <p>
+          Figures are token counts, not prices — pricing varies by provider and plan, so Yardarm
+          reports usage and lets you do the math that matches your billing.
+        </p>
+
+        <h2 id="connectors">Connectors</h2>
+        <p>
+          <strong>Settings → Connectors</strong> offers one-click sign-ins for common services the
+          agent can use as tools:
+          <strong>GitHub, GitLab, Supabase, Netlify, Vercel, and Sentry</strong>. Each connector is
+          a hosted MCP server with the OAuth flow handled for you — click <strong>Connect</strong>,
+          approve in the browser, and every chat in the project can use that service's tools.
+        </p>
+        <p>
+          The tab shows verified connection status per service (it actually exercises the
+          connection, not just the token), and sign-ins are shared across all of a project's
+          worktrees — one login covers every chat, present and future. For arbitrary MCP servers
+          beyond these, see
+          <a href="configuration.html#mcp-servers">Settings → MCP Servers</a>.
+        </p>
+
+        <h2 id="voice-dictation">Voice dictation</h2>
+        <p>
+          Yardarm can transcribe your voice straight into the composer using a cloud speech-to-text
+          provider.
+        </p>
+        <ol>
+          <li>
+            Open <strong>Settings → Voice</strong> and enable voice input with the
+            <strong>Cloud</strong> engine.
+          </li>
+          <li>
+            Pick an STT provider and model — OpenAI (Whisper, GPT-4o Transcribe), Groq (Whisper
+            large v3), Deepgram (Nova-3), and several other Whisper hosts are supported.
+          </li>
+          <li>
+            The provider's API key is a prerequisite: add it under Settings →
+            <strong>API Keys</strong> if you haven't. The Voice tab shows which providers have keys,
+            and the toggle stays off until one does.
+          </li>
+        </ol>
+        <p>Then, in any chat, click the <strong>mic button</strong> in the composer:</p>
+        <ul>
+          <li>
+            Click to start recording (the button pulses red and shows elapsed time), click again to
+            stop and transcribe. Or press-and-hold to talk, release to transcribe.
+          </li>
+          <li><kbd>Escape</kbd> cancels a recording and discards the audio.</li>
+          <li>Transcribed text is appended to the prompt for you to edit before sending.</li>
+        </ul>
+        <p>
+          Audio is sent only to the STT provider you selected. If dictation isn't enabled (or no
+          provider has a key), the mic button is hidden entirely.
+        </p>
+
+        <nav class="docs-footer-nav" aria-label="Docs pages">
+          <a href="using-the-app.html">← Using the app</a>
+          <a href="configuration.html">Configuration →</a>
+        </nav>
+      </article>
+    </div>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <nav class="footer-links" aria-label="Footer">
+          <a href="index.html">Documentation</a>
+          <a href="faq.html">FAQ</a>
+          <a href="troubleshooting.html">Troubleshooting</a>
+          <a href="../support.html">Support</a>
+          <a href="../privacy.html">Privacy Policy</a>
+          <a href="../terms.html">Terms &amp; License</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm">GitHub</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm/releases">Releases</a>
+        </nav>
+        <p>
+          © 2026 Yardarm contributors. Yardarm is free, open-source software licensed under
+          Apache-2.0.
+        </p>
+        <p>
+          Yardarm is an independent project that builds on Mastra Code. It is not affiliated with,
+          endorsed by, or sponsored by Mastra. "Mastra" and "Mastra Code" are trademarks of their
+          respective owner.
+        </p>
+      </div>
+    </footer>
+    <script src="../assets/js/site.js"></script>
+  </body>
+</html>

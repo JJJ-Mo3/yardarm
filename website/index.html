@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Yardarm — a desktop app for the Mastra Code coding agent</title>
+    <meta
+      name="description"
+      content="Yardarm is a free, open-source macOS desktop app for the Mastra Code coding agent. Parallel agents in isolated git worktrees, one-click rollback, built-in review and shipping — no account, no telemetry."
+    />
+    <link rel="canonical" href="https://yardarmdev.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Yardarm" />
+    <meta property="og:title" content="Yardarm — a desktop app for the Mastra Code coding agent" />
+    <meta
+      property="og:description"
+      content="Parallel coding agents in isolated git worktrees, one-click rollback, built-in review and shipping. Free, open source, local-first."
+    />
+    <meta property="og:url" content="https://yardarmdev.com/" />
+    <meta property="og:image" content="https://yardarmdev.com/assets/img/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#14608f" />
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/img/favicon-16.png" />
+    <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png" />
+    <link rel="stylesheet" href="assets/css/site.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav container" aria-label="Main">
+        <a class="brand" href="index.html">
+          <img src="assets/img/icon-1024.png" alt="Yardarm logo" width="28" height="28" />
+          <span>Yardarm</span>
+        </a>
+        <button
+          class="nav-toggle"
+          type="button"
+          aria-label="Toggle navigation"
+          aria-expanded="false"
+        >
+          &#9776;
+        </button>
+        <div class="nav-links">
+          <a href="docs/index.html">Docs</a>
+          <a href="docs/faq.html">FAQ</a>
+          <a href="support.html">Support</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm">GitHub</a>
+          <a class="btn btn-small nav-cta" href="#install">Install</a>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero container">
+        <picture>
+          <source srcset="assets/img/logo-dark.png" media="(prefers-color-scheme: dark)" />
+          <img
+            class="hero-logo"
+            src="assets/img/logo-light.png"
+            alt="Yardarm"
+            width="640"
+            height="360"
+          />
+        </picture>
+        <h1>A desktop workspace for the Mastra&nbsp;Code coding agent</h1>
+        <p class="tagline">
+          Describe what you want in plain language. The agent reads your code, proposes a plan,
+          edits files, runs commands, and helps you review and ship the result — all inside one
+          window. No account, no telemetry, everything local.
+        </p>
+        <div class="hero-actions">
+          <a class="btn" href="#install">Install for macOS</a>
+          <a class="btn btn-secondary" href="docs/index.html">Read the docs</a>
+        </div>
+        <p class="hero-meta">
+          Free and open source (Apache-2.0) · macOS, Apple Silicon ·
+          <a href="https://github.com/JJJ-Mo3/yardarm/releases/latest">Latest release</a>
+        </p>
+      </section>
+
+      <section class="section alt" id="install">
+        <div class="container">
+          <h2>Install</h2>
+          <p class="section-lead">
+            One command downloads the latest release and installs it to
+            <code>/Applications</code>. Requires macOS on Apple Silicon.
+          </p>
+          <div class="code-block">
+            <pre><code>curl -fsSL https://raw.githubusercontent.com/JJJ-Mo3/yardarm/main/scripts/install.sh | sh</code></pre>
+            <button
+              class="copy-btn"
+              type="button"
+              data-copy="curl -fsSL https://raw.githubusercontent.com/JJJ-Mo3/yardarm/main/scripts/install.sh | sh"
+            >
+              Copy
+            </button>
+          </div>
+          <p>
+            Prefer a manual download? Grab the <code>.dmg</code> or <code>.zip</code> from the
+            <a href="https://github.com/JJJ-Mo3/yardarm/releases/latest">latest release</a> and drag
+            <code>Yardarm.app</code> into <code>/Applications</code>.
+          </p>
+          <div class="note warn">
+            <strong>Manual downloads on macOS:</strong> release builds are unsigned, so macOS
+            quarantines browser downloads and refuses to open them ("Yardarm is damaged and can't be
+            opened"). Clear the flag once and it opens normally:
+            <code>xattr -dr com.apple.quarantine /Applications/Yardarm.app</code> — or just use the
+            install script above, which avoids this entirely.
+            <a href="docs/troubleshooting.html">More in troubleshooting</a>.
+          </div>
+          <p>
+            You can also <a href="docs/index.html#build-from-source">build from source</a> on any
+            platform with Node 22+ and pnpm 10.
+          </p>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container">
+          <h2>Why Mastra Code</h2>
+          <p class="section-lead">
+            Yardarm exists because <a href="https://code.mastra.ai">Mastra Code</a> is a genuinely
+            different coding agent.
+          </p>
+          <div class="card-grid">
+            <div class="card">
+              <h3>Observational Memory</h3>
+              <p>
+                Instead of compacting the conversation when context runs out, a background observer
+                continuously distills what matters. Long-running work doesn't fall off a cliff at
+                the context limit.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Goals with a judge</h3>
+              <p>
+                Hand the agent an objective and it keeps running until an independent judge model
+                agrees the goal is met — not just until the first "done" claim.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Bring any model</h3>
+              <p>
+                OAuth in with Claude, OpenAI Codex, or GitHub Copilot subscriptions, use API keys
+                from a dozen providers, or point it at any OpenAI-compatible endpoint — Ollama, LM
+                Studio, vLLM, and more.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Deeply extensible</h3>
+              <p>
+                MCP servers, lifecycle hooks, skills and plugins, subagents, and custom slash
+                commands — all plain files, configurable globally or per project.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Open source and local-first</h3>
+              <p>
+                Configuration is plain files on disk, shared between the CLI, ACP editors, and this
+                app. No accounts, no telemetry.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section alt">
+        <div class="container">
+          <h2>What Yardarm adds</h2>
+          <p class="section-lead">A full desktop workspace around the agent.</p>
+          <div class="card-grid">
+            <div class="card">
+              <h3>Parallel agents on one repo</h3>
+              <p>
+                Every chat gets its own git worktree on a <code>yardarm/…</code> branch, so several
+                agents can build, test, and commit on the same project at once — without touching
+                your working copy or each other.
+              </p>
+            </div>
+            <div class="card">
+              <h3>One-click rollback</h3>
+              <p>
+                Every message pins a checkpoint (a real git ref). Roll back and both the transcript
+                and the working tree return to that moment, with the agent told what happened.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Review and ship in one place</h3>
+              <p>
+                Side-by-side diffs of exactly what the agent changed, staging, commit, and push —
+                with GitHub PR and GitLab MR flows, plus agent-powered code review of local changes
+                or any open PR/MR.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Terminal, IDE, CLI &amp; Preview</h3>
+              <p>
+                A real shell, a light Monaco-based IDE with language-server diagnostics, the
+                interactive Mastra Code TUI, and an in-app browser for localhost dev servers — all
+                scoped to the chat's worktree.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Kanban that dispatches agents</h3>
+              <p>
+                Write task cards, drag one to In&nbsp;progress, and Yardarm creates a chat and sets
+                an agent working. Cards follow the agent's live status.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Modes at a glance</h3>
+              <p>
+                A color-coded <span class="mode-chip plan">Plan</span>
+                <span class="mode-chip build">Build</span>
+                <span class="mode-chip fast">Fast</span> selector, tool calls as expandable cards,
+                and plan/tool approvals as buttons.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Full sandbox mode</h3>
+              <p>
+                Run the agent's shell commands inside an OS-level sandbox — writes contained to the
+                worktree and allowed paths, with an optional network block.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Local model conveniences</h3>
+              <p>
+                Ollama auto-detect and auto-start, dropdowns filtered to models that will actually
+                run, and no idle timeouts — a big local model can think for minutes without being
+                cut off.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Persistent, organized history</h3>
+              <p>
+                Projects and chats with full transcripts survive restarts in a local SQLite
+                database. Archive chats and projects without deleting anything.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container">
+          <h2>Get started in minutes</h2>
+          <p class="section-lead">
+            Install, run the setup wizard, add a project, and type. The
+            <a href="docs/index.html">Getting Started guide</a> walks through installation,
+            first-run setup, and every part of the app — from
+            <a href="docs/using-the-app.html">modes, approvals, and checkpoints</a> to the
+            <a href="docs/workspace.html">workspace tabs</a>,
+            <a href="docs/configuration.html">settings and slash commands</a>, and a full
+            <a href="docs/faq.html">FAQ</a>.
+          </p>
+          <div class="hero-actions" style="justify-content: flex-start">
+            <a class="btn" href="docs/index.html">Getting started</a>
+            <a class="btn btn-secondary" href="https://github.com/JJJ-Mo3/yardarm"
+              >View on GitHub</a
+            >
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <nav class="footer-links" aria-label="Footer">
+          <a href="docs/index.html">Documentation</a>
+          <a href="docs/faq.html">FAQ</a>
+          <a href="docs/troubleshooting.html">Troubleshooting</a>
+          <a href="support.html">Support</a>
+          <a href="privacy.html">Privacy Policy</a>
+          <a href="terms.html">Terms &amp; License</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm">GitHub</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm/releases">Releases</a>
+        </nav>
+        <p>
+          © 2026 Yardarm contributors. Yardarm is free, open-source software licensed under
+          Apache-2.0.
+        </p>
+        <p>
+          Yardarm is an independent project that builds on Mastra Code. It is not affiliated with,
+          endorsed by, or sponsored by Mastra. "Mastra" and "Mastra Code" are trademarks of their
+          respective owner.
+        </p>
+      </div>
+    </footer>
+    <script src="assets/js/site.js"></script>
+  </body>
+</html>

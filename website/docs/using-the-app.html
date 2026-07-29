@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Using the app — Yardarm documentation</title>
+    <meta
+      name="description"
+      content="The Yardarm chat screen piece by piece: modes, approvals, the full sandbox, token compression, reviewing and shipping changes, checkpoints, goals, threads, forking, and split view."
+    />
+    <link rel="canonical" href="https://yardarmdev.com/docs/using-the-app.html" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="Yardarm" />
+    <meta property="og:title" content="Using the app — Yardarm documentation" />
+    <meta
+      property="og:description"
+      content="Modes, approvals, the full sandbox, token compression, review and shipping, checkpoints, goals, threads, forking, and split view."
+    />
+    <meta property="og:url" content="https://yardarmdev.com/docs/using-the-app.html" />
+    <meta property="og:image" content="https://yardarmdev.com/assets/img/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#14608f" />
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="../assets/img/favicon-16.png" />
+    <link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png" />
+    <link rel="stylesheet" href="../assets/css/site.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav container" aria-label="Main">
+        <a class="brand" href="../index.html">
+          <img src="../assets/img/icon-1024.png" alt="Yardarm logo" width="28" height="28" />
+          <span>Yardarm</span>
+        </a>
+        <button
+          class="nav-toggle"
+          type="button"
+          aria-label="Toggle navigation"
+          aria-expanded="false"
+        >
+          &#9776;
+        </button>
+        <div class="nav-links">
+          <a href="index.html">Docs</a>
+          <a href="faq.html">FAQ</a>
+          <a href="../support.html">Support</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm">GitHub</a>
+          <a class="btn btn-small nav-cta" href="../index.html#install">Install</a>
+        </div>
+      </nav>
+    </header>
+
+    <div class="docs-layout container">
+      <aside class="docs-sidebar">
+        <nav aria-label="Documentation">
+          <p class="sidebar-title">Documentation</p>
+          <ul>
+            <li><a href="index.html">Getting started</a></li>
+            <li><a href="using-the-app.html" class="current">Using the app</a></li>
+            <li><a href="workspace.html">Workspace</a></li>
+            <li><a href="configuration.html">Configuration</a></li>
+            <li><a href="shortcuts.html">Keyboard shortcuts</a></li>
+            <li><a href="faq.html">FAQ</a></li>
+            <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          </ul>
+          <p class="sidebar-title">On this page</p>
+          <ul class="toc">
+            <li><a href="#chat-screen">The chat screen</a></li>
+            <li><a href="#modes">Modes: Plan, Build, Fast</a></li>
+            <li><a href="#approvals">Approvals &amp; permissions</a></li>
+            <li><a href="#full-sandbox">Full sandbox</a></li>
+            <li><a href="#token-compression">Token compression</a></li>
+            <li><a href="#reviewing-and-shipping">Reviewing &amp; shipping</a></li>
+            <li><a href="#agent-code-review">Agent code review</a></li>
+            <li><a href="#checkpoints">Checkpoints &amp; rollback</a></li>
+            <li><a href="#goals">Goals</a></li>
+            <li><a href="#threads">Threads, forking, split view</a></li>
+          </ul>
+        </nav>
+      </aside>
+
+      <article class="docs-content">
+        <h1>Using the app</h1>
+        <p class="lead">
+          The chat screen piece by piece, plus the workflows built around it: modes, approvals,
+          sandboxing, review and shipping, checkpoints, goals, and parallel conversations.
+        </p>
+
+        <h2 id="chat-screen">The chat screen, piece by piece</h2>
+
+        <h3>The header</h3>
+        <ul>
+          <li>
+            <strong>Mode selector</strong> — three color-coded buttons:
+            <span class="mode-chip plan">Plan</span> <span class="mode-chip build">Build</span>
+            <span class="mode-chip fast">Fast</span>. See <a href="#modes">Modes</a>.
+          </li>
+          <li><strong>Model selector</strong> — switch the active model for this chat.</li>
+          <li>
+            <strong>think</strong> — extended-thinking level (off / low / medium / high / xhigh).
+            Higher levels are slower but better on hard problems.
+          </li>
+          <li>
+            <strong>auto-approve</strong> — the "yolo" switch. On, the agent runs tools and edits
+            files without asking; off, you approve each sensitive action.
+          </li>
+          <li>
+            <strong>sandbox</strong> — run this chat's shell commands inside an OS-level sandbox.
+            While it's on, a green shield chip appears next to the switch — click it to configure
+            network access and allowed paths. See <a href="#full-sandbox">Full sandbox</a>.
+          </li>
+          <li>
+            <strong>goal</strong> chip — set an objective the agent works toward across runs. The
+            chip is color-coded once a goal is set: blue while active, amber when paused, green when
+            done. See <a href="#goals">Goals</a>.
+          </li>
+          <li>
+            <strong>review</strong> chip — have the agent code-review this chat's changes or an open
+            PR. See <a href="#agent-code-review">Agent code review</a>.
+          </li>
+          <li>
+            <strong>Threads</strong> (<kbd>Cmd+P</kbd>) — switch, rename, clone, or delete
+            conversation threads. See <a href="#threads">Threads and subchats</a>.
+          </li>
+        </ul>
+
+        <h3>The transcript</h3>
+        <ul>
+          <li>
+            <strong>Tool calls</strong> appear as expandable cards — click one to see the exact
+            command, file diff, or output.
+          </li>
+          <li>
+            <strong>Approval prompts</strong> appear inline when the agent wants to do something
+            sensitive, with <strong>Allow once / Always allow / Deny</strong> buttons.
+          </li>
+          <li>
+            <strong>Plan approval</strong>: in Plan mode the agent ends with a plan card — approve
+            it to let the agent start building, or edit/deny it.
+          </li>
+          <li>
+            <strong>Questions from the agent</strong> appear as answer cards with options or a
+            free-text field.
+          </li>
+          <li>
+            <strong>Task checklist</strong> — when the agent breaks work into tasks, a collapsible
+            "Tasks n/m" strip appears under the header showing live progress. It hides itself when
+            everything is done.
+          </li>
+          <li>
+            <strong>Marker lines</strong> — actions triggered from buttons (like reviews) don't post
+            a user bubble; the transcript shows a compact muted one-liner (e.g. "Review: PR #42 —
+            fix auth") instead. Hover it to roll back, like any message.
+          </li>
+        </ul>
+
+        <h3>The composer</h3>
+        <ul>
+          <li><kbd>Enter</kbd> sends; <kbd>Shift+Enter</kbd> inserts a newline.</li>
+          <li>
+            <code>/</code> opens slash-command autocomplete (arrow keys to navigate, Tab to
+            complete, Enter to run).
+          </li>
+          <li>
+            <code>@</code> searches project files and inserts a mention so the agent looks at that
+            file.
+          </li>
+          <li>
+            <strong>Attachments</strong> — click the paperclip, or paste/drag-and-drop images
+            straight into the composer.
+          </li>
+          <li>
+            <strong>Mic button</strong> — voice dictation, if enabled. See
+            <a href="workspace.html#voice-dictation">Voice dictation</a>.
+          </li>
+          <li>
+            <strong>While the agent is running</strong>, the send button becomes
+            <strong>Queue</strong>: messages you send are queued in a strip above the composer (each
+            with a dismiss button) and delivered in order when the current run finishes. The red
+            square button stops the current run.
+          </li>
+        </ul>
+
+        <h2 id="modes">Modes: Plan, Build, Fast</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Mode</th>
+              <th>Color</th>
+              <th>What it does</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Plan</strong></td>
+              <td>blue</td>
+              <td>Read-only research. The agent explores and proposes a plan for approval.</td>
+            </tr>
+            <tr>
+              <td><strong>Build</strong></td>
+              <td>green</td>
+              <td>Full agent: edits files, runs commands, commits.</td>
+            </tr>
+            <tr>
+              <td><strong>Fast</strong></td>
+              <td>amber</td>
+              <td>A lighter/faster model for quick tasks and questions.</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          Switch with the header buttons or <code>/plan</code>, <code>/build</code>,
+          <code>/fast</code>. Each chat remembers its own mode across restarts, and each mode can
+          have its own default model (Settings → Models).
+        </p>
+        <p>
+          A good rhythm for nontrivial work: start in <strong>Plan</strong>, let the agent explore
+          and propose, approve the plan, and let it flip to <strong>Build</strong> to execute.
+        </p>
+
+        <h2 id="approvals">Approvals and permissions</h2>
+        <p>
+          Unless auto-approve is on, the agent asks before sensitive actions (running commands,
+          editing files, calling MCP tools). Each prompt offers:
+        </p>
+        <ul>
+          <li><strong>Allow once</strong> — just this call.</li>
+          <li><strong>Always allow</strong> — this tool for the rest of the session.</li>
+          <li><strong>Deny</strong> — block it and tell the agent why, if you like.</li>
+        </ul>
+        <p>
+          For finer control, run <code>/permissions</code> to open the permissions panel: per
+          category (read / edit / execute / MCP / other) and per tool, set
+          <strong>allow / ask / deny</strong> for the session.
+        </p>
+        <p>
+          The <strong>auto-approve</strong> switch in the header is the blunt instrument: everything
+          runs without asking. Recommended only in isolated worktrees (the default) and projects you
+          can afford to roll back.
+        </p>
+
+        <h2 id="full-sandbox">Full sandbox (OS isolation)</h2>
+        <p>
+          Approvals control <em>whether</em> a command runs; the full sandbox controls what it can
+          touch once it does. Flip the <strong>sandbox</strong> switch in the chat header (or run
+          <code>/sandbox</code>) to execute the agent's shell commands inside an OS-level sandbox —
+          seatbelt on macOS, bubblewrap on Linux (install the <code>bwrap</code> package first). Not
+          available on Windows.
+        </p>
+        <p>What it does — and, honestly, what it doesn't:</p>
+        <ul>
+          <li>
+            <strong>Writes are contained.</strong> Sandboxed commands can only write inside the
+            chat's worktree, the sandbox allowed paths, and temp directories; writes anywhere else
+            fail.
+          </li>
+          <li>
+            <strong>Reads are not restricted.</strong> The sandbox limits damage, not what the agent
+            can look at.
+          </li>
+          <li>
+            <strong>Network is all-or-nothing.</strong> Allowed by default; the
+            <strong>Allow network</strong> switch blocks it entirely (installs, fetches, and pushes
+            will fail while blocked).
+          </li>
+        </ul>
+        <p>
+          If the agent needs to write somewhere else, it asks with a
+          <strong>sandbox access request</strong> card — approving adds that directory to the
+          allowed paths, and the grant applies to sandboxed commands immediately, no restart needed.
+        </p>
+        <p>
+          The setting persists per chat, and a green shield chip appears in the header while it's
+          active (with "no net" when the network is blocked) — click it to reconfigure. Defaults for
+          new chats live in Settings → <strong>Preferences</strong> → Agent sandbox. Pairs well with
+          auto-approve: yolo speed, contained blast radius.
+        </p>
+
+        <h2 id="token-compression">Token compression</h2>
+        <p>
+          Long sessions accumulate big tool outputs the model keeps re-reading on every turn. Flip
+          <strong>Token compression</strong> in Settings → <strong>Preferences</strong> to shrink
+          stale tool outputs in the prompt sent to the model:
+        </p>
+        <ul>
+          <li>duplicate results are replaced with a stub pointing at the first occurrence</li>
+          <li>
+            big homogeneous JSON arrays are crushed to their head and tail (error-like items are
+            preserved), including arrays nested one level inside objects
+          </li>
+          <li>noisy text is cleaned: ANSI color codes stripped, repeated log lines collapsed</li>
+          <li>
+            outputs are compressed by what they are: build/server logs lose progress bars, repeated
+            lines, and the middle of deep stack traces; unified diffs are compacted without dropping
+            a single <code>+</code>/<code>-</code> line (only context and, if needed, whole trailing
+            hunks); HTML is stripped to its text
+          </li>
+          <li>anything still long is reduced to a head+tail excerpt</li>
+        </ul>
+        <p>
+          Recent turns are never touched, and compression is reversible: every replacement names its
+          <code>toolCallId</code>, and the agent can fetch the original via the built-in
+          <code>retrieve_full_output</code> tool (or just re-run the original tool). The toggle is
+          global and applies to all chats immediately, no restart needed. Stored chat history is
+          never modified: compression happens transiently per model call, so transcripts, rollbacks,
+          and threads are unaffected. The estimated tokens saved show up as a green
+          <strong>Saved by compression</strong> line in the cost popover (<code>/cost</code>) and as
+          a green figure next to the usage counter in the chat header while compression is on.
+        </p>
+        <p>
+          The separate <strong>Verbosity steering</strong> switch in the same card appends a short
+          constant instruction to the system prompt asking the agent not to restate tool outputs and
+          to keep replies brief — it works with or without output compression and doesn't disturb
+          provider prompt caching.
+        </p>
+
+        <h2 id="reviewing-and-shipping">Reviewing and shipping changes</h2>
+        <p>
+          The <strong>Changes</strong> tab (<kbd>Cmd+4</kbd>) is a full review-and-ship surface for
+          the chat's worktree:
+        </p>
+        <ul>
+          <li><strong>Diffs</strong> — side-by-side Monaco diffs of every changed file.</li>
+          <li>
+            <strong>Stage / unstage</strong> files and <strong>commit</strong> with a message.
+          </li>
+          <li><strong>Commit history</strong> for the worktree branch.</li>
+          <li>
+            <strong>Push</strong>, <strong>pull</strong>, and <strong>merge into base</strong> —
+            merge the <code>yardarm/…</code> branch back into the branch you started from, or use
+            the CLI integration for PR/MR flows: <code>gh</code> for GitHub repos,
+            <code>glab</code> for GitLab. The host is auto-detected from the origin remote; for
+            self-hosted instances set it explicitly in Project Settings → General → Repository host.
+          </li>
+          <li>
+            <strong>Agent review</strong> — the magnifier button asks the chat's agent to review the
+            branch's local changes. See <a href="#agent-code-review">Agent code review</a>.
+          </li>
+          <li>
+            <strong>Compare against any branch</strong> — the compare button in the header diffs the
+            worktree against another branch (from their merge-base), read-only: staging and
+            committing come back when you switch back to <strong>Current (HEAD)</strong>.
+          </li>
+        </ul>
+        <p>Nothing the agent does in a worktree touches your own checkout until you merge it.</p>
+
+        <h2 id="agent-code-review">Agent code review</h2>
+        <p>
+          Click the <strong>review</strong> button in the chat header (next to the goal chip) to
+          open the review picker:
+        </p>
+        <ul>
+          <li>
+            <strong>Review local changes</strong> — reviews the branch's committed work against its
+            base branch, plus anything uncommitted.
+          </li>
+          <li>
+            <strong>Open PRs / MRs</strong> — pick any open pull request (GitHub, requires the
+            <a href="https://cli.github.com">GitHub CLI</a>, <code>gh</code>) or merge request
+            (GitLab, requires the <a href="https://gitlab.com/gitlab-org/cli">GitLab CLI</a>,
+            <code>glab</code>) from the list to review it.
+          </li>
+          <li>
+            The optional <strong>focus</strong> field steers the review toward a specific concern
+            ("error handling", "security", a file name, …).
+          </li>
+        </ul>
+        <p>
+          Reviews run silently: no user message is posted — the transcript just shows a compact
+          "Review: local changes" or "Review: PR #42 — …" marker line (hover it to roll back, like
+          any message). If a run is already active, the review queues behind it.
+        </p>
+        <p>When the review finishes, a follow-up bar appears above the composer:</p>
+        <ul>
+          <li>
+            <strong>Post review as PR/MR comments</strong> — the agent posts its findings on the PR
+            with <code>gh</code> (or the MR with <code>glab</code>; comment only — it never approves
+            or requests changes). Offered after PR/MR reviews, and after local reviews when the
+            branch has an open PR/MR.
+          </li>
+          <li>
+            <strong>Build a plan to execute</strong> — switches to Plan mode and turns the findings
+            into a prioritized implementation plan for approval.
+          </li>
+        </ul>
+        <p>
+          The same review can be started from the magnifier button on the Changes tab or from the
+          keyboard: <code>/review changes</code> (local), <code>/review &lt;pr-number&gt;</code> (a
+          PR or MR), <code>/review</code> alone (list open PRs/MRs to pick from); append a focus to
+          either form, e.g. <code>/review 42 security</code>.
+        </p>
+
+        <h2 id="checkpoints">Checkpoints and rollback</h2>
+        <p>
+          Every message you send pins a <strong>checkpoint</strong>: a real git ref
+          (<code>refs/yardarm/checkpoints/*</code>) snapshotting the worktree at that moment.
+        </p>
+        <p>
+          To rewind, hover over one of your messages and click the circular-arrow pill next to it
+          (it only appears when there is actually something to roll back). Confirming will:
+        </p>
+        <ol>
+          <li>Restore all files to the snapshot taken just before that message.</li>
+          <li>Remove that message and everything after it from the conversation.</li>
+          <li>Put the message text back in the composer so you can edit and resend it.</li>
+          <li>
+            Tell the agent (on your next message) that a rollback happened, so it doesn't act on
+            stale memory.
+          </li>
+        </ol>
+        <p>
+          A <strong>fork pill</strong> may appear beside the rollback pill — that branches the
+          conversation into a new subchat tab instead of rewinding it. See
+          <a href="#threads">Threads, forking, and split view</a>.
+        </p>
+
+        <h3>The checkpoint manager</h3>
+        <p>
+          The <strong>checkpoints</strong> panel in the Changes tab gives you the full picture:
+          every checkpoint of the chat — the automatic per-message ones and any you created yourself
+          — in one list. From there you can:
+        </p>
+        <ul>
+          <li><strong>Create a named checkpoint now</strong>, before trying something risky.</li>
+          <li><strong>Rename or tag</strong> checkpoints so the important ones stand out.</li>
+          <li>
+            <strong>Compare any two checkpoints</strong> as a read-only diff to see exactly what
+            changed between two moments.
+          </li>
+          <li>
+            <strong>Prune</strong> stale automatic checkpoints that are no longer referenced by any
+            message (rollback targets are never pruned).
+          </li>
+        </ul>
+        <p>
+          Checkpoints are ordinary git refs inside the repository — they never leave your machine
+          and don't appear on your branches.
+        </p>
+
+        <h2 id="goals">Goals: let the agent run to completion</h2>
+        <p>
+          For bigger objectives, click the <strong>goal</strong> chip in the header (or use
+          <code>/goal</code>) and describe the outcome you want. The agent keeps working across runs
+          until an independent <strong>judge model</strong> agrees the goal is met — not just until
+          the agent claims it is.
+        </p>
+        <p>
+          By default <strong>Set goal &amp; start</strong> kicks off a run toward the goal
+          immediately. Untick <strong>Start working right away</strong> if you'd rather set the goal
+          first and launch it with your own detailed prompt — the judge then starts evaluating from
+          your next message. If a run is already in progress, the goal simply attaches to it.
+          Resuming a paused goal also picks the work back up right away when the agent is idle.
+        </p>
+        <p>In the goal popover you can:</p>
+        <ul>
+          <li>set or edit the objective,</li>
+          <li>choose the judge model,</li>
+          <li>cap the number of runs,</li>
+          <li>pause/resume, or clear the goal.</li>
+        </ul>
+        <p>
+          A banner above the transcript shows live goal status: blue while active, amber when
+          paused, green when the judge signs off.
+        </p>
+        <p>
+          The popover also keeps an <strong>evaluation history</strong>: every past objective with
+          its per-iteration pass/fail verdicts and the judge's reasoning, so you can see how a goal
+          converged (or why it kept failing) long after it finished.
+        </p>
+
+        <h2 id="threads">Threads, subchats, forking, and split view</h2>
+        <p>
+          Each chat can hold multiple <strong>threads</strong> — independent conversation histories
+          over the same worktree. Press <kbd>Cmd+P</kbd> or use <code>/threads</code> to switch,
+          rename, clone, or delete threads, or open one in a new <strong>subchat</strong> (its own
+          agent process, running in parallel). The cost popover (<code>/cost</code>) breaks token
+          usage down per thread.
+        </p>
+        <p>
+          <strong>Forking.</strong> To branch a conversation at a specific point, hover one of your
+          messages and click the <strong>fork pill</strong> next to it. The agent's memory is cloned
+          as a new Mastra thread — truncated to just before that message — and opens as a new
+          subchat tab over the same worktree. The original conversation continues unchanged, so you
+          can explore an alternative direction without losing anything. (Rollback pills in the
+          forked transcript only cover messages sent after the fork.)
+        </p>
+        <p>
+          <strong>Split view.</strong> The columns button at the right of the tab bar opens a second
+          chat pane beside the current one — pick any other chat in the project and both run side by
+          side (drag the divider to resize). Useful for watching one agent work while briefing
+          another. <kbd>Cmd+P</kbd> and other global shortcuts stay with the left (primary) pane.
+        </p>
+
+        <nav class="docs-footer-nav" aria-label="Docs pages">
+          <a href="index.html">← Getting started</a>
+          <a href="workspace.html">Workspace →</a>
+        </nav>
+      </article>
+    </div>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <nav class="footer-links" aria-label="Footer">
+          <a href="index.html">Documentation</a>
+          <a href="faq.html">FAQ</a>
+          <a href="troubleshooting.html">Troubleshooting</a>
+          <a href="../support.html">Support</a>
+          <a href="../privacy.html">Privacy Policy</a>
+          <a href="../terms.html">Terms &amp; License</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm">GitHub</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm/releases">Releases</a>
+        </nav>
+        <p>
+          © 2026 Yardarm contributors. Yardarm is free, open-source software licensed under
+          Apache-2.0.
+        </p>
+        <p>
+          Yardarm is an independent project that builds on Mastra Code. It is not affiliated with,
+          endorsed by, or sponsored by Mastra. "Mastra" and "Mastra Code" are trademarks of their
+          respective owner.
+        </p>
+      </div>
+    </footer>
+    <script src="../assets/js/site.js"></script>
+  </body>
+</html>

@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Configuration — Yardarm documentation</title>
+    <meta
+      name="description"
+      content="Slash commands, the settings reference, MCP servers, custom subagents and templates, per-project configuration, configuration paths shared with the mastracode CLI, app data, and updates."
+    />
+    <link rel="canonical" href="https://yardarmdev.com/docs/configuration.html" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="Yardarm" />
+    <meta property="og:title" content="Configuration — Yardarm documentation" />
+    <meta
+      property="og:description"
+      content="Slash commands, settings, MCP servers, custom subagents, per-project configuration, config paths, app data, and updates."
+    />
+    <meta property="og:url" content="https://yardarmdev.com/docs/configuration.html" />
+    <meta property="og:image" content="https://yardarmdev.com/assets/img/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#14608f" />
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="../assets/img/favicon-16.png" />
+    <link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png" />
+    <link rel="stylesheet" href="../assets/css/site.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav container" aria-label="Main">
+        <a class="brand" href="../index.html">
+          <img src="../assets/img/icon-1024.png" alt="Yardarm logo" width="28" height="28" />
+          <span>Yardarm</span>
+        </a>
+        <button
+          class="nav-toggle"
+          type="button"
+          aria-label="Toggle navigation"
+          aria-expanded="false"
+        >
+          &#9776;
+        </button>
+        <div class="nav-links">
+          <a href="index.html">Docs</a>
+          <a href="faq.html">FAQ</a>
+          <a href="../support.html">Support</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm">GitHub</a>
+          <a class="btn btn-small nav-cta" href="../index.html#install">Install</a>
+        </div>
+      </nav>
+    </header>
+
+    <div class="docs-layout container">
+      <aside class="docs-sidebar">
+        <nav aria-label="Documentation">
+          <p class="sidebar-title">Documentation</p>
+          <ul>
+            <li><a href="index.html">Getting started</a></li>
+            <li><a href="using-the-app.html">Using the app</a></li>
+            <li><a href="workspace.html">Workspace</a></li>
+            <li><a href="configuration.html" class="current">Configuration</a></li>
+            <li><a href="shortcuts.html">Keyboard shortcuts</a></li>
+            <li><a href="faq.html">FAQ</a></li>
+            <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          </ul>
+          <p class="sidebar-title">On this page</p>
+          <ul class="toc">
+            <li><a href="#slash-commands">Slash commands</a></li>
+            <li><a href="#settings-reference">Settings reference</a></li>
+            <li><a href="#mcp-servers">MCP servers</a></li>
+            <li><a href="#custom-subagents">Custom subagents</a></li>
+            <li><a href="#per-project">Per-project configuration</a></li>
+            <li><a href="#config-paths">Configuration paths</a></li>
+            <li><a href="#app-data">App data</a></li>
+            <li><a href="#updates">Keeping Yardarm updated</a></li>
+          </ul>
+        </nav>
+      </aside>
+
+      <article class="docs-content">
+        <h1>Configuration</h1>
+        <p class="lead">
+          Everything you change in Yardarm is written to Mastra Code's own config files —
+          atomically, preserving keys the app doesn't know about — so the <code>mastracode</code>
+          CLI picks up the same configuration.
+        </p>
+
+        <h2 id="slash-commands">Slash commands</h2>
+        <p>
+          Type <code>/</code> in the composer to see everything available — the full Mastra Code
+          command surface plus app commands. Highlights:
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Command</th>
+              <th>What it does</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>/plan</code> <code>/build</code> <code>/fast</code></td>
+              <td>switch mode</td>
+            </tr>
+            <tr>
+              <td><code>/model</code></td>
+              <td>switch model</td>
+            </tr>
+            <tr>
+              <td><code>/goal</code></td>
+              <td>set a goal</td>
+            </tr>
+            <tr>
+              <td><code>/threads</code></td>
+              <td>manage threads</td>
+            </tr>
+            <tr>
+              <td><code>/permissions</code></td>
+              <td>session permissions panel</td>
+            </tr>
+            <tr>
+              <td><code>/sandbox</code></td>
+              <td>full sandbox + session settings</td>
+            </tr>
+            <tr>
+              <td><code>/mcp</code> <code>/hooks</code> <code>/skills</code></td>
+              <td>inspect MCP servers, hooks, skills</td>
+            </tr>
+            <tr>
+              <td><code>/om</code></td>
+              <td>Observational Memory status</td>
+            </tr>
+            <tr>
+              <td><code>/cost</code></td>
+              <td>token usage per thread</td>
+            </tr>
+            <tr>
+              <td><code>/diff</code></td>
+              <td>show working-tree changes</td>
+            </tr>
+            <tr>
+              <td><code>/review</code></td>
+              <td>review a PR or the local changes</td>
+            </tr>
+            <tr>
+              <td><code>/help</code></td>
+              <td>the full list</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          You can define your own commands as plain Markdown files:
+          <code>~/.mastracode/commands/**/*.md</code> (global) or
+          <code>.mastracode/commands/**/*.md</code> (per project). They appear in the autocomplete
+          like built-ins. A few terminal-only commands (e.g. <code>/voice</code>) are listed in
+          <code>/help</code> and point you to the CLI tab.
+        </p>
+
+        <h2 id="settings-reference">Settings reference</h2>
+        <p>Open with <kbd>Cmd+,</kbd> (<kbd>Ctrl+,</kbd>).</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Tab</th>
+              <th>What's there</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Appearance</strong></td>
+              <td>light / dark / system theme (also togglable from the sidebar footer)</td>
+            </tr>
+            <tr>
+              <td><strong>Preferences</strong></td>
+              <td>
+                default auto-approve (yolo), CLI theme, default thinking level, tool-output
+                previews, new-chat sandbox defaults, token compression + verbosity steering
+              </td>
+            </tr>
+            <tr>
+              <td><strong>API Keys</strong></td>
+              <td>provider API keys (stored in mastracode's <code>auth.json</code>)</td>
+            </tr>
+            <tr>
+              <td><strong>Models</strong></td>
+              <td>default model per mode, subagent, goal judge, and memory role; model packs</td>
+            </tr>
+            <tr>
+              <td><strong>Providers</strong></td>
+              <td>
+                OAuth logins (Claude / Codex / Copilot), Ollama detection, custom local providers
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Voice</strong></td>
+              <td>dictation engine, STT provider and model</td>
+            </tr>
+            <tr>
+              <td><strong>Browser</strong></td>
+              <td>browser-automation settings for web tools, including the viewport size</td>
+            </tr>
+            <tr>
+              <td><strong>Connectors</strong></td>
+              <td>
+                one-click OAuth sign-ins for GitHub, GitLab, Supabase, Netlify, Vercel, and Sentry
+                (see <a href="workspace.html#connectors">Connectors</a>)
+              </td>
+            </tr>
+            <tr>
+              <td><strong>MCP Servers</strong></td>
+              <td>
+                Model Context Protocol servers — global by default, or project-specific via the
+                scope toggle + project picker, with live status (see below)
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Agents</strong></td>
+              <td>
+                custom subagents — global by default, or project-specific via the scope toggle +
+                project picker (see below)
+              </td>
+            </tr>
+            <tr>
+              <td><strong>About</strong></td>
+              <td>versions, runtime boot status, CLI install, updates, re-run setup</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 id="mcp-servers">MCP servers (Settings → MCP Servers)</h2>
+        <p>
+          MCP servers (<code>~/.mastracode/mcp.json</code> globally, or a project's
+          <code>.mastracode/mcp.json</code>, merged over global) are edited as raw JSON (<code
+            >/mcp</code
+          >
+          opens this tab). The editor defaults to the <strong>Global</strong> scope — servers
+          available in every project; switch to <strong>Project</strong> and pick one of your
+          projects to manage servers for that project only. Saving restarts the affected agent
+          processes.
+        </p>
+        <p>
+          The tab also shows each server's live status (connected + tool count, connecting, or an
+          error) — for the global scope this works even without a chat open; for a project it needs
+          a chat open in that project. Servers that use OAuth show
+          <strong>Needs authentication</strong> with an <strong>Authenticate</strong> button: the
+          sign-in opens in your browser, and the server connects when it completes. A
+          <strong>Reconnect</strong> button revives servers that dropped.
+        </p>
+
+        <h2 id="custom-subagents">Custom subagents (Settings → Agents)</h2>
+        <p>
+          Custom subagents (<code>~/.mastracode/agents/*.md</code> globally, or a project's
+          <code>.mastracode/agents/*.md</code>) are helpers the main agent can delegate tasks to via
+          the <code>subagent</code> tool (<code>/subagents</code> opens this tab). The editor
+          defaults to the <strong>Global</strong> scope — agents available in every project; switch
+          to <strong>Project</strong> and pick one of your projects to manage agents for that
+          project only. Your agents are listed below the create field; creating an agent (or
+          clicking one in the list) opens its editor in a dialog. Each file has a frontmatter block
+          (<code>name</code>, <code>description</code> — required, <code>model</code>,
+          <code>maxSteps</code>, <code>forked</code>) and the body is the subagent's instructions.
+          Saving restarts the affected agent processes; the ids <code>explore</code>,
+          <code>plan</code>, <code>execute</code> and <code>general</code> are reserved.
+        </p>
+        <p>
+          A collapsible <strong>Templates</strong> section on the same screen holds 18 ready-made
+          subagents — 12 team roles (product manager, architect, developer, QA engineer, security
+          engineer, tech writer, …) and 6 domain specialists (SaaS, Shopify, mobile, Chrome
+          extensions, AI apps, e-commerce); expand it to browse them. Click <strong>Add</strong> on
+          any of them (or <strong>Add all</strong> per group) and it's written as an ordinary
+          <code>.md</code> file into the selected scope, so you can edit it like any other agent
+          afterwards. Added templates disappear from the list, and adding never overwrites an
+          existing file, so your customizations are safe. On an id collision, a project-scoped agent
+          overrides the global one.
+        </p>
+
+        <h2 id="per-project">Per-project configuration</h2>
+        <p>
+          Click the <strong>gear</strong> next to the project name in the sidebar to configure a
+          single project:
+        </p>
+        <ul>
+          <li>
+            <strong>General</strong> — rename, archive, or remove the project. Archived projects
+            move to an "Archived" group at the bottom of the project picker, from where they can be
+            reopened and unarchived. Removing a project deletes its chats and worktrees but keeps
+            the project folder on disk unless you tick the option to delete it too.
+          </li>
+          <li>
+            <strong>Lifecycle hooks</strong> (<code>.mastracode/hooks.json</code>, appended after
+            global hooks)
+          </li>
+          <li>
+            <strong>Custom slash commands</strong> (<code>.mastracode/commands/**/*.md</code>)
+          </li>
+          <li>
+            <strong>Agent instructions</strong> (<code>.mastracode/agent-instructions.md</code>) —
+            standing guidance the agent reads on every run
+          </li>
+          <li><strong>Memory resource id</strong> (<code>.mastracode/database.json</code>)</li>
+          <li>
+            Installed <strong>skills and plugins</strong> — plugins that declare a configuration
+            schema get a generated settings form (toggles, text fields, and model pickers), written
+            back to the plugin's config
+          </li>
+        </ul>
+        <p>
+          Project-specific MCP servers and custom subagents are managed in
+          <strong>Settings → MCP Servers</strong> and <strong>Settings → Agents</strong> (pick the
+          project there). Edits restart the affected agent processes, so they take effect
+          immediately.
+        </p>
+
+        <h2 id="config-paths">Configuration paths (shared with the mastracode CLI)</h2>
+        <p>Global:</p>
+        <ul>
+          <li>
+            <code>~/.mastracode/settings.json</code> — model defaults per mode, subagent models,
+            goal judge, Observational Memory defaults, custom providers, preferences
+          </li>
+          <li><code>~/.mastracode/mcp.json</code> — global MCP servers</li>
+          <li><code>~/.mastracode/hooks.json</code> — global lifecycle hooks</li>
+          <li><code>~/.mastracode/commands/**/*.md</code> — global custom slash commands</li>
+          <li><code>~/.mastracode/database.json</code> — global memory <code>resourceId</code></li>
+          <li>
+            App-data dir (<code>~/Library/Application Support/mastracode</code> on macOS,
+            <code>%APPDATA%\mastracode</code> on Windows, <code>$XDG_DATA_HOME/mastracode</code> on
+            Linux): <code>auth.json</code> (API keys + OAuth credentials), agent database
+          </li>
+        </ul>
+        <p>Per project (Project Settings gear in the sidebar):</p>
+        <ul>
+          <li><code>.mastracode/mcp.json</code> — project MCP servers</li>
+          <li><code>.mastracode/hooks.json</code> — project hooks (appended after global)</li>
+          <li><code>.mastracode/commands/**/*.md</code> — project slash commands</li>
+          <li><code>.mastracode/agent-instructions.md</code> — project agent instructions</li>
+          <li><code>.mastracode/database.json</code> — project memory <code>resourceId</code></li>
+        </ul>
+        <p>
+          Edits made in the app are written atomically and preserve unknown keys, so the same files
+          stay usable from the CLI. Config edits restart the affected agent processes so changes
+          take effect.
+        </p>
+
+        <h2 id="app-data">App data</h2>
+        <p>
+          The app's own state (projects, chats, transcripts, checkpoints) lives in a SQLite database
+          (<code>yardarm.db</code>) in Electron's userData directory — separate from mastracode's
+          files:
+        </p>
+        <ul>
+          <li>macOS: <code>~/Library/Application Support/yardarm/</code></li>
+          <li>Windows: <code>%APPDATA%\yardarm\</code></li>
+          <li>Linux: <code>~/.config/yardarm/</code></li>
+        </ul>
+        <p>
+          Chat worktrees live under <code>worktrees/&lt;projectId&gt;/&lt;chatId&gt;</code> in the
+          same directory. The database runs in WAL mode with periodic maintenance (vacuum/optimize,
+          size-bounded transcripts) so long-lived installs don't degrade.
+        </p>
+
+        <h2 id="updates">Keeping Yardarm updated</h2>
+        <p><strong>Settings → About → Updates</strong>:</p>
+        <ul>
+          <li><strong>Check for updates</strong> queries the project's GitHub Releases.</li>
+          <li>
+            If a newer version exists, <strong>Install</strong> downloads and stages it in the
+            background; an amber <strong>"Restart to finish"</strong> banner appears when it's
+            ready. The restart is always your click.
+          </li>
+          <li>
+            <strong>Automatically update</strong> (on by default in release builds) checks shortly
+            after launch and every few hours, staging updates silently.
+          </li>
+        </ul>
+        <p>
+          Self-install works on packaged macOS builds. Elsewhere (or in dev builds) the app offers a
+          <strong>View release</strong> link instead. Update checks are the only network traffic
+          Yardarm itself makes — everything else goes to the model providers you configured.
+        </p>
+
+        <nav class="docs-footer-nav" aria-label="Docs pages">
+          <a href="workspace.html">← Workspace</a>
+          <a href="shortcuts.html">Keyboard shortcuts →</a>
+        </nav>
+      </article>
+    </div>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <nav class="footer-links" aria-label="Footer">
+          <a href="index.html">Documentation</a>
+          <a href="faq.html">FAQ</a>
+          <a href="troubleshooting.html">Troubleshooting</a>
+          <a href="../support.html">Support</a>
+          <a href="../privacy.html">Privacy Policy</a>
+          <a href="../terms.html">Terms &amp; License</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm">GitHub</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm/releases">Releases</a>
+        </nav>
+        <p>
+          © 2026 Yardarm contributors. Yardarm is free, open-source software licensed under
+          Apache-2.0.
+        </p>
+        <p>
+          Yardarm is an independent project that builds on Mastra Code. It is not affiliated with,
+          endorsed by, or sponsored by Mastra. "Mastra" and "Mastra Code" are trademarks of their
+          respective owner.
+        </p>
+      </div>
+    </footer>
+    <script src="../assets/js/site.js"></script>
+  </body>
+</html>

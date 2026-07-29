@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Troubleshooting — Yardarm documentation</title>
+    <meta
+      name="description"
+      content="Fixes for common Yardarm issues: the macOS 'damaged' Gatekeeper warning, runtime boot errors, empty model dropdowns, context window errors, and worktree failures."
+    />
+    <link rel="canonical" href="https://yardarmdev.com/docs/troubleshooting.html" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="Yardarm" />
+    <meta property="og:title" content="Troubleshooting — Yardarm documentation" />
+    <meta
+      property="og:description"
+      content="Fixes for common Yardarm issues: the macOS 'damaged' warning, runtime errors, empty model dropdowns, and more."
+    />
+    <meta property="og:url" content="https://yardarmdev.com/docs/troubleshooting.html" />
+    <meta property="og:image" content="https://yardarmdev.com/assets/img/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#14608f" />
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="../assets/img/favicon-16.png" />
+    <link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png" />
+    <link rel="stylesheet" href="../assets/css/site.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav container" aria-label="Main">
+        <a class="brand" href="../index.html">
+          <img src="../assets/img/icon-1024.png" alt="Yardarm logo" width="28" height="28" />
+          <span>Yardarm</span>
+        </a>
+        <button
+          class="nav-toggle"
+          type="button"
+          aria-label="Toggle navigation"
+          aria-expanded="false"
+        >
+          &#9776;
+        </button>
+        <div class="nav-links">
+          <a href="index.html">Docs</a>
+          <a href="faq.html">FAQ</a>
+          <a href="../support.html">Support</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm">GitHub</a>
+          <a class="btn btn-small nav-cta" href="../index.html#install">Install</a>
+        </div>
+      </nav>
+    </header>
+
+    <div class="docs-layout container">
+      <aside class="docs-sidebar">
+        <nav aria-label="Documentation">
+          <p class="sidebar-title">Documentation</p>
+          <ul>
+            <li><a href="index.html">Getting started</a></li>
+            <li><a href="using-the-app.html">Using the app</a></li>
+            <li><a href="workspace.html">Workspace</a></li>
+            <li><a href="configuration.html">Configuration</a></li>
+            <li><a href="shortcuts.html">Keyboard shortcuts</a></li>
+            <li><a href="faq.html">FAQ</a></li>
+            <li><a href="troubleshooting.html" class="current">Troubleshooting</a></li>
+          </ul>
+          <p class="sidebar-title">On this page</p>
+          <ul class="toc">
+            <li><a href="#damaged">"Yardarm is damaged" (macOS)</a></li>
+            <li><a href="#agent-wont-start">The agent won't start</a></li>
+            <li><a href="#no-models">No models in the dropdown</a></li>
+            <li><a href="#max-output">"Maximum output length" error</a></li>
+            <li><a href="#network-error">Network-ish error mid-task</a></li>
+            <li><a href="#worktree-fails">Worktree creation fails</a></li>
+            <li><a href="#something-else">Something else?</a></li>
+          </ul>
+        </nav>
+      </aside>
+
+      <article class="docs-content">
+        <h1>Troubleshooting</h1>
+        <p class="lead">
+          Fixes for the most common issues. If yours isn't here, the in-app guide (<kbd>Cmd+9</kbd>)
+          has a troubleshooting section too, and the
+          <a href="../support.html">support page</a> explains how to reach us.
+        </p>
+
+        <h2 id="damaged">"Yardarm is damaged and can't be opened" (macOS)</h2>
+        <p>
+          The build is unsigned and the downloaded copy is quarantined. On macOS 15+ the dialog has
+          no bypass (right-click → Open no longer works). Run this once:
+        </p>
+        <div class="code-block">
+          <pre><code>xattr -dr com.apple.quarantine /Applications/Yardarm.app</code></pre>
+          <button
+            class="copy-btn"
+            type="button"
+            data-copy="xattr -dr com.apple.quarantine /Applications/Yardarm.app"
+          >
+            Copy
+          </button>
+        </div>
+        <p>
+          Or install via the <a href="index.html#install">install script</a> — curl downloads are
+          never quarantined, so the script sidesteps this entirely. If the dmg itself refuses to
+          open, clear it there too:
+          <code>xattr -d com.apple.quarantine ~/Downloads/Yardarm-*.dmg</code>. Apps you build
+          yourself on the same machine are not quarantined and open normally.
+        </p>
+
+        <h2 id="agent-wont-start">The agent won't start / chat shows a runtime error</h2>
+        <p>
+          Open Settings → About: it shows the bundled runtime's boot status, versions, and the full
+          error if mastracode failed to load. "Run setup again" re-runs onboarding if config is the
+          culprit.
+        </p>
+
+        <h2 id="no-models">No models appear in the dropdown</h2>
+        <p>
+          The dropdown lists only usable models — add an API key (Settings → API Keys), log in with
+          a provider subscription (Settings → Providers), or add a local model (Settings →
+          Providers). For Ollama, make sure the server is running (<code>ollama serve</code>) and at
+          least one model is pulled.
+        </p>
+
+        <h2 id="max-output">
+          "The model stopped because it reached its maximum output length before finishing."
+        </h2>
+        <p>
+          The conversation filled the local server's context window. Raise it to 64k minimum, 128k+
+          if you can — see
+          <a href="faq.html#context-window">What context window do I need for a local model?</a> —
+          and start a new chat to reset the conversation. Even a large window fills up eventually in
+          long sessions.
+        </p>
+
+        <h2 id="network-error">A run ended with a network-ish error mid-task</h2>
+        <p>
+          Check the local model server's own logs (e.g. <code>ollama serve</code> output) — the app
+          does not impose idle timeouts, so a dropped stream usually means the server restarted or
+          unloaded the model.
+        </p>
+
+        <h2 id="worktree-fails">Worktree creation fails</h2>
+        <p>
+          The project must be a git repository Yardarm can write to. Repos with no commits are
+          handled (a bootstrap commit is created); bare repos and repos with exotic
+          <code>core.worktree</code> settings are not supported.
+        </p>
+
+        <h2 id="something-else">Something else?</h2>
+        <p>
+          Please <a href="https://github.com/JJJ-Mo3/yardarm/issues">open an issue</a> with the
+          error text from Settings → About or the chat, or contact us via the
+          <a href="../support.html">support page</a>.
+        </p>
+
+        <nav class="docs-footer-nav" aria-label="Docs pages">
+          <a href="faq.html">← FAQ</a>
+          <span></span>
+        </nav>
+      </article>
+    </div>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <nav class="footer-links" aria-label="Footer">
+          <a href="index.html">Documentation</a>
+          <a href="faq.html">FAQ</a>
+          <a href="troubleshooting.html">Troubleshooting</a>
+          <a href="../support.html">Support</a>
+          <a href="../privacy.html">Privacy Policy</a>
+          <a href="../terms.html">Terms &amp; License</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm">GitHub</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm/releases">Releases</a>
+        </nav>
+        <p>
+          © 2026 Yardarm contributors. Yardarm is free, open-source software licensed under
+          Apache-2.0.
+        </p>
+        <p>
+          Yardarm is an independent project that builds on Mastra Code. It is not affiliated with,
+          endorsed by, or sponsored by Mastra. "Mastra" and "Mastra Code" are trademarks of their
+          respective owner.
+        </p>
+      </div>
+    </footer>
+    <script src="../assets/js/site.js"></script>
+  </body>
+</html>

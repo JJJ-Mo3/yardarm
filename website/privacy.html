@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy Policy — Yardarm</title>
+    <meta
+      name="description"
+      content="Yardarm's privacy policy: no accounts, no analytics, no telemetry, no data collected by us. Your data goes only to the model providers and services you configure yourself."
+    />
+    <link rel="canonical" href="https://yardarmdev.com/privacy.html" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Yardarm" />
+    <meta property="og:title" content="Privacy Policy — Yardarm" />
+    <meta
+      property="og:description"
+      content="No accounts, no analytics, no telemetry, no data collected by us."
+    />
+    <meta property="og:url" content="https://yardarmdev.com/privacy.html" />
+    <meta property="og:image" content="https://yardarmdev.com/assets/img/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#14608f" />
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/img/favicon-16.png" />
+    <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png" />
+    <link rel="stylesheet" href="assets/css/site.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav container" aria-label="Main">
+        <a class="brand" href="index.html">
+          <img src="assets/img/icon-1024.png" alt="Yardarm logo" width="28" height="28" />
+          <span>Yardarm</span>
+        </a>
+        <button
+          class="nav-toggle"
+          type="button"
+          aria-label="Toggle navigation"
+          aria-expanded="false"
+        >
+          &#9776;
+        </button>
+        <div class="nav-links">
+          <a href="docs/index.html">Docs</a>
+          <a href="docs/faq.html">FAQ</a>
+          <a href="support.html">Support</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm">GitHub</a>
+          <a class="btn btn-small nav-cta" href="index.html#install">Install</a>
+        </div>
+      </nav>
+    </header>
+
+    <main class="prose">
+      <h1>Privacy Policy</h1>
+      <p class="lead">
+        Yardarm is a local-first desktop application. We do not operate any servers, we do not
+        collect any data, and the app contains no analytics or telemetry.
+      </p>
+      <p class="updated">Effective date: July 29, 2026</p>
+
+      <h2>What we collect</h2>
+      <p>
+        <strong>Nothing.</strong> Yardarm has no accounts, no sign-up, no login, no analytics, no
+        crash reporting, and no telemetry. The developers of Yardarm never receive your prompts,
+        your code, your usage data, or any personal information. There is no Yardarm server for your
+        data to be sent to.
+      </p>
+
+      <h2>Where your data lives</h2>
+      <p>Everything Yardarm stores stays on your computer:</p>
+      <ul>
+        <li>
+          Projects, chats, transcripts, and checkpoints are kept in a local SQLite database in your
+          user data directory (on macOS, <code>~/Library/Application Support/yardarm/</code>).
+        </li>
+        <li>
+          Configuration and credentials (API keys, OAuth tokens) are stored in Mastra Code's local
+          config files (<code>~/.mastracode/</code> and its app-data directory), shared with the
+          <code>mastracode</code> CLI. They are only ever sent to the provider they belong to.
+        </li>
+        <li>
+          Git worktrees and checkpoints are ordinary git data inside your repositories and the app
+          data directory; they never leave your machine unless you push them.
+        </li>
+      </ul>
+
+      <h2>Network connections the app makes</h2>
+      <p>
+        Yardarm only talks to services <em>you</em> configure. Depending on your setup, data may be
+        sent to:
+      </p>
+      <ul>
+        <li>
+          <strong>Model providers you configure</strong> — prompts and code context go to whichever
+          model endpoints you connect (via your own API keys, OAuth subscriptions, or an
+          OpenAI-compatible server). With a local provider (Ollama, LM Studio, …) inference traffic
+          stays on <code>localhost</code>. Each provider's own privacy policy governs that traffic.
+        </li>
+        <li>
+          <strong>Update checks</strong> — the app queries GitHub Releases for new versions. This is
+          the only network traffic Yardarm itself initiates, and automatic checks can be turned off
+          in Settings → About.
+        </li>
+        <li>
+          <strong>Voice dictation (optional, off by default)</strong> — if you enable it, audio is
+          sent to the speech-to-text provider you selected, using your own API key, only while you
+          record.
+        </li>
+        <li>
+          <strong>Connectors and MCP servers you add (optional)</strong> — services you explicitly
+          connect (e.g. GitHub, GitLab, Supabase, Netlify, Vercel, Sentry, or any MCP server you
+          configure) exchange data with the agent under their own terms and privacy policies.
+        </li>
+        <li>
+          <strong>Git hosting</strong> — pushing, pulling, and PR/MR flows use your own git remotes
+          and the <code>gh</code>/<code>glab</code> CLIs with your own credentials.
+        </li>
+      </ul>
+      <p>
+        If you configure none of these, Yardarm works offline with local models and sends nothing
+        anywhere.
+      </p>
+
+      <h2>Cookies and tracking on this website</h2>
+      <p>
+        This website is a set of static pages. It sets no cookies and includes no analytics,
+        trackers, or third-party scripts.
+      </p>
+
+      <h2>Children's privacy</h2>
+      <p>
+        Yardarm does not collect data from anyone, including children, and offers no accounts or
+        online services directed at any audience.
+      </p>
+
+      <h2>Changes to this policy</h2>
+      <p>
+        If this policy changes, the new version will be published at this address with an updated
+        effective date. Because the app collects nothing, changes are expected to be rare and
+        editorial.
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        Questions about this policy:
+        <a href="mailto:support@yardarmdev.com">support@yardarmdev.com</a> or
+        <a href="https://github.com/JJJ-Mo3/yardarm/issues">open an issue on GitHub</a>.
+      </p>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <nav class="footer-links" aria-label="Footer">
+          <a href="docs/index.html">Documentation</a>
+          <a href="docs/faq.html">FAQ</a>
+          <a href="docs/troubleshooting.html">Troubleshooting</a>
+          <a href="support.html">Support</a>
+          <a href="privacy.html">Privacy Policy</a>
+          <a href="terms.html">Terms &amp; License</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm">GitHub</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm/releases">Releases</a>
+        </nav>
+        <p>
+          © 2026 Yardarm contributors. Yardarm is free, open-source software licensed under
+          Apache-2.0.
+        </p>
+        <p>
+          Yardarm is an independent project that builds on Mastra Code. It is not affiliated with,
+          endorsed by, or sponsored by Mastra. "Mastra" and "Mastra Code" are trademarks of their
+          respective owner.
+        </p>
+      </div>
+    </footer>
+    <script src="assets/js/site.js"></script>
+  </body>
+</html>

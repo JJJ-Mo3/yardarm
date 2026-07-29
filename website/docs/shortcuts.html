@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Keyboard shortcuts — Yardarm documentation</title>
+    <meta
+      name="description"
+      content="Yardarm keyboard shortcuts on macOS, Windows, and Linux, plus tips for getting the most out of the app."
+    />
+    <link rel="canonical" href="https://yardarmdev.com/docs/shortcuts.html" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="Yardarm" />
+    <meta property="og:title" content="Keyboard shortcuts — Yardarm documentation" />
+    <meta
+      property="og:description"
+      content="Yardarm keyboard shortcuts, plus tips for getting the most out of the app."
+    />
+    <meta property="og:url" content="https://yardarmdev.com/docs/shortcuts.html" />
+    <meta property="og:image" content="https://yardarmdev.com/assets/img/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#14608f" />
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="../assets/img/favicon-16.png" />
+    <link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png" />
+    <link rel="stylesheet" href="../assets/css/site.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav container" aria-label="Main">
+        <a class="brand" href="../index.html">
+          <img src="../assets/img/icon-1024.png" alt="Yardarm logo" width="28" height="28" />
+          <span>Yardarm</span>
+        </a>
+        <button
+          class="nav-toggle"
+          type="button"
+          aria-label="Toggle navigation"
+          aria-expanded="false"
+        >
+          &#9776;
+        </button>
+        <div class="nav-links">
+          <a href="index.html">Docs</a>
+          <a href="faq.html">FAQ</a>
+          <a href="../support.html">Support</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm">GitHub</a>
+          <a class="btn btn-small nav-cta" href="../index.html#install">Install</a>
+        </div>
+      </nav>
+    </header>
+
+    <div class="docs-layout container">
+      <aside class="docs-sidebar">
+        <nav aria-label="Documentation">
+          <p class="sidebar-title">Documentation</p>
+          <ul>
+            <li><a href="index.html">Getting started</a></li>
+            <li><a href="using-the-app.html">Using the app</a></li>
+            <li><a href="workspace.html">Workspace</a></li>
+            <li><a href="configuration.html">Configuration</a></li>
+            <li><a href="shortcuts.html" class="current">Keyboard shortcuts</a></li>
+            <li><a href="faq.html">FAQ</a></li>
+            <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          </ul>
+          <p class="sidebar-title">On this page</p>
+          <ul class="toc">
+            <li><a href="#shortcuts">Keyboard shortcuts</a></li>
+            <li><a href="#tips">Tips</a></li>
+          </ul>
+        </nav>
+      </aside>
+
+      <article class="docs-content">
+        <h1>Keyboard shortcuts</h1>
+        <p class="lead"><kbd>Cmd</kbd> on macOS, <kbd>Ctrl</kbd> on Windows/Linux.</p>
+
+        <h2 id="shortcuts">Keyboard shortcuts</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Shortcut</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><kbd>Cmd+N</kbd></td>
+              <td>new chat</td>
+            </tr>
+            <tr>
+              <td><kbd>Cmd+P</kbd></td>
+              <td>thread switcher</td>
+            </tr>
+            <tr>
+              <td><kbd>Cmd+1</kbd>–<kbd>9</kbd></td>
+              <td>
+                switch tab (Chat / CLI / IDE / Changes / Terminal / Kanban / Analytics / Preview /
+                Guide)
+              </td>
+            </tr>
+            <tr>
+              <td><kbd>Cmd+J</kbd></td>
+              <td>toggle the Terminal tab</td>
+            </tr>
+            <tr>
+              <td><kbd>Cmd+,</kbd></td>
+              <td>settings</td>
+            </tr>
+            <tr>
+              <td><kbd>Enter</kbd></td>
+              <td>send (in composer)</td>
+            </tr>
+            <tr>
+              <td><kbd>Shift+Enter</kbd></td>
+              <td>newline (in composer)</td>
+            </tr>
+            <tr>
+              <td><kbd>Escape</kbd></td>
+              <td>cancel voice recording / close autocomplete popups</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 id="tips">Tips</h2>
+        <ul>
+          <li>
+            <strong>Start in Plan mode</strong> for anything nontrivial. Reviewing a plan is much
+            cheaper than reviewing a surprise.
+          </li>
+          <li>
+            <strong>Run chats in parallel.</strong> Worktrees make it safe — give each chat a
+            separate task on the same repo and watch the
+            <a href="workspace.html#kanban">Kanban board</a>.
+          </li>
+          <li>
+            <strong>Use <code>@</code> mentions</strong> to point the agent at the exact files that
+            matter instead of hoping it finds them.
+          </li>
+          <li>
+            <strong>Queue follow-ups</strong> while the agent works instead of interrupting; they're
+            delivered in order when the run ends.
+          </li>
+          <li>
+            <strong>Long sessions don't fall off a cliff.</strong> Mastra Code's Observational
+            Memory distills the conversation in the background instead of compacting it, so
+            multi-hour sessions keep their thread. Check <code>/om</code> to see it work.
+          </li>
+          <li>
+            <strong>Local models:</strong> context window ≥ 64k, and start a fresh chat when a long
+            session slows down — that resets the conversation and frees context.
+          </li>
+          <li>
+            <strong>The CLI is always there.</strong> Settings → About installs the global
+            <code>mastracode</code> CLI in one click; it shares every config file with the app.
+          </li>
+        </ul>
+
+        <nav class="docs-footer-nav" aria-label="Docs pages">
+          <a href="configuration.html">← Configuration</a>
+          <a href="faq.html">FAQ →</a>
+        </nav>
+      </article>
+    </div>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <nav class="footer-links" aria-label="Footer">
+          <a href="index.html">Documentation</a>
+          <a href="faq.html">FAQ</a>
+          <a href="troubleshooting.html">Troubleshooting</a>
+          <a href="../support.html">Support</a>
+          <a href="../privacy.html">Privacy Policy</a>
+          <a href="../terms.html">Terms &amp; License</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm">GitHub</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm/releases">Releases</a>
+        </nav>
+        <p>
+          © 2026 Yardarm contributors. Yardarm is free, open-source software licensed under
+          Apache-2.0.
+        </p>
+        <p>
+          Yardarm is an independent project that builds on Mastra Code. It is not affiliated with,
+          endorsed by, or sponsored by Mastra. "Mastra" and "Mastra Code" are trademarks of their
+          respective owner.
+        </p>
+      </div>
+    </footer>
+    <script src="../assets/js/site.js"></script>
+  </body>
+</html>

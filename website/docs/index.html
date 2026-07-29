@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Getting started — Yardarm documentation</title>
+    <meta
+      name="description"
+      content="Install Yardarm, run the setup wizard, connect a model (subscriptions, API keys, or local models), and start your first project and chat."
+    />
+    <link rel="canonical" href="https://yardarmdev.com/docs/index.html" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="Yardarm" />
+    <meta property="og:title" content="Getting started — Yardarm documentation" />
+    <meta
+      property="og:description"
+      content="Install Yardarm, run the setup wizard, connect a model, and start your first project and chat."
+    />
+    <meta property="og:url" content="https://yardarmdev.com/docs/index.html" />
+    <meta property="og:image" content="https://yardarmdev.com/assets/img/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#14608f" />
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="../assets/img/favicon-16.png" />
+    <link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png" />
+    <link rel="stylesheet" href="../assets/css/site.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav container" aria-label="Main">
+        <a class="brand" href="../index.html">
+          <img src="../assets/img/icon-1024.png" alt="Yardarm logo" width="28" height="28" />
+          <span>Yardarm</span>
+        </a>
+        <button
+          class="nav-toggle"
+          type="button"
+          aria-label="Toggle navigation"
+          aria-expanded="false"
+        >
+          &#9776;
+        </button>
+        <div class="nav-links">
+          <a href="index.html">Docs</a>
+          <a href="faq.html">FAQ</a>
+          <a href="../support.html">Support</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm">GitHub</a>
+          <a class="btn btn-small nav-cta" href="../index.html#install">Install</a>
+        </div>
+      </nav>
+    </header>
+
+    <div class="docs-layout container">
+      <aside class="docs-sidebar">
+        <nav aria-label="Documentation">
+          <p class="sidebar-title">Documentation</p>
+          <ul>
+            <li><a href="index.html" class="current">Getting started</a></li>
+            <li><a href="using-the-app.html">Using the app</a></li>
+            <li><a href="workspace.html">Workspace</a></li>
+            <li><a href="configuration.html">Configuration</a></li>
+            <li><a href="shortcuts.html">Keyboard shortcuts</a></li>
+            <li><a href="faq.html">FAQ</a></li>
+            <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          </ul>
+          <p class="sidebar-title">On this page</p>
+          <ul class="toc">
+            <li><a href="#install">Install</a></li>
+            <li><a href="#build-from-source">Build from source</a></li>
+            <li><a href="#setup-wizard">The setup wizard</a></li>
+            <li><a href="#connecting-a-model">Connecting a model</a></li>
+            <li><a href="#first-project-and-chat">First project and chat</a></li>
+            <li><a href="#where-to-get-help">Where to get help</a></li>
+          </ul>
+        </nav>
+      </aside>
+
+      <article class="docs-content">
+        <h1>Getting started</h1>
+        <p class="lead">
+          Yardarm is a desktop app for the <a href="https://code.mastra.ai">Mastra Code</a> coding
+          agent. You describe what you want in plain language; the agent reads your code, proposes a
+          plan, edits files, runs commands, and helps you review and ship the result — all inside
+          one window. The <code>mastracode</code> runtime is bundled with the app: there is no
+          separate install, no account, and no telemetry.
+        </p>
+        <p>
+          This guide covers installation through your first chat. Inside the app, the help button
+          beside the theme toggle (or <kbd>Cmd+9</kbd>) opens a built-in guide and FAQ covering the
+          same ground.
+        </p>
+
+        <h2 id="install">Install</h2>
+
+        <h3>Install script (macOS, Apple Silicon — recommended)</h3>
+        <div class="code-block">
+          <pre><code>curl -fsSL https://raw.githubusercontent.com/JJJ-Mo3/yardarm/main/scripts/install.sh | sh</code></pre>
+          <button
+            class="copy-btn"
+            type="button"
+            data-copy="curl -fsSL https://raw.githubusercontent.com/JJJ-Mo3/yardarm/main/scripts/install.sh | sh"
+          >
+            Copy
+          </button>
+        </div>
+        <p>This downloads the latest release and installs it to <code>/Applications</code>.</p>
+
+        <h3>Download a release manually (macOS, Apple Silicon)</h3>
+        <p>
+          Grab the <code>.dmg</code> (or <code>.zip</code>) from the
+          <a href="https://github.com/JJJ-Mo3/yardarm/releases/latest">latest release</a> and drag
+          <code>Yardarm.app</code> into <code>/Applications</code>.
+        </p>
+        <div class="note warn">
+          Release builds are not code-signed, so macOS quarantines browser downloads and Gatekeeper
+          refuses to open them — <strong>"Yardarm is damaged and can't be opened"</strong> — and on
+          macOS 15+ that dialog has no bypass (right-click → Open no longer works). Clear the
+          quarantine flag once and it opens normally:
+        </div>
+        <div class="code-block">
+          <pre><code>xattr -dr com.apple.quarantine /Applications/Yardarm.app</code></pre>
+          <button
+            class="copy-btn"
+            type="button"
+            data-copy="xattr -dr com.apple.quarantine /Applications/Yardarm.app"
+          >
+            Copy
+          </button>
+        </div>
+        <p>
+          The install script above avoids this entirely (curl downloads are never quarantined). If
+          the dmg itself refuses to open, clear it there too:
+          <code>xattr -d com.apple.quarantine ~/Downloads/Yardarm-*.dmg</code>.
+        </p>
+
+        <h2 id="build-from-source">Build from source (all platforms)</h2>
+        <p>
+          Requirements: <a href="https://nodejs.org">Node</a> 22+,
+          <a href="https://pnpm.io">pnpm</a>
+          10, and git.
+        </p>
+        <pre><code>git clone https://github.com/JJJ-Mo3/yardarm.git
+cd yardarm
+pnpm install
+pnpm dist        # installers into dist/ (dmg/zip, nsis, AppImage/deb)
+# or
+pnpm package     # unpacked app bundle, e.g. dist/mac-arm64/Yardarm.app</code></pre>
+        <p>
+          Targets: macOS (arm64). Windows/Linux electron-builder config exists but is untested, and
+          the bundled agent runtime is staged for the build machine's platform — build on the
+          platform you're targeting. Apps you build yourself are not quarantined and open normally.
+        </p>
+
+        <h2 id="setup-wizard">First launch: the setup wizard</h2>
+        <p>
+          The first time you open Yardarm, a setup wizard walks you through the same onboarding the
+          <code>mastracode</code> CLI uses. Nothing is written to disk until the final step, and you
+          can skip any part of it.
+        </p>
+        <ol>
+          <li>
+            <strong>Welcome</strong> — a reminder that everything runs locally and no account is
+            created.
+          </li>
+          <li>
+            <strong>Connect a provider</strong> — sign in with an existing subscription (Claude,
+            OpenAI Codex, or GitHub Copilot via OAuth), paste an API key, or skip and add a local
+            model later.
+          </li>
+          <li>
+            <strong>Mode pack</strong> — choose which models power the Build / Plan / Fast modes.
+            Pick a preset pack or choose per-mode.
+          </li>
+          <li>
+            <strong>Observational Memory</strong> — optionally choose the model used for the agent's
+            background memory.
+          </li>
+          <li>
+            <strong>Yolo</strong> — decide whether the agent may run tools without asking each time.
+            You can change this later per chat.
+          </li>
+          <li><strong>Summary</strong> — review, then finish.</li>
+        </ol>
+        <p>
+          The wizard writes mastracode's own <code>settings.json</code>, so the CLI is configured at
+          the same time. Re-run it any time from
+          <strong>Settings → About → Run setup again</strong>.
+        </p>
+
+        <h2 id="connecting-a-model">Connecting a model</h2>
+        <p>
+          Yardarm can drive models from subscriptions, API keys, or your own machine. All of these
+          are managed in <strong>Settings</strong> (<kbd>Cmd+,</kbd> / <kbd>Ctrl+,</kbd>):
+        </p>
+        <ul>
+          <li>
+            <strong>Subscriptions (OAuth)</strong> — Settings → <strong>Providers</strong> has
+            sign-in buttons for Anthropic (Claude), OpenAI Codex, and GitHub Copilot. The browser
+            flow completes in seconds and credentials are stored in mastracode's own
+            <code>auth.json</code>.
+          </li>
+          <li>
+            <strong>API keys</strong> — Settings → <strong>API Keys</strong> accepts keys for
+            Anthropic, OpenAI, Google, OpenRouter, xAI, Groq, Mistral, Deepgram, and more. Keys go
+            to the same <code>auth.json</code> the CLI reads and are only ever sent to their own
+            provider.
+          </li>
+          <li>
+            <strong>Local models (Ollama)</strong> — install
+            <a href="https://ollama.com">Ollama</a>, pull a model, and open Settings →
+            <strong>Providers</strong>. Yardarm detects a running Ollama server automatically and
+            offers to start one if it's installed but not running. Tick the models you want to
+            expose.
+          </li>
+          <li>
+            <strong>Any OpenAI-compatible server</strong> — LM Studio, vLLM, llama.cpp, a remote
+            gateway: add it in Settings → Providers with a name, base URL, and model ids. No API key
+            needed for local servers.
+          </li>
+        </ul>
+        <p>
+          Model dropdowns throughout the app only list models that are actually usable right now
+          (key present, login active, or server reachable), so an empty dropdown means "connect
+          something first".
+        </p>
+        <div class="note">
+          <strong>Local model context windows matter.</strong> The agent's base prompt is roughly
+          30k tokens before you type anything. Configure at least a 64k context window — 128k+ if
+          you have the memory. Ollama defaults to ~4k; raise it in the Ollama app (Settings →
+          Context length) or start the server with
+          <code>OLLAMA_CONTEXT_LENGTH=65536 ollama serve</code>. Yardarm never imposes idle
+          timeouts, so a big local model can think for minutes without being cut off.
+        </div>
+
+        <h2 id="first-project-and-chat">Your first project and chat</h2>
+        <ol>
+          <li>
+            Click <strong>Add project</strong> in the sidebar and pick a folder. It doesn't need to
+            be a git repository yet — Yardarm will initialize what it needs.
+          </li>
+          <li>
+            Create a chat (<kbd>Cmd+N</kbd>). By default each chat gets its own
+            <strong>git worktree</strong>: a private checkout of your repo on a
+            <code>yardarm/…</code> branch, stored under the app's data directory. The agent edits,
+            builds, and commits there without touching your working copy — and several chats can
+            work on the same repo in parallel without conflicts.
+          </li>
+          <li>Type what you want and press <strong>Enter</strong>. That's it.</li>
+        </ol>
+        <p>A few notes on worktrees:</p>
+        <ul>
+          <li>Repos with no commits yet get a bootstrap "Initial commit" automatically.</li>
+          <li>
+            If your project needs setup in a fresh checkout (dependency installs, codegen), put
+            commands in <code>.yardarm/worktree.json</code> at the repo root:
+            <pre><code>{ "setup-worktree": ["pnpm install"] }</code></pre>
+          </li>
+          <li>
+            When the work is done, merge or PR the <code>yardarm/…</code> branch from the
+            <strong>Changes</strong> tab (see
+            <a href="using-the-app.html#reviewing-and-shipping">Reviewing and shipping changes</a>).
+          </li>
+        </ul>
+
+        <h2 id="where-to-get-help">Where to get help</h2>
+        <ul>
+          <li>
+            <strong>The in-app guide</strong> — the help button beside the theme toggle in the
+            sidebar (or <kbd>Cmd+9</kbd>) opens a built-in guide covering every part of the app,
+            plus an FAQ and troubleshooting section.
+          </li>
+          <li>
+            <strong>Settings → About</strong> shows the bundled runtime's boot status and the full
+            error text if the agent fails to start.
+          </li>
+          <li>
+            The <a href="troubleshooting.html">troubleshooting page</a> covers common issues
+            (unsigned-build warnings, empty model dropdowns, context window errors, worktree
+            failures).
+          </li>
+          <li>
+            Otherwise, <a href="https://github.com/JJJ-Mo3/yardarm/issues">open an issue</a> with
+            the error text from Settings → About or the chat, or see the
+            <a href="../support.html">support page</a>.
+          </li>
+        </ul>
+
+        <nav class="docs-footer-nav" aria-label="Docs pages">
+          <span></span>
+          <a href="using-the-app.html">Using the app →</a>
+        </nav>
+      </article>
+    </div>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <nav class="footer-links" aria-label="Footer">
+          <a href="index.html">Documentation</a>
+          <a href="faq.html">FAQ</a>
+          <a href="troubleshooting.html">Troubleshooting</a>
+          <a href="../support.html">Support</a>
+          <a href="../privacy.html">Privacy Policy</a>
+          <a href="../terms.html">Terms &amp; License</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm">GitHub</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm/releases">Releases</a>
+        </nav>
+        <p>
+          © 2026 Yardarm contributors. Yardarm is free, open-source software licensed under
+          Apache-2.0.
+        </p>
+        <p>
+          Yardarm is an independent project that builds on Mastra Code. It is not affiliated with,
+          endorsed by, or sponsored by Mastra. "Mastra" and "Mastra Code" are trademarks of their
+          respective owner.
+        </p>
+      </div>
+    </footer>
+    <script src="../assets/js/site.js"></script>
+  </body>
+</html>

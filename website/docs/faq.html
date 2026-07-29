@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FAQ — Yardarm documentation</title>
+    <meta
+      name="description"
+      content="Frequently asked questions about Yardarm: accounts, what data leaves your machine, API key storage, offline use, local models, worktrees, and uninstalling."
+    />
+    <link rel="canonical" href="https://yardarmdev.com/docs/faq.html" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="Yardarm" />
+    <meta property="og:title" content="FAQ — Yardarm documentation" />
+    <meta
+      property="og:description"
+      content="Frequently asked questions about Yardarm: accounts, data, API keys, offline use, local models, worktrees, and uninstalling."
+    />
+    <meta property="og:url" content="https://yardarmdev.com/docs/faq.html" />
+    <meta property="og:image" content="https://yardarmdev.com/assets/img/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#14608f" />
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="../assets/img/favicon-16.png" />
+    <link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png" />
+    <link rel="stylesheet" href="../assets/css/site.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav container" aria-label="Main">
+        <a class="brand" href="../index.html">
+          <img src="../assets/img/icon-1024.png" alt="Yardarm logo" width="28" height="28" />
+          <span>Yardarm</span>
+        </a>
+        <button
+          class="nav-toggle"
+          type="button"
+          aria-label="Toggle navigation"
+          aria-expanded="false"
+        >
+          &#9776;
+        </button>
+        <div class="nav-links">
+          <a href="index.html">Docs</a>
+          <a href="faq.html">FAQ</a>
+          <a href="../support.html">Support</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm">GitHub</a>
+          <a class="btn btn-small nav-cta" href="../index.html#install">Install</a>
+        </div>
+      </nav>
+    </header>
+
+    <div class="docs-layout container">
+      <aside class="docs-sidebar">
+        <nav aria-label="Documentation">
+          <p class="sidebar-title">Documentation</p>
+          <ul>
+            <li><a href="index.html">Getting started</a></li>
+            <li><a href="using-the-app.html">Using the app</a></li>
+            <li><a href="workspace.html">Workspace</a></li>
+            <li><a href="configuration.html">Configuration</a></li>
+            <li><a href="shortcuts.html">Keyboard shortcuts</a></li>
+            <li><a href="faq.html" class="current">FAQ</a></li>
+            <li><a href="troubleshooting.html">Troubleshooting</a></li>
+          </ul>
+          <p class="sidebar-title">On this page</p>
+          <ul class="toc">
+            <li><a href="#account">Do I need an account?</a></li>
+            <li><a href="#data">What data leaves my machine?</a></li>
+            <li><a href="#cli-and-app">CLI and app together?</a></li>
+            <li><a href="#api-keys">Where are my API keys?</a></li>
+            <li><a href="#offline">Fully offline?</a></li>
+            <li><a href="#timeouts">Will slow models time out?</a></li>
+            <li><a href="#context-window">What context window?</a></li>
+            <li><a href="#worktrees">Why worktrees?</a></li>
+            <li><a href="#uninstall">How do I uninstall?</a></li>
+            <li><a href="#official">Official Mastra product?</a></li>
+            <li><a href="#name">Why "Yardarm"?</a></li>
+          </ul>
+        </nav>
+      </aside>
+
+      <article class="docs-content">
+        <h1>FAQ</h1>
+        <p class="lead">Frequently asked questions about Yardarm.</p>
+
+        <h2 id="account">Do I need an account?</h2>
+        <p>
+          No. There is no signup, login, or telemetry in Yardarm itself. You only authenticate with
+          the model providers you choose to use.
+        </p>
+
+        <h2 id="data">What data leaves my machine?</h2>
+        <p>
+          Prompts and code context go to whichever model endpoints you configure — and nowhere else.
+          With a local provider (Ollama, LM Studio, …) inference traffic stays on
+          <code>localhost</code>. Mastra Code's cloud gateway is only contacted if you use models
+          served through it. Voice dictation sends audio to the STT provider you selected, only
+          while you record. The only network traffic from Yardarm itself is the update check against
+          the project's GitHub Releases — Settings → About lets you turn automatic checks off. See
+          also the <a href="../privacy.html">privacy policy</a>.
+        </p>
+
+        <h2 id="cli-and-app">Can I use the CLI and the app at the same time?</h2>
+        <p>
+          Yes — that's the point. They share <code>settings.json</code>, <code>auth.json</code>,
+          MCP/hooks configs, and custom commands. The app writes those files atomically and
+          preserves keys it doesn't know about.
+        </p>
+
+        <h2 id="api-keys">Where are my API keys stored?</h2>
+        <p>
+          In mastracode's own <code>auth.json</code> in its platform app-data directory (see
+          <a href="configuration.html#config-paths">configuration paths</a>). Yardarm reads and
+          writes the same file the CLI uses; keys are never sent anywhere except to the provider
+          they belong to.
+        </p>
+
+        <h2 id="offline">Can I run fully offline / air-gapped?</h2>
+        <p>
+          Yes, with local models: complete onboarding by adding a local provider, and skip OAuth/API
+          keys entirely.
+        </p>
+
+        <h2 id="timeouts">My local model is slow — will runs time out?</h2>
+        <p>
+          No. Yardarm disables HTTP idle timeouts for agent traffic specifically so big local models
+          can sit silent through long prompt-processing phases. You can always stop a run manually.
+        </p>
+
+        <h2 id="context-window">What context window do I need for a local model?</h2>
+        <p>
+          64k tokens minimum; 128k or more if your machine has the memory. The agent's base prompt
+          (system prompt, tool definitions, project context) is roughly 30k tokens before you type
+          anything, and the conversation only grows from there — there is no client-side compaction
+          for local providers, so even a 64k window can fill up within a single working session.
+          Some servers (Ollama) also silently truncate the prompt to fit, which degrades the agent
+          well before it fails outright. Ollama defaults to ~4k: raise it in the Ollama app
+          (Settings → Context length) or start the server with
+          <code>OLLAMA_CONTEXT_LENGTH=65536 ollama serve</code>. In LM Studio, set the context
+          length when loading the model; for llama.cpp, pass <code>-c 65536</code>. Starting a new
+          chat resets the conversation and frees context.
+        </p>
+
+        <h2 id="worktrees">Why does a chat get its own branch/worktree?</h2>
+        <p>
+          Isolation: the agent can edit, build, and commit without touching your checked-out branch,
+          and parallel chats can't conflict. You can merge or PR the
+          <code>yardarm/…</code> branch from the Changes tab, or create chats without a worktree.
+        </p>
+
+        <h2 id="uninstall">How do I uninstall completely?</h2>
+        <p>
+          Delete the app, then remove the app data (<code>…/yardarm</code>, paths under
+          <a href="configuration.html#app-data">App data</a>). If you also want to drop Mastra
+          Code's shared config, remove <code>~/.mastracode</code> and the
+          <code>mastracode</code> app-data directory — but note the CLI uses those too.
+        </p>
+
+        <h2 id="official">Is this an official Mastra product?</h2>
+        <p>
+          No. Yardarm is an independent open-source project. "Mastra" and "Mastra Code" are
+          trademarks of their respective owner; they're used here only to describe compatibility.
+        </p>
+
+        <h2 id="name">Why "Yardarm"?</h2>
+        <p>Mastra ships the mast; this is the spar that hangs off it.</p>
+
+        <nav class="docs-footer-nav" aria-label="Docs pages">
+          <a href="shortcuts.html">← Keyboard shortcuts</a>
+          <a href="troubleshooting.html">Troubleshooting →</a>
+        </nav>
+      </article>
+    </div>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <nav class="footer-links" aria-label="Footer">
+          <a href="index.html">Documentation</a>
+          <a href="faq.html">FAQ</a>
+          <a href="troubleshooting.html">Troubleshooting</a>
+          <a href="../support.html">Support</a>
+          <a href="../privacy.html">Privacy Policy</a>
+          <a href="../terms.html">Terms &amp; License</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm">GitHub</a>
+          <a href="https://github.com/JJJ-Mo3/yardarm/releases">Releases</a>
+        </nav>
+        <p>
+          © 2026 Yardarm contributors. Yardarm is free, open-source software licensed under
+          Apache-2.0.
+        </p>
+        <p>
+          Yardarm is an independent project that builds on Mastra Code. It is not affiliated with,
+          endorsed by, or sponsored by Mastra. "Mastra" and "Mastra Code" are trademarks of their
+          respective owner.
+        </p>
+      </div>
+    </footer>
+    <script src="../assets/js/site.js"></script>
+  </body>
+</html>
