@@ -40,13 +40,9 @@ button beside the theme toggle (or `Cmd+9`) opens a built-in guide + FAQ.
 
 ### Download a release (macOS, Apple Silicon)
 
-Grab the latest `.dmg` (or `.zip`) from the
-[Releases page](https://github.com/JJJ-Mo3/yardarm/releases) — currently
-[v0.9.2](https://github.com/JJJ-Mo3/yardarm/releases/tag/v0.9.2)
-([dmg](https://github.com/JJJ-Mo3/yardarm/releases/download/v0.9.2/Yardarm-0.9.2-arm64.dmg)
-·
-[zip](https://github.com/JJJ-Mo3/yardarm/releases/download/v0.9.2/Yardarm-0.9.2-arm64.zip))
-— and drag `Yardarm.app` into `/Applications`.
+Grab the `.dmg` (or `.zip`) from the
+[latest release](https://github.com/JJJ-Mo3/yardarm/releases/latest) and
+drag `Yardarm.app` into `/Applications`.
 
 Release builds are not code-signed, so macOS Gatekeeper will refuse a plain
 double-click the first time ("Yardarm is damaged" or "cannot be opened").

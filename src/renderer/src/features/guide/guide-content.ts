@@ -105,8 +105,9 @@ outside the obvious scope, and so on). Each request shows exactly what will run 
 deny inline.
 
 - **Auto-approve** — the header toggle lets a trusted chat run without per-tool prompts.
-- **Permissions** — \`/permissions\` opens per-project allow/deny rules so routine commands
-  stop prompting while risky ones still do.
+- **Permissions** — \`/permissions\` opens the session permissions panel: per-category and
+  per-tool allow / ask / deny rules, so routine commands stop prompting while risky ones
+  still do.
 - **Sandbox** — the header sandbox toggle runs the agent's commands under OS-level isolation
   (per chat, with a global default in Settings → Preferences). Useful when trying untrusted
   prompts or dependencies.
@@ -277,9 +278,10 @@ approval flow as built-in tools.
 The chart icon in the tab bar opens **Analytics**: token usage for the current project.
 
 - Usage by **day**, by **model**, and by **chat** (input and output tokens).
-- **Compression savings** — Yardarm compresses bulky tool output (logs, diffs, HTML) before
-  it reaches the model and lets the agent retrieve the original on demand; Analytics shows
-  how many tokens that saved. The savings also appear in the chat's usage bar.
+- **Compression savings** — with token compression enabled (Settings → Preferences), Yardarm
+  shrinks bulky tool output (logs, diffs, HTML) before it reaches the model and lets the
+  agent retrieve the original on demand; Analytics shows how many tokens that saved. The
+  savings also appear in the chat's usage bar.
 - **CSV export** for your own analysis.
 
 Figures are token counts, not prices — pricing varies by provider and plan, so Yardarm
@@ -293,7 +295,8 @@ doesn't guess.
 App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
 
 - **Appearance** — light/dark/system theme.
-- **Preferences** — agent behavior defaults, sandbox default, prompt compression.
+- **Preferences** — agent behavior defaults, sandbox default, token compression and
+  verbosity steering.
 - **API Keys** — keys for model providers, stored locally.
 - **Models** — pick default models and manage the model list.
 - **Providers** — provider OAuth logins and local providers (e.g. Ollama), including
