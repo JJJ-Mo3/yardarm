@@ -10,7 +10,7 @@
  */
 import React, { useEffect, useState } from 'react'
 import { useAtomValue } from 'jotai'
-import { ExternalLink, Plus, Trash2 } from 'lucide-react'
+import { ChevronRight, ExternalLink, Plus, Trash2 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { selectedProjectIdAtom } from '../../lib/atoms'
 import { cn } from '../../lib/utils'
@@ -57,6 +57,7 @@ export function AgentsTab(): React.JSX.Element {
   const [editor, setEditor] = useState<EditorState>(EMPTY_EDITOR)
   const [dirty, setDirty] = useState(false)
   const [newId, setNewId] = useState('')
+  const [templatesOpen, setTemplatesOpen] = useState(false)
 
   const projects = trpc.projects.list.useQuery()
   const activeProjects = (projects.data ?? []).filter((p) => !p.archived)
@@ -285,75 +286,102 @@ export function AgentsTab(): React.JSX.Element {
       </div>
       {scopeReady && templates.length > 0 && (
         <div className="space-y-1 pt-2">
-          <div className="text-[11px] font-medium">Templates</div>
-          <div className="text-[10px] text-muted-foreground">
-            Ready-made subagents, added to{' '}
-            {scope === 'global' ? (
-              <code>~/.mastracode/agents</code>
-            ) : (
-              <code>.mastracode/agents</code>
-            )}{' '}
-            as ordinary files you can edit like any other agent. Adding restarts{' '}
-            {scope === 'project' ? "this project's" : 'all'} agent hosts.
-          </div>
-          {TEMPLATE_GROUPS.map(([group, label]) => {
-            const entries = templates.filter((t) => t.group === group)
-            if (entries.length === 0) return null
-            return (
-              <div key={group} className="space-y-0.5">
-                <div className="flex items-center justify-between pt-1">
-                  <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                    {label}
-                  </div>
-                  <Tip
-                    content={`Add all ${entries.length} remaining ${label.toLowerCase()} — existing agents are never overwritten`}
-                  >
-                    <span className="inline-flex">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-5 px-2 text-[10px]"
-                        disabled={installDefaults.isPending}
-                        onClick={() => addTemplates(entries.map((t) => t.id))}
-                      >
-                        Add all
-                      </Button>
-                    </span>
-                  </Tip>
-                </div>
-                {entries.map((t) => (
-                  <div
-                    key={t.id}
-                    className="group flex items-center gap-2 rounded px-2 py-1 hover:bg-accent/50"
-                  >
-                    <span className="font-mono text-[11px]">{t.id}</span>
-                    <span
-                      className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground"
-                      title={t.description}
-                    >
-                      {t.description}
-                    </span>
+          <Tip
+            content={
+              templatesOpen
+                ? 'Hide the template catalog'
+                : 'Browse ready-made subagents (team roles and domain specialists) you can add with one click'
+            }
+          >
+            <button
+              className="flex w-full cursor-pointer items-center gap-1.5 rounded px-1 py-1 text-left hover:bg-accent/50"
+              onClick={() => setTemplatesOpen((o) => !o)}
+            >
+              <ChevronRight
+                size={12}
+                className={cn(
+                  'shrink-0 text-muted-foreground transition-transform',
+                  templatesOpen && 'rotate-90'
+                )}
+              />
+              <span className="text-[11px] font-medium">Templates</span>
+              <span className="text-[10px] text-muted-foreground">
+                {templates.length} ready-made subagent{templates.length === 1 ? '' : 's'} — team
+                roles and domain specialists
+              </span>
+            </button>
+          </Tip>
+          {templatesOpen && (
+            <div className="text-[10px] text-muted-foreground">
+              Ready-made subagents, added to{' '}
+              {scope === 'global' ? (
+                <code>~/.mastracode/agents</code>
+              ) : (
+                <code>.mastracode/agents</code>
+              )}{' '}
+              as ordinary files you can edit like any other agent. Adding restarts{' '}
+              {scope === 'project' ? "this project's" : 'all'} agent hosts.
+            </div>
+          )}
+          {templatesOpen &&
+            TEMPLATE_GROUPS.map(([group, label]) => {
+              const entries = templates.filter((t) => t.group === group)
+              if (entries.length === 0) return null
+              return (
+                <div key={group} className="space-y-0.5">
+                  <div className="flex items-center justify-between pt-1">
+                    <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                      {label}
+                    </div>
                     <Tip
-                      content={`Add the ${t.name} template as an editable ${t.id}.md — the agent hosts restart with it`}
+                      content={`Add all ${entries.length} remaining ${label.toLowerCase()} — existing agents are never overwritten`}
                     >
                       <span className="inline-flex">
                         <Button
                           size="sm"
-                          variant="outline"
-                          className="h-5 gap-1 px-2 text-[10px]"
+                          variant="ghost"
+                          className="h-5 px-2 text-[10px]"
                           disabled={installDefaults.isPending}
-                          onClick={() => addTemplates([t.id])}
+                          onClick={() => addTemplates(entries.map((t) => t.id))}
                         >
-                          <Plus size={10} />
-                          Add
+                          Add all
                         </Button>
                       </span>
                     </Tip>
                   </div>
-                ))}
-              </div>
-            )
-          })}
+                  {entries.map((t) => (
+                    <div
+                      key={t.id}
+                      className="group flex items-center gap-2 rounded px-2 py-1 hover:bg-accent/50"
+                    >
+                      <span className="font-mono text-[11px]">{t.id}</span>
+                      <span
+                        className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground"
+                        title={t.description}
+                      >
+                        {t.description}
+                      </span>
+                      <Tip
+                        content={`Add the ${t.name} template as an editable ${t.id}.md — the agent hosts restart with it`}
+                      >
+                        <span className="inline-flex">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-5 gap-1 px-2 text-[10px]"
+                            disabled={installDefaults.isPending}
+                            onClick={() => addTemplates([t.id])}
+                          >
+                            <Plus size={10} />
+                            Add
+                          </Button>
+                        </span>
+                      </Tip>
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
         </div>
       )}
       {selected !== null && (

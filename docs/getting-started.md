@@ -664,10 +664,11 @@ only. Each file has a frontmatter block (`name`, `description` — required,
 Saving restarts the affected agent processes; the ids `explore`, `plan`,
 `execute` and `general` are reserved.
 
-A **Templates** section on the same screen lists 18 ready-made subagents —
-12 team roles (product manager, architect, developer, QA engineer, security
-engineer, tech writer, …) and 6 domain specialists (SaaS, Shopify, mobile,
-Chrome extensions, AI apps, e-commerce). Click **Add** on any of them (or
+A collapsible **Templates** section on the same screen holds 18 ready-made
+subagents — 12 team roles (product manager, architect, developer, QA
+engineer, security engineer, tech writer, …) and 6 domain specialists (SaaS,
+Shopify, mobile, Chrome extensions, AI apps, e-commerce); expand it to
+browse them. Click **Add** on any of them (or
 **Add all** per group) and it's written as an ordinary `.md` file into the
 selected scope, so you can edit it like any other agent afterwards. Added
 templates disappear from the list, and adding never overwrites an existing
