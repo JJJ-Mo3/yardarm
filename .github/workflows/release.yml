@@ -78,6 +78,25 @@ jobs:
         with:
           tag_name: v${{ env.VERSION }}
           generate_release_notes: true
+          # Builds are unsigned: browser downloads get quarantined and macOS
+          # shows "Yardarm is damaged" with no bypass, so every release leads
+          # with the curl installer (curl downloads are not quarantined).
+          body: |
+            ### Install (macOS, Apple Silicon)
+
+            ```sh
+            curl -fsSL https://raw.githubusercontent.com/JJJ-Mo3/yardarm/main/scripts/install.sh | sh
+            ```
+
+            These builds are unsigned, so if you download the dmg/zip below with a
+            browser instead, macOS quarantines it and reports **"Yardarm is damaged
+            and can't be opened."** Clear the quarantine flag once and it opens
+            normally:
+
+            ```sh
+            xattr -dr com.apple.quarantine /Applications/Yardarm.app
+            ```
+
           files: |
             dist/*.dmg
             dist/*.zip

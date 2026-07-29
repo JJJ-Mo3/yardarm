@@ -38,20 +38,31 @@ button beside the theme toggle (or `Cmd+9`) opens a built-in guide + FAQ.
 
 ## Install
 
-### Download a release (macOS, Apple Silicon)
+### Install script (macOS, Apple Silicon — recommended)
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/JJJ-Mo3/yardarm/main/scripts/install.sh | sh
+```
+
+This downloads the latest release and installs it to `/Applications`.
+
+### Download a release manually (macOS, Apple Silicon)
 
 Grab the `.dmg` (or `.zip`) from the
 [latest release](https://github.com/JJJ-Mo3/yardarm/releases/latest) and
 drag `Yardarm.app` into `/Applications`.
 
-Release builds are not code-signed, so macOS Gatekeeper will refuse a plain
-double-click the first time ("Yardarm is damaged" or "cannot be opened").
-Either right-click the app → **Open** → **Open**, or clear the quarantine
-flag once:
+Release builds are not code-signed, so macOS quarantines browser downloads
+and Gatekeeper refuses to open them — "Yardarm is damaged and can't be
+opened" — and on macOS 15+ that dialog has no bypass (right-click → Open no
+longer works). Clear the quarantine flag once and it opens normally:
 
 ```sh
 xattr -dr com.apple.quarantine /Applications/Yardarm.app
 ```
+
+The install script above avoids this entirely (curl downloads are never
+quarantined).
 
 ### Build from source (all platforms)
 

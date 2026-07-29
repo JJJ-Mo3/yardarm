@@ -22,18 +22,28 @@ through installation, first-run setup, and every part of the app.
 
 ## Install
 
-**[Download the latest release](https://github.com/JJJ-Mo3/yardarm/releases/latest)**
-(macOS, Apple Silicon) — grab the `.dmg` (or the `.zip`) from the release's
-assets.
+### Install script (macOS, Apple Silicon — recommended)
 
-All versions and their binaries are on the
-[Releases page](https://github.com/JJJ-Mo3/yardarm/releases).
+```sh
+curl -fsSL https://raw.githubusercontent.com/JJJ-Mo3/yardarm/main/scripts/install.sh | sh
+```
 
-### Download a release (macOS, Apple Silicon)
+Downloads the latest release and installs it to `/Applications`. Use this
+route if you can: release builds are unsigned, and macOS quarantines
+browser downloads and refuses to open them ("Yardarm is damaged") — curl
+downloads are not quarantined, so the script sidesteps that entirely. See
+[Unsigned builds on macOS](#unsigned-builds-on-macos).
+
+### Download a release manually (macOS, Apple Silicon)
+
+**[Download the latest release](https://github.com/JJJ-Mo3/yardarm/releases/latest)** —
+grab the `.dmg` (or the `.zip`) from the release's assets; all versions are
+on the [Releases page](https://github.com/JJJ-Mo3/yardarm/releases).
 
 Install the dmg (or drag `Yardarm.app` from the zip into `/Applications`),
-then see [Unsigned builds on macOS](#unsigned-builds-on-macos) for the first
-launch. Release builds can update themselves from Settings → About.
+then clear the quarantine flag before the first launch (see
+[Unsigned builds on macOS](#unsigned-builds-on-macos)). Release builds can
+update themselves from Settings → About.
 
 ### From source (all platforms)
 
@@ -57,13 +67,22 @@ On macOS, drag `Yardarm.app` into `/Applications` (or install the dmg).
 
 ### Unsigned builds on macOS
 
-Local builds are not code-signed or notarized, so Gatekeeper will refuse a
-double-click launch of a downloaded copy ("Yardarm is damaged" / "cannot be
-opened"). Either right-click → Open → Open, or clear the quarantine flag:
+Release builds are not code-signed or notarized, so macOS quarantines a
+copy downloaded with a browser and Gatekeeper refuses to open it —
+**"Yardarm is damaged and can't be opened. You should move it to the
+Trash."** On macOS 15+ that dialog has no bypass, and the old
+right-click → Open trick no longer works. Two ways around it:
 
-```sh
-xattr -dr com.apple.quarantine /Applications/Yardarm.app
-```
+- Use the [install script](#install-script-macos-apple-silicon--recommended)
+  above — curl downloads are never quarantined.
+- Or, after installing the dmg/zip manually, clear the quarantine flag once:
+
+  ```sh
+  xattr -dr com.apple.quarantine /Applications/Yardarm.app
+  ```
+
+  (If the dmg itself refuses to open, clear it there too:
+  `xattr -d com.apple.quarantine ~/Downloads/Yardarm-*.dmg`.)
 
 Apps you build yourself on the same machine are not quarantined and open
 normally.
@@ -562,7 +581,9 @@ Mastra ships the mast; this is the spar that hangs off it.
 ## Troubleshooting
 
 **"Yardarm is damaged and can't be opened" (macOS).**
-The build is unsigned — see [Unsigned builds on macOS](#unsigned-builds-on-macos).
+The build is unsigned and the downloaded copy is quarantined. Run
+`xattr -dr com.apple.quarantine /Applications/Yardarm.app` once, or install
+via the script — see [Unsigned builds on macOS](#unsigned-builds-on-macos).
 
 **The agent won't start / chat shows a runtime error.**
 Open Settings → About: it shows the bundled runtime's boot status, versions,
