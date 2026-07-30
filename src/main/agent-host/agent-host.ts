@@ -1740,6 +1740,7 @@ async function main(): Promise<void> {
                 provider: m.provider,
                 modelName: m.modelName,
                 hasApiKey: m.hasApiKey,
+                apiKeyEnvVar: m.apiKeyEnvVar,
                 useCount: m.useCount
               }))
             })
@@ -1794,6 +1795,20 @@ async function main(): Promise<void> {
             await respond(cmd.reqId, async () => {
               // Credentials changed in another host — pick them up here.
               authStorage.reload()
+              bustModelCache()
+              return null
+            })
+            break
+          case 'setEnv':
+            await respond(cmd.reqId, async () => {
+              // Env-var-referenced provider keys changed: the SDK's model
+              // catalog and request auth read process.env directly, so
+              // applying the vars here makes them visible immediately
+              // (same trick authSet uses via setStoredApiKey's envVar).
+              for (const [name, value] of Object.entries(cmd.vars)) {
+                if (value === null) delete process.env[name]
+                else process.env[name] = value
+              }
               bustModelCache()
               return null
             })

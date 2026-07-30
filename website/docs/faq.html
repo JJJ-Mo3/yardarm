@@ -69,6 +69,7 @@
             <li><a href="#data">What data leaves my machine?</a></li>
             <li><a href="#cli-and-app">CLI and app together?</a></li>
             <li><a href="#api-keys">Where are my API keys?</a></li>
+            <li><a href="#env-keys">Keys off disk?</a></li>
             <li><a href="#offline">Fully offline?</a></li>
             <li><a href="#timeouts">Will slow models time out?</a></li>
             <li><a href="#context-window">What context window?</a></li>
@@ -113,7 +114,21 @@
           In mastracode's own <code>auth.json</code> in its platform app-data directory (see
           <a href="configuration.html#config-paths">configuration paths</a>). Yardarm reads and
           writes the same file the CLI uses; keys are never sent anywhere except to the provider
-          they belong to.
+          they belong to. Prefer not to store the key at all? See
+          <a href="#env-keys">environment-variable references</a> below.
+        </p>
+
+        <h2 id="env-keys">Can I avoid storing my API key on disk?</h2>
+        <p>
+          Yes. In Settings → API Keys → Environment variables, point a provider at an environment
+          variable (any name) instead of pasting the key. The value is read from your login shell
+          when the app starts and is never stored anywhere by Yardarm — only the variable name is
+          saved. Standard variables like <code>ANTHROPIC_API_KEY</code> or
+          <code>OPENAI_API_KEY</code> are detected automatically. A key stored in
+          <code>auth.json</code> takes precedence, so saving a reference removes the stored key (and
+          vice versa). On macOS, export the variable in <code>~/.zshrc</code> or
+          <code>~/.zprofile</code> and relaunch the app after adding it. Like any exported key, the
+          variable is visible to shell commands the agent runs.
         </p>
 
         <h2 id="offline">Can I run fully offline / air-gapped?</h2>

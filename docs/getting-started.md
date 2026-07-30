@@ -118,6 +118,13 @@ All of these are managed in **Settings** (`Cmd+,` / `Ctrl+,`):
   Google, OpenRouter, xAI, Groq, Mistral, Deepgram, and more. Keys go to the
   same `auth.json` the CLI reads and are only ever sent to their own
   provider.
+- **API keys by environment variable** — in the same tab, reference a
+  variable name (any name) instead of pasting the key. The value is read
+  from your login shell when the app starts and never stored by Yardarm;
+  standard variables such as `ANTHROPIC_API_KEY` are detected automatically.
+  A stored key takes precedence, so saving one mode clears the other for
+  that provider. Export new variables in your shell profile and relaunch the
+  app; as with the CLI, they're visible to shell commands the agent runs.
 - **Local models (Ollama)** — install [Ollama](https://ollama.com), pull a
   model, and open Settings → **Providers**. Yardarm detects a running Ollama
   server automatically and offers to start one if it's installed but not
@@ -625,7 +632,7 @@ Open with `Cmd+,` (`Ctrl+,`).
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Appearance**  | light / dark / system theme (also togglable from the sidebar footer)                                                                                    |
 | **Preferences** | default auto-approve (yolo), CLI theme, default thinking level, tool-output previews, new-chat sandbox defaults, token compression + verbosity steering |
-| **API Keys**    | provider API keys (stored in mastracode's `auth.json`)                                                                                                  |
+| **API Keys**    | provider API keys (stored in mastracode's `auth.json`) or environment-variable references (never stored)                                                |
 | **Models**      | default model per mode, subagent, goal judge, and memory role; model packs                                                                              |
 | **Providers**   | OAuth logins (Claude / Codex / Copilot), Ollama detection, custom local providers                                                                       |
 | **Voice**       | dictation engine, STT provider and model                                                                                                                |

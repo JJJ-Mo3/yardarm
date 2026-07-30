@@ -23,7 +23,13 @@ import {
 import { readSettings } from '../mastra-config/settings-json'
 import { updateMcpServers, type McpServerConfig } from '../mastra-config/mcp-json'
 import { mirrorMcpOAuthTokens } from '../mastra-config/mcp-oauth-mirror'
-import { getLoginPath } from '../system/login-path'
+import { getLoginEnvVar, getLoginPath } from '../system/login-path'
+import {
+  resolveProviderKeyEnv,
+  standardVarFallback,
+  SEED_PROVIDER_ENV_VARS,
+  type ProviderKeyEnvMappings
+} from '../../../shared/provider-key-env'
 import { loadSubagentDefinitions } from '../mastra-config/agents-fs'
 import {
   isSettledMcpStatus,
@@ -54,6 +60,7 @@ import type {
   PermissionsSnapshot,
   PluginInfo,
   PluginScope,
+  ProviderKeyEnvStatus,
   ResourceInfo,
   SandboxRuntimeInfo,
   SessionStateInfo,
@@ -468,6 +475,9 @@ export class AgentSessionManager {
         // Login-shell PATH so hosts can spawn user-installed tools (language
         // servers, gh, ...) — packaged apps inherit the bare launchd PATH.
         PATH: getLoginPath() ?? process.env.PATH,
+        // Provider keys referenced by env var (Settings → API Keys) plus
+        // auto-detected standard vars from the login shell — named vars only.
+        ...this.buildProviderKeyEnv(),
         YARDARM_BOOT: JSON.stringify(boot)
       }
     })
@@ -1740,6 +1750,14 @@ export class AgentSessionManager {
   async authSet(provider: string, apiKey: string): Promise<void> {
     const handle = await this.ensureUtilityHost()
     await this.request(handle, { t: 'authSet', reqId: randomUUID(), provider, key: apiKey })
+    // Mutually exclusive with an env-var reference — a stored key wins in the
+    // SDK, so drop any mapping to keep the UI truthful.
+    const mappings = this.providerKeyEnvMappings()
+    if (provider in mappings) {
+      delete mappings[provider]
+      this.writeAppSetting('providerKeyEnvVars', mappings)
+      await this.syncProviderKeyEnv()
+    }
     await this.broadcastAuthReload(handle)
   }
 
@@ -1762,6 +1780,162 @@ export class AgentSessionManager {
         .filter((h) => h !== exclude && !h.killed && h.status === 'ready')
         .map((h) => this.request(h, { t: 'authReload', reqId: randomUUID() }).catch(() => {}))
     )
+  }
+
+  // ---- Env-var-referenced provider keys ------------------------------------
+
+  /** What the last sync pushed to hosts, so removals null out live vars. */
+  private lastInjectedKeyEnv: Record<string, string> = {}
+
+  /** Read an app_settings JSON value; missing/corrupt rows read as undefined. */
+  private readAppSetting(key: string): unknown {
+    try {
+      const row = getDb()
+        .select()
+        .from(schema.appSettings)
+        .where(eq(schema.appSettings.key, key))
+        .get()
+      if (row) return JSON.parse(row.value) as unknown
+    } catch {}
+    return undefined
+  }
+
+  private writeAppSetting(key: string, value: unknown): void {
+    const db = getDb()
+    const json = JSON.stringify(value)
+    const existing = db
+      .select()
+      .from(schema.appSettings)
+      .where(eq(schema.appSettings.key, key))
+      .get()
+    if (existing) {
+      db.update(schema.appSettings)
+        .set({ value: json })
+        .where(eq(schema.appSettings.key, key))
+        .run()
+    } else {
+      db.insert(schema.appSettings).values({ key, value: json }).run()
+    }
+  }
+
+  /** Persisted provider → env-var-name mappings (names only, never key values). */
+  private providerKeyEnvMappings(): ProviderKeyEnvMappings {
+    const raw = this.readAppSetting('providerKeyEnvVars')
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+    const out: ProviderKeyEnvMappings = {}
+    for (const [provider, m] of Object.entries(raw as Record<string, unknown>)) {
+      const mapping = m as { envVar?: unknown; standardVar?: unknown }
+      if (typeof mapping?.envVar === 'string' && typeof mapping?.standardVar === 'string') {
+        out[provider] = { envVar: mapping.envVar, standardVar: mapping.standardVar }
+      }
+    }
+    return out
+  }
+
+  /** Catalog apiKeyEnvVar names cached for fork-time auto-detect (offline-safe). */
+  private cachedKnownEnvVars(): string[] {
+    const raw = this.readAppSetting('knownProviderEnvVars')
+    return Array.isArray(raw) ? raw.filter((v): v is string => typeof v === 'string') : []
+  }
+
+  /** The exact env vars (names → key values) to inject into host processes. */
+  buildProviderKeyEnv(): Record<string, string> {
+    return resolveProviderKeyEnv(
+      this.providerKeyEnvMappings(),
+      this.cachedKnownEnvVars(),
+      getLoginEnvVar
+    )
+  }
+
+  /**
+   * Recompute the injected key vars and push the diff to every live host
+   * (best-effort setEnv broadcast — no restarts; new hosts get them at fork).
+   * Also refreshes the cached catalog var names so auto-detect self-corrects
+   * from the live registry after the seed table ages.
+   */
+  async syncProviderKeyEnv(): Promise<void> {
+    try {
+      const models = await this.listModels()
+      const names = [...new Set(models.map((m) => m.apiKeyEnvVar).filter((v): v is string => !!v))]
+      if (names.length) this.writeAppSetting('knownProviderEnvVars', names.sort())
+    } catch {}
+    const desired = this.buildProviderKeyEnv()
+    const vars: Record<string, string | null> = {}
+    for (const [name, value] of Object.entries(desired)) {
+      if (this.lastInjectedKeyEnv[name] !== value) vars[name] = value
+    }
+    for (const name of Object.keys(this.lastInjectedKeyEnv)) {
+      if (!(name in desired)) vars[name] = null
+    }
+    this.lastInjectedKeyEnv = desired
+    if (Object.keys(vars).length === 0) return
+    const handles = new Set<HostHandle>(this.hosts.values())
+    if (this.utilityHost) handles.add(this.utilityHost)
+    await Promise.all(
+      [...handles]
+        .filter((h) => !h.killed && h.status === 'ready')
+        .map((h) => this.request(h, { t: 'setEnv', reqId: randomUUID(), vars }).catch(() => {}))
+    )
+  }
+
+  /** Booleans-only status rows for Settings → API Keys (values never leave main). */
+  async providerKeyEnvStatus(): Promise<ProviderKeyEnvStatus[]> {
+    const mappings = this.providerKeyEnvMappings()
+    const standardVarOf = new Map<string, string>(Object.entries(SEED_PROVIDER_ENV_VARS))
+    try {
+      for (const m of await this.listModels()) {
+        if (m.apiKeyEnvVar) standardVarOf.set(m.provider, m.apiKeyEnvVar)
+      }
+    } catch {}
+    const providers = new Set([...standardVarOf.keys(), ...Object.keys(mappings)])
+    const out: ProviderKeyEnvStatus[] = []
+    for (const provider of providers) {
+      const mapping = mappings[provider]
+      const standardVar = standardVarOf.get(provider) ?? null
+      const standardDetected = standardVar ? Boolean(getLoginEnvVar(standardVar)?.trim()) : false
+      // Only rows the UI shows: an explicit mapping or a detected standard var.
+      if (!mapping && !standardDetected) continue
+      out.push({
+        provider,
+        standardVar,
+        standardDetected,
+        mappedVar: mapping?.envVar ?? null,
+        mappedResolved: mapping ? Boolean(getLoginEnvVar(mapping.envVar)?.trim()) : false
+      })
+    }
+    return out.sort((a, b) => a.provider.localeCompare(b.provider))
+  }
+
+  /**
+   * Save an env-var reference for a provider. Mutually exclusive with a stored
+   * key: any auth.json key for the provider is removed so the SDK's stored-
+   * key-wins precedence can't shadow the referenced var.
+   */
+  async setProviderKeyEnv(
+    provider: string,
+    envVar: string
+  ): Promise<{ standardVar: string; resolved: boolean }> {
+    let standardVar: string | undefined
+    try {
+      const models = await this.listModels()
+      standardVar = models.find((m) => m.provider === provider && m.apiKeyEnvVar)?.apiKeyEnvVar
+    } catch {}
+    standardVar ||= standardVarFallback(provider)
+    const mappings = this.providerKeyEnvMappings()
+    mappings[provider] = { envVar, standardVar }
+    this.writeAppSetting('providerKeyEnvVars', mappings)
+    await this.authRemove(provider).catch(() => {})
+    await this.syncProviderKeyEnv()
+    return { standardVar, resolved: Boolean(getLoginEnvVar(envVar)?.trim()) }
+  }
+
+  /** Remove a provider's reference; live hosts drop the var unless auto-detected. */
+  async removeProviderKeyEnv(provider: string): Promise<void> {
+    const mappings = this.providerKeyEnvMappings()
+    if (!(provider in mappings)) return
+    delete mappings[provider]
+    this.writeAppSetting('providerKeyEnvVars', mappings)
+    await this.syncProviderKeyEnv()
   }
 
   // ---- OAuth login flows ---------------------------------------------------

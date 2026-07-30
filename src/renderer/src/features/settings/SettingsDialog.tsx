@@ -1,9 +1,11 @@
 import React, { useState } from 'react'
 import { useAtom } from 'jotai'
 import {
+  AlertTriangle,
   Bot,
   Boxes,
   Cable,
+  CheckCircle2,
   Globe,
   Info,
   KeyRound,
@@ -15,6 +17,7 @@ import {
   SlidersHorizontal,
   Trash2
 } from 'lucide-react'
+import { ENV_VAR_NAME_RE, standardVarFallback } from '@shared/provider-key-env'
 import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
 import {
@@ -95,8 +98,11 @@ function AppearanceTab(): React.JSX.Element {
 export function KeysTab(): React.JSX.Element {
   const utils = trpc.useUtils()
   const auth = trpc.settings.authList.useQuery()
+  const keyEnv = trpc.settings.keyEnvStatus.useQuery()
   const [provider, setProvider] = useState(PROVIDERS[0])
   const [apiKey, setApiKey] = useState('')
+  const [envProvider, setEnvProvider] = useState(PROVIDERS[0])
+  const [envVar, setEnvVar] = useState('')
 
   /** Credentials changed: hasApiKey/hasKey flags and available packs are stale. */
   const invalidateModelData = (): void => {
@@ -104,28 +110,40 @@ export function KeysTab(): React.JSX.Element {
     utils.mastraSettings.listPacks.invalidate()
     utils.mastraSettings.sttRegistry.invalidate()
   }
+  const invalidateKeyData = (): void => {
+    utils.settings.authList.invalidate()
+    utils.settings.keyEnvStatus.invalidate()
+    invalidateModelData()
+  }
 
   const setKey = trpc.settings.authSet.useMutation({
     onSuccess: () => {
       setApiKey('')
-      utils.settings.authList.invalidate()
-      invalidateModelData()
+      invalidateKeyData()
     }
   })
   const removeKey = trpc.settings.authRemove.useMutation({
+    onSuccess: () => invalidateKeyData()
+  })
+  const setKeyEnv = trpc.settings.keyEnvSet.useMutation({
     onSuccess: () => {
-      utils.settings.authList.invalidate()
-      invalidateModelData()
+      setEnvVar('')
+      invalidateKeyData()
     }
+  })
+  const removeKeyEnv = trpc.settings.keyEnvRemove.useMutation({
+    onSuccess: () => invalidateKeyData()
   })
 
   const stored = auth.data ?? []
+  const envRows = keyEnv.data ?? []
 
   return (
     <div className="space-y-4">
       <div className="text-[11px] text-muted-foreground">
         Keys are stored in mastracode&apos;s app-data <code>auth.json</code> and shared with the
-        mastracode CLI.
+        mastracode CLI — or reference an environment variable below and Yardarm never stores the key
+        at all.
       </div>
       <div className="space-y-1">
         {auth.isLoading && <div className="text-xs text-muted-foreground">Loading…</div>}
@@ -171,7 +189,7 @@ export function KeysTab(): React.JSX.Element {
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
         />
-        <Tip content="Store this API key and unlock the provider's models">
+        <Tip content="Store this API key and unlock the provider's models — replaces any environment-variable reference for the provider">
           <span className="inline-flex">
             <Button
               size="sm"
@@ -186,6 +204,91 @@ export function KeysTab(): React.JSX.Element {
       {setKey.error && (
         <div className="text-xs text-destructive selectable">{setKey.error.message}</div>
       )}
+      <div className="space-y-2 border-t border-border pt-3">
+        <div className="text-xs font-medium">Environment variables</div>
+        <div className="text-[11px] text-muted-foreground">
+          Read from your login shell when the app starts — the key itself is never saved. Saving a
+          reference removes any stored key for that provider.
+        </div>
+        {envRows.map((row) => (
+          <div
+            key={row.provider}
+            className="flex items-center gap-2 rounded border border-border px-2 py-1.5"
+          >
+            <span className="flex-1 text-xs font-medium capitalize">{row.provider}</span>
+            {row.mappedVar ? (
+              <>
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  ${row.mappedVar}
+                </span>
+                {row.mappedResolved ? (
+                  <CheckCircle2 size={12} className="shrink-0 text-green-500" />
+                ) : (
+                  <span className="flex items-center gap-1 text-[11px] text-yellow-500">
+                    <AlertTriangle size={12} className="shrink-0" />
+                    not found in your login shell — export it and relaunch
+                  </span>
+                )}
+                <Tip content="Remove this environment-variable reference — models from this provider become unavailable unless a standard variable is set">
+                  <button
+                    className="text-muted-foreground hover:text-destructive cursor-pointer"
+                    onClick={() => removeKeyEnv.mutate({ provider: row.provider })}
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </Tip>
+              </>
+            ) : (
+              <span className="font-mono text-[11px] text-muted-foreground">
+                {row.standardVar} detected in shell
+              </span>
+            )}
+          </div>
+        ))}
+        <div className="flex gap-2">
+          <select
+            value={envProvider}
+            onChange={(e) => setEnvProvider(e.target.value)}
+            className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+          >
+            {PROVIDERS.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+          <Input
+            className="font-mono"
+            placeholder={standardVarFallback(envProvider)}
+            value={envVar}
+            onChange={(e) => setEnvVar(e.target.value)}
+          />
+          <Tip content="Reference this environment variable for the provider's API key — the key value is never stored by Yardarm">
+            <span className="inline-flex">
+              <Button
+                size="sm"
+                disabled={!ENV_VAR_NAME_RE.test(envVar.trim()) || setKeyEnv.isPending}
+                onClick={() => setKeyEnv.mutate({ provider: envProvider, envVar: envVar.trim() })}
+              >
+                Save
+              </Button>
+            </span>
+          </Tip>
+        </div>
+        {setKeyEnv.data && !setKeyEnv.data.resolved && (
+          <div className="flex items-center gap-1 text-[11px] text-yellow-500">
+            <AlertTriangle size={12} className="shrink-0" />
+            Saved, but the variable isn&apos;t set in your login shell — export it in your shell
+            profile and relaunch Yardarm.
+          </div>
+        )}
+        {setKeyEnv.error && (
+          <div className="text-xs text-destructive selectable">{setKeyEnv.error.message}</div>
+        )}
+        {removeKeyEnv.error && (
+          <div className="text-xs text-destructive selectable">{removeKeyEnv.error.message}</div>
+        )}
+      </div>
     </div>
   )
 }

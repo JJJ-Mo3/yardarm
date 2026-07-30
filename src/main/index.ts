@@ -59,7 +59,11 @@ app.whenReady().then(() => {
     .then(() => agentSessionManager.preflight())
     .then((res) => {
       if (!res.ok) console.error('[preflight] mastracode boot failed:', res.error)
+      // First catalog fetch corrects the cached provider env-var names and
+      // pushes env-var-referenced API keys to the booted host.
+      return agentSessionManager.syncProviderKeyEnv()
     })
+    .catch(() => {})
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

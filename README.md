@@ -309,6 +309,10 @@ Yardarm puts a desktop workspace around the agent:
   project's worktrees, so one login covers every chat
 - API keys for any supported provider in Settings → API Keys, plus custom
   OpenAI-compatible providers in Settings → Providers
+- API keys by environment variable: reference a variable name (any name)
+  instead of pasting the key, and standard variables such as
+  `ANTHROPIC_API_KEY` are detected automatically — values are read from
+  your login shell at launch and never stored by Yardarm
 - Model defaults per mode, subagent, goal judge, and OM roles in
   Settings → Models — written to the shared `settings.json`
 - Custom subagents editor (Settings → Agents, `/subagents`): create and
@@ -537,7 +541,16 @@ preserves keys it doesn't know about.
 **Where are my API keys stored?**
 In mastracode's own `auth.json` in its platform app-data directory (see
 above). Yardarm reads and writes the same file the CLI uses; keys are never
-sent anywhere except to the provider they belong to.
+sent anywhere except to the provider they belong to. Prefer not to store a
+key at all? Reference an environment variable instead (Settings → API Keys →
+Environment variables): the value is read from your login shell each time
+the app starts and only handed to the agent processes — Yardarm persists
+just the variable name. Standard variables like `ANTHROPIC_API_KEY` are
+detected automatically. A stored key takes precedence over the environment,
+so the two modes are mutually exclusive per provider — saving one clears the
+other. On macOS, export the variable in your shell profile (e.g. `~/.zshrc`
+or `~/.zprofile`) and relaunch the app to pick it up. As with the CLI, the
+variables are visible to shell commands the agent runs.
 
 **Can I run fully offline / air-gapped?**
 Yes, with local models: complete onboarding by adding a local provider, and

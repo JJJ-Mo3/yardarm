@@ -95,6 +95,8 @@ No accounts or login — everything runs locally against mastracode's own config
   `workspace/configuration` handler to answer per-section from the server's settings, because
   the SDK's stock `{}` answers drop the validate flags and crash the html server's embedded
   JS mode →
+  re-verify `SEED_PROVIDER_ENV_VARS` (`src/shared/provider-key-env.ts`) and the catalog's
+  `apiKeyEnvVar` names against the new SDK's provider registry →
   `pnpm package` restages `vendor/` → packaged boot-check + a real agent turn.
   Dev typecheck alone does not prove the packaged runtime (npm-staged vs pnpm dev trees).
 - LSP pack pins live in `src/shared/lsp-packs.ts` and must match the exact devDependencies

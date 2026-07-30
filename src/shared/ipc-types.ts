@@ -133,6 +133,8 @@ export type HostCommand =
   | { t: 'authRemove'; reqId: string; provider: string }
   /** Credentials changed elsewhere — re-read auth.json and drop model caches. */
   | { t: 'authReload'; reqId: string }
+  /** Set/delete process.env vars in the host (null deletes) and drop model caches. */
+  | { t: 'setEnv'; reqId: string; vars: Record<string, string | null> }
   | { t: 'oauthProviders'; reqId: string }
   | { t: 'oauthLogin'; reqId: string; provider: string; authMode?: string }
   /** Answer a pending onPrompt of the login flow identified by reqId. */
@@ -207,12 +209,30 @@ export interface ModelInfo {
   provider: string
   modelName: string
   hasApiKey: boolean
+  /** The provider's standard API-key env var (e.g. ANTHROPIC_API_KEY). */
+  apiKeyEnvVar?: string
   useCount?: number
 }
 
 export interface AuthEntry {
   provider: string
   hasKey: boolean
+}
+
+/**
+ * Per-provider status of env-var-referenced API keys (Settings → API Keys).
+ * Booleans only — env var values never leave the main process.
+ */
+export interface ProviderKeyEnvStatus {
+  provider: string
+  /** The provider's standard env var name, when known. */
+  standardVar: string | null
+  /** The standard var is set in the captured login-shell env. */
+  standardDetected: boolean
+  /** Explicit user mapping: env var name to read the key from. */
+  mappedVar: string | null
+  /** The mapped var is set in the captured login-shell env. */
+  mappedResolved: boolean
 }
 
 /** An SDK OAuth provider (Anthropic, OpenAI Codex, GitHub Copilot). */

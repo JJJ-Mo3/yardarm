@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb, schema } from '../../db'
 import { agentSessionManager } from '../../agent/agent-session-manager'
+import { ENV_VAR_NAME_RE } from '../../../../shared/provider-key-env'
 import type { OAuthStatusEvent } from '../../../../shared/ipc-types'
 import { publicProcedure, router } from '../trpc'
 
@@ -67,6 +68,28 @@ export const settingsRouter = router({
     .input(z.object({ provider: z.string().min(1) }))
     .mutation(async ({ input }) => {
       await agentSessionManager.authRemove(input.provider)
+      return { ok: true }
+    }),
+
+  // Provider keys referenced by env var name — values never leave the main process
+  keyEnvStatus: publicProcedure.query(() => agentSessionManager.providerKeyEnvStatus()),
+
+  keyEnvSet: publicProcedure
+    .input(
+      z.object({
+        provider: z.string().min(1),
+        envVar: z.string().regex(ENV_VAR_NAME_RE, 'Not a valid environment variable name')
+      })
+    )
+    .mutation(async ({ input }) => {
+      const res = await agentSessionManager.setProviderKeyEnv(input.provider, input.envVar)
+      return { ok: true, ...res }
+    }),
+
+  keyEnvRemove: publicProcedure
+    .input(z.object({ provider: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      await agentSessionManager.removeProviderKeyEnv(input.provider)
       return { ok: true }
     }),
 

@@ -179,7 +179,12 @@
             </tr>
             <tr>
               <td><strong>API Keys</strong></td>
-              <td>provider API keys (stored in mastracode's <code>auth.json</code>)</td>
+              <td>
+                provider API keys (stored in mastracode's <code>auth.json</code>) or
+                environment-variable references — read from your login shell at launch, never
+                stored; standard variables like <code>ANTHROPIC_API_KEY</code> are detected
+                automatically
+              </td>
             </tr>
             <tr>
               <td><strong>Models</strong></td>

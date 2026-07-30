@@ -304,7 +304,12 @@ App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
 - **Appearance** — light/dark/system theme.
 - **Preferences** — agent behavior defaults, sandbox default, token compression and
   verbosity steering.
-- **API Keys** — keys for model providers, stored locally.
+- **API Keys** — keys for model providers, stored locally. Instead of pasting a key you can
+  reference an environment variable (e.g. \`ANTHROPIC_API_KEY\`) — the value is read from your
+  login shell at launch and never saved by Yardarm. Standard variables are detected
+  automatically; a stored key takes precedence, so saving one mode clears the other. Export
+  new variables in your shell profile and relaunch the app to pick them up. Like with the
+  CLI, referenced variables are visible to shell commands the agent runs.
 - **Models** — pick default models and manage the model list.
 - **Providers** — provider OAuth logins and local providers (e.g. Ollama), including
   installing and pulling local models.
@@ -354,14 +359,15 @@ get generated settings forms.
     body: `
 ### Do I need an account?
 
-No. Yardarm has no accounts or login. You bring your own model access — API keys or provider
-sign-ins — and everything is stored locally.
+No. Yardarm has no accounts or login. You bring your own model access — API keys,
+environment-variable references, or provider sign-ins — and everything is stored locally.
 
 ### Where is my data stored?
 
 Chats and app state live in a local SQLite database in the app's data folder. Worktrees live
 under the app's data folder too. Model keys, provider auth, and agent settings live in the
-\`mastracode\` configuration in your home directory, shared with the CLI.
+\`mastracode\` configuration in your home directory, shared with the CLI. Keys referenced by
+environment variable are never stored anywhere by Yardarm.
 
 ### How does Yardarm relate to the mastracode CLI?
 
