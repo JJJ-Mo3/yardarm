@@ -300,6 +300,35 @@ describe('approvals and suspensions', () => {
     expect(h.t.pendingSuspensions.size).toBe(0)
     expect(h.emitted.some((e) => e.type === 'suspension-resolved')).toBe(true)
   })
+
+  it('clears a suspension and errors the tool part on tool_suspension_cancelled', () => {
+    const h = makeTranslator()
+    h.t.handle(msgEvent('message_start', 'm1', []))
+    h.t.handle({
+      type: 'tool_suspended',
+      toolCallId: 't1',
+      toolName: 'ask_user',
+      args: {},
+      suspendPayload: { question: 'Pick one' }
+    })
+    expect(h.t.pendingSuspensions.size).toBe(1)
+    // sdk 1.1.1: a stream error cancels parked suspensions — resume is impossible.
+    h.t.handle({
+      type: 'tool_suspension_cancelled',
+      toolCallId: 't1',
+      toolName: 'ask_user',
+      reason: 'provider exploded'
+    })
+    expect(h.t.pendingSuspensions.size).toBe(0)
+    const resolved = h.emitted.filter((e) => e.type === 'suspension-resolved')
+    expect(resolved).toHaveLength(1)
+    expect(resolved[0].type === 'suspension-resolved' && resolved[0].toolCallId).toBe('t1')
+    const part = lastUpsert(h.emitted, 'm1')?.parts[0]
+    expect(part?.type === 'tool-call' && part.status).toBe('error')
+    expect(part?.type === 'tool-call' && part.result).toBe(
+      'Suspension cancelled: provider exploded'
+    )
+  })
 })
 
 describe('session meta and misc events', () => {

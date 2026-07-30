@@ -233,6 +233,22 @@ export class EventTranslator {
         break
       }
 
+      case 'tool_suspension_cancelled': {
+        // sdk 1.1.1: emitted on stream error for parked suspensions — the SDK
+        // has discarded them, so resume can never succeed. Clear the card.
+        const id = ev.toolCallId as string
+        const meta = this.toolMeta.get(id)
+        if (meta) {
+          meta.status = 'error'
+          meta.result = `Suspension cancelled: ${(ev.reason as string) ?? 'run error'}`
+          this.refreshToolPart(id, true)
+        }
+        if (this.pendingSuspensions.delete(id)) {
+          this.cb.emit({ type: 'suspension-resolved', toolCallId: id })
+        }
+        break
+      }
+
       case 'usage_update': {
         this.applyStepUsage(normalizeUsage((ev.usage ?? {}) as Record<string, unknown>))
         break

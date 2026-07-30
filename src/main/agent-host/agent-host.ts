@@ -876,11 +876,17 @@ async function main(): Promise<void> {
 
   /**
    * Drop the controller's ~10s model-catalog cache so the next listModels
-   * recomputes hasApiKey after credentials change. availableModelsCache is a
-   * plain property on the SDK's AgentController.
+   * recomputes hasApiKey after credentials change. core 1.55.0 exposes an
+   * official invalidateAvailableModelsCache(); fall back to nulling the
+   * soft-private property for older runtimes.
    */
   const bustModelCache = (): void => {
-    ;(controller as unknown as { availableModelsCache?: unknown }).availableModelsCache = null
+    const c = controller as unknown as {
+      invalidateAvailableModelsCache?: () => void
+      availableModelsCache?: unknown
+    }
+    if (typeof c.invalidateAvailableModelsCache === 'function') c.invalidateAvailableModelsCache()
+    else c.availableModelsCache = null
   }
 
   /**

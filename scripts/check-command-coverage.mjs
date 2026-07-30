@@ -18,14 +18,14 @@ const CANONICAL = [
   // approvals & permissions
   'yolo', 'permissions',
   // goals & memory
-  'goal', 'om', 'resource',
+  'goal', 'om', 'memory', 'resource',
   // threads
   'new', 'threads', 'thread', 'name', 'clone', 'thread:tag-dir',
   // usage & git
-  'cost', 'diff',
+  'cost', 'diff', 'prune',
   // config & extensions
   'settings', 'theme', 'mcp', 'hooks', 'commands', 'skills', 'skill',
-  'subagents', 'custom-providers',
+  'subagents', 'plugins', 'custom-providers',
   // auth
   'login', 'logout', 'api-keys',
   // integrations (TUI-only)

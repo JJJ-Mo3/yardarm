@@ -38,6 +38,7 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
   { name: 'commands', description: 'Manage custom .md commands', kind: 'builtin' },
   { name: 'resource', description: 'Show/set the memory resource id', kind: 'builtin' },
   { name: 'skills', description: 'List installed skills & plugins', kind: 'builtin' },
+  { name: 'plugins', description: 'Manage Mastra Code plugins', kind: 'builtin' },
   { name: 'skill', description: 'Run a skill', args: '<name> [args]', kind: 'builtin' },
   { name: 'subagents', description: 'Manage custom subagents', kind: 'builtin' },
   { name: 'sandbox', description: 'Sandbox & session settings', kind: 'builtin' },
@@ -48,6 +49,7 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
     kind: 'builtin'
   },
   { name: 'om', description: 'Observational Memory status', kind: 'builtin' },
+  { name: 'memory', description: 'Configure Observational Memory', kind: 'builtin' },
   { name: 'new', description: 'Start a new thread', kind: 'builtin' },
   { name: 'threads', description: 'List and switch threads', kind: 'builtin' },
   { name: 'thread', description: 'Thread operations', kind: 'builtin' },
@@ -88,6 +90,7 @@ export const CLI_ONLY_COMMANDS: SlashCommandEntry[] = [
   { name: 'browser', description: 'Browser tool', kind: 'cli-only' },
   { name: 'setup', description: 'Onboarding wizard', kind: 'cli-only' },
   { name: 'update', description: 'Update the CLI', kind: 'cli-only' },
+  { name: 'prune', description: 'Prune old storage data', kind: 'cli-only' },
   { name: 'report-issue', description: 'Report an issue', kind: 'cli-only' },
   { name: 'exit', description: 'Exit the TUI', kind: 'cli-only' }
 ]

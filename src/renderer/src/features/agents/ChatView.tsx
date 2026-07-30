@@ -422,6 +422,7 @@ export function ChatView({
         openProjectSettings('resource')
         return
       case 'skills':
+      case 'plugins':
         openProjectSettings('plugins')
         return
       case 'skill': {
@@ -466,6 +467,7 @@ export function ChatView({
         return
       }
       case 'om':
+      case 'memory':
         setOmOpen(true)
         return
       case 'help':
