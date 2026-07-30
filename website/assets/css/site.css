@@ -214,11 +214,11 @@ img {
    so the logo blends into the strip in both color schemes. */
 .hero-band {
   background: #1c1d1c;
-  padding: 2rem 1.25rem;
+  padding: 1.5rem 1.25rem;
 }
 
 .hero-logo {
-  max-width: 12rem;
+  max-width: 9rem;
   width: 100%;
 }
 
