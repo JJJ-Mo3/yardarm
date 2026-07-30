@@ -205,13 +205,27 @@ img {
 
 /* ---------- Hero ---------- */
 
+/* Dark band matching the hero logo image background (#1c1d1c) in both color schemes:
+   the theme variables are re-declared locally so buttons and links inside the hero
+   pick up the dark palette. */
 .hero {
   padding: 3.5rem 0 2.5rem;
   text-align: center;
+  background: #1c1d1c;
+  --bg: #1c1d1c;
+  --bg-soft: #292b29;
+  --bg-code: #242624;
+  --text: #e7edf5;
+  --text-muted: #9aa8b6;
+  --accent: #64b1e4;
+  --accent-strong: #8cc7ef;
+  --accent-contrast: #08111d;
+  --border: #363934;
+  color: var(--text);
 }
 
 .hero-logo {
-  max-width: 30rem;
+  max-width: 16rem;
   width: 100%;
 }
 
