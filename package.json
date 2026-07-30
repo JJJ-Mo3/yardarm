@@ -1,6 +1,6 @@
 {
   "name": "yardarm",
-  "version": "0.9.8",
+  "version": "0.9.9",
   "description": "Standalone Electron desktop UI for Mastra Code",
   "author": "Yardarm contributors",
   "main": "out/main/index.js",
