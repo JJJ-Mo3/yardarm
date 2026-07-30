@@ -369,6 +369,16 @@ under the app's data folder too. Model keys, provider auth, and agent settings l
 \`mastracode\` configuration in your home directory, shared with the CLI. Keys referenced by
 environment variable are never stored anywhere by Yardarm.
 
+### Can I avoid storing my API key on disk?
+
+Yes. In Settings → API Keys → Environment variables, point a provider at an environment
+variable (any name) instead of pasting the key. The value is read from your login shell when
+the app starts and is never stored — only the variable name is saved. Standard variables like
+\`ANTHROPIC_API_KEY\` are detected automatically. A stored key takes precedence, so saving a
+reference removes the stored key (and vice versa). Export new variables in your shell profile
+and relaunch the app to pick them up. Like any exported key, the variable is visible to shell
+commands the agent runs.
+
 ### How does Yardarm relate to the mastracode CLI?
 
 Yardarm bundles the Mastra Code runtime and shares its configuration files and threads with

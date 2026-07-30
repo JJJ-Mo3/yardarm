@@ -541,11 +541,15 @@ preserves keys it doesn't know about.
 **Where are my API keys stored?**
 In mastracode's own `auth.json` in its platform app-data directory (see
 above). Yardarm reads and writes the same file the CLI uses; keys are never
-sent anywhere except to the provider they belong to. Prefer not to store a
-key at all? Reference an environment variable instead (Settings → API Keys →
-Environment variables): the value is read from your login shell each time
-the app starts and only handed to the agent processes — Yardarm persists
-just the variable name. Standard variables like `ANTHROPIC_API_KEY` are
+sent anywhere except to the provider they belong to. Prefer not to store the
+key at all? See the next question.
+
+**Can I avoid storing my API key on disk?**
+Yes. Reference an environment variable instead (Settings → API Keys →
+Environment variables): point a provider at a variable name (any name) and
+the value is read from your login shell each time the app starts and only
+handed to the agent processes — Yardarm persists just the variable name.
+Standard variables like `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` are
 detected automatically. A stored key takes precedence over the environment,
 so the two modes are mutually exclusive per provider — saving one clears the
 other. On macOS, export the variable in your shell profile (e.g. `~/.zshrc`
