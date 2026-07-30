@@ -7,6 +7,7 @@ import { normalizeModelIdsInSettings } from './lib/mastra-config/normalize-model
 import { ptyManager } from './lib/terminal/pty-manager'
 import { createWindow, setIpcHandler } from './windows/window-manager'
 import { updateManager } from './lib/updates/update-manager'
+import { getLspPackManager } from './lib/lsp-packs/pack-manager'
 import { warmLoginPath } from './lib/system/login-path'
 import icon from '../../build/icon.png?asset'
 
@@ -45,6 +46,7 @@ app.whenReady().then(() => {
 
   createWindow()
   updateManager.init()
+  void getLspPackManager().then((m) => m.cleanupPartial())
 
   // Capture the login-shell PATH (packaged apps launch with the bare launchd
   // one), heal gateway-prefixed model ids saved before catalog normalization,

@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Download,
   FileText,
   Folder,
   Info,
@@ -29,6 +30,7 @@ import {
 } from 'lucide-react'
 import { useAtom, useAtomValue } from 'jotai'
 import type { LspDiagnosticInfo, LspDiagnosticsResult } from '@shared/ipc-types'
+import { LSP_PACKS } from '@shared/lsp-packs'
 import '../../lib/monaco-setup'
 import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
@@ -458,6 +460,38 @@ export function FilesView({
   const warningCount = problems.filter((d) => d.severity === 'warning').length
   const unavailable =
     activeDiags && !activeDiags.loading ? activeDiags.result.unavailableReason : undefined
+  const missingPackId =
+    activeDiags && !activeDiags.loading ? activeDiags.result.missingPackId : undefined
+
+  // Inline optional language-server pack offer: when diagnostics report a
+  // missing downloadable pack, poll its status and offer a one-click install.
+  const packsList = trpc.lspPacks.list.useQuery(undefined, {
+    enabled: Boolean(missingPackId),
+    refetchInterval: (query) =>
+      query.state.data?.some((p) => p.phase === 'downloading' || p.phase === 'extracting')
+        ? 750
+        : false
+  })
+  const downloadPack = trpc.lspPacks.download.useMutation({
+    onSuccess: () => void packsList.refetch()
+  })
+  const missingPack = missingPackId ? LSP_PACKS.find((p) => p.id === missingPackId) : undefined
+  const packStatus = missingPackId ? packsList.data?.find((p) => p.id === missingPackId) : undefined
+  const packBusy = packStatus?.phase === 'downloading' || packStatus?.phase === 'extracting'
+  // Re-run diagnostics once the offered pack finishes installing so the
+  // panel flips from the download hint to live problems without a restart.
+  const packWasBusy = useRef(false)
+  useEffect(() => {
+    if (packBusy) {
+      packWasBusy.current = true
+      return
+    }
+    if (packWasBusy.current && packStatus?.installedVersion && missingPackId && activePath) {
+      packWasBusy.current = false
+      void refreshDiagnostics(activePath)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh only on install completion
+  }, [packBusy, packStatus?.installedVersion, missingPackId, activePath])
 
   const goToProblem = (d: LspDiagnosticInfo): void => {
     const ed = editorRef.current
@@ -624,7 +658,9 @@ export function FilesView({
                   {activeDiags?.loading ? (
                     <span className="text-muted-foreground">Checking…</span>
                   ) : unavailable ? (
-                    <span className="truncate text-muted-foreground">Diagnostics unavailable</span>
+                    <span className="truncate text-muted-foreground">
+                      {missingPack ? 'Server not installed' : 'Diagnostics unavailable'}
+                    </span>
                   ) : problems.length === 0 ? (
                     <>
                       <CheckCircle2 size={12} className="text-green-500" />
@@ -672,7 +708,41 @@ export function FilesView({
             {problemsOpen && (
               <div className="max-h-40 overflow-y-auto border-t border-border py-0.5">
                 {unavailable ? (
-                  <div className="px-3 py-1.5 text-[11px] text-muted-foreground">{unavailable}</div>
+                  <div className="px-3 py-1.5 text-[11px] text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <span className="min-w-0 flex-1">{unavailable}</span>
+                      {missingPack &&
+                        (packBusy ? (
+                          <span className="shrink-0 tabular-nums">
+                            {packStatus?.phase === 'extracting'
+                              ? 'Installing…'
+                              : `Downloading… ${Math.round((packStatus?.progress ?? 0) * 100)}%`}
+                          </span>
+                        ) : (
+                          <Tip
+                            content={`Download the ${missingPack.name} language server (~${missingPack.approxSizeMb} MB, one-time — also available in Settings → Languages)`}
+                          >
+                            <span className="inline-flex shrink-0">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-5 gap-1 px-1.5 text-[11px]"
+                                disabled={downloadPack.isPending}
+                                onClick={() => downloadPack.mutate({ packId: missingPack.id })}
+                              >
+                                <Download size={11} />
+                                {packStatus?.phase === 'error'
+                                  ? 'Retry'
+                                  : `Download (~${missingPack.approxSizeMb} MB)`}
+                              </Button>
+                            </span>
+                          </Tip>
+                        ))}
+                    </div>
+                    {packStatus?.phase === 'error' && packStatus.error && (
+                      <div className="mt-1 break-words text-destructive">{packStatus.error}</div>
+                    )}
+                  </div>
                 ) : problems.length === 0 ? (
                   <div className="px-3 py-1.5 text-[11px] text-muted-foreground">
                     {activeDiags?.loading

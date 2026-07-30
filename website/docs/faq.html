@@ -119,7 +119,10 @@
         <h2 id="offline">Can I run fully offline / air-gapped?</h2>
         <p>
           Yes, with local models: complete onboarding by adding a local provider, and skip OAuth/API
-          keys entirely.
+          keys entirely. One caveat: the optional IDE language-server packs (Web, YAML, Python, ERB
+          — Settings → Languages) are one-time downloads from GitHub, so grab any you want while
+          online; they work fully offline afterwards. TypeScript/JavaScript diagnostics are built in
+          and need no download.
         </p>
 
         <h2 id="timeouts">My local model is slow — will runs time out?</h2>

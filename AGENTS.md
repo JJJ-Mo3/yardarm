@@ -81,10 +81,12 @@ No accounts or login — everything runs locally against mastracode's own config
   miss publishes for paths with spaces (every worktree under "Application Support"), and
   TS/JS, web, YAML, Python, ERB, Go, Rust and Ruby diagnostics bypass the SDK's LSPManager
   entirely: `getLspClient` constructs the SDK's `LSPClient` class (deep import
-  `@mastra/code-sdk/lsp/client`) around the servers in the `LSP_SERVERS` table — bundled
-  node servers (typescript-language-server, vscode-langservers-extracted,
-  yaml-language-server, pyright, @herb-tools/language-server — staged into the runtime by
-  build-agent-runtime.mjs, run via `process.execPath` + `ELECTRON_RUN_AS_NODE`) plus external
+  `@mastra/code-sdk/lsp/client`) around the servers in the `LSP_SERVERS` table — the bundled
+  typescript-language-server (staged into the runtime by build-agent-runtime.mjs), the
+  downloadable pack servers (vscode-langservers-extracted, yaml-language-server, pyright,
+  @herb-tools/language-server — resolved from `<userData>/lsp-servers/<pack>/<version>` via
+  `lsp-pack-resolve.ts`, repo node_modules fallback in dev; all node servers run via
+  `process.execPath` + `ELECTRON_RUN_AS_NODE`) plus external
   toolchain binaries (gopls / rust-analyzer / ruby-lsp, resolved from PATH + well-known
   install dirs by `findExecutable`) — so check that class's constructor/initialize
   signatures, the
@@ -95,6 +97,10 @@ No accounts or login — everything runs locally against mastracode's own config
   JS mode →
   `pnpm package` restages `vendor/` → packaged boot-check + a real agent turn.
   Dev typecheck alone does not prove the packaged runtime (npm-staged vs pnpm dev trees).
+- LSP pack pins live in `src/shared/lsp-packs.ts` and must match the exact devDependencies
+  pins (vitest tripwire in `src/shared/lsp-packs.test.ts`); `scripts/build-lsp-packs.mjs`
+  builds the per-pack release zips; the 4 pack packages must never be re-added to
+  build-agent-runtime.mjs's deps list.
 - Native modules (better-sqlite3, node-pty) are `asarUnpack`ed — see `electron-builder.yml`.
 - Each chat can run in its own git worktree under Electron userData
   (`worktrees/<projectId>/<chatId>`, branch prefix `yardarm/`); rollback checkpoints are stored

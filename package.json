@@ -22,6 +22,7 @@
     "check:commands": "node scripts/check-command-coverage.mjs",
     "postinstall": "electron-builder install-app-deps",
     "stage:agent-runtime": "node scripts/build-agent-runtime.mjs",
+    "build:lsp-packs": "node scripts/build-lsp-packs.mjs",
     "package": "npm run stage:agent-runtime && electron-vite build && electron-builder --dir",
     "dist": "npm run stage:agent-runtime && electron-vite build && electron-builder"
   },
@@ -79,7 +80,7 @@
     "mastracode": "0.32.1",
     "monaco-editor": "^0.55.1",
     "prettier": "^3.9.5",
-    "pyright": "^1.1.411",
+    "pyright": "1.1.411",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-markdown": "^10.1.0",
@@ -93,8 +94,8 @@
     "undici": "^8.8.0",
     "vite": "^7.0.0",
     "vitest": "^4.1.10",
-    "vscode-langservers-extracted": "^4.10.0",
-    "yaml-language-server": "^1.24.0",
+    "vscode-langservers-extracted": "4.10.0",
+    "yaml-language-server": "1.24.0",
     "zustand": "^5.0.14"
   },
   "pnpm": {

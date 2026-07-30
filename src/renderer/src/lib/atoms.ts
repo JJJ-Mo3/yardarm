@@ -23,6 +23,7 @@ export type SettingsTab =
   | 'connectors'
   | 'mcp'
   | 'agents'
+  | 'languages'
   | 'about'
 export const settingsTabAtom = atom<SettingsTab>('appearance')
 export const helpOpenAtom = atom(false)

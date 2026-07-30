@@ -57,6 +57,12 @@ jobs:
       - name: Stage agent runtime
         run: pnpm stage:agent-runtime
 
+      # Optional language-server packs (src/shared/lsp-packs.ts): built as
+      # separate release assets the app downloads on demand instead of
+      # bundling ~300MB of servers into every install.
+      - name: Build LSP server packs
+        run: pnpm build:lsp-packs
+
       # The monaco-heavy renderer bundle blows Node's default ~2GB heap.
       - name: Build
         run: pnpm build
@@ -100,3 +106,4 @@ jobs:
           files: |
             dist/*.dmg
             dist/*.zip
+            dist/lsp-packs/*.zip

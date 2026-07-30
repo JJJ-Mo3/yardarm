@@ -265,10 +265,12 @@ Yardarm puts a desktop workspace around the agent:
   agent is told about your edits immediately while it's working, or with
   your next message; clean buffers refresh when the agent changes files),
   a problems panel with language-server diagnostics for the active file
-  (refreshed as you type, on open and on save, with inline markers; servers for
-  TypeScript/JavaScript, HTML/CSS/JSON, YAML, Python and ERB are bundled,
-  Go/Rust/Ruby use gopls/rust-analyzer/ruby-lsp from your PATH or well-known
-  install dirs like ~/go/bin and ~/.cargo/bin), and an integrated
+  (refreshed as you type, on open and on save, with inline markers; the
+  TypeScript/JavaScript server is built in, HTML/CSS/JSON, YAML, Python and
+  ERB servers are optional one-time downloads from Settings → Languages or
+  the problems panel itself, and Go/Rust/Ruby use
+  gopls/rust-analyzer/ruby-lsp from your PATH or well-known install dirs
+  like ~/go/bin and ~/.cargo/bin), and an integrated
   terminal (node-pty + xterm) that opens in the chat's worktree
 - CLI tab that runs the interactive Mastra Code TUI in the chat's worktree,
   sharing the chat's thread history

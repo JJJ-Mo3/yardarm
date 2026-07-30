@@ -11,7 +11,7 @@
  * packaged (HostBootConfig.agentRuntimePath).
  */
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -25,16 +25,13 @@ const version = (name) => appPkg.dependencies?.[name] ?? appPkg.devDependencies?
 const deps = {
   mastracode: version('mastracode'),
   '@mastra/code-sdk': version('@mastra/code-sdk'),
-  // IDE problems panel: the agent host spawns these bundled language servers
-  // (the `entry` rows of LSP_SERVERS in agent-host.ts) so diagnostics for
-  // TS/JS, HTML/CSS/JSON, YAML, Python and ERB work without any
-  // user-installed tooling.
+  // IDE problems panel: only the TS/JS language server ships in the app
+  // (the most common language). The web/YAML/Python/ERB servers are optional
+  // downloadable packs (src/shared/lsp-packs.ts, built as release assets by
+  // scripts/build-lsp-packs.mjs) and must never be re-added here — a vitest
+  // tripwire (src/shared/lsp-packs.test.ts) guards this list.
   'typescript-language-server': version('typescript-language-server'),
-  typescript: version('typescript'),
-  'vscode-langservers-extracted': version('vscode-langservers-extracted'),
-  'yaml-language-server': version('yaml-language-server'),
-  pyright: version('pyright'),
-  '@herb-tools/language-server': version('@herb-tools/language-server')
+  typescript: version('typescript')
 }
 for (const [name, v] of Object.entries(deps)) {
   if (!v) {
@@ -52,12 +49,36 @@ function stagedVersion(name) {
   }
 }
 
+function stagedDeps() {
+  try {
+    return JSON.parse(readFileSync(join(stageDir, 'package.json'), 'utf8')).dependencies ?? null
+  } catch {
+    return null
+  }
+}
+
+// Up to date only when the staged dependency *set* exactly equals `deps` —
+// version checks alone would let a previously staged tree keep shipping
+// packages that have since been removed from this list (e.g. the ~300MB of
+// language servers that moved to optional packs).
+const staged = stagedDeps()
+const sameDepSet =
+  staged !== null &&
+  JSON.stringify(Object.entries(staged).sort()) === JSON.stringify(Object.entries(deps).sort())
 if (
+  sameDepSet &&
   Object.entries(deps).every(([name, version]) => stagedVersion(name) === version) &&
   stagedVersion('@mastra/core') // hoist-dependent transitive dep, see assert below
 ) {
   console.log(`[agent-runtime] up to date (mastracode ${deps.mastracode})`)
   process.exit(0)
+}
+
+// A stale tree with a different dependency set gets wiped rather than trusted
+// to npm's pruning, so removed packages can never linger in the staged tree.
+if (staged !== null && !sameDepSet) {
+  console.log('[agent-runtime] staged dependency set changed — restaging from scratch')
+  rmSync(stageDir, { recursive: true, force: true })
 }
 
 console.log(`[agent-runtime] staging mastracode ${deps.mastracode} in vendor/agent-runtime ...`)

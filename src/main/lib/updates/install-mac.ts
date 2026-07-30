@@ -10,14 +10,11 @@
  * pointless — the real bundle lives elsewhere).
  */
 import { execFile } from 'node:child_process'
-import { createWriteStream } from 'node:fs'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { Readable } from 'node:stream'
-import { pipeline } from 'node:stream/promises'
-import type { ReadableStream as WebReadableStream } from 'node:stream/web'
 import { promisify } from 'node:util'
+import { downloadAsset } from './download'
 import type { ReleaseAsset } from './github-release'
 
 const execFileAsync = promisify(execFile)
@@ -67,27 +64,7 @@ export async function downloadAndStage(
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'yardarm-update-'))
   try {
     const zipPath = path.join(tmp, asset.name)
-    const { net } = await import('electron')
-    const res = await net.fetch(asset.browser_download_url, {
-      headers: { 'User-Agent': 'yardarm-updater' }
-    })
-    if (!res.ok || !res.body) throw new Error(`Download failed (${res.status})`)
-
-    let received = 0
-    const counter = new TransformStream<Uint8Array, Uint8Array>({
-      transform(chunk, controller) {
-        received += chunk.byteLength
-        if (asset.size > 0) onProgress?.(Math.min(received / asset.size, 1))
-        controller.enqueue(chunk)
-      }
-    })
-    const body = res.body.pipeThrough(counter) as unknown as WebReadableStream<Uint8Array>
-    await pipeline(Readable.fromWeb(body), createWriteStream(zipPath))
-
-    const stat = await fs.stat(zipPath)
-    if (asset.size > 0 && stat.size !== asset.size) {
-      throw new Error(`Download incomplete (${stat.size} of ${asset.size} bytes)`)
-    }
+    await downloadAsset(asset, zipPath, onProgress)
 
     onStageStart?.()
     const extractDir = path.join(tmp, 'extracted')

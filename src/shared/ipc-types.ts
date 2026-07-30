@@ -374,6 +374,8 @@ export interface LspDiagnosticsResult {
   diagnostics: LspDiagnosticInfo[]
   /** Set when no diagnostics could be produced (no server, unsupported file…). */
   unavailableReason?: string
+  /** Set when the reason is an uninstalled optional server pack — the UI offers a download. */
+  missingPackId?: string
 }
 
 /** Repository hosting provider a project's PR/MR features talk to. */
@@ -501,4 +503,9 @@ export interface HostBootConfig {
    * from its node_modules instead of the app's bundled tree.
    */
   agentRuntimePath?: string
+  /**
+   * Root of downloaded optional language-server packs
+   * (<userData>/lsp-servers). See src/shared/lsp-packs.ts.
+   */
+  lspServersDir?: string
 }

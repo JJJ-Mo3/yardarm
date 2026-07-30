@@ -7,6 +7,7 @@ import {
   Globe,
   Info,
   KeyRound,
+  Languages,
   Mic,
   Palette,
   Plug,
@@ -33,6 +34,7 @@ import { AboutTab } from './AboutTab'
 import { AgentsTab } from './AgentsTab'
 import { BrowserTab } from './BrowserTab'
 import { ConnectorsTab } from './ConnectorsTab'
+import { LanguagesTab } from './LanguagesTab'
 import { McpTab } from './McpTab'
 import { ModelsTab } from './ModelsTab'
 import { PreferencesTab } from './PreferencesTab'
@@ -249,6 +251,12 @@ export function SettingsDialog(): React.JSX.Element {
       tip: 'Custom subagents the main agent can delegate tasks to — global or per-project'
     },
     {
+      id: 'languages',
+      label: 'Languages',
+      icon: <Languages size={13} />,
+      tip: 'Optional language-server downloads for IDE diagnostics'
+    },
+    {
       id: 'about',
       label: 'About',
       icon: <Info size={13} />,
@@ -288,6 +296,7 @@ export function SettingsDialog(): React.JSX.Element {
             {tab === 'connectors' && <ConnectorsTab />}
             {tab === 'mcp' && <McpTab />}
             {tab === 'agents' && <AgentsTab />}
+            {tab === 'languages' && <LanguagesTab />}
             {tab === 'about' && <AboutTab />}
           </div>
         </div>

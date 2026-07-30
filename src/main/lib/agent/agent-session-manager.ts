@@ -453,6 +453,8 @@ export class AgentSessionManager {
   }
 
   private spawnHost(subchatId: string, boot: HostBootConfig): HostHandle {
+    // Downloaded optional language-server packs (src/shared/lsp-packs.ts).
+    boot = { ...boot, lspServersDir: path.join(app.getPath('userData'), 'lsp-servers') }
     if (app.isPackaged) {
       // Use the vendored runtime (Resources/agent-runtime) instead of the
       // walker-bundled node_modules; see scripts/build-agent-runtime.mjs.

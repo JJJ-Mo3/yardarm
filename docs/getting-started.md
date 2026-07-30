@@ -472,13 +472,16 @@ shortcuts stay with the left (primary) pane.
   language-server diagnostics (errors and warnings) for the active file,
   refreshed as you type (shortly after edits pause), on open and on save —
   no chat needs to be selected. Click a problem to jump to it, and the
-  same markers appear inline in the editor. Language servers for
-  TypeScript/JavaScript (using your project's own TypeScript when it has
-  one), HTML, CSS, JSON, YAML, Python and ERB (HTML+ERB Rails views) are
-  bundled — no setup needed. Go, Rust and Ruby use gopls / rust-analyzer /
-  ruby-lsp from your PATH (well-known install dirs like `~/go/bin` and
-  `~/.cargo/bin` are searched too); Rails smarts come from your project's
-  ruby-lsp-rails gem.
+  same markers appear inline in the editor. Language servers come in three
+  tiers: TypeScript/JavaScript (using your project's own TypeScript when it
+  has one) is built in; Web (HTML/CSS/JSON, ~15 MB), YAML (~6 MB), Python
+  (~7 MB) and ERB / Rails templates (~19 MB) are optional one-time
+  downloads — install them from Settings → Languages or via the Download
+  button the problems panel offers when you open a matching file (they work
+  offline once installed and take effect on the next refresh, no restart);
+  and Go, Rust and Ruby use gopls / rust-analyzer / ruby-lsp from your PATH
+  (well-known install dirs like `~/go/bin` and `~/.cargo/bin` are searched
+  too), with Rails smarts coming from your project's ruby-lsp-rails gem.
 - **CLI** (`Cmd+2`) — the interactive Mastra Code terminal UI, embedded,
   running in the same worktree and seeing the same threads as the chat.
   Handy for CLI-only commands (terminal voice mode, …). Avoid
@@ -630,6 +633,7 @@ Open with `Cmd+,` (`Ctrl+,`).
 | **Connectors**  | one-click OAuth sign-ins for GitHub, GitLab, Supabase, Netlify, Vercel, and Sentry (see [Connectors](#connectors))                                      |
 | **MCP Servers** | Model Context Protocol servers — global by default, or project-specific via the scope toggle + project picker, with live status (see below)             |
 | **Agents**      | custom subagents — global by default, or project-specific via the scope toggle + project picker (see below)                                             |
+| **Languages**   | optional language-server downloads for IDE diagnostics — Web (HTML/CSS/JSON), YAML, Python, and ERB packs with per-pack download / update / remove      |
 | **About**       | versions, runtime boot status, CLI install, updates, re-run setup                                                                                       |
 
 Everything you change here is written to mastracode's own config files

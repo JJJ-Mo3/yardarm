@@ -117,11 +117,16 @@
             it, and the same markers appear inline in the editor.
           </li>
           <li>
-            Language servers for TypeScript/JavaScript (using your project's own TypeScript when it
-            has one), HTML, CSS, JSON, YAML, Python and ERB (HTML+ERB Rails views) are bundled — no
-            setup needed. Go, Rust and Ruby use gopls / rust-analyzer / ruby-lsp from your PATH
-            (well-known install dirs like <code>~/go/bin</code> and <code>~/.cargo/bin</code> are
-            searched too); Rails smarts come from your project's ruby-lsp-rails gem.
+            Language servers come in three tiers. <strong>Built in:</strong> TypeScript/JavaScript
+            (using your project's own TypeScript when it has one) ships with the app — no setup
+            needed. <strong>Downloadable packs:</strong> Web (HTML/CSS/JSON, ~15&nbsp;MB), YAML
+            (~6&nbsp;MB), Python (~7&nbsp;MB) and ERB / Rails templates (~19&nbsp;MB) are one-time
+            downloads from <strong>Settings → Languages</strong> — or click the Download button the
+            problems panel offers when you open a matching file; they work offline once installed
+            and take effect on the next refresh, no restart. <strong>External binaries:</strong> Go,
+            Rust and Ruby use gopls / rust-analyzer / ruby-lsp from your PATH (well-known install
+            dirs like <code>~/go/bin</code> and <code>~/.cargo/bin</code> are searched too); Rails
+            smarts come from your project's ruby-lsp-rails gem.
           </li>
         </ul>
 

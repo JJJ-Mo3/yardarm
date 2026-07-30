@@ -28,6 +28,8 @@ import {
   lspUriCandidates,
   mapLspDiagnostics
 } from './lsp-diagnostics'
+import { LSP_PACKS, type LspPackId } from '../../shared/lsp-packs'
+import { resolvePackEntry } from './lsp-pack-resolve'
 import { installNoTimeoutFetch } from './no-timeout-fetch'
 import { RETRIEVAL_TOOL_NAME } from './prompt-compression'
 import { createRetrievalStore } from './retrieval-store'
@@ -53,6 +55,12 @@ installNoTimeoutFetch()
  * normally from the app's node_modules.
  */
 let runtimeDir: string | undefined
+
+/**
+ * Root of downloaded optional language-server packs
+ * (<userData>/lsp-servers). See src/shared/lsp-packs.ts.
+ */
+let lspServersDir: string | undefined
 
 /** Resolve an exports-map entry, preferring the import condition. */
 function resolveExportTarget(value: unknown): string | undefined {
@@ -177,6 +185,11 @@ interface LspServerDef {
   settings?: (root: string) => unknown
   /** Bundled: package + node entry script, run via ELECTRON_RUN_AS_NODE. */
   entry?: [pkg: string, sub: string]
+  /**
+   * Entry servers only: the optional downloadable pack carrying the package
+   * (src/shared/lsp-packs.ts). Unset means bundled in the app runtime.
+   */
+  packId?: LspPackId
   /** External: binary name resolved from PATH + EXTERNAL_LSP_DIRS. */
   binary?: string
   /** External: arguments for the binary (stdio transport assumed). */
@@ -219,6 +232,7 @@ const LSP_SERVERS: LspServerDef[] = [
     id: 'html',
     languageIds: ['html'],
     entry: ['vscode-langservers-extracted', 'bin/vscode-html-language-server'],
+    packId: 'web',
     rootMarkers: ['package.json'],
     // js/ts.implicitProjectConfig must be a real object: the embedded JS mode
     // dereferences it unguarded, and an empty workspace/configuration answer
@@ -234,6 +248,7 @@ const LSP_SERVERS: LspServerDef[] = [
     id: 'css',
     languageIds: ['css', 'scss', 'less'],
     entry: ['vscode-langservers-extracted', 'bin/vscode-css-language-server'],
+    packId: 'web',
     rootMarkers: ['package.json'],
     settings: () => ({
       css: { validate: true },
@@ -245,6 +260,7 @@ const LSP_SERVERS: LspServerDef[] = [
     id: 'json',
     languageIds: ['json', 'jsonc'],
     entry: ['vscode-langservers-extracted', 'bin/vscode-json-language-server'],
+    packId: 'web',
     rootMarkers: ['package.json'],
     settings: () => ({ json: { validate: { enable: true }, schemas: [] } })
   },
@@ -252,6 +268,7 @@ const LSP_SERVERS: LspServerDef[] = [
     id: 'yaml',
     languageIds: ['yaml'],
     entry: ['yaml-language-server', 'bin/yaml-language-server'],
+    packId: 'yaml',
     rootMarkers: ['package.json'],
     // schemaStore off: no network fetches from the diagnostics path.
     settings: () => ({
@@ -262,12 +279,14 @@ const LSP_SERVERS: LspServerDef[] = [
     id: 'python',
     languageIds: ['python'],
     entry: ['pyright', 'langserver.index.js'],
+    packId: 'python',
     rootMarkers: ['pyrightconfig.json', 'pyproject.toml', 'setup.py', 'requirements.txt']
   },
   {
     id: 'erb',
     languageIds: ['erb'],
     entry: ['@herb-tools/language-server', 'bin/herb-language-server'],
+    packId: 'erb',
     rootMarkers: ['Gemfile', 'package.json']
   },
   {
@@ -323,11 +342,35 @@ function findLspRoot(fileDir: string, markers: string[], stopAt: string): string
   }
 }
 
+/**
+ * Entry script for an entry server, or undefined when it needs a pack that
+ * isn't installed. Bundled servers resolve from the app runtime; pack servers
+ * resolve from downloaded packs, with the repo node_modules as the dev-mode
+ * fallback so `pnpm dev` diagnoses every language with no downloads.
+ */
+function resolveLspEntryPath(server: LspServerDef): string | undefined {
+  const [pkg, sub] = server.entry!
+  if (!server.packId) return resolveRuntimeFile(pkg, sub)
+  const pack = LSP_PACKS.find((p) => p.id === server.packId)
+  if (lspServersDir && pack) {
+    const resolved = resolvePackEntry(lspServersDir, pack.id, pkg, sub, pack.version)
+    if (resolved) return resolved
+  }
+  if (!runtimeDir) {
+    try {
+      const devPath = resolveRuntimeFile(pkg, sub)
+      if (existsSync(devPath)) return devPath
+    } catch {}
+  }
+  return undefined
+}
+
 function getLspClient(
   server: LspServerDef,
   filePath: string,
   stopAt: string,
-  binaryPath?: string
+  binaryPath?: string,
+  entryPath?: string
 ): Promise<LspClientLike> {
   const root = findLspRoot(path.dirname(filePath), server.rootMarkers, stopAt)
   const key = `${server.id}:${root}`
@@ -342,8 +385,8 @@ function getLspClient(
     }>('@mastra/code-sdk/lsp/client')
     const spawnServer = server.entry
       ? (): ReturnType<typeof spawn> => {
-          const entryPath = resolveRuntimeFile(server.entry![0], server.entry![1])
-          return spawn(process.execPath, [entryPath, '--stdio'], {
+          const script = entryPath ?? resolveRuntimeFile(server.entry![0], server.entry![1])
+          return spawn(process.execPath, [script, '--stdio'], {
             cwd: root,
             stdio: ['pipe', 'pipe', 'pipe'] as const,
             env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
@@ -504,7 +547,20 @@ async function collectLspDiagnosticsNow(
       }
       client = await getLspClient(def, filePath, workspaceRoot, binaryPath)
     } else if (def) {
-      client = await getLspClient(def, filePath, workspaceRoot)
+      const entryPath = resolveLspEntryPath(def)
+      if (!entryPath) {
+        // Resolution is checked before client creation, so nothing stale is
+        // cached — the first refresh after a pack install just works.
+        const pack = LSP_PACKS.find((p) => p.id === def.packId)
+        return {
+          diagnostics: [],
+          unavailableReason: pack
+            ? `The ${pack.name} language server is an optional download (~${pack.approxSizeMb} MB) — get it from Settings → Languages.`
+            : `No ${languageId} language server is installed.`,
+          missingPackId: pack?.id
+        }
+      }
+      client = await getLspClient(def, filePath, workspaceRoot, undefined, entryPath)
     } else {
       client = await lspManager.getClient(filePath, workspaceRoot)
     }
@@ -646,6 +702,7 @@ async function main(): Promise<void> {
   }
   const boot: HostBootConfig = JSON.parse(bootRaw)
   runtimeDir = boot.agentRuntimePath
+  lspServersDir = boot.lspServersDir
 
   const nodeVersion = process.versions.node
   const [major, minor] = nodeVersion.split('.').map(Number)

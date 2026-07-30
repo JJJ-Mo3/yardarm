@@ -221,6 +221,13 @@
               </td>
             </tr>
             <tr>
+              <td><strong>Languages</strong></td>
+              <td>
+                optional language-server downloads for IDE diagnostics — Web (HTML/CSS/JSON), YAML,
+                Python, and ERB packs with per-pack download / update / remove
+              </td>
+            </tr>
+            <tr>
               <td><strong>About</strong></td>
               <td>versions, runtime boot status, CLI install, updates, re-run setup</td>
             </tr>
@@ -357,6 +364,13 @@
           same directory. The database runs in WAL mode with periodic maintenance (vacuum/optimize,
           size-bounded transcripts) so long-lived installs don't degrade.
         </p>
+        <p>
+          Optional language-server packs downloaded from <strong>Settings → Languages</strong> are
+          stored under <code>lsp-servers/&lt;pack&gt;/&lt;version&gt;</code> in the same directory
+          (e.g. <code>~/Library/Application Support/yardarm/lsp-servers</code> on macOS). Removing a
+          pack from Settings → Languages deletes its folder; deleting the whole app-data directory
+          removes them along with everything else.
+        </p>
 
         <h2 id="updates">Keeping Yardarm updated</h2>
         <p><strong>Settings → About → Updates</strong>:</p>
@@ -374,7 +388,8 @@
         </ul>
         <p>
           Self-install works on packaged macOS builds. Elsewhere (or in dev builds) the app offers a
-          <strong>View release</strong> link instead. Update checks are the only network traffic
+          <strong>View release</strong> link instead. Update checks and the optional language-server
+          pack downloads you trigger yourself (Settings → Languages) are the only network traffic
           Yardarm itself makes — everything else goes to the model providers you configured.
         </p>
 
