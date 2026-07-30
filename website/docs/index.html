@@ -206,6 +206,13 @@ pnpm package     # unpacked app bundle, e.g. dist/mac-arm64/Yardarm.app</code></
             provider.
           </li>
           <li>
+            <strong>API keys by environment variable</strong> — prefer not to store a key at all? In
+            Settings → API Keys → <strong>Environment variables</strong>, point a provider at a
+            variable name (any name). The value is read from your login shell at launch and never
+            stored — standard variables like <code>ANTHROPIC_API_KEY</code> are detected
+            automatically. See the <a href="faq.html#env-keys">FAQ</a> for details.
+          </li>
+          <li>
             <strong>Local models (Ollama)</strong> — install
             <a href="https://ollama.com">Ollama</a>, pull a model, and open Settings →
             <strong>Providers</strong>. Yardarm detects a running Ollama server automatically and
