@@ -334,31 +334,33 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
   return (
     <div className="flex h-full flex-col">
       <div className="titlebar-drag h-10 shrink-0" />
-      <div className="flex min-h-0 flex-1 justify-center overflow-y-auto">
-        <div className="flex w-full max-w-lg flex-col gap-5 px-8 pb-10">
-          {/* Header */}
-          <div className="flex items-center gap-3">
-            <Logo className="h-10 w-10 rounded-lg" />
-            <div>
-              <div className="text-base font-semibold">
-                {step === 'welcome' && 'Welcome to Yardarm'}
-                {step === 'auth' && 'Connect a model provider'}
-                {step === 'modePack' && 'Choose your models'}
-                {step === 'omPack' && 'Observational Memory'}
-                {step === 'connectors' && 'Connect your tools'}
-                {step === 'subagents' && 'Add subagents'}
-                {step === 'sandbox' && 'Agent sandbox'}
-                {step === 'compression' && 'Token compression'}
-                {step === 'yolo' && 'Tool approvals'}
-                {step === 'summary' && 'Review your setup'}
-              </div>
-              <div className="text-[11px] text-muted-foreground">
-                Step {stepIndex + 1} of {STEPS.length}
-              </div>
+      {/* Header — stays put; only the step body scrolls */}
+      <div className="mx-auto w-full max-w-lg shrink-0 px-8">
+        <div className="flex items-center gap-3">
+          <Logo className="h-10 w-10 rounded-lg" />
+          <div>
+            <div className="text-base font-semibold">
+              {step === 'welcome' && 'Welcome to Yardarm'}
+              {step === 'auth' && 'Connect a model provider'}
+              {step === 'modePack' && 'Choose your models'}
+              {step === 'omPack' && 'Observational Memory'}
+              {step === 'connectors' && 'Connect your tools'}
+              {step === 'subagents' && 'Add subagents'}
+              {step === 'sandbox' && 'Agent sandbox'}
+              {step === 'compression' && 'Token compression'}
+              {step === 'yolo' && 'Tool approvals'}
+              {step === 'summary' && 'Review your setup'}
+            </div>
+            <div className="text-[11px] text-muted-foreground">
+              Step {stepIndex + 1} of {STEPS.length}
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* Step body */}
+      {/* Step body (scrolls) */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-lg px-8 py-5">
           <div className="min-h-64">
             {step === 'welcome' && (
               <div className="space-y-3 text-sm">
@@ -722,50 +724,52 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
               </div>
             )}
           </div>
+        </div>
+      </div>
 
-          {/* Footer */}
-          <div className="flex items-center gap-3">
-            {step !== 'welcome' ? (
-              <Button variant="ghost" size="sm" onClick={back} disabled={finishing}>
-                <ArrowLeft size={13} />
-                Back
-              </Button>
-            ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => void doSkip()}
-                disabled={skip.isPending}
-              >
-                {skip.isPending ? 'Skipping…' : 'Skip setup'}
-              </Button>
-            )}
-            <div className="flex flex-1 items-center justify-center gap-1.5">
-              {STEPS.map((s, i) => (
-                <div
-                  key={s}
-                  className={cn(
-                    'h-1.5 w-1.5 rounded-full',
-                    i === stepIndex ? 'bg-primary' : 'bg-border'
-                  )}
-                />
-              ))}
-            </div>
-            {step !== 'summary' ? (
-              <Button size="sm" onClick={next} disabled={!canContinue}>
-                Continue
-                <ArrowRight size={13} />
-              </Button>
-            ) : (
-              <Button size="sm" onClick={() => void doFinish()} disabled={finishing}>
-                {finishing ? 'Applying and restarting agents…' : 'Finish'}
-              </Button>
-            )}
+      {/* Footer — stays put below the scrolling body */}
+      <div className="mx-auto w-full max-w-lg shrink-0 space-y-2 px-8 pb-6 pt-3">
+        <div className="flex items-center gap-3">
+          {step !== 'welcome' ? (
+            <Button variant="ghost" size="sm" onClick={back} disabled={finishing}>
+              <ArrowLeft size={13} />
+              Back
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void doSkip()}
+              disabled={skip.isPending}
+            >
+              {skip.isPending ? 'Skipping…' : 'Skip setup'}
+            </Button>
+          )}
+          <div className="flex flex-1 items-center justify-center gap-1.5">
+            {STEPS.map((s, i) => (
+              <div
+                key={s}
+                className={cn(
+                  'h-1.5 w-1.5 rounded-full',
+                  i === stepIndex ? 'bg-primary' : 'bg-border'
+                )}
+              />
+            ))}
           </div>
-          {skip.error && (
-            <div className="text-xs text-destructive selectable">{skip.error.message}</div>
+          {step !== 'summary' ? (
+            <Button size="sm" onClick={next} disabled={!canContinue}>
+              Continue
+              <ArrowRight size={13} />
+            </Button>
+          ) : (
+            <Button size="sm" onClick={() => void doFinish()} disabled={finishing}>
+              {finishing ? 'Applying and restarting agents…' : 'Finish'}
+            </Button>
           )}
         </div>
+        {skip.error && (
+          <div className="text-xs text-destructive selectable">{skip.error.message}</div>
+        )}
       </div>
     </div>
   )
