@@ -1,8 +1,11 @@
 /**
- * First-run setup wizard mirroring the mastracode CLI's onboarding flow
- * (Welcome → Auth → Mode pack → OM pack → YOLO → Summary). Nothing is
- * persisted until Finish or Skip, which write the CLI-compatible
- * `onboarding.*` keys in the shared settings.json.
+ * First-run setup wizard extending the mastracode CLI's onboarding flow
+ * (Welcome → Auth → Mode pack → OM pack → Connectors → Sub-agents → Sandbox →
+ * Compression → YOLO → Summary). The auth and connectors steps apply
+ * immediately (auth.json / mcp.json); everything else is drafted and persisted
+ * on Finish — model/OM/YOLO choices via the CLI-compatible `onboarding.*` keys
+ * in the shared settings.json, sandbox/compression via the app-DB settings,
+ * and selected sub-agent templates via a global install.
  */
 import React, { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, ArrowLeft, ArrowRight, Check, KeyRound } from 'lucide-react'
@@ -10,15 +13,35 @@ import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
 import { Button } from '../../components/ui/button'
 import { Switch } from '../../components/ui/switch'
+import { Tip } from '../../components/ui/tooltip'
 import { KeysTab } from '../settings/SettingsDialog'
 import { OAuthSection } from '../settings/OAuthSection'
+import { ConnectorsTab } from '../settings/ConnectorsTab'
+import { CONNECTORS, connectorState } from '../settings/connector-catalog'
 import { Logo } from '../../components/Logo'
 import { ModelSelect } from '../../components/ModelSelect'
 
-const STEPS = ['welcome', 'auth', 'modePack', 'omPack', 'yolo', 'summary'] as const
+const STEPS = [
+  'welcome',
+  'auth',
+  'modePack',
+  'omPack',
+  'connectors',
+  'subagents',
+  'sandbox',
+  'compression',
+  'yolo',
+  'summary'
+] as const
 type Step = (typeof STEPS)[number]
 
 const MODES = ['build', 'plan', 'fast'] as const
+
+// Same grouping labels as Settings → Agents.
+const TEMPLATE_GROUPS = [
+  ['role', 'Role subagents'],
+  ['specialist', 'Domain specialists']
+] as const
 
 interface Draft {
   modePackId: string | null
@@ -26,6 +49,11 @@ interface Draft {
   omPackId: string | null
   omCustomModel: string | null
   yolo: boolean
+  subagentIds: string[]
+  sandboxEnabled: boolean
+  sandboxNetwork: boolean
+  compressionEnabled: boolean
+  verbosityEnabled: boolean
 }
 
 function OptionCard({
@@ -66,6 +94,57 @@ function OptionCard({
   )
 }
 
+/** Multi-select variant of OptionCard (checkbox square, supports disabled). */
+function TemplateCard({
+  selected,
+  disabled,
+  onClick,
+  title,
+  subtitle
+}: {
+  selected: boolean
+  disabled?: boolean
+  onClick: () => void
+  title: string
+  subtitle?: React.ReactNode
+}): React.JSX.Element {
+  return (
+    <div
+      onClick={disabled ? undefined : onClick}
+      className={cn(
+        'rounded-md border px-3 py-2 transition-colors',
+        disabled
+          ? 'cursor-default border-border opacity-70'
+          : selected
+            ? 'cursor-pointer border-primary bg-accent'
+            : 'cursor-pointer border-border hover:bg-accent/50'
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <div
+          className={cn(
+            'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border',
+            selected || disabled
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-border'
+          )}
+        >
+          {(selected || disabled) && <Check size={9} strokeWidth={3} />}
+        </div>
+        <div className="min-w-0 flex-1 truncate text-xs font-medium">{title}</div>
+        {disabled && (
+          <span className="shrink-0 text-[10px] text-muted-foreground">Already installed</span>
+        )}
+      </div>
+      {subtitle && (
+        <div className="mt-1 line-clamp-2 pl-5.5 text-[11px] leading-snug text-muted-foreground">
+          {subtitle}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.Element {
   const utils = trpc.useUtils()
   const [step, setStep] = useState<Step>('welcome')
@@ -74,17 +153,33 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
     customModeModels: {},
     omPackId: null,
     omCustomModel: null,
-    yolo: false
+    yolo: false,
+    subagentIds: [],
+    sandboxEnabled: false,
+    sandboxNetwork: true,
+    compressionEnabled: false,
+    verbosityEnabled: false
   })
+  const [extrasError, setExtrasError] = useState<string | null>(null)
 
   const settings = trpc.mastraSettings.get.useQuery(undefined, { refetchOnWindowFocus: false })
   const packs = trpc.mastraSettings.listPacks.useQuery()
   const models = trpc.agent.listModels.useQuery(undefined)
   const auth = trpc.settings.authList.useQuery()
   const oauth = trpc.settings.oauthProviders.useQuery()
+  const sandboxDefaults = trpc.settings.get.useQuery({ key: 'sandboxDefaults' })
+  const tokenCompression = trpc.settings.get.useQuery({ key: 'tokenCompression' })
+  const agentCatalog = trpc.projectConfig.agentDefaultsCatalog.useQuery(undefined, {
+    staleTime: Infinity
+  })
+  const installedAgents = trpc.projectConfig.agentsList.useQuery({ scope: 'global' })
+  const mcpServers = trpc.mcp.get.useQuery({})
 
   const skip = trpc.mastraSettings.skipOnboarding.useMutation()
   const complete = trpc.mastraSettings.completeOnboarding.useMutation()
+  const setSetting = trpc.settings.set.useMutation()
+  const setTokenCompression = trpc.agent.setTokenCompression.useMutation()
+  const installDefaults = trpc.projectConfig.agentsInstallDefaults.useMutation()
 
   // Prefill from a previous run (re-run via Settings → About).
   const prefilled = useRef(false)
@@ -94,6 +189,7 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
     const s = settings.data
     const ob = s.onboarding
     setDraft((d) => ({
+      ...d,
       modePackId: ob?.modePackId ?? d.modePackId,
       customModeModels:
         ob?.modePackId === 'custom' ? { ...(s.models?.modeDefaults ?? {}) } : d.customModeModels,
@@ -103,6 +199,31 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
       yolo: s.preferences?.yolo ?? d.yolo
     }))
   }, [settings.data])
+
+  // Prefill sandbox/compression from current stored values (re-run case).
+  // settings.get returns null when unset — undefined means still loading.
+  const prefilledSandbox = useRef(false)
+  useEffect(() => {
+    if (prefilledSandbox.current || sandboxDefaults.data === undefined) return
+    prefilledSandbox.current = true
+    const sd = (sandboxDefaults.data as { enabled?: boolean; allowNetwork?: boolean } | null) ?? {}
+    setDraft((d) => ({
+      ...d,
+      sandboxEnabled: sd.enabled === true,
+      sandboxNetwork: sd.allowNetwork !== false
+    }))
+  }, [sandboxDefaults.data])
+  const prefilledCompression = useRef(false)
+  useEffect(() => {
+    if (prefilledCompression.current || tokenCompression.data === undefined) return
+    prefilledCompression.current = true
+    const tc = (tokenCompression.data as { enabled?: boolean; verbosity?: boolean } | null) ?? {}
+    setDraft((d) => ({
+      ...d,
+      compressionEnabled: tc.enabled === true,
+      verbosityEnabled: tc.verbosity === true
+    }))
+  }, [tokenCompression.data])
 
   // Auth may have changed on the previous step — refresh what depends on it.
   useEffect(() => {
@@ -121,8 +242,20 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
     ...(oauth.data ?? []).filter((p) => p.loggedIn).map((p) => p.id)
   ])
 
+  const installedIds = new Set((installedAgents.data ?? []).map((a) => a.id))
+  const catalog = agentCatalog.data ?? []
+  const serverMap = mcpServers.data ?? {}
+  const connectorCount = CONNECTORS.filter(
+    (def) => connectorState(def, serverMap) !== 'none'
+  ).length
+
   const customModeComplete = MODES.every((m) => !!draft.customModeModels[m])
   const canContinue = step !== 'modePack' || draft.modePackId !== 'custom' || customModeComplete
+  const finishing =
+    complete.isPending ||
+    setSetting.isPending ||
+    setTokenCompression.isPending ||
+    installDefaults.isPending
 
   const stepIndex = STEPS.indexOf(step)
   const back = (): void => setStep(STEPS[Math.max(0, stepIndex - 1)])
@@ -140,6 +273,27 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
 
   async function doFinish(): Promise<void> {
     const selectedPack = modePacks.find((p) => p.id === draft.modePackId)
+    // Apply the app-native extras first so a failure surfaces before the
+    // CLI-compatible onboarding completion keys are written. All three
+    // writes are idempotent (overwrites / install-if-absent).
+    setExtrasError(null)
+    try {
+      await setSetting.mutateAsync({
+        key: 'sandboxDefaults',
+        value: { enabled: draft.sandboxEnabled, allowNetwork: draft.sandboxNetwork }
+      })
+      await setTokenCompression.mutateAsync({
+        enabled: draft.compressionEnabled,
+        verbosity: draft.verbosityEnabled
+      })
+      const toInstall = draft.subagentIds.filter((id) => !installedIds.has(id))
+      if (toInstall.length > 0) {
+        await installDefaults.mutateAsync({ scope: 'global', ids: toInstall })
+      }
+    } catch (e) {
+      setExtrasError(e instanceof Error ? e.message : String(e))
+      return
+    }
     try {
       await complete.mutateAsync({
         modePackId: draft.modePackId,
@@ -156,7 +310,13 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
     } catch {
       return // surfaced via complete.error on the summary step
     }
-    await Promise.all([utils.mastraSettings.get.invalidate(), utils.agent.listModels.invalidate()])
+    await Promise.all([
+      utils.mastraSettings.get.invalidate(),
+      utils.agent.listModels.invalidate(),
+      utils.settings.get.invalidate({ key: 'sandboxDefaults' }),
+      utils.settings.get.invalidate({ key: 'tokenCompression' }),
+      utils.projectConfig.agentsList.invalidate()
+    ])
     onDone()
   }
 
@@ -185,6 +345,10 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
                 {step === 'auth' && 'Connect a model provider'}
                 {step === 'modePack' && 'Choose your models'}
                 {step === 'omPack' && 'Observational Memory'}
+                {step === 'connectors' && 'Connect your tools'}
+                {step === 'subagents' && 'Add subagents'}
+                {step === 'sandbox' && 'Agent sandbox'}
+                {step === 'compression' && 'Token compression'}
                 {step === 'yolo' && 'Tool approvals'}
                 {step === 'summary' && 'Review your setup'}
               </div>
@@ -354,6 +518,112 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
               </div>
             )}
 
+            {step === 'connectors' && (
+              <div className="space-y-3">
+                <div className="text-[11px] text-muted-foreground">
+                  Optional: connect dev platforms so agents can use their tools. Connections apply
+                  immediately (written to <code>~/.mastracode/mcp.json</code>) — you can skip this
+                  and set it up later in Settings → Connectors.
+                </div>
+                <ConnectorsTab />
+              </div>
+            )}
+
+            {step === 'subagents' && (
+              <div className="space-y-2">
+                <div className="text-[11px] text-muted-foreground">
+                  Optional: add ready-made subagents the main agent can delegate to. Selected
+                  templates are installed globally to <code>~/.mastracode/agents</code> when you
+                  finish — all editable later in Settings → Agents.
+                </div>
+                {agentCatalog.isLoading && (
+                  <div className="text-xs text-muted-foreground">Loading templates…</div>
+                )}
+                {TEMPLATE_GROUPS.map(([group, label]) => {
+                  const entries = catalog.filter((t) => t.group === group)
+                  if (entries.length === 0) return null
+                  return (
+                    <div key={group} className="space-y-2">
+                      <div className="pt-1 text-[11px] font-medium text-muted-foreground">
+                        {label}
+                      </div>
+                      {entries.map((t) => (
+                        <TemplateCard
+                          key={t.id}
+                          selected={draft.subagentIds.includes(t.id)}
+                          disabled={installedIds.has(t.id)}
+                          onClick={() =>
+                            setDraft((d) => ({
+                              ...d,
+                              subagentIds: d.subagentIds.includes(t.id)
+                                ? d.subagentIds.filter((x) => x !== t.id)
+                                : [...d.subagentIds, t.id]
+                            }))
+                          }
+                          title={t.name}
+                          subtitle={t.description}
+                        />
+                      ))}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {step === 'sandbox' && (
+              <div className="space-y-3">
+                <div className="text-[11px] text-muted-foreground">
+                  Defaults for new chats only — each chat can override this via /sandbox or the
+                  header toggle, and you can change the default in Settings → Preferences.
+                </div>
+                <Tip content="New chats start with OS-level isolation for agent shell commands (macOS seatbelt / Linux bubblewrap)">
+                  <label className="flex w-fit items-center gap-2 text-sm">
+                    <Switch
+                      checked={draft.sandboxEnabled}
+                      onCheckedChange={(v) => setDraft((d) => ({ ...d, sandboxEnabled: v }))}
+                    />
+                    Full sandbox by default (OS isolation for shell commands)
+                  </label>
+                </Tip>
+                <Tip content="Whether sandboxed shell commands in new chats may access the network (all-or-nothing)">
+                  <label className="flex w-fit items-center gap-2 text-sm">
+                    <Switch
+                      checked={draft.sandboxNetwork}
+                      onCheckedChange={(v) => setDraft((d) => ({ ...d, sandboxNetwork: v }))}
+                    />
+                    Allow network in the sandbox
+                  </label>
+                </Tip>
+              </div>
+            )}
+
+            {step === 'compression' && (
+              <div className="space-y-3">
+                <div className="text-[11px] text-muted-foreground">
+                  Shrinks old tool outputs before each model call to cut token costs. Applies to all
+                  chats — the agent can always re-run a tool if it needs the full output.
+                </div>
+                <Tip content="Transiently compress stale tool outputs in the prompt sent to the model — stored chat history is never modified, and the agent can fetch any compressed output back via the retrieve_full_output tool">
+                  <label className="flex w-fit items-center gap-2 text-sm">
+                    <Switch
+                      checked={draft.compressionEnabled}
+                      onCheckedChange={(v) => setDraft((d) => ({ ...d, compressionEnabled: v }))}
+                    />
+                    Compress old tool outputs (token savings show in /cost)
+                  </label>
+                </Tip>
+                <Tip content="Appends a short instruction to the system prompt asking the agent not to restate tool outputs and to keep replies brief — works independently of output compression">
+                  <label className="flex w-fit items-center gap-2 text-sm">
+                    <Switch
+                      checked={draft.verbosityEnabled}
+                      onCheckedChange={(v) => setDraft((d) => ({ ...d, verbosityEnabled: v }))}
+                    />
+                    Verbosity steering (nudge the agent to reply concisely)
+                  </label>
+                </Tip>
+              </div>
+            )}
+
             {step === 'yolo' && (
               <div className="space-y-3">
                 <label className="flex items-center gap-2 text-sm">
@@ -389,6 +659,41 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
                       value: omPackName(draft.omPackId),
                       target: 'omPack' as Step
                     },
+                    {
+                      label: 'Connectors',
+                      value: connectorCount > 0 ? `${connectorCount} configured` : 'None',
+                      target: 'connectors' as Step
+                    },
+                    {
+                      label: 'Sub-agents',
+                      value:
+                        draft.subagentIds.length > 0
+                          ? `${draft.subagentIds.length} to add${
+                              installedIds.size > 0 ? ` · ${installedIds.size} installed` : ''
+                            }`
+                          : installedIds.size > 0
+                            ? `${installedIds.size} installed`
+                            : 'None',
+                      target: 'subagents' as Step
+                    },
+                    {
+                      label: 'Sandbox default',
+                      value: draft.sandboxEnabled
+                        ? `On (network ${draft.sandboxNetwork ? 'allowed' : 'blocked'})`
+                        : 'Off',
+                      target: 'sandbox' as Step
+                    },
+                    {
+                      label: 'Token compression',
+                      value:
+                        [
+                          draft.compressionEnabled && 'Compression',
+                          draft.verbosityEnabled && 'Verbosity steering'
+                        ]
+                          .filter(Boolean)
+                          .join(' + ') || 'Off',
+                      target: 'compression' as Step
+                    },
                     { label: 'YOLO mode', value: draft.yolo ? 'On' : 'Off', target: 'yolo' as Step }
                   ] as Array<{ label: string; value: string; target: Step }>
                 ).map((row) => (
@@ -411,6 +716,9 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
                     {complete.error.message}
                   </div>
                 )}
+                {extrasError && (
+                  <div className="text-xs text-destructive selectable">{extrasError}</div>
+                )}
               </div>
             )}
           </div>
@@ -418,7 +726,7 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
           {/* Footer */}
           <div className="flex items-center gap-3">
             {step !== 'welcome' ? (
-              <Button variant="ghost" size="sm" onClick={back} disabled={complete.isPending}>
+              <Button variant="ghost" size="sm" onClick={back} disabled={finishing}>
                 <ArrowLeft size={13} />
                 Back
               </Button>
@@ -449,8 +757,8 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
                 <ArrowRight size={13} />
               </Button>
             ) : (
-              <Button size="sm" onClick={() => void doFinish()} disabled={complete.isPending}>
-                {complete.isPending ? 'Applying and restarting agents…' : 'Finish'}
+              <Button size="sm" onClick={() => void doFinish()} disabled={finishing}>
+                {finishing ? 'Applying and restarting agents…' : 'Finish'}
               </Button>
             )}
           </div>
