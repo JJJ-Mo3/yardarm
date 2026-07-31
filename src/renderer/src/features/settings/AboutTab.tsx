@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useSetAtom } from 'jotai'
 import { CheckCircle2, Download, ExternalLink, RefreshCw, Wand2, XCircle } from 'lucide-react'
+import { isNewerVersion } from '@shared/semver'
 import { trpc } from '../../lib/trpc'
 import { onboardingForceOpenAtom, settingsOpenAtom } from '../../lib/atoms'
 import { Button } from '../../components/ui/button'
@@ -190,6 +191,16 @@ export function AboutTab(): React.JSX.Element {
   const p = preflight.data
   const installing = install.isPending || termId !== null
 
+  const cliVersion = cli.data?.found ? cli.data.version : undefined
+  const npmLatest = mcLatest.data?.latest ?? null
+  const cliUpdateAvailable =
+    cliVersion !== undefined && npmLatest !== null && isNewerVersion(cliVersion, npmLatest)
+  const checkingCli = cli.isFetching || mcLatest.isFetching
+  const recheckCli = (): void => {
+    void utils.system.detectCli.invalidate()
+    void utils.system.mastracodeLatest.invalidate()
+  }
+
   return (
     <div className="space-y-4">
       <div className="space-y-1.5">
@@ -256,16 +267,50 @@ export function AboutTab(): React.JSX.Element {
             cli.isLoading
               ? 'checking…'
               : cli.data?.found
-                ? cli.data.version
-                  ? `installed (${cli.data.version})`
-                  : 'installed'
+                ? (cliVersion ? `installed (${cliVersion})` : 'installed') +
+                  (cliUpdateAvailable
+                    ? ` · v${npmLatest} available`
+                    : cliVersion && npmLatest
+                      ? ' · up to date'
+                      : '')
                 : 'not installed'
           }
         />
         {!cli.data?.found && !cli.isLoading && (
-          <Button size="sm" disabled={installing} onClick={() => install.mutate()}>
-            {installing ? 'Installing…' : 'Install CLI (npm i -g mastracode)'}
-          </Button>
+          <Tip content="Install the mastracode CLI globally with npm for use in your own terminal">
+            <span className="inline-flex">
+              <Button size="sm" disabled={installing} onClick={() => install.mutate()}>
+                {installing ? 'Installing…' : 'Install CLI (npm i -g mastracode)'}
+              </Button>
+            </span>
+          </Tip>
+        )}
+        {cli.data?.found && (
+          <div className="flex items-center gap-2">
+            <Tip content="Re-check the installed CLI version against the latest release on npm">
+              <span className="inline-flex">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={checkingCli || installing}
+                  onClick={recheckCli}
+                >
+                  <RefreshCw size={12} className={checkingCli ? 'animate-spin' : undefined} />
+                  Check for updates
+                </Button>
+              </span>
+            </Tip>
+            {cliUpdateAvailable && (
+              <Tip content="Update the global CLI to the latest version (npm i -g mastracode)">
+                <span className="inline-flex">
+                  <Button size="sm" disabled={installing} onClick={() => install.mutate()}>
+                    <Download size={12} />
+                    {installing ? 'Updating…' : `Update to v${npmLatest}`}
+                  </Button>
+                </span>
+              </Tip>
+            )}
+          </div>
         )}
         {install.error && (
           <div className="text-xs text-destructive selectable">{install.error.message}</div>

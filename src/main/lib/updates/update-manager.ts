@@ -11,7 +11,7 @@ import { app } from 'electron'
 import { getDb, schema } from '../db'
 import { fetchLatestRelease, pickMacZipAsset, type ReleaseInfo } from './github-release'
 import { cleanupStaleBundles, downloadAndStage, getBundlePath, swapBundle } from './install-mac'
-import { isNewerVersion } from './semver'
+import { isNewerVersion } from '../../../shared/semver'
 
 const AUTO_UPDATE_KEY = 'updates.autoUpdate'
 const AUTO_CHECK_INITIAL_MS = 12_000

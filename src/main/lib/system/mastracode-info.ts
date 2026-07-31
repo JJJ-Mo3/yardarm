@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process'
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import path from 'node:path'
 import { app } from 'electron'
-import { isNewerVersion } from '../updates/semver'
+import { isNewerVersion } from '../../../shared/semver'
 import { parseNpmLatest } from './npm-latest'
 
 /** Version of the mastracode package bundled with the app, or null if missing. */

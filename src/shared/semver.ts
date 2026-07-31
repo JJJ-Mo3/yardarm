@@ -1,8 +1,9 @@
 /**
- * Minimal semver helpers for the in-app updater. Only what release-tag
- * comparison needs: parse `v?major.minor.patch[-prerelease]` and decide
- * whether a candidate is strictly newer. Fails closed — anything that
- * doesn't parse is never treated as an update.
+ * Minimal semver helpers shared by the in-app updater and the CLI version
+ * checks. Only what release-tag comparison needs: parse
+ * `v?major.minor.patch[-prerelease]` and decide whether a candidate is
+ * strictly newer. Fails closed — anything that doesn't parse is never
+ * treated as an update.
  */
 
 export interface ParsedVersion {
