@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { getDb, schema } from '../db'
 import { createWorktree, ensureBaseCommit, isGitRepo } from '../git/worktree'
+import { readSettings } from '../mastra-config/settings-json'
 
 /**
  * Global new-chat defaults for full sandbox mode (app_settings KV, written by
@@ -26,6 +27,19 @@ export function sandboxDefaults(): { enabled: boolean; allowNetwork: boolean } {
     }
   } catch {}
   return { enabled: false, allowNetwork: true }
+}
+
+/**
+ * Global new-chat default for YOLO mode (preferences.yolo in mastracode's
+ * shared settings.json, written by Preferences and onboarding). Like the
+ * sandbox defaults, the per-subchat column is the source of truth afterwards.
+ */
+export async function yoloDefault(): Promise<boolean> {
+  try {
+    return (await readSettings()).preferences?.yolo === true
+  } catch {
+    return false
+  }
 }
 
 export interface CreatedChat {
@@ -97,6 +111,7 @@ export async function createChatWithSubchat(input: {
     thinkingLevel: null,
     fullSandbox: sandbox.enabled,
     sandboxNetwork: sandbox.allowNetwork,
+    yolo: await yoloDefault(),
     createdAt: now,
     updatedAt: now
   }

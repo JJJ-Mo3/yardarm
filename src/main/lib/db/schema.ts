@@ -53,6 +53,8 @@ export const subchats = sqliteTable(
     fullSandbox: integer('full_sandbox', { mode: 'boolean' }).notNull().default(false),
     /** Whether sandboxed shell commands may access the network. */
     sandboxNetwork: integer('sandbox_network', { mode: 'boolean' }).notNull().default(true),
+    /** Auto-approve all tool calls (YOLO); seeded from preferences.yolo at creation. */
+    yolo: integer('yolo', { mode: 'boolean' }).notNull().default(false),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull()
   },

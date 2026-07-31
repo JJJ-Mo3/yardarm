@@ -267,7 +267,8 @@ export class AgentSessionManager {
         thinkingLevel: schema.subchats.thinkingLevel,
         mastraThreadId: schema.subchats.mastraThreadId,
         fullSandbox: schema.subchats.fullSandbox,
-        sandboxNetwork: schema.subchats.sandboxNetwork
+        sandboxNetwork: schema.subchats.sandboxNetwork,
+        yolo: schema.subchats.yolo
       })
       .from(schema.subchats)
       .where(eq(schema.subchats.id, subchatId))
@@ -278,9 +279,10 @@ export class AgentSessionManager {
       modelId: row.modelId ?? undefined,
       thinkingLevel: row.thinkingLevel ?? undefined,
       threadId: row.mastraThreadId ?? undefined,
-      // Boot always starts hosts with yolo off (see ensureHost), so this is accurate.
-      yolo: false,
-      // Sandbox flags persist across boots (unlike yolo); availability is a
+      // Yolo persists per subchat (seeded from preferences.yolo at creation)
+      // and hosts boot with it, so the stored flag is accurate.
+      yolo: row.yolo,
+      // Sandbox flags persist across boots too; availability is a
       // platform approximation until a live host reports the real backend.
       fullSandbox: row.fullSandbox,
       sandboxNetwork: row.sandboxNetwork,
@@ -432,8 +434,8 @@ export class AgentSessionManager {
       mode: subchat.mode ?? undefined,
       modelId,
       thinkingLevel: subchat.thinkingLevel ?? undefined,
-      yolo: false,
-      // Unlike yolo (reset every boot), the sandbox setting persists.
+      // Yolo and sandbox settings persist per subchat across boots.
+      yolo: subchat.yolo,
       sandbox: { enabled: subchat.fullSandbox, allowNetwork: subchat.sandboxNetwork },
       compression: this.compressionSettings(),
       subagents
@@ -521,6 +523,7 @@ export class AgentSessionManager {
         if (meta.mode !== undefined) updates.mode = meta.mode
         if (meta.modelId !== undefined) updates.modelId = meta.modelId
         if (meta.thinkingLevel !== undefined) updates.thinkingLevel = meta.thinkingLevel
+        if (meta.yolo !== undefined) updates.yolo = meta.yolo
         if (Object.keys(updates).length > 0) {
           getDb()
             .update(schema.subchats)
@@ -1236,6 +1239,9 @@ export class AgentSessionManager {
   }
 
   async setYolo(subchatId: string, yolo: boolean): Promise<void> {
+    // DB-first so the choice survives host restarts; the host's echoed
+    // state_changed event reconciles via onMetaChanged.
+    getDb().update(schema.subchats).set({ yolo }).where(eq(schema.subchats.id, subchatId)).run()
     const handle = await this.ensureHost(subchatId)
     this.sendCommand(handle, { t: 'setYolo', yolo })
   }

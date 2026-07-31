@@ -4,7 +4,7 @@ import { and, asc, desc, eq, gte, inArray, isNotNull, lt } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb, maintainDb, schema } from '../../db'
 import { agentSessionManager } from '../../agent/agent-session-manager'
-import { createChatWithSubchat, sandboxDefaults } from '../../agent/chat-factory'
+import { createChatWithSubchat, sandboxDefaults, yoloDefault } from '../../agent/chat-factory'
 import { checkpointStashSha, deleteCheckpointRefs, restoreCheckpoint } from '../../git/ops'
 import { removeWorktree } from '../../git/worktree'
 import { ptyManager } from '../../terminal/pty-manager'
@@ -145,7 +145,7 @@ export const chatsRouter = router({
 
   createSubchat: publicProcedure
     .input(z.object({ chatId: z.string(), mastraThreadId: z.string().optional() }))
-    .mutation(({ input }) => {
+    .mutation(async ({ input }) => {
       const now = Date.now()
       const sandbox = sandboxDefaults()
       const subchat = {
@@ -159,6 +159,7 @@ export const chatsRouter = router({
         thinkingLevel: null,
         fullSandbox: sandbox.enabled,
         sandboxNetwork: sandbox.allowNetwork,
+        yolo: await yoloDefault(),
         createdAt: now,
         updatedAt: now
       }
@@ -240,6 +241,7 @@ export const chatsRouter = router({
         thinkingLevel: subchat.thinkingLevel,
         fullSandbox: subchat.fullSandbox,
         sandboxNetwork: subchat.sandboxNetwork,
+        yolo: subchat.yolo,
         createdAt: now,
         updatedAt: now
       }
