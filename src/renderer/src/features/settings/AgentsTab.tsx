@@ -11,7 +11,7 @@
  */
 import React, { useEffect, useState } from 'react'
 import { useAtomValue } from 'jotai'
-import { ChevronRight, ExternalLink, Plus, Trash2 } from 'lucide-react'
+import { Bot, ChevronRight, ExternalLink, Plus, Trash2 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { selectedProjectIdAtom } from '../../lib/atoms'
 import { cn } from '../../lib/utils'
@@ -240,44 +240,53 @@ export function AgentsTab(): React.JSX.Element {
             <div
               key={a.id}
               className={cn(
-                'group flex cursor-pointer items-center gap-2 rounded px-2 py-1',
-                selected === a.id ? 'bg-accent' : 'hover:bg-accent/50'
+                'group cursor-pointer rounded-md border px-2.5 py-1.5 transition-colors',
+                selected === a.id
+                  ? 'border-primary/50 bg-accent'
+                  : 'border-border hover:bg-accent/50'
               )}
               onClick={() => selectAgent(a.id)}
             >
-              <span className="font-mono text-[11px]">{a.id}</span>
-              <span className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground">
-                {a.description ?? ''}
-              </span>
-              <Tip content="Open this agent file in your system editor">
-                <button
-                  className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    openInEditor.mutate({ path: a.path })
-                  }}
-                >
-                  <ExternalLink size={11} />
-                </button>
-              </Tip>
-              <Tip content="Delete this subagent — the agent hosts restart without it">
-                <button
-                  className="hidden group-hover:block text-muted-foreground hover:text-destructive cursor-pointer"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    void confirmDialog({
-                      title: `Delete subagent "${a.id}"?`,
-                      description:
-                        'The definition file will be removed and the affected agent hosts restarted.',
-                      confirmLabel: 'Delete'
-                    }).then((ok) => {
-                      if (ok) remove.mutate({ ...scopeInput, id: a.id })
-                    })
-                  }}
-                >
-                  <Trash2 size={11} />
-                </button>
-              </Tip>
+              <div className="flex items-center gap-2">
+                <Bot size={12} className="shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1 truncate font-mono text-[11px] font-medium">
+                  {a.id}
+                </span>
+                <Tip content="Open this agent file in your system editor">
+                  <button
+                    className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      openInEditor.mutate({ path: a.path })
+                    }}
+                  >
+                    <ExternalLink size={11} />
+                  </button>
+                </Tip>
+                <Tip content="Delete this subagent — the agent hosts restart without it">
+                  <button
+                    className="hidden group-hover:block text-muted-foreground hover:text-destructive cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      void confirmDialog({
+                        title: `Delete subagent "${a.id}"?`,
+                        description:
+                          'The definition file will be removed and the affected agent hosts restarted.',
+                        confirmLabel: 'Delete'
+                      }).then((ok) => {
+                        if (ok) remove.mutate({ ...scopeInput, id: a.id })
+                      })
+                    }}
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                </Tip>
+              </div>
+              {a.description && (
+                <div className="mt-0.5 line-clamp-2 pl-5 text-[10px] leading-snug text-muted-foreground">
+                  {a.description}
+                </div>
+              )}
             </div>
           ))}
         {scopeReady && (list.data ?? []).length === 0 && (
@@ -354,31 +363,33 @@ export function AgentsTab(): React.JSX.Element {
                   {entries.map((t) => (
                     <div
                       key={t.id}
-                      className="group flex items-center gap-2 rounded px-2 py-1 hover:bg-accent/50"
+                      className="rounded-md border border-border px-2.5 py-1.5 transition-colors hover:bg-accent/50"
                     >
-                      <span className="font-mono text-[11px]">{t.id}</span>
-                      <span
-                        className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground"
-                        title={t.description}
-                      >
-                        {t.description}
-                      </span>
-                      <Tip
-                        content={`Add the ${t.name} template as an editable ${t.id}.md — the agent hosts restart with it`}
-                      >
-                        <span className="inline-flex">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-5 gap-1 px-2 text-[10px]"
-                            disabled={installDefaults.isPending}
-                            onClick={() => addTemplates([t.id])}
-                          >
-                            <Plus size={10} />
-                            Add
-                          </Button>
+                      <div className="flex items-center gap-2">
+                        <Bot size={12} className="shrink-0 text-muted-foreground" />
+                        <span className="min-w-0 flex-1 truncate font-mono text-[11px] font-medium">
+                          {t.id}
                         </span>
-                      </Tip>
+                        <Tip
+                          content={`Add the ${t.name} template as an editable ${t.id}.md — the agent hosts restart with it`}
+                        >
+                          <span className="inline-flex">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-5 gap-1 px-2 text-[10px]"
+                              disabled={installDefaults.isPending}
+                              onClick={() => addTemplates([t.id])}
+                            >
+                              <Plus size={10} />
+                              Add
+                            </Button>
+                          </span>
+                        </Tip>
+                      </div>
+                      <div className="mt-0.5 line-clamp-2 pl-5 text-[10px] leading-snug text-muted-foreground">
+                        {t.description}
+                      </div>
                     </div>
                   ))}
                 </div>
