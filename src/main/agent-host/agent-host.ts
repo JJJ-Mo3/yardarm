@@ -814,6 +814,7 @@ async function main(): Promise<void> {
       cwd: boot.cwd,
       initialState: Object.keys(initialState).length ? (initialState as never) : undefined,
       subagents: boot.subagents?.length ? (boot.subagents as SdkSubagents) : undefined,
+      disabledTools: boot.disabledTools?.length ? boot.disabledTools : undefined,
       inputProcessors: [compression.processor as never],
       extraTools: { [RETRIEVAL_TOOL_NAME]: retrievalToolInstance as never }
     })
@@ -1944,6 +1945,77 @@ async function main(): Promise<void> {
               collectLspDiagnostics(cmd.path, { root: cmd.root, content: cmd.content })
             )
             break
+          case 'listToolNames':
+            await respond(cmd.reqId, async () => {
+              const perms = await runtimeImport<{
+                TOOL_CATEGORIES: Record<string, { label: string; description: string }>
+                getToolsForCategory: (category: string) => string[]
+              }>('@mastra/code-sdk/permissions')
+              return Object.entries(perms.TOOL_CATEGORIES).map(([category, meta]) => ({
+                category,
+                label: meta.label,
+                description: meta.description,
+                tools: perms.getToolsForCategory(category)
+              }))
+            })
+            break
+          case 'scaffoldPlugin':
+            await respond(cmd.reqId, async () => {
+              const scaffold = await runtimeImport<{
+                scaffoldPlugin: (
+                  targetDir: string,
+                  options?: { id?: string; name?: string; projectRoot?: string }
+                ) => string
+              }>('@mastra/code-sdk/plugins/scaffold')
+              const path = scaffold.scaffoldPlugin(cmd.targetDir, {
+                id: cmd.id,
+                name: cmd.name,
+                projectRoot: cmd.projectRoot ?? boot.cwd
+              })
+              return { path }
+            })
+            break
+          case 'prune': {
+            // Mirrors the CLI's /prune: quiesce every mastracode writer, run
+            // storage maintenance, then exit — the storage connection is
+            // closed afterwards, so this host cannot keep running. The
+            // session manager treats this host as gone once it responds.
+            const log: string[] = []
+            await respond(cmd.reqId, async () => {
+              const ctl = controller as unknown as {
+                getMastra?: () => { stopWorkers?: () => Promise<void> } | undefined
+                stopIntervals?: () => Promise<void> | void
+              }
+              const quiesce = await Promise.allSettled([
+                mc.mcpManager?.disconnect(),
+                ctl.getMastra?.()?.stopWorkers?.(),
+                ctl.stopIntervals?.()
+              ])
+              const stepNames = ['MCP disconnect', 'stop workers', 'stop intervals']
+              quiesce.forEach((r, i) => {
+                if (r.status === 'rejected')
+                  log.push(`Warning: ${stepNames[i]} failed: ${String(r.reason)}`)
+              })
+              const sm = await runtimeImport<{
+                runStorageMaintenance: (opts: {
+                  maintenance: unknown
+                  vacuum: boolean
+                  keepMemory?: boolean
+                  log: (line: string) => void
+                }) => Promise<unknown>
+              }>('@mastra/code-sdk/utils/storage-maintenance')
+              await sm.runStorageMaintenance({
+                maintenance: mc.storageMaintenance,
+                vacuum: cmd.vacuum,
+                keepMemory: cmd.keepMemory,
+                log: (line) => log.push(line)
+              })
+              return { log }
+            })
+            // Give the response message time to flush before exiting.
+            setTimeout(() => process.exit(0), 500)
+            break
+          }
           case 'shutdown':
             // Our language servers are not in this process group and
             // would outlive the host as orphans — reap them (best effort,

@@ -161,6 +161,24 @@ export type HostCommand =
    * diagnosed.
    */
   | { t: 'lspDiagnostics'; reqId: string; path: string; root?: string; content?: string }
+  /** Enumerate the SDK's tool names grouped by category (responds with ToolCategoryTools[]). */
+  | { t: 'listToolNames'; reqId: string }
+  /**
+   * Run mastracode storage maintenance (/prune). The host quiesces its
+   * writers first, responds with PruneResult, then exits — callers must
+   * treat the host as gone afterwards.
+   */
+  | { t: 'prune'; reqId: string; vacuum: boolean; keepMemory: boolean }
+  /** Scaffold a new mastracode plugin into targetDir (responds with ScaffoldPluginResult). */
+  | {
+      t: 'scaffoldPlugin'
+      reqId: string
+      targetDir: string
+      id?: string
+      name?: string
+      /** Project root relative targetDirs resolve against (defaults to the host cwd). */
+      projectRoot?: string
+    }
   | { t: 'shutdown' }
 
 /** host -> main */
@@ -503,6 +521,24 @@ export interface SubagentDefinition {
   forked?: boolean
 }
 
+/** One SDK tool category with its member tool names (listToolNames response). */
+export interface ToolCategoryTools {
+  category: string
+  label: string
+  description: string
+  tools: string[]
+}
+
+/** Response payload of the `prune` host command (log lines from runStorageMaintenance). */
+export interface PruneResult {
+  log: string[]
+}
+
+/** Response payload of the `scaffoldPlugin` host command. */
+export interface ScaffoldPluginResult {
+  path: string
+}
+
 /** Passed to the host via the YARDARM_BOOT env var (JSON). */
 export interface HostBootConfig {
   cwd: string
@@ -517,6 +553,8 @@ export interface HostBootConfig {
   compression?: { enabled: boolean; verbosity: boolean }
   /** Custom subagent definitions (global + project .mastracode/agents). */
   subagents?: SubagentDefinition[]
+  /** Tool names removed from the agent's tool set before exposure to the model. */
+  disabledTools?: string[]
   /**
    * Packaged builds only: absolute path to the vendored mastracode runtime
    * (Resources/agent-runtime). The host imports mastracode/@mastra/code-sdk

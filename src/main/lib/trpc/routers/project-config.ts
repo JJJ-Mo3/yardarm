@@ -268,6 +268,20 @@ export const projectConfigRouter = router({
       )
     }),
 
+  /** Scaffold a new plugin directory (chat-independent — runs on the utility host). */
+  pluginScaffold: publicProcedure
+    .input(
+      z.object({
+        targetDir: z.string().min(1),
+        id: z.string().optional(),
+        name: z.string().optional(),
+        projectRoot: z.string().optional()
+      })
+    )
+    .mutation(async ({ input }) => {
+      return agentSessionManager.scaffoldPlugin(input)
+    }),
+
   pluginUninstall: publicProcedure
     .input(
       z.object({

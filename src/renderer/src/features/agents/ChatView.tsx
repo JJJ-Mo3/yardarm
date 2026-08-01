@@ -6,6 +6,7 @@ import {
   debugEventsAtom,
   helpOpenAtom,
   mainTabAtom,
+  onboardingForceOpenAtom,
   projectSettingsOpenAtom,
   projectSettingsTabAtom,
   selectedSubchatIdAtom,
@@ -38,6 +39,7 @@ import { CostPopover } from './CostPopover'
 import { ThreadsPopover } from './ThreadsPopover'
 import { PermissionsDialog } from './PermissionsDialog'
 import { SandboxDialog } from './SandboxDialog'
+import { PruneStorageDialog } from '../settings/PruneStorageDialog'
 import { GoalBanner } from './GoalBanner'
 import { TaskChecklist } from './TaskChecklist'
 import { GoalPopover } from './GoalPopover'
@@ -46,6 +48,7 @@ import { ModeSelector } from './ModeSelector'
 import { ReviewPopover } from './ReviewPopover'
 import { ReviewFollowupBar } from './ReviewFollowupBar'
 import { useSlashCommands, type SlashCommandEntry } from './slash-commands'
+import { buildReportIssuePrompt } from './report-issue-prompt'
 import {
   buildLocalReviewPrompt,
   buildPlanFromReviewPrompt,
@@ -214,6 +217,8 @@ export function ChatView({
   const setHelpOpen = useSetAtom(helpOpenAtom)
   const setProjectSettingsOpen = useSetAtom(projectSettingsOpenAtom)
   const setProjectSettingsTab = useSetAtom(projectSettingsTabAtom)
+  const setForceOnboarding = useSetAtom(onboardingForceOpenAtom)
+  const updatesCheck = trpc.updates.check.useMutation()
   const [costOpen, setCostOpen] = useState(false)
   const [threadsOpen, setThreadsOpen] = useAtom(threadsOpenAtom)
   const [permissionsOpen, setPermissionsOpen] = useState(false)
@@ -223,6 +228,7 @@ export function ChatView({
   const [omOpen, setOmOpen] = useState(false)
   const [goalOpen, setGoalOpen] = useState(false)
   const [reviewOpen, setReviewOpen] = useState(false)
+  const [pruneOpen, setPruneOpen] = useState(false)
 
   const meta = state.meta
   const busy = send.isPending
@@ -276,7 +282,8 @@ export function ChatView({
       ['clone', cloneThread],
       ['set goal', goalSet],
       ['clear goal', goalClear],
-      ['update goal', goalUpdate]
+      ['update goal', goalUpdate],
+      ['update check', updatesCheck]
     ]
   actionMutationsRef.current = actionMutations
   const failedActions = actionMutations.filter(([, m]) => m.error)
@@ -469,6 +476,29 @@ export function ChatView({
       case 'om':
       case 'memory':
         setOmOpen(true)
+        return
+      case 'setup':
+        setForceOnboarding(true)
+        return
+      case 'update':
+        openSettings('about')
+        updatesCheck.mutate()
+        return
+      case 'browser':
+        openSettings('browser')
+        return
+      case 'report-issue':
+        sendMarked(
+          buildReportIssuePrompt(args.trim()),
+          args.trim() ? `/report-issue ${args.trim()}` : '/report-issue'
+        )
+        return
+      case 'github':
+      case 'observability':
+        openSettings('connectors')
+        return
+      case 'prune':
+        setPruneOpen(true)
         return
       case 'help':
         setHelpOpen(true)
@@ -866,6 +896,7 @@ export function ChatView({
         open={sandboxOpen}
         onOpenChange={setSandboxOpen}
       />
+      <PruneStorageDialog open={pruneOpen} onOpenChange={setPruneOpen} />
     </div>
   )
 }

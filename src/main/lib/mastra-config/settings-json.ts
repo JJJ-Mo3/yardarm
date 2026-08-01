@@ -206,6 +206,40 @@ export function setBrowserSettings(patch: BrowserSettingsPatch): Promise<MastraS
   })
 }
 
+/** Toggle the SDK's experimental GitHub PR-signal polling (/github in the CLI). */
+export function setGithubSignals(enabled: boolean): Promise<MastraSettings> {
+  return updateSettings((s) => {
+    if (!s.signals) s.signals = {}
+    s.signals.experimentalGithubSignals = enabled
+  })
+}
+
+/** Toggle local tracing (/observability local in the CLI). */
+export function setLocalTracing(enabled: boolean): Promise<MastraSettings> {
+  return updateSettings((s) => {
+    if (!s.observability) s.observability = {}
+    s.observability.localTracing = enabled
+  })
+}
+
+/**
+ * Upsert (or with null, remove) a Mastra Cloud observability connection.
+ * Matches the CLI's /observability connect/disconnect settings writes; the
+ * access token is stored separately via the SDK's auth storage.
+ */
+export function setObservabilityResource(
+  resourceId: string,
+  config: { projectId: string; configuredAt: string } | null
+): Promise<MastraSettings> {
+  return updateSettings((s) => {
+    if (!s.observability) s.observability = {}
+    const resources = { ...(s.observability.resources ?? {}) }
+    if (config) resources[resourceId] = config
+    else delete resources[resourceId]
+    s.observability.resources = resources
+  })
+}
+
 /**
  * Activate a model pack. Built-in packs clear manual mode defaults (models
  * resolve from the pack at boot); custom packs pin their models as the

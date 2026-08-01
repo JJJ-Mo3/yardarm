@@ -1,12 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useSetAtom } from 'jotai'
-import { CheckCircle2, Download, ExternalLink, RefreshCw, Wand2, XCircle } from 'lucide-react'
+import {
+  CheckCircle2,
+  Download,
+  ExternalLink,
+  RefreshCw,
+  Trash2,
+  Wand2,
+  XCircle
+} from 'lucide-react'
 import { isNewerVersion } from '@shared/semver'
 import { trpc } from '../../lib/trpc'
 import { onboardingForceOpenAtom, settingsOpenAtom } from '../../lib/atoms'
 import { Button } from '../../components/ui/button'
 import { Switch } from '../../components/ui/switch'
 import { Tip } from '../../components/ui/tooltip'
+import { PruneStorageDialog } from './PruneStorageDialog'
 
 // Strip CSI/OSC escape sequences and carriage returns from pty output.
 // eslint-disable-next-line no-control-regex
@@ -161,6 +170,7 @@ export function AboutTab(): React.JSX.Element {
   const [termId, setTermId] = useState<string | null>(null)
   const [log, setLog] = useState('')
   const [exitCode, setExitCode] = useState<number | null>(null)
+  const [pruneOpen, setPruneOpen] = useState(false)
   const logRef = useRef<HTMLPreElement>(null)
 
   const install = trpc.system.installCli.useMutation({
@@ -253,6 +263,23 @@ export function AboutTab(): React.JSX.Element {
           <Wand2 size={12} />
           Run setup again
         </Button>
+      </div>
+
+      <div className="space-y-2 border-t border-border pt-3">
+        <div className="text-xs font-medium">Storage</div>
+        <div className="text-[11px] text-muted-foreground">
+          mastracode&apos;s local storage (threads, traces, memory — shared with the CLI) grows over
+          time; pruning removes old data. Also available as <code>/prune</code> in any chat.
+        </div>
+        <Tip content="Delete old threads, traces and logs from mastracode storage — stops running agents while it runs">
+          <span className="inline-flex">
+            <Button size="sm" variant="outline" onClick={() => setPruneOpen(true)}>
+              <Trash2 size={12} />
+              Prune storage…
+            </Button>
+          </span>
+        </Tip>
+        <PruneStorageDialog open={pruneOpen} onOpenChange={setPruneOpen} />
       </div>
 
       <div className="space-y-2 border-t border-border pt-3">

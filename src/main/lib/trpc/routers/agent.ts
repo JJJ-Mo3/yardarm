@@ -189,6 +189,34 @@ export const agentRouter = router({
       return { ok: true }
     }),
 
+  /** Global disabled-tool names (removed from the agent's tool set at host boot). */
+  getDisabledTools: publicProcedure.query(() => {
+    return agentSessionManager.getDisabledTools()
+  }),
+
+  /** Persist the disabled-tool list; restarts every agent host to apply it. */
+  setDisabledTools: publicProcedure
+    .input(z.object({ tools: z.array(z.string()) }))
+    .mutation(({ input }) => {
+      agentSessionManager.setDisabledTools(input.tools)
+      return { ok: true }
+    }),
+
+  /** SDK tool names grouped by category, for the disable-tools settings UI. */
+  listToolNames: publicProcedure.query(async () => {
+    return agentSessionManager.listToolNames()
+  }),
+
+  /**
+   * Run mastracode storage maintenance (/prune). Stops every running agent
+   * while it holds the databases; returns the maintenance log lines.
+   */
+  prune: publicProcedure
+    .input(z.object({ vacuum: z.boolean(), keepMemory: z.boolean() }))
+    .mutation(async ({ input }) => {
+      return agentSessionManager.pruneStorage(input)
+    }),
+
   /** Toggle full sandbox mode; returns the truthful applied status. */
   setSandbox: publicProcedure
     .input(z.object({ subchatId: z.string(), enabled: z.boolean(), allowNetwork: z.boolean() }))

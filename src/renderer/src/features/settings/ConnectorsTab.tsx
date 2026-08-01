@@ -4,16 +4,29 @@
  * servers, written into the global ~/.mastracode/mcp.json. Connecting is
  * verified end-to-end in the main process (server load → OAuth or token →
  * tools listed) against the shared utility host, so no chat is required and
- * closing this dialog doesn't interrupt an in-flight sign-in.
+ * closing this dialog doesn't interrupt an in-flight sign-in. Also hosts the
+ * settings.json toggles behind the CLI's /github and /observability commands.
  */
 import React, { useEffect, useState } from 'react'
 import { useSetAtom } from 'jotai'
-import { Bug, Database, ExternalLink, GitBranch, GitMerge, Rocket, Triangle } from 'lucide-react'
+import {
+  Bug,
+  ChevronDown,
+  ChevronRight,
+  Database,
+  ExternalLink,
+  GitBranch,
+  GitMerge,
+  Rocket,
+  Triangle
+} from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { settingsTabAtom } from '../../lib/atoms'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
+import { Switch } from '../../components/ui/switch'
 import { Tip } from '../../components/ui/tooltip'
+import { useRestartBanner } from './restart-banner'
 import type { McpServerStatusInfo } from '@shared/ipc-types'
 import {
   CONNECTORS,
@@ -394,9 +407,194 @@ function ConnectorCard(props: CardProps): React.JSX.Element {
   )
 }
 
+/**
+ * settings.json toggle for the SDK's experimental GitHub PR-signal polling
+ * (the CLI's /github command). Hosts read it at boot — restart to apply.
+ */
+function GithubSignalsSection({ markDirty }: { markDirty: () => void }): React.JSX.Element {
+  const utils = trpc.useUtils()
+  const settings = trpc.mastraSettings.get.useQuery()
+  const setGithubSignals = trpc.mastraSettings.setGithubSignals.useMutation({
+    onSuccess: () => {
+      markDirty()
+      utils.mastraSettings.get.invalidate()
+    }
+  })
+  const enabled = settings.data?.signals?.experimentalGithubSignals === true
+  return (
+    <div className="space-y-2 rounded border border-border px-3 py-2.5">
+      <div>
+        <div className="text-xs font-medium">GitHub signals (experimental)</div>
+        <div className="text-[11px] text-muted-foreground">
+          Lets agents receive pull-request activity (reviews, CI results) as background signals —
+          the mastracode /github feature. Uses the gh CLI&apos;s login; stored in{' '}
+          <code>settings.json</code>.
+        </div>
+      </div>
+      <Tip content="Enable the SDK's experimental GitHub pull-request signal polling for new agent sessions">
+        <label className="flex w-fit items-center gap-2 text-xs">
+          <Switch
+            checked={enabled}
+            disabled={setGithubSignals.isPending}
+            onCheckedChange={(v) => setGithubSignals.mutate({ enabled: v })}
+          />
+          Enable GitHub PR signals
+        </label>
+      </Tip>
+      {setGithubSignals.error && (
+        <div className="text-xs text-destructive selectable">{setGithubSignals.error.message}</div>
+      )}
+    </div>
+  )
+}
+
+const PROJECT_ID_RE = /^[a-zA-Z0-9_-]+$/
+
+/**
+ * Local tracing + Mastra Cloud observability (the CLI's /observability
+ * command). The cloud connection is keyed by this machine's resource id,
+ * which needs the shared utility host — only fetched once the connection
+ * details are expanded, so the tab stays host-free otherwise.
+ */
+function ObservabilitySection({ markDirty }: { markDirty: () => void }): React.JSX.Element {
+  const [open, setOpen] = useState(false)
+  const [projectId, setProjectId] = useState('')
+  const [token, setToken] = useState('')
+  const utils = trpc.useUtils()
+  const settings = trpc.mastraSettings.get.useQuery()
+  const status = trpc.mastraSettings.observabilityStatus.useQuery(undefined, { enabled: open })
+  const onSaved = (): void => {
+    markDirty()
+    utils.mastraSettings.get.invalidate()
+    utils.mastraSettings.observabilityStatus.invalidate()
+  }
+  const setLocalTracing = trpc.mastraSettings.setLocalTracing.useMutation({ onSuccess: onSaved })
+  const connect = trpc.mastraSettings.connectObservability.useMutation({
+    onSuccess: () => {
+      setProjectId('')
+      setToken('')
+      onSaved()
+    }
+  })
+  const disconnect = trpc.mastraSettings.disconnectObservability.useMutation({ onSuccess: onSaved })
+
+  const localTracing = settings.data?.observability?.localTracing === true
+  const connected = Boolean(status.data && (status.data.projectId || status.data.hasToken))
+  const projectIdInvalid = projectId.length > 0 && !PROJECT_ID_RE.test(projectId)
+  const pending = connect.isPending || disconnect.isPending
+  const error = setLocalTracing.error ?? connect.error ?? disconnect.error ?? status.error
+
+  return (
+    <div className="space-y-2 rounded border border-border px-3 py-2.5">
+      <div className="flex items-start gap-2">
+        <div className="flex-1">
+          <div className="text-xs font-medium">Observability</div>
+          <div className="text-[11px] text-muted-foreground">
+            Agent tracing — locally and/or exported to a Mastra Cloud project (the mastracode
+            /observability feature). Applies to new agent sessions.
+          </div>
+        </div>
+        <Tip
+          content={
+            open ? 'Hide the Mastra Cloud connection details' : 'Show the Mastra Cloud connection'
+          }
+        >
+          <Button variant="outline" size="sm" onClick={() => setOpen((v) => !v)}>
+            {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+            Mastra Cloud
+          </Button>
+        </Tip>
+      </div>
+
+      <Tip content="Record agent traces to mastracode's local storage (viewable with CLI tooling)">
+        <label className="flex w-fit items-center gap-2 text-xs">
+          <Switch
+            checked={localTracing}
+            disabled={setLocalTracing.isPending}
+            onCheckedChange={(v) => setLocalTracing.mutate({ enabled: v })}
+          />
+          Local tracing
+        </label>
+      </Tip>
+
+      {open && status.isLoading && (
+        <div className="text-[11px] text-muted-foreground">Loading connection status…</div>
+      )}
+      {open && status.data && connected && (
+        <div className="flex items-center gap-2">
+          <div className="flex-1 text-[11px]">
+            <span className="text-green-600 dark:text-green-500">Connected</span>
+            <span className="text-muted-foreground">
+              {' '}
+              · project <span className="font-mono">{status.data.projectId ?? 'unknown'}</span>
+              {status.data.hasToken ? '' : ' · access token missing'}
+            </span>
+          </div>
+          <Tip content="Remove the Mastra Cloud connection and its stored access token">
+            <span className="inline-flex">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 px-2 text-[10px]"
+                disabled={pending}
+                onClick={() => disconnect.mutate()}
+              >
+                Disconnect
+              </Button>
+            </span>
+          </Tip>
+        </div>
+      )}
+      {open && status.data && !connected && (
+        <div className="space-y-1">
+          <div className="flex gap-2">
+            <Input
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              placeholder="Project ID"
+              className="h-7 text-[11px]"
+              spellCheck={false}
+            />
+            <Input
+              type="password"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="Access token"
+              className="h-7 text-[11px]"
+              spellCheck={false}
+            />
+            <Tip content="Save the Mastra Cloud project connection — traces export from new agent sessions">
+              <span className="inline-flex">
+                <Button
+                  size="sm"
+                  className="h-7 px-2 text-[10px]"
+                  disabled={pending || !projectId || projectIdInvalid || !token.trim()}
+                  onClick={() => connect.mutate({ projectId, token: token.trim() })}
+                >
+                  {connect.isPending ? 'Connecting…' : 'Connect'}
+                </Button>
+              </span>
+            </Tip>
+          </div>
+          {projectIdInvalid && (
+            <div className="text-[10px] text-destructive">
+              Project IDs may only contain letters, numbers, hyphens and underscores.
+            </div>
+          )}
+          <div className="text-[10px] text-muted-foreground">
+            Find both in your Mastra Cloud project settings.
+          </div>
+        </div>
+      )}
+      {error && <div className="text-xs text-destructive selectable">{error.message}</div>}
+    </div>
+  )
+}
+
 export function ConnectorsTab(): React.JSX.Element {
   const utils = trpc.useUtils()
   const setTab = useSetAtom(settingsTabAtom)
+  const { markDirty, banner } = useRestartBanner()
   const servers = trpc.mcp.get.useQuery({})
   const serverMap = servers.data ?? {}
   const anyManaged = CONNECTORS.some((def) => connectorState(def, serverMap) === 'managed')
@@ -535,6 +733,9 @@ export function ConnectorsTab(): React.JSX.Element {
           onManageCustom={() => setTab('mcp')}
         />
       ))}
+      <GithubSignalsSection markDirty={markDirty} />
+      <ObservabilitySection markDirty={markDirty} />
+      {banner}
     </div>
   )
 }

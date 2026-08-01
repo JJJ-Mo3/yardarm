@@ -61,14 +61,17 @@ import type {
   PluginInfo,
   PluginScope,
   ProviderKeyEnvStatus,
+  PruneResult,
   ResourceInfo,
   SandboxRuntimeInfo,
+  ScaffoldPluginResult,
   SessionStateInfo,
   SessionStatePatch,
   SkillInfo,
   SlashCommandInfo,
   SttModelInfo,
-  ThreadInfo
+  ThreadInfo,
+  ToolCategoryTools
 } from '../../../shared/ipc-types'
 import type {
   AgentStatus,
@@ -384,6 +387,9 @@ export class AgentSessionManager {
 
   /** Ensure a host process exists for the subchat; boots one if needed. */
   async ensureHost(subchatId: string): Promise<HostHandle> {
+    // Storage maintenance needs exclusive access to mastracode's DBs — hold
+    // new host boots until an in-flight prune finishes.
+    if (this.pruneGate) await this.pruneGate.catch(() => {})
     const existing = this.hosts.get(subchatId)
     if (existing && !existing.killed) {
       await existing.readyPromise
@@ -438,7 +444,8 @@ export class AgentSessionManager {
       yolo: subchat.yolo,
       sandbox: { enabled: subchat.fullSandbox, allowNetwork: subchat.sandboxNetwork },
       compression: this.compressionSettings(),
-      subagents
+      subagents,
+      disabledTools: this.getDisabledTools()
     }
 
     // MCP OAuth tokens are fingerprinted by projectDir (git toplevel of the
@@ -1246,6 +1253,99 @@ export class AgentSessionManager {
     this.sendCommand(handle, { t: 'setYolo', yolo })
   }
 
+  /** Global disabled-tool names (app_settings KV); new hosts boot with them. */
+  getDisabledTools(): string[] {
+    const raw = this.readAppSetting('disabledTools')
+    if (!Array.isArray(raw)) return []
+    return raw.filter((t): t is string => typeof t === 'string')
+  }
+
+  /**
+   * Persist the global disabled-tool list and restart every host so it takes
+   * effect (the SDK removes the tools from the set at boot only).
+   */
+  setDisabledTools(tools: string[]): void {
+    this.writeAppSetting('disabledTools', tools)
+    this.restartAll()
+  }
+
+  /** SDK tool names grouped by category (host-side enumeration for the settings UI). */
+  async listToolNames(): Promise<ToolCategoryTools[]> {
+    const handle = await this.ensureUtilityHost()
+    return this.request<ToolCategoryTools[]>(handle, { t: 'listToolNames', reqId: randomUUID() })
+  }
+
+  /** Scaffold a new mastracode plugin via the utility host (no chat required). */
+  async scaffoldPlugin(opts: {
+    targetDir: string
+    id?: string
+    name?: string
+    projectRoot?: string
+  }): Promise<ScaffoldPluginResult> {
+    const handle = await this.ensureUtilityHost()
+    return this.request<ScaffoldPluginResult>(
+      handle,
+      {
+        t: 'scaffoldPlugin',
+        reqId: randomUUID(),
+        targetDir: opts.targetDir,
+        id: opts.id,
+        name: opts.name,
+        projectRoot: opts.projectRoot
+      },
+      30_000
+    )
+  }
+
+  /** Blocks new host boots while storage maintenance holds the DBs. */
+  private pruneGate: Promise<unknown> | null = null
+
+  /**
+   * Run mastracode storage maintenance (/prune). Mirrors the CLI: every
+   * running agent host is stopped first (VACUUM needs exclusive access to
+   * mastracode's DBs), a dedicated short-lived host performs the maintenance
+   * and exits itself, and new host boots are gated until it's done. Returns
+   * the maintenance log lines.
+   */
+  async pruneStorage(opts: { vacuum: boolean; keepMemory: boolean }): Promise<PruneResult> {
+    const task = this.queueMcpOp(async () => {
+      // Stop everything and wait — a live host holds open DB connections.
+      for (const id of [...this.hosts.keys()]) await this.stopHostAndWait(id)
+      if (this.utilityHost) {
+        const h = this.utilityHost
+        this.utilityHost = null
+        if (!h.killed) {
+          const exited = new Promise<void>((resolve) => h.proc.once('exit', () => resolve()))
+          this.sendCommand(h, { t: 'shutdown' })
+          setTimeout(() => {
+            if (!h.killed) h.proc.kill()
+          }, 2000)
+          await Promise.race([exited, new Promise<void>((r) => setTimeout(r, 3000))])
+        }
+      }
+      const handle = this.spawnHost('__prune__', { cwd: os.homedir(), yolo: false })
+      try {
+        await handle.readyPromise
+        return await this.request<PruneResult>(
+          handle,
+          { t: 'prune', reqId: randomUUID(), vacuum: opts.vacuum, keepMemory: opts.keepMemory },
+          5 * 60_000
+        )
+      } finally {
+        // The host exits itself after responding; this is only a safety net.
+        setTimeout(() => {
+          if (!handle.killed) handle.proc.kill()
+        }, 5000)
+      }
+    })
+    this.pruneGate = task.catch(() => {})
+    try {
+      return await task
+    } finally {
+      this.pruneGate = null
+    }
+  }
+
   /** Global token-compression settings (app_settings KV); new hosts boot with them. */
   private compressionSettings(): { enabled: boolean; verbosity: boolean } {
     try {
@@ -1604,6 +1704,16 @@ export class AgentSessionManager {
   async resourceInfo(subchatId: string): Promise<ResourceInfo> {
     const handle = await this.ensureHost(subchatId)
     return this.request<ResourceInfo>(handle, { t: 'resourceInfo', reqId: randomUUID() })
+  }
+
+  /** The machine's default resource id (no chat required — utility host). */
+  async defaultResourceId(): Promise<string> {
+    const handle = await this.ensureUtilityHost()
+    const info = await this.request<ResourceInfo>(handle, {
+      t: 'resourceInfo',
+      reqId: randomUUID()
+    })
+    return info.resourceId
   }
 
   /** Session-state keys surfaced to the UI (notifications, smartEditing, sandbox paths). */
@@ -2374,6 +2484,8 @@ export class AgentSessionManager {
 
   /** Host used only for auth/model queries; cwd = home dir, never runs the agent. */
   private async ensureUtilityHost(): Promise<HostHandle> {
+    // Hold boots during storage maintenance (see pruneStorage).
+    if (this.pruneGate) await this.pruneGate.catch(() => {})
     // Prefer any live chat host to avoid an extra process.
     for (const handle of this.hosts.values()) {
       if (!handle.killed && handle.status === 'ready') return handle

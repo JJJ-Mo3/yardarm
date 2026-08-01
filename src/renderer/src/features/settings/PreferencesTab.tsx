@@ -1,5 +1,7 @@
-import React from 'react'
+import React, { useState } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
+import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Switch } from '../../components/ui/switch'
 import { Tip } from '../../components/ui/tooltip'
@@ -7,6 +9,119 @@ import { useRestartBanner } from './restart-banner'
 
 const THEMES = ['auto', 'dark', 'light'] as const
 const THINKING_LEVELS = ['off', 'low', 'medium', 'high', 'xhigh'] as const
+
+/**
+ * Globally disable individual agent tools (SDK `disabledTools`). Edits are
+ * drafted locally and applied in one shot because applying restarts every
+ * running agent host.
+ */
+function ToolsSection(): React.JSX.Element {
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState<Set<string> | null>(null)
+  const utils = trpc.useUtils()
+  const saved = trpc.agent.getDisabledTools.useQuery()
+  // Enumerating tools boots an agent host — only fetch once the section is opened.
+  const categories = trpc.agent.listToolNames.useQuery(undefined, { enabled: open })
+  const setDisabledTools = trpc.agent.setDisabledTools.useMutation({
+    onSuccess: () => {
+      setDraft(null)
+      utils.agent.getDisabledTools.invalidate()
+    }
+  })
+
+  const savedSet = new Set(saved.data ?? [])
+  const current = draft ?? savedSet
+  const dirty =
+    draft !== null && (draft.size !== savedSet.size || [...draft].some((t) => !savedSet.has(t)))
+
+  const toggle = (tool: string, enabled: boolean): void => {
+    const next = new Set(current)
+    if (enabled) next.delete(tool)
+    else next.add(tool)
+    setDraft(next)
+  }
+
+  return (
+    <div className="space-y-3 rounded border border-border p-3">
+      <div className="flex items-start gap-2">
+        <div className="flex-1">
+          <div className="text-xs font-medium">Agent tools</div>
+          <div className="text-[11px] text-muted-foreground">
+            Remove individual tools from every agent&apos;s tool set (all projects and chats).
+            Applying restarts running agents.
+          </div>
+        </div>
+        <Tip content={open ? 'Hide the tool list' : 'Show every agent tool grouped by category'}>
+          <Button variant="outline" size="sm" onClick={() => setOpen((v) => !v)}>
+            {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+            {savedSet.size > 0 ? `Tools (${savedSet.size} disabled)` : 'Tools'}
+          </Button>
+        </Tip>
+      </div>
+
+      {open && categories.isLoading && (
+        <div className="text-[11px] text-muted-foreground">Loading tools…</div>
+      )}
+      {open && categories.error && (
+        <div className="text-xs text-destructive selectable">{categories.error.message}</div>
+      )}
+      {open &&
+        (categories.data ?? []).map((cat) => (
+          <div key={cat.category} className="space-y-1.5">
+            <div className="text-[11px] font-medium">
+              {cat.label}
+              <span className="ml-1.5 font-normal text-muted-foreground">{cat.description}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+              {cat.tools.map((tool) => (
+                <Tip
+                  key={tool}
+                  content={
+                    current.has(tool)
+                      ? `Re-enable the ${tool} tool for all agents`
+                      : `Disable the ${tool} tool for all agents`
+                  }
+                >
+                  <label className="flex w-fit items-center gap-2 text-[11px]">
+                    <Switch checked={!current.has(tool)} onCheckedChange={(v) => toggle(tool, v)} />
+                    <span className="font-mono">{tool}</span>
+                  </label>
+                </Tip>
+              ))}
+            </div>
+          </div>
+        ))}
+
+      {open && (
+        <div className="flex items-center gap-2">
+          <Tip content="Save the tool changes and restart all running agents to apply them">
+            <span className="inline-flex">
+              <Button
+                size="sm"
+                disabled={!dirty || setDisabledTools.isPending}
+                onClick={() => setDisabledTools.mutate({ tools: [...current].sort() })}
+              >
+                Apply (restarts agents)
+              </Button>
+            </span>
+          </Tip>
+          <Tip content="Discard unapplied tool changes">
+            <span className="inline-flex">
+              <Button variant="outline" size="sm" disabled={!dirty} onClick={() => setDraft(null)}>
+                Revert
+              </Button>
+            </span>
+          </Tip>
+          {setDisabledTools.error && (
+            <div className="text-xs text-destructive selectable">
+              {setDisabledTools.error.message}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 /** mastracode preferences in settings.json (shared with the CLI). */
 export function PreferencesTab(): React.JSX.Element {
@@ -201,6 +316,8 @@ export function PreferencesTab(): React.JSX.Element {
           </label>
         </Tip>
       </div>
+
+      <ToolsSection />
 
       {error && <div className="text-xs text-destructive selectable">{error.message}</div>}
       {banner}

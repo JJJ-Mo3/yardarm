@@ -70,6 +70,18 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
   { name: 'login', description: 'Log in to a model provider', kind: 'builtin' },
   { name: 'logout', description: 'Log out of a model provider', kind: 'builtin' },
   { name: 'custom-providers', description: 'Manage custom providers', kind: 'builtin' },
+  { name: 'setup', description: 'Re-run the setup wizard', kind: 'builtin' },
+  { name: 'update', description: 'Check for app updates', kind: 'builtin' },
+  { name: 'browser', description: 'Browser tool settings', kind: 'builtin' },
+  {
+    name: 'report-issue',
+    description: 'Report a mastracode issue on GitHub',
+    args: '[description]',
+    kind: 'builtin'
+  },
+  { name: 'prune', description: 'Prune old storage data', kind: 'builtin' },
+  { name: 'github', description: 'GitHub signals integration', kind: 'builtin' },
+  { name: 'observability', description: 'Observability integration', kind: 'builtin' },
   { name: 'help', description: 'Show all commands', kind: 'builtin' }
 ]
 
@@ -79,19 +91,12 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
  */
 export const CLI_ONLY_COMMANDS: SlashCommandEntry[] = [
   { name: 'thread:tag-dir', description: 'Tag threads by directory', kind: 'cli-only' },
-  { name: 'github', description: 'GitHub integration', kind: 'cli-only' },
-  { name: 'observability', description: 'Observability integration', kind: 'cli-only' },
   {
     name: 'voice',
     description: 'Voice input',
     kind: 'cli-only',
     hint: 'Use the mic button in the composer to dictate (Cloud engine — see Settings → Voice). macOS native dictation runs in the mastracode CLI.'
   },
-  { name: 'browser', description: 'Browser tool', kind: 'cli-only' },
-  { name: 'setup', description: 'Onboarding wizard', kind: 'cli-only' },
-  { name: 'update', description: 'Update the CLI', kind: 'cli-only' },
-  { name: 'prune', description: 'Prune old storage data', kind: 'cli-only' },
-  { name: 'report-issue', description: 'Report an issue', kind: 'cli-only' },
   { name: 'exit', description: 'Exit the TUI', kind: 'cli-only' }
 ]
 

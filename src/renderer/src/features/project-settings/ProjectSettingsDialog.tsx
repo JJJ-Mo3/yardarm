@@ -750,7 +750,146 @@ function PluginConfigRow({
   )
 }
 
-function PluginsTab({ subchatId }: { subchatId: string | null }): React.JSX.Element {
+/**
+ * Scaffold a new plugin skeleton on disk (SDK scaffoldPlugin — the CLI's
+ * `plugin scaffold`), then install the created directory into this chat's
+ * agent so it shows up in the list immediately.
+ */
+function ScaffoldPluginDialog({
+  subchatId,
+  projectPath,
+  open,
+  onOpenChange
+}: {
+  subchatId: string
+  projectPath: string | null
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}): React.JSX.Element {
+  const utils = trpc.useUtils()
+  const [name, setName] = useState('')
+  const [id, setId] = useState('')
+  const [targetDir, setTargetDir] = useState('')
+  const [scope, setScope] = useState<'global' | 'project'>('project')
+
+  const install = trpc.projectConfig.pluginInstall.useMutation({
+    onSuccess: (list) => {
+      utils.projectConfig.pluginsList.setData({ subchatId }, list)
+      setName('')
+      setId('')
+      setTargetDir('')
+      onOpenChange(false)
+    }
+  })
+  const scaffold = trpc.projectConfig.pluginScaffold.useMutation({
+    onSuccess: (result) =>
+      install.mutate({ subchatId, source: 'local', pathOrUrl: result.path, scope })
+  })
+
+  const busy = scaffold.isPending || install.isPending
+  const error = scaffold.error ?? install.error
+  const close = (next: boolean): void => {
+    if (busy) return
+    onOpenChange(next)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={close}>
+      <DialogContent className="max-w-lg">
+        <DialogTitle>Create plugin</DialogTitle>
+        <div className="space-y-3">
+          <div className="text-[11px] text-muted-foreground">
+            Scaffolds a plugin skeleton (manifest, example tool, skill and command) into a new
+            directory, then installs it into this chat&apos;s agent. Edit the files afterwards —
+            relative paths resolve against the project root.
+          </div>
+          <div className="space-y-1">
+            <div className="text-xs">Directory</div>
+            <Input
+              placeholder=".mastracode/plugins/my-plugin or /absolute/path"
+              value={targetDir}
+              onChange={(e) => setTargetDir(e.target.value)}
+              className="font-mono text-[11px]"
+            />
+          </div>
+          <div className="flex gap-2">
+            <div className="flex-1 space-y-1">
+              <div className="text-xs">Name (optional)</div>
+              <Input
+                placeholder="My Plugin"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="text-[11px]"
+              />
+            </div>
+            <div className="flex-1 space-y-1">
+              <div className="text-xs">Id (optional)</div>
+              <Input
+                placeholder="my-plugin (defaults from directory)"
+                value={id}
+                onChange={(e) => setId(e.target.value)}
+                className="font-mono text-[11px]"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs">Install scope</span>
+            <Tip content="Install the new plugin for this project only, or globally for every project on this machine">
+              <select
+                value={scope}
+                onChange={(e) => setScope(e.target.value as 'global' | 'project')}
+                className="h-7 rounded-md border border-border bg-background px-2 text-[11px]"
+              >
+                <option value="project">project</option>
+                <option value="global">global</option>
+              </select>
+            </Tip>
+          </div>
+          {error && <div className="text-xs text-destructive selectable">{error.message}</div>}
+          <div className="flex justify-end gap-2">
+            <Tip content="Close without creating a plugin">
+              <span className="inline-flex">
+                <Button variant="outline" size="sm" disabled={busy} onClick={() => close(false)}>
+                  Cancel
+                </Button>
+              </span>
+            </Tip>
+            <Tip content="Scaffold the plugin files and install them into this chat's agent">
+              <span className="inline-flex">
+                <Button
+                  size="sm"
+                  disabled={!targetDir.trim() || busy}
+                  onClick={() =>
+                    scaffold.mutate({
+                      targetDir: targetDir.trim(),
+                      id: id.trim() || undefined,
+                      name: name.trim() || undefined,
+                      projectRoot: projectPath ?? undefined
+                    })
+                  }
+                >
+                  {scaffold.isPending
+                    ? 'Creating…'
+                    : install.isPending
+                      ? 'Installing…'
+                      : 'Create & install'}
+                </Button>
+              </span>
+            </Tip>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function PluginsTab({
+  subchatId,
+  projectPath
+}: {
+  subchatId: string | null
+  projectPath: string | null
+}): React.JSX.Element {
   const utils = trpc.useUtils()
   const plugins = trpc.projectConfig.pluginsList.useQuery(
     { subchatId: subchatId ?? '' },
@@ -760,6 +899,7 @@ function PluginsTab({ subchatId }: { subchatId: string | null }): React.JSX.Elem
   const [pathOrUrl, setPathOrUrl] = useState('')
   const [installScope, setInstallScope] = useState<'global' | 'project'>('project')
   const [configFor, setConfigFor] = useState<string | null>(null)
+  const [scaffoldOpen, setScaffoldOpen] = useState(false)
   const confirmDialog = useConfirm()
 
   const onList = (list: NonNullable<typeof plugins.data>): void => {
@@ -835,6 +975,19 @@ function PluginsTab({ subchatId }: { subchatId: string | null }): React.JSX.Elem
           </span>
         </Tip>
       </div>
+      <Tip content="Scaffold a brand-new plugin (manifest + example tool, skill and command) and install it">
+        <span className="inline-flex">
+          <Button size="sm" variant="outline" onClick={() => setScaffoldOpen(true)}>
+            Create plugin…
+          </Button>
+        </span>
+      </Tip>
+      <ScaffoldPluginDialog
+        subchatId={subchatId}
+        projectPath={projectPath}
+        open={scaffoldOpen}
+        onOpenChange={setScaffoldOpen}
+      />
       {plugins.isLoading && <div className="text-xs text-muted-foreground">Loading…</div>}
       {plugins.error && (
         <div className="text-xs text-destructive selectable">{plugins.error.message}</div>
@@ -1039,7 +1192,7 @@ export function ProjectSettingsDialog({
               {tab === 'resource' && (
                 <ResourceTab projectPath={projectPath} subchatId={subchatId} />
               )}
-              {tab === 'plugins' && <PluginsTab subchatId={subchatId} />}
+              {tab === 'plugins' && <PluginsTab subchatId={subchatId} projectPath={projectPath} />}
             </div>
           </div>
         )}

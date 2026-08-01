@@ -13,8 +13,11 @@ import {
   saveCustomPack,
   setActiveModelPack,
   setBrowserSettings,
+  setGithubSignals,
   setGoalDefaults,
+  setLocalTracing,
   setModeDefault,
+  setObservabilityResource,
   setOmDefaults,
   setOmPack,
   setPreferences,
@@ -140,6 +143,67 @@ export const mastraSettingsRouter = router({
       await setBrowserSettings(input)
       return NEEDS_RESTART
     }),
+
+  /** Toggle the SDK's experimental GitHub PR-signal polling (/github in the CLI). */
+  setGithubSignals: publicProcedure
+    .input(z.object({ enabled: z.boolean() }))
+    .mutation(async ({ input }) => {
+      await setGithubSignals(input.enabled)
+      return NEEDS_RESTART
+    }),
+
+  setLocalTracing: publicProcedure
+    .input(z.object({ enabled: z.boolean() }))
+    .mutation(async ({ input }) => {
+      await setLocalTracing(input.enabled)
+      return NEEDS_RESTART
+    }),
+
+  /** Mastra Cloud observability connection state for this machine's resource id. */
+  observabilityStatus: publicProcedure.query(async () => {
+    const [settings, resourceId, auth] = await Promise.all([
+      readSettings(),
+      agentSessionManager.defaultResourceId(),
+      agentSessionManager.authList()
+    ])
+    const resource = settings.observability?.resources?.[resourceId]
+    return {
+      resourceId,
+      projectId: typeof resource?.projectId === 'string' ? resource.projectId : null,
+      configuredAt: typeof resource?.configuredAt === 'string' ? resource.configuredAt : null,
+      hasToken: auth.some((a) => a.provider === `observability:${resourceId}` && a.hasKey),
+      localTracing: settings.observability?.localTracing === true
+    }
+  }),
+
+  /**
+   * Connect Mastra Cloud observability: resource config in settings.json plus
+   * the access token in the SDK's auth storage under `observability:<rid>` —
+   * the exact keys the CLI's /observability connect writes.
+   */
+  connectObservability: publicProcedure
+    .input(
+      z.object({
+        projectId: z.string().regex(/^[a-zA-Z0-9_-]+$/, 'Invalid project id'),
+        token: z.string().min(1)
+      })
+    )
+    .mutation(async ({ input }) => {
+      const resourceId = await agentSessionManager.defaultResourceId()
+      await setObservabilityResource(resourceId, {
+        projectId: input.projectId,
+        configuredAt: new Date().toISOString()
+      })
+      await agentSessionManager.authSet(`observability:${resourceId}`, input.token)
+      return NEEDS_RESTART
+    }),
+
+  disconnectObservability: publicProcedure.mutation(async () => {
+    const resourceId = await agentSessionManager.defaultResourceId()
+    await setObservabilityResource(resourceId, null)
+    await agentSessionManager.authRemove(`observability:${resourceId}`)
+    return NEEDS_RESTART
+  }),
 
   /** Built-in + custom model packs and OM packs available to this user. */
   listPacks: publicProcedure.query(async () => {

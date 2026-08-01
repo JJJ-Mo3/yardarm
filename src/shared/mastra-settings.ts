@@ -121,6 +121,28 @@ export interface MastraOnboardingSettings {
   [key: string]: unknown
 }
 
+/** Background signal sources (SignalSettings in the SDK). */
+export interface MastraSignalsSettings {
+  unixSocketPubSub?: boolean
+  /** Enables GitHub PR polling for subscribed threads (experimental upstream). */
+  experimentalGithubSignals?: boolean
+  [key: string]: unknown
+}
+
+/** A Mastra Cloud observability connection keyed by resource id. */
+export interface MastraObservabilityResource {
+  projectId?: string
+  configuredAt?: string
+  [key: string]: unknown
+}
+
+/** Tracing/telemetry config (ObservabilitySettings in the SDK). */
+export interface MastraObservabilitySettings {
+  resources?: Record<string, MastraObservabilityResource>
+  localTracing?: boolean
+  [key: string]: unknown
+}
+
 export interface MastraSettings {
   models?: MastraModelsSettings
   preferences?: MastraPreferencesSettings
@@ -129,6 +151,8 @@ export interface MastraSettings {
   voice?: MastraVoiceSettings
   browser?: MastraBrowserSettings
   onboarding?: MastraOnboardingSettings
+  signals?: MastraSignalsSettings
+  observability?: MastraObservabilitySettings
   [key: string]: unknown
 }
 
