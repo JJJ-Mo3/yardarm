@@ -6,6 +6,7 @@
 import React from 'react'
 import { ShieldQuestion } from 'lucide-react'
 import { Button } from '../../components/ui/button'
+import { Tip } from '../../components/ui/tooltip'
 import type { PendingSuspension, ToolCallPart } from '../../../../shared/ui-message'
 
 interface SandboxAccessPayload {
@@ -38,12 +39,16 @@ export function SandboxAccessCard({
         <div className="text-xs text-muted-foreground selectable">Reason: {payload.reason}</div>
       )}
       <div className="flex gap-2">
-        <Button size="sm" onClick={() => onResume('Yes')}>
-          Allow
-        </Button>
-        <Button size="sm" variant="outline" onClick={() => onResume('No')}>
-          Deny
-        </Button>
+        <Tip content="Grant the agent access outside the sandbox for this request">
+          <Button size="sm" onClick={() => onResume('Yes')}>
+            Allow
+          </Button>
+        </Tip>
+        <Tip content="Deny this access request — the agent continues without leaving the sandbox">
+          <Button size="sm" variant="outline" onClick={() => onResume('No')}>
+            Deny
+          </Button>
+        </Tip>
       </div>
     </div>
   )

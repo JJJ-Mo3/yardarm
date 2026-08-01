@@ -109,19 +109,21 @@ function DirNode({
 
   return (
     <div>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        style={{ paddingLeft: depth * 12 + 8 }}
-        className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-[12px] hover:bg-accent cursor-pointer"
-      >
-        {open ? (
-          <ChevronDown size={11} className="shrink-0 text-muted-foreground" />
-        ) : (
-          <ChevronRight size={11} className="shrink-0 text-muted-foreground" />
-        )}
-        <Folder size={12} className="shrink-0 text-muted-foreground" />
-        <span className="truncate">{name}</span>
-      </button>
+      <Tip content={open ? 'Collapse this folder' : 'Expand this folder'}>
+        <button
+          onClick={() => setOpen((o) => !o)}
+          style={{ paddingLeft: depth * 12 + 8 }}
+          className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-[12px] hover:bg-accent cursor-pointer"
+        >
+          {open ? (
+            <ChevronDown size={11} className="shrink-0 text-muted-foreground" />
+          ) : (
+            <ChevronRight size={11} className="shrink-0 text-muted-foreground" />
+          )}
+          <Folder size={12} className="shrink-0 text-muted-foreground" />
+          <span className="truncate">{name}</span>
+        </button>
+      </Tip>
       {open && children.isLoading && (
         <div
           style={{ paddingLeft: (depth + 1) * 12 + 8 }}

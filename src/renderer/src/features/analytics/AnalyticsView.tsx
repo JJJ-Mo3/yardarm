@@ -41,6 +41,7 @@ function SummaryCard({
 
 export function AnalyticsView({ projectId }: { projectId: string }): React.JSX.Element {
   const [days, setDays] = useState(30)
+  const [exportError, setExportError] = useState<string | null>(null)
   const input = { projectId, days }
   const byDay = trpc.analytics.usageByDay.useQuery(input)
   const byModel = trpc.analytics.usageByModel.useQuery(input)
@@ -59,13 +60,18 @@ export function AnalyticsView({ projectId }: { projectId: string }): React.JSX.E
   )
 
   const exportCsv = async (): Promise<void> => {
-    const csv = await utils.analytics.exportCsv.fetch(input)
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `yardarm-usage-${days}d.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    setExportError(null)
+    try {
+      const csv = await utils.analytics.exportCsv.fetch(input)
+      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `yardarm-usage-${days}d.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : String(err))
+    }
   }
 
   return (
@@ -98,6 +104,12 @@ export function AnalyticsView({ projectId }: { projectId: string }): React.JSX.E
             </Tip>
           </div>
         </div>
+
+        {exportError && (
+          <div className="text-xs text-destructive selectable">
+            CSV export failed: {exportError}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <SummaryCard label="Total tokens" value={nf.format(totals.totalTokens)} />

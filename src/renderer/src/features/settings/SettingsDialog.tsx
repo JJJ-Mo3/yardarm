@@ -172,17 +172,19 @@ export function KeysTab(): React.JSX.Element {
         )}
       </div>
       <div className="flex gap-2">
-        <select
-          value={provider}
-          onChange={(e) => setProvider(e.target.value)}
-          className="h-8 rounded-md border border-border bg-background px-2 text-xs"
-        >
-          {PROVIDERS.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </select>
+        <Tip content="Choose which provider this API key is for">
+          <select
+            value={provider}
+            onChange={(e) => setProvider(e.target.value)}
+            className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+          >
+            {PROVIDERS.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </Tip>
         <Input
           type="password"
           placeholder="API key"
