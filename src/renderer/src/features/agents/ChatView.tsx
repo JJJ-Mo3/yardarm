@@ -49,6 +49,7 @@ import { ReviewPopover } from './ReviewPopover'
 import { ReviewFollowupBar } from './ReviewFollowupBar'
 import { useSlashCommands, type SlashCommandEntry } from './slash-commands'
 import { buildReportIssuePrompt } from './report-issue-prompt'
+import { buildAttachmentPrompt, classifyAttachment } from './attachments'
 import {
   buildLocalReviewPrompt,
   buildPlanFromReviewPrompt,
@@ -883,9 +884,27 @@ export function ChatView({
         commands={commands}
         onSend={(content, files) => {
           setRollbackNotice(null)
-          // The main process queues this behind an active run (dismissable,
-          // flushed in order on run end) or sends immediately when idle.
-          send.mutate({ subchatId, content, files })
+          // Text-like attachments are inlined into the prompt (providers only
+          // accept images/PDFs as native file parts); displayText keeps the
+          // transcript bubble clean. The main process queues this behind an
+          // active run (dismissable, flushed in order on run end) or sends
+          // immediately when idle.
+          const texts =
+            files?.filter((f) => classifyAttachment(f.mediaType, f.filename) === 'text') ?? []
+          if (texts.length === 0) {
+            send.mutate({ subchatId, content, files })
+            return
+          }
+          const native = files?.filter(
+            (f) => classifyAttachment(f.mediaType, f.filename) !== 'text'
+          )
+          const built = buildAttachmentPrompt(content, texts)
+          send.mutate({
+            subchatId,
+            content: built.content,
+            displayText: built.displayText,
+            files: native?.length ? native : undefined
+          })
         }}
         onAbort={() => abort.mutate({ subchatId })}
         onSlashCommand={handleSlashCommand}

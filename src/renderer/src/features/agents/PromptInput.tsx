@@ -1,9 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { ArrowUp, Loader2, Mic, Paperclip, Square, X } from 'lucide-react'
+import { ArrowUp, FileText, Loader2, Mic, Paperclip, Square, X } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { Tip } from '../../components/ui/tooltip'
 import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
+import {
+  ATTACHMENT_ACCEPT,
+  MAX_TEXT_ATTACHMENT_BYTES,
+  classifyAttachment,
+  type ComposerAttachment
+} from './attachments'
 import type { SlashCommandEntry } from './slash-commands'
 import { formatElapsed, micReleaseAction, useVoiceRecorder } from './use-voice-recorder'
 
@@ -13,13 +19,7 @@ const KIND_LABEL: Record<SlashCommandEntry['kind'], string | null> = {
   'cli-only': 'CLI'
 }
 
-export interface ComposerAttachment {
-  data: string
-  mediaType: string
-  filename?: string
-}
-
-/** Read an image file into a base64 attachment (no data: prefix). */
+/** Read a file into a base64 attachment (no data: prefix). */
 function fileToAttachment(file: File): Promise<ComposerAttachment> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -206,11 +206,25 @@ export function PromptInput({
     }
   }
 
-  /** Add pasted/dropped image files as attachments. */
+  /** Add picked/pasted/dropped files as attachments, flagging unsupported ones. */
   async function addFiles(files: File[]): Promise<void> {
-    const images = files.filter((f) => f.type.startsWith('image/'))
-    if (images.length === 0) return
-    const converted = await Promise.all(images.map(fileToAttachment))
+    const accepted: File[] = []
+    const skipped: string[] = []
+    for (const f of files) {
+      const kind = classifyAttachment(f.type, f.name)
+      if (kind === 'unsupported') {
+        skipped.push(`${f.name || 'file'} — attach images, PDFs, or text files`)
+      } else if (kind === 'text' && f.size > MAX_TEXT_ATTACHMENT_BYTES) {
+        skipped.push(
+          `${f.name || 'file'} — text attachments are limited to ${MAX_TEXT_ATTACHMENT_BYTES / 1024} KB`
+        )
+      } else {
+        accepted.push(f)
+      }
+    }
+    if (skipped.length > 0) setHint(`Skipped ${skipped.join('; ')}`)
+    if (accepted.length === 0) return
+    const converted = await Promise.all(accepted.map(fileToAttachment))
     setAttachments((prev) => [...prev, ...converted])
   }
 
@@ -356,27 +370,40 @@ export function PromptInput({
       )}
       {attachments.length > 0 && (
         <div className="mb-1.5 flex flex-wrap gap-1.5">
-          {attachments.map((a, i) => (
-            <div
-              key={i}
-              className="group relative h-12 w-12 overflow-hidden rounded border border-border"
-              title={a.filename ?? a.mediaType}
-            >
-              <img
-                src={`data:${a.mediaType};base64,${a.data}`}
-                alt={a.filename ?? 'attachment'}
-                className="h-full w-full object-cover"
-              />
-              <Tip content="Remove this attachment">
-                <button
-                  className="absolute right-0 top-0 hidden rounded-bl bg-background/80 p-0.5 group-hover:block cursor-pointer"
-                  onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
-                >
-                  <X size={10} />
-                </button>
-              </Tip>
-            </div>
-          ))}
+          {attachments.map((a, i) => {
+            const isImage = classifyAttachment(a.mediaType, a.filename) === 'image'
+            return (
+              <div
+                key={i}
+                className={cn(
+                  'group relative h-12 overflow-hidden rounded border border-border',
+                  isImage ? 'w-12' : 'flex max-w-40 items-center gap-1.5 px-2'
+                )}
+                title={a.filename ?? a.mediaType}
+              >
+                {isImage ? (
+                  <img
+                    src={`data:${a.mediaType};base64,${a.data}`}
+                    alt={a.filename ?? 'attachment'}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <>
+                    <FileText size={14} className="shrink-0 text-muted-foreground" />
+                    <span className="truncate text-[11px]">{a.filename ?? a.mediaType}</span>
+                  </>
+                )}
+                <Tip content="Remove this attachment">
+                  <button
+                    className="absolute right-0 top-0 hidden rounded-bl bg-background/80 p-0.5 group-hover:block cursor-pointer"
+                    onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
+                  >
+                    <X size={10} />
+                  </button>
+                </Tip>
+              </div>
+            )
+          })}
         </div>
       )}
       <div className="flex items-end gap-2">
@@ -385,7 +412,7 @@ export function PromptInput({
           rows={3}
           value={value}
           disabled={disabled}
-          placeholder="Message the agent… (@ to mention files, / for commands, paste or drag & drop images)"
+          placeholder="Message the agent… (@ to mention files, / for commands, paste or drag & drop files)"
           onChange={(e) => {
             setValue(e.target.value)
             setHint(null)
@@ -394,7 +421,7 @@ export function PromptInput({
           onKeyDown={onKeyDown}
           onPaste={(e) => {
             const files = Array.from(e.clipboardData.files)
-            if (files.some((f) => f.type.startsWith('image/'))) {
+            if (files.some((f) => classifyAttachment(f.type, f.name) !== 'unsupported')) {
               e.preventDefault()
               void addFiles(files)
             }
@@ -404,7 +431,7 @@ export function PromptInput({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept={ATTACHMENT_ACCEPT}
           multiple
           className="hidden"
           onChange={(e) => {
@@ -413,7 +440,7 @@ export function PromptInput({
             e.target.value = ''
           }}
         />
-        <Tip content="Attach images to your message — or paste or drag & drop them">
+        <Tip content="Attach images, PDFs, or text files to your message — or paste or drag & drop them">
           <span className="inline-flex">
             <Button
               size="icon"
