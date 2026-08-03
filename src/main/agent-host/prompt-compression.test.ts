@@ -119,6 +119,90 @@ describe('compressPrompt', () => {
     expect(second.prompt).toBe(first.prompt)
   })
 
+  // Provider-executed (server-side) tool results, e.g. Anthropic web_search:
+  // the provider re-serializes them into special blocks (web_search_tool_result)
+  // and silently drops rewritten ones, orphaning the tool_use.
+  const SEARCH_RESULTS = Array.from({ length: 40 }, (_, i) => ({
+    url: `https://example.com/${i}`,
+    title: `Result ${i}`,
+    pageAge: null,
+    encryptedContent: 'e'.repeat(400),
+    type: 'web_search_result'
+  }))
+
+  function serverSearchTurn(opts?: { flagOnResult?: boolean }): CompressiblePromptMessage {
+    const call: Record<string, unknown> = {
+      type: 'tool-call',
+      toolCallId: 'srv-1',
+      toolName: 'web_search',
+      input: { query: 'x' }
+    }
+    const result: Record<string, unknown> = {
+      type: 'tool-result',
+      toolCallId: 'srv-1',
+      toolName: 'web_search',
+      output: { type: 'json', value: SEARCH_RESULTS }
+    }
+    if (opts?.flagOnResult) result.providerExecuted = true
+    else call.providerExecuted = true
+    return { role: 'assistant', content: [call, result, { type: 'text', text: 'found it' }] }
+  }
+
+  it('never touches provider-executed tool results (flag on the tool call)', () => {
+    const prompt = [
+      user('turn 1'),
+      serverSearchTurn(),
+      user('turn 2'),
+      assistant('ok'),
+      user('turn 3'),
+      assistant('ok'),
+      user('turn 4'),
+      assistant('ok')
+    ]
+    const result = compressPrompt(prompt, opts)
+    expect(result.changed).toBe(false)
+    expect(result.prompt).toBe(prompt)
+    expect(result.originals).toEqual([])
+  })
+
+  it('never touches provider-executed tool results (flag on the result part)', () => {
+    const prompt = [
+      user('turn 1'),
+      serverSearchTurn({ flagOnResult: true }),
+      user('turn 2'),
+      assistant('ok'),
+      user('turn 3'),
+      assistant('ok'),
+      user('turn 4'),
+      assistant('ok')
+    ]
+    const result = compressPrompt(prompt, opts)
+    expect(result.changed).toBe(false)
+    expect(result.prompt).toBe(prompt)
+  })
+
+  it('still compresses client tool results alongside a provider-executed pair', () => {
+    const serverTurn = serverSearchTurn()
+    const prompt = [
+      user('turn 1'),
+      serverTurn,
+      toolResult('shell', { type: 'text', value: BIG }),
+      assistant('done'),
+      user('turn 2'),
+      assistant('ok'),
+      user('turn 3'),
+      assistant('ok'),
+      user('turn 4'),
+      assistant('ok')
+    ]
+    const result = compressPrompt(prompt, opts)
+    expect(result.changed).toBe(true)
+    expect(result.prompt[1]).toBe(serverTurn)
+    const value = outputOf(result.prompt[2]).value as string
+    expect(value).toContain(COMPRESSION_MARKER)
+    expect(result.originals.map((o) => o.toolName)).toEqual(['shell'])
+  })
+
   it('is prefix-stable as new turns are appended', () => {
     const prompt = promptWithOldBigResult()
     const before = compressPrompt(prompt, opts)

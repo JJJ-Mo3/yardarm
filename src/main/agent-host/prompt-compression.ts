@@ -523,6 +523,27 @@ export function compressPrompt(
   }
   if (boundary < 0) return { prompt, tokensSaved: 0, changed: false, originals: [] }
 
+  // Provider-executed (server-side) tool results must reach the provider
+  // byte-for-byte: e.g. Anthropic re-serializes web_search results into
+  // web_search_tool_result blocks only when the json output matches its
+  // schema, and silently drops rewritten ones — orphaning the tool_use and
+  // failing the request. Collect their call ids so the loop can skip them.
+  const providerExecutedIds = new Set<string>()
+  for (const msg of prompt) {
+    if (msg.role !== 'assistant' || !Array.isArray(msg.content)) continue
+    for (const p of msg.content) {
+      const part = p as { type?: unknown; toolCallId?: unknown; providerExecuted?: unknown } | null
+      if (
+        part &&
+        typeof part === 'object' &&
+        part.type === 'tool-call' &&
+        part.providerExecuted === true &&
+        typeof part.toolCallId === 'string'
+      )
+        providerExecutedIds.add(part.toolCallId)
+    }
+  }
+
   const { estimate } = opts
   const seenHashes = new Set<string>()
   let tokensSaved = 0
@@ -554,6 +575,13 @@ export function compressPrompt(
 
       const toolName = typeof part.toolName === 'string' ? part.toolName : 'tool'
       const toolCallId = typeof part.toolCallId === 'string' ? part.toolCallId : null
+      // Skip provider-executed results entirely (also before duplicate
+      // bookkeeping, so they never pair with client results as duplicates).
+      if (
+        (part as { providerExecuted?: unknown }).providerExecuted === true ||
+        (toolCallId !== null && providerExecutedIds.has(toolCallId))
+      )
+        continue
       const hash = fnv1a(toolName + '\u0000' + canonical)
       const isDuplicate = seenHashes.has(hash)
       seenHashes.add(hash)
