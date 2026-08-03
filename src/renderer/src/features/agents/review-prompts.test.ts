@@ -8,6 +8,7 @@ import {
   buildPrListPrompt,
   buildPrReviewPrompt,
   buildReviewMarker,
+  buildShareReviewPrompt,
   findCompletedReview,
   parseReviewArgs,
   parseReviewMarker
@@ -107,6 +108,23 @@ describe('prompt templates', () => {
     expect(prompt).toContain('git symbolic-ref refs/remotes/origin/HEAD')
     expect(prompt).toContain('git diff <base>...HEAD')
   })
+
+  it('every review prompt ends with the delivery note', () => {
+    const note = 'Write the complete review as your reply in this conversation'
+    expect(buildPrReviewPrompt('42')).toContain(note)
+    expect(buildPrReviewPrompt('42')).toContain('post it only to the PR')
+    expect(buildPrReviewPrompt('5', 'gitlab')).toContain(note)
+    expect(buildPrReviewPrompt('5', 'gitlab')).toContain('post it only to the MR')
+    expect(buildLocalReviewPrompt()).toContain(note)
+    expect(buildLocalReviewPrompt()).toContain('post it somewhere else')
+  })
+
+  it('the delivery note comes after the focus suffix', () => {
+    const prompt = buildPrReviewPrompt('42', 'github', 'security')
+    expect(prompt.indexOf('Pay special attention to: security')).toBeLessThan(
+      prompt.indexOf('Write the complete review as your reply')
+    )
+  })
 })
 
 describe('review markers', () => {
@@ -170,6 +188,13 @@ describe('follow-up prompts', () => {
     expect(prompt).toContain('implementation plan')
     expect(prompt).toContain('Present the plan for approval')
   })
+
+  it('share nudge asks for the review without redoing the work', () => {
+    const prompt = buildShareReviewPrompt()
+    expect(prompt).toContain('complete detailed code review')
+    expect(prompt).toContain('final verdict')
+    expect(prompt).toContain('Do not redo the investigation')
+  })
 })
 
 describe('findCompletedReview', () => {
@@ -197,7 +222,11 @@ describe('findCompletedReview', () => {
       msg('user', 'Review: local changes', { marker: true, id: 'm1' }),
       msg('assistant', 'Here is the review…')
     ]
-    expect(findCompletedReview(messages)).toEqual({ markerId: 'm1', target: { kind: 'local' } })
+    expect(findCompletedReview(messages)).toEqual({
+      markerId: 'm1',
+      target: { kind: 'local' },
+      shared: true
+    })
   })
 
   it('finds a completed PR review and strips the title', () => {
@@ -207,7 +236,32 @@ describe('findCompletedReview', () => {
     ]
     expect(findCompletedReview(messages)).toEqual({
       markerId: 'm1',
-      target: { kind: 'pr', prNumber: '42' }
+      target: { kind: 'pr', prNumber: '42' },
+      shared: true
+    })
+  })
+
+  it('reports shared=false when the assistant reply has only whitespace text', () => {
+    const messages = [
+      msg('user', 'Review: local changes', { marker: true, id: 'm1' }),
+      msg('assistant', '   \n')
+    ]
+    expect(findCompletedReview(messages)).toEqual({
+      markerId: 'm1',
+      target: { kind: 'local' },
+      shared: false
+    })
+  })
+
+  it('reports shared=false when the assistant worked but never wrote text', () => {
+    const messages: StoredMessage[] = [
+      msg('user', 'Review: PR #42 — fix auth', { marker: true, id: 'm1' }),
+      { id: 'a1', role: 'assistant', parts: [], createdAt: 0 }
+    ]
+    expect(findCompletedReview(messages)).toEqual({
+      markerId: 'm1',
+      target: { kind: 'pr', prNumber: '42' },
+      shared: false
     })
   })
 

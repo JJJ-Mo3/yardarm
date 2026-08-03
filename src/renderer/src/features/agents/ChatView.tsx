@@ -56,6 +56,7 @@ import {
   buildPrListPrompt,
   buildPrReviewPrompt,
   buildReviewMarker,
+  buildShareReviewPrompt,
   findCompletedReview,
   parseReviewArgs
 } from './review-prompts'
@@ -842,6 +843,13 @@ export function ChatView({
             cwd={projectRoot}
             provider={provider}
             busy={busy}
+            shared={completedReview.shared}
+            onAskForReview={() =>
+              sendMarked(
+                buildShareReviewPrompt(),
+                buildReviewMarker(completedReview.target, provider ?? 'github')
+              )
+            }
             onPostComments={(prNumber) =>
               sendMarked(
                 buildPrCommentsPrompt(provider ?? 'github', prNumber),

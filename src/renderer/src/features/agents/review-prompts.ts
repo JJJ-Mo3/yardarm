@@ -1,12 +1,13 @@
 /**
  * Review prompt templates + transcript-marker helpers. The GitHub PR prompts
- * mirror the mastracode CLI's review command byte-for-byte (mastracode dist
- * src/tui/commands/review.ts) so Yardarm reviews behave identically; the
- * GitLab (glab) variants, the local-changes prompt, and the follow-up prompts
- * (post PR/MR comments, build a plan) are Yardarm additions. Reviews are sent
- * as "marker" messages — a compact muted transcript line instead of a user
- * bubble — and findCompletedReview derives the post-review follow-up bar from
- * the transcript alone.
+ * are based on the mastracode CLI's review command (mastracode dist
+ * src/tui/commands/review.ts) with a Yardarm delivery note appended — agents
+ * otherwise sometimes finish the tool work without ever writing the review as
+ * their reply. The GitLab (glab) variants, the local-changes prompt, and the
+ * follow-up prompts (post PR/MR comments, build a plan, share the review) are
+ * Yardarm additions. Reviews are sent as "marker" messages — a compact muted
+ * transcript line instead of a user bubble — and findCompletedReview derives
+ * the post-review follow-up bar from the transcript alone.
  */
 import type { RepoProvider } from '../../../../shared/ipc-types'
 import type { StoredMessage } from '../../../../shared/ui-message'
@@ -30,6 +31,17 @@ export function parseReviewArgs(args: string): ReviewArgs {
 }
 
 const FOCUS_SUFFIX = (focus: string): string => `\nPay special attention to: ${focus}\n`
+
+/**
+ * Appended as the final instruction of every review prompt: the agent's reply
+ * is the deliverable. Without it, agents sometimes complete the investigation
+ * and stop, or divert the write-up elsewhere — especially with verbosity
+ * steering ("be concise") active.
+ */
+const REVIEW_DELIVERY_NOTE = (destination: string): string =>
+  '\nWrite the complete review as your reply in this conversation — your reply is the ' +
+  `review the user reads. Do not skip it, compress it to a one-liner, ${destination}, ` +
+  'or write it to a file instead.\n'
 
 export function buildPrListPrompt(provider: RepoProvider = 'github'): string {
   if (provider === 'gitlab') {
@@ -78,6 +90,9 @@ export function buildPrReviewPrompt(
 `
   }
   if (focus) prompt += FOCUS_SUFFIX(focus)
+  prompt += REVIEW_DELIVERY_NOTE(
+    provider === 'gitlab' ? 'post it only to the MR' : 'post it only to the PR'
+  )
   return prompt
 }
 
@@ -134,14 +149,24 @@ export function buildPlanFromReviewPrompt(): string {
   return `Turn the findings from the code review you just gave into a concrete implementation plan. For each issue worth fixing, list the file(s) involved and the specific change to make, ordered by priority. Skip nitpicks that aren't worth the churn. Present the plan for approval.`
 }
 
+/** Nudge sent when a review turn ended without the agent writing the review. */
+export function buildShareReviewPrompt(): string {
+  return `You completed the review steps but your final reply did not include the review. Reply now with the complete detailed code review based on the work you just did — overview, code quality assessment, concerns and edge cases, suggestions for improvement, and a final verdict. Do not redo the investigation unless context is missing.`
+}
+
 /**
  * The just-finished review, iff the last user message is a review marker and
- * an assistant reply with text follows it. Returns null otherwise — including
- * for follow-up markers, which deliberately don't parse as reviews.
+ * the agent produced something after it. `shared` is false when the agent
+ * worked (tool calls etc.) but never wrote the review as reply text — the
+ * caller gates on the run being idle, so that means the turn ended silently.
+ * Returns null while nothing follows the marker yet (run not started), and
+ * for non-review last messages, including follow-up markers, which
+ * deliberately don't parse as reviews.
  */
 export function findCompletedReview(messages: StoredMessage[]): {
   markerId: string
   target: { kind: 'local' } | { kind: 'pr'; prNumber: string }
+  shared: boolean
 } | null {
   let lastUser = -1
   for (let i = messages.length - 1; i >= 0; i--) {
@@ -155,10 +180,12 @@ export function findCompletedReview(messages: StoredMessage[]): {
   if (!markerPart || markerPart.type !== 'text') return null
   const target = parseReviewMarker(markerPart.text)
   if (!target) return null
-  const replied = messages
-    .slice(lastUser + 1)
-    .some((m) => m.role === 'assistant' && m.parts.some((p) => p.type === 'text' && p.text.trim()))
-  return replied ? { markerId: messages[lastUser].id, target } : null
+  const after = messages.slice(lastUser + 1)
+  if (after.length === 0) return null
+  const shared = after.some(
+    (m) => m.role === 'assistant' && m.parts.some((p) => p.type === 'text' && p.text.trim())
+  )
+  return { markerId: messages[lastUser].id, target, shared }
 }
 
 export function buildLocalReviewPrompt(opts?: { baseBranch?: string; focus?: string }): string {
@@ -178,5 +205,6 @@ export function buildLocalReviewPrompt(opts?: { baseBranch?: string; focus?: str
    - Final verdict (ready to ship / needs work)
 `
   if (opts?.focus) prompt += FOCUS_SUFFIX(opts.focus)
+  prompt += REVIEW_DELIVERY_NOTE('post it somewhere else')
   return prompt
 }

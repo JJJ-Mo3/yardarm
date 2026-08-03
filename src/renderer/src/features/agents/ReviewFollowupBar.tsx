@@ -1,9 +1,10 @@
 /**
  * Post-review follow-up strip shown above the composer once a review run
  * finishes: post the findings back to the PR/MR as comments, or turn them
- * into an implementation plan. Derived from the transcript
- * (findCompletedReview) — nothing is persisted; dismissal is per marker id
- * in ChatView state.
+ * into an implementation plan. When the turn ended without the agent writing
+ * the review (shared=false), it instead offers a one-click nudge asking the
+ * agent to share it. Derived from the transcript (findCompletedReview) —
+ * nothing is persisted; dismissal is per marker id in ChatView state.
  */
 import React from 'react'
 import { ListTodo, MessageSquareText, ScanSearch, X } from 'lucide-react'
@@ -17,8 +18,10 @@ export function ReviewFollowupBar({
   cwd,
   provider,
   busy,
+  shared,
   onPostComments,
   onBuildPlan,
+  onAskForReview,
   onDismiss
 }: {
   /** What the finished review looked at (from the transcript marker). */
@@ -29,8 +32,11 @@ export function ReviewFollowupBar({
   provider: RepoProvider | null
   /** Disable the actions while a send is in flight. */
   busy: boolean
+  /** False when the review turn ended without the agent writing the review. */
+  shared: boolean
   onPostComments: (prNumber?: string) => void
   onBuildPlan: () => void
+  onAskForReview: () => void
   onDismiss: () => void
 }): React.JSX.Element {
   const fc = forgeCopy(provider)
@@ -38,7 +44,7 @@ export function ReviewFollowupBar({
   // open PR/MR; a failed lookup (no CLI, no PR, detached worktree) just hides it.
   const branchPr = trpc.git.branchPr.useQuery(
     { cwd: cwd ?? '' },
-    { enabled: target.kind === 'local' && !!cwd, staleTime: 30_000, retry: false }
+    { enabled: shared && target.kind === 'local' && !!cwd, staleTime: 30_000, retry: false }
   )
   const prNumber =
     target.kind === 'pr'
@@ -51,9 +57,25 @@ export function ReviewFollowupBar({
   return (
     <div className="mb-2 flex items-center gap-1.5 rounded-md border border-border bg-accent/30 px-2 py-1.5 text-[11px]">
       <ScanSearch size={12} className="shrink-0 text-muted-foreground" />
-      <span className="text-muted-foreground">Review finished</span>
+      <span className="text-muted-foreground">
+        {shared ? 'Review finished' : "Review finished, but the agent didn't share it"}
+      </span>
       <div className="ml-auto flex items-center gap-1.5">
-        {showComments && (
+        {!shared && (
+          <Tip content="Ask the agent to write out the review it just performed">
+            <span className="inline-flex">
+              <button
+                disabled={busy}
+                onClick={onAskForReview}
+                className="flex items-center gap-1 rounded-md border border-border bg-background px-2 py-0.5 text-[11px] hover:bg-accent disabled:opacity-50 cursor-pointer"
+              >
+                <MessageSquareText size={11} />
+                Ask for the review
+              </button>
+            </span>
+          </Tip>
+        )}
+        {shared && showComments && (
           <Tip
             content={
               prNumber
@@ -73,18 +95,20 @@ export function ReviewFollowupBar({
             </span>
           </Tip>
         )}
-        <Tip content="Switch to plan mode and turn the review findings into an implementation plan">
-          <span className="inline-flex">
-            <button
-              disabled={busy}
-              onClick={onBuildPlan}
-              className="flex items-center gap-1 rounded-md border border-border bg-background px-2 py-0.5 text-[11px] hover:bg-accent disabled:opacity-50 cursor-pointer"
-            >
-              <ListTodo size={11} />
-              Build a plan to execute
-            </button>
-          </span>
-        </Tip>
+        {shared && (
+          <Tip content="Switch to plan mode and turn the review findings into an implementation plan">
+            <span className="inline-flex">
+              <button
+                disabled={busy}
+                onClick={onBuildPlan}
+                className="flex items-center gap-1 rounded-md border border-border bg-background px-2 py-0.5 text-[11px] hover:bg-accent disabled:opacity-50 cursor-pointer"
+              >
+                <ListTodo size={11} />
+                Build a plan to execute
+              </button>
+            </span>
+          </Tip>
+        )}
         <Tip content="Dismiss">
           <button
             onClick={onDismiss}
