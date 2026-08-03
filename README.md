@@ -11,8 +11,8 @@
 Yardarm is an Electron UI for the Mastra Code coding agent. The `mastracode`
 runtime is bundled with the app — no separate install and no account required
 to launch. It shares every config file with the `mastracode` CLI, so you can
-move between the app and the terminal freely, and a global CLI install is one
-click away (Settings → About).
+move between the app and the terminal freely, and a global CLI install (and
+updates for it) is one click away (Settings → About).
 
 > Yardarm is an independent project that builds on Mastra Code. It is not
 > affiliated with, endorsed by, or sponsored by Mastra.
@@ -222,8 +222,10 @@ Yardarm puts a desktop workspace around the agent:
   another
 - Prompts sent while the agent is running are queued and delivered in order
   when the run finishes
-- Image attachments (picker, paste, or drag-and-drop) and `@` file mentions
-  in the composer
+- File attachments (picker, paste, or drag-and-drop) and `@` file mentions
+  in the composer — images and PDFs are sent to the model directly, and
+  text/code files (markdown, logs, CSV, source files, …) are inlined into
+  the prompt so any model can read them
 - Voice dictation via a composer mic button — cloud STT (OpenAI Whisper /
   GPT-4o Transcribe, Groq, Deepgram, …) using your own API key
 
@@ -233,6 +235,10 @@ Yardarm puts a desktop workspace around the agent:
   model switches, threads, `/goal`, `/review`, `/subagents`, `/mcp`,
   `/hooks`, `/commands`, `/skills`, `/resource`, `/login`, `/api-keys`,
   `/diff`, `/help`, and more
+- App-native commands too: `/setup` (re-run the wizard), `/update` (check
+  for app updates), `/browser` (browser-tool settings), `/github` and
+  `/observability` (their Connectors sections), `/prune` (storage
+  maintenance), and `/report-issue` (file a mastracode issue on GitHub)
 - Project and global custom commands (`.md` files with frontmatter) are
   loaded through the mastracode command loader and run as prompts
 - Commands that only make sense in a terminal (e.g. `/voice`) are listed in
@@ -296,7 +302,11 @@ Yardarm puts a desktop workspace around the agent:
   and can be restored anytime; removing a project can optionally delete its
   folder on disk
 - In-app updates from GitHub Releases (Settings → About), with optional
-  automatic staging and a restart-to-finish banner on macOS
+  automatic staging and a restart-to-finish banner on macOS; the same tab
+  installs and updates the global `mastracode` CLI and prunes old storage
+  data (threads, traces, logs — also `/prune`)
+- Per-tool toggles in Settings → Preferences to disable built-in agent
+  tools you never want used, grouped by category
 
 **Providers & auth**
 
@@ -306,7 +316,10 @@ Yardarm puts a desktop workspace around the agent:
 - Connectors (Settings → Connectors): one-click OAuth sign-ins for the
   GitHub, GitLab, Supabase, Netlify, Vercel, and Sentry MCP servers, with
   verified connection status — sign-ins are shared across all of a
-  project's worktrees, so one login covers every chat
+  project's worktrees, so one login covers every chat. The same tab hosts
+  **GitHub signals** (experimental PR-status awareness via the `gh` CLI,
+  `/github`) and **Observability** (local tracing / Mastra Cloud,
+  `/observability`)
 - API keys for any supported provider in Settings → API Keys, plus custom
   OpenAI-compatible providers in Settings → Providers
 - API keys by environment variable: reference a variable name (any name)
@@ -335,7 +348,10 @@ Yardarm puts a desktop workspace around the agent:
 - Project Settings dialog (gear in the sidebar): lifecycle hooks, custom
   commands, agent instructions, memory `resourceId`, and installed
   skills/plugins — plugins that declare a config schema get a generated
-  settings form
+  settings form, and a **Create plugin** button scaffolds a new plugin
+  (global or project scope)
+- Adding a project offers to write agent instructions (`AGENTS.md`) so the
+  agent knows the project's conventions from the first prompt
 - Edits are atomic, preserve unknown keys, and restart affected agent
   processes so they take effect immediately
 
@@ -346,12 +362,22 @@ On first launch a setup wizard mirrors the mastracode CLI onboarding:
 1. **Welcome** — everything runs locally; no account is created.
 2. **Connect a provider** — OAuth (Claude / Codex / Copilot), paste an API
    key, or skip and add a local model later.
-3. **Mode pack** — pick the models used by Build / Plan / Fast modes (preset
-   packs or per-mode custom choices).
+3. **Choose your models** — pick the models used by Build / Plan / Fast
+   modes (preset packs or per-mode custom choices).
 4. **Observational Memory** — choose the memory/summarization model
    (optional).
-5. **Yolo** — decide whether tool calls run without approval prompts.
-6. **Summary** — nothing is written to disk until you finish (or skip).
+5. **Connect your tools** — one-click connector sign-ins (GitHub, GitLab,
+   Supabase, Netlify, Vercel, Sentry) — optional, skippable.
+6. **Add subagents** — pick ready-made subagents from the templates catalog
+   (optional).
+7. **Agent sandbox** — choose whether new chats run commands under OS-level
+   isolation by default.
+8. **Token compression** — enable compression of stale tool outputs to cut
+   token costs.
+9. **Tool approvals** — decide whether tool calls run without approval
+   prompts (yolo).
+10. **Review your setup** — nothing is written to disk until you finish (or
+    skip).
 
 The results land in mastracode's own `settings.json`, so the CLI is
 configured too. You can re-run the wizard anytime from Settings → About →
@@ -417,7 +443,9 @@ against their base branch, or of any open PR/MR picked from a
 posting a user message (the transcript shows a compact "Review: …" marker
 line), and when it finishes a follow-up bar offers to post the findings as
 comments on the PR/MR or to switch to Plan mode and turn them into an
-implementation plan. `/review changes`, `/review <pr-number>`, and
+implementation plan. If the agent performed the review but never wrote it
+out, the follow-up bar says so and offers a one-click nudge to make it
+share the findings. `/review changes`, `/review <pr-number>`, and
 `/review` (list open PRs/MRs) do the same from the keyboard.
 
 **Goals.** Click the **goal** chip (or `/goal`) to give the agent an

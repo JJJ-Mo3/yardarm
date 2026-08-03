@@ -168,18 +168,34 @@ pnpm package     # unpacked app bundle, e.g. dist/mac-arm64/Yardarm.app</code></
             model later.
           </li>
           <li>
-            <strong>Mode pack</strong> — choose which models power the Build / Plan / Fast modes.
-            Pick a preset pack or choose per-mode.
+            <strong>Choose your models</strong> — choose which models power the Build / Plan / Fast
+            modes. Pick a preset pack or choose per-mode.
           </li>
           <li>
             <strong>Observational Memory</strong> — optionally choose the model used for the agent's
             background memory.
           </li>
           <li>
-            <strong>Yolo</strong> — decide whether the agent may run tools without asking each time.
-            You can change this later per chat.
+            <strong>Connect your tools</strong> — optional one-click connector sign-ins (GitHub,
+            GitLab, Supabase, Netlify, Vercel, Sentry).
           </li>
-          <li><strong>Summary</strong> — review, then finish.</li>
+          <li>
+            <strong>Add subagents</strong> — optionally pick ready-made subagents from the templates
+            catalog.
+          </li>
+          <li>
+            <strong>Agent sandbox</strong> — choose whether new chats run shell commands under
+            OS-level isolation by default.
+          </li>
+          <li>
+            <strong>Token compression</strong> — optionally shrink stale tool outputs to cut token
+            costs.
+          </li>
+          <li>
+            <strong>Tool approvals</strong> — decide whether the agent may run tools without asking
+            each time (yolo). You can change this later per chat.
+          </li>
+          <li><strong>Review your setup</strong> — review, then finish.</li>
         </ol>
         <p>
           The wizard writes mastracode's own <code>settings.json</code>, so the CLI is configured at
@@ -243,7 +259,10 @@ pnpm package     # unpacked app bundle, e.g. dist/mac-arm64/Yardarm.app</code></
         <ol>
           <li>
             Click <strong>Add project</strong> in the sidebar and pick a folder. It doesn't need to
-            be a git repository yet — Yardarm will initialize what it needs.
+            be a git repository yet — Yardarm will initialize what it needs. Yardarm also offers to
+            write <strong>agent instructions</strong> (an <code>AGENTS.md</code>) so the agent knows
+            the project's conventions from the first prompt — skip it or edit the file later in
+            Project Settings.
           </li>
           <li>
             Create a chat (<kbd>Cmd+N</kbd>). By default each chat gets its own

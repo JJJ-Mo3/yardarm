@@ -35,7 +35,10 @@ The main window has a project sidebar on the left and a set of tabs across the t
     title: 'Projects, chats & worktrees',
     body: `
 A **project** is a local git repository (add a folder or clone a repository via the sidebar).
-Inside a project you create **chats** — independent conversations with the agent.
+When you add one, Yardarm offers to write **agent instructions** (an \`AGENTS.md\`) so the
+agent knows your project's conventions from the first prompt — you can skip it or edit the
+file later in Project Settings. Inside a project you create **chats** — independent
+conversations with the agent.
 
 ### Worktrees
 
@@ -68,7 +71,9 @@ its reasoning, tool calls, and file edits into the transcript.
 - **@-mention files** — type \`@\` to search the repo and attach a file to your prompt.
 - **Slash commands** — type \`/\` for the command palette (\`/help\` lists everything:
   reviews, permissions, goals, threads, and more).
-- **Images** — paste screenshots straight into the composer, or use the attachment button.
+- **Attachments** — paste, drag in, or pick files with the attachment button: images and
+  PDFs go to the model directly, and text/code files (markdown, logs, CSV, source files, …)
+  are inlined into the prompt so any model can read them.
 - **Voice** — the microphone button dictates your prompt (needs a speech-to-text-capable API
   key, configured in Settings → Voice).
 - **Queueing** — you can keep typing while the agent runs; queued prompts are sent in order
@@ -105,6 +110,8 @@ outside the obvious scope, and so on). Each request shows exactly what will run 
 deny inline.
 
 - **Auto-approve** — the header toggle lets a trusted chat run without per-tool prompts.
+  A global default for new chats lives in Settings → Preferences; each chat's own toggle
+  still wins and is remembered.
 - **Permissions** — \`/permissions\` opens the session permissions panel: per-category and
   per-tool allow / ask / deny rules, so routine commands stop prompting while risky ones
   still do.
@@ -302,8 +309,9 @@ doesn't guess.
 App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
 
 - **Appearance** — light/dark/system theme.
-- **Preferences** — agent behavior defaults, sandbox default, token compression and
-  verbosity steering.
+- **Preferences** — agent behavior defaults (auto-approve, sandbox), token compression and
+  verbosity steering, and per-tool toggles to disable built-in agent tools you never want
+  used.
 - **API Keys** — keys for model providers, stored locally. Instead of pasting a key you can
   reference an environment variable (e.g. \`ANTHROPIC_API_KEY\`) — the value is read from your
   login shell at launch and never saved by Yardarm. Standard variables are detected
@@ -315,7 +323,10 @@ App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
   installing and pulling local models.
 - **Voice** — speech-to-text for the composer microphone.
 - **Browser** — the agent's built-in browser tool, including viewport size.
-- **Connectors** — one-click service sign-ins (see the Connectors section).
+- **Connectors** — one-click service sign-ins (see the Connectors section), plus
+  **GitHub signals** (experimental PR-status awareness via the \`gh\` CLI) and
+  **Observability** (local tracing / Mastra Cloud). \`/github\` and \`/observability\` jump
+  straight there.
 - **MCP Servers** — MCP server lists and live status, global or per-project (scope toggle +
   project picker). \`/mcp\` opens this tab.
 - **Agents** — custom subagents the main agent can delegate tasks to. Global by default
@@ -323,11 +334,13 @@ App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
   project-specific subagents. A Templates section lists ready-made subagents — team roles
   (product manager, developer, QA, …) and domain specialists (SaaS, mobile, AI apps, …) —
   added with one click and editable like any other. \`/subagents\` opens this tab.
-- **About** — versions, bundled runtime updates, and "Run setup again" to redo onboarding.
+- **About** — versions, bundled runtime updates, installing/updating the global
+  \`mastracode\` CLI, storage pruning (\`/prune\` — clear out old threads, traces, and
+  logs), and "Run setup again" to redo onboarding.
 
 **Project settings** (gear on the project row) cover per-project hooks, custom slash
 commands, agent instructions, resources, and plugins — plugins with configuration schemas
-get generated settings forms.
+get generated settings forms, and **Create plugin** scaffolds a new plugin for you.
 `
   },
   {

@@ -93,13 +93,22 @@ final step, and you can skip any part of it.
 2. **Connect a provider** — sign in with an existing subscription (Claude,
    OpenAI Codex, or GitHub Copilot via OAuth), paste an API key, or skip and
    add a local model later.
-3. **Mode pack** — choose which models power the Build / Plan / Fast modes.
-   Pick a preset pack or choose per-mode.
+3. **Choose your models** — choose which models power the Build / Plan /
+   Fast modes. Pick a preset pack or choose per-mode.
 4. **Observational Memory** — optionally choose the model used for the
    agent's background memory (see [Tips](#tips)).
-5. **Yolo** — decide whether the agent may run tools without asking each
-   time. You can change this later per chat.
-6. **Summary** — review, then finish.
+5. **Connect your tools** — optional one-click connector sign-ins (GitHub,
+   GitLab, Supabase, Netlify, Vercel, Sentry — see
+   [Connectors](#connectors)).
+6. **Add subagents** — optionally pick ready-made subagents from the
+   templates catalog.
+7. **Agent sandbox** — choose whether new chats run shell commands under
+   OS-level isolation by default.
+8. **Token compression** — optionally shrink stale tool outputs to cut
+   token costs (see [Token compression](#token-compression)).
+9. **Tool approvals** — decide whether the agent may run tools without
+   asking each time (yolo). You can change this later per chat.
+10. **Review your setup** — review, then finish.
 
 The wizard writes mastracode's own `settings.json`, so the CLI is configured
 at the same time. Re-run it any time from **Settings → About → Run setup
@@ -147,7 +156,10 @@ dropdown means "connect something first".
 ## Your first project and chat
 
 1. Click **Add project** in the sidebar and pick a folder. It doesn't need to
-   be a git repository yet — Yardarm will initialize what it needs.
+   be a git repository yet — Yardarm will initialize what it needs. Yardarm
+   also offers to write **agent instructions** (an `AGENTS.md`) so the agent
+   knows the project's conventions from the first prompt — skip it or edit
+   the file later in Project Settings.
 2. Create a chat (`Cmd+N`). By default each chat gets its own **git
    worktree**: a private checkout of your repo on a `yardarm/…` branch,
    stored under the app's data directory. The agent edits, builds, and
@@ -217,8 +229,10 @@ A few notes on worktrees:
   complete, Enter to run).
 - **`@`** searches project files and inserts a mention so the agent looks at
   that file.
-- **Attachments** — click the paperclip, or paste/drag-and-drop images
-  straight into the composer.
+- **Attachments** — click the paperclip, or paste/drag-and-drop files
+  straight into the composer. Images and PDFs are sent to the model
+  directly; text/code files (markdown, logs, CSV, source files, …) are
+  inlined into the prompt so any model can read them.
 - **Mic button** — voice dictation, if enabled. See
   [Voice dictation](#voice-dictation).
 - **While the agent is running**, the send button becomes **Queue**: messages
@@ -369,6 +383,10 @@ When the review finishes, a follow-up bar appears above the composer:
   when the branch has an open PR/MR.
 - **Build a plan to execute** — switches to Plan mode and turns the
   findings into a prioritized implementation plan for approval.
+
+If the agent performed the review but never wrote the findings out, the bar
+says so and offers a one-click nudge that asks the agent to share the
+review it just did — the comment/plan follow-ups appear once it does.
 
 The same review can be started from the magnifier button on the Changes tab
 or from the keyboard: `/review changes` (local), `/review <pr-number>` (a
@@ -573,6 +591,14 @@ a project's worktrees — one login covers every chat, present and future.
 For arbitrary MCP servers beyond these, see Settings → MCP Servers
 (below).
 
+The same tab hosts two more integrations:
+
+- **GitHub signals** (`/github`) — an experimental integration that watches
+  your open PRs through the `gh` CLI and surfaces their status to the
+  agent.
+- **Observability** (`/observability`) — local tracing of agent runs, with
+  optional export to Mastra Cloud.
+
 ## Voice dictation
 
 Yardarm can transcribe your voice straight into the composer using a cloud
@@ -616,6 +642,13 @@ command surface plus app commands. Highlights:
 | `/cost`                   | token usage per thread             |
 | `/diff`                   | show working-tree changes          |
 | `/review`                 | review a PR or the local changes   |
+| `/setup`                  | re-run the setup wizard            |
+| `/update`                 | check for app updates              |
+| `/browser`                | browser-tool settings              |
+| `/github`                 | GitHub signals integration         |
+| `/observability`          | observability integration          |
+| `/prune`                  | prune old storage data             |
+| `/report-issue`           | report a mastracode issue          |
 | `/help`                   | the full list                      |
 
 You can define your own commands as plain Markdown files:
@@ -628,20 +661,20 @@ to the CLI tab.
 
 Open with `Cmd+,` (`Ctrl+,`).
 
-| Tab             | What's there                                                                                                                                            |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Appearance**  | light / dark / system theme (also togglable from the sidebar footer)                                                                                    |
-| **Preferences** | default auto-approve (yolo), CLI theme, default thinking level, tool-output previews, new-chat sandbox defaults, token compression + verbosity steering |
-| **API Keys**    | provider API keys (stored in mastracode's `auth.json`) or environment-variable references (never stored)                                                |
-| **Models**      | default model per mode, subagent, goal judge, and memory role; model packs                                                                              |
-| **Providers**   | OAuth logins (Claude / Codex / Copilot), Ollama detection, custom local providers                                                                       |
-| **Voice**       | dictation engine, STT provider and model                                                                                                                |
-| **Browser**     | browser-automation settings for web tools, including the viewport size                                                                                  |
-| **Connectors**  | one-click OAuth sign-ins for GitHub, GitLab, Supabase, Netlify, Vercel, and Sentry (see [Connectors](#connectors))                                      |
-| **MCP Servers** | Model Context Protocol servers — global by default, or project-specific via the scope toggle + project picker, with live status (see below)             |
-| **Agents**      | custom subagents — global by default, or project-specific via the scope toggle + project picker (see below)                                             |
-| **Languages**   | optional language-server downloads for IDE diagnostics — Web (HTML/CSS/JSON), YAML, Python, and ERB packs with per-pack download / update / remove      |
-| **About**       | versions, runtime boot status, CLI install, updates, re-run setup                                                                                       |
+| Tab             | What's there                                                                                                                                                                                              |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Appearance**  | light / dark / system theme (also togglable from the sidebar footer)                                                                                                                                      |
+| **Preferences** | default auto-approve (yolo), CLI theme, default thinking level, tool-output previews, new-chat sandbox defaults, token compression + verbosity steering, per-tool toggles to disable built-in agent tools |
+| **API Keys**    | provider API keys (stored in mastracode's `auth.json`) or environment-variable references (never stored)                                                                                                  |
+| **Models**      | default model per mode, subagent, goal judge, and memory role; model packs                                                                                                                                |
+| **Providers**   | OAuth logins (Claude / Codex / Copilot), Ollama detection, custom local providers                                                                                                                         |
+| **Voice**       | dictation engine, STT provider and model                                                                                                                                                                  |
+| **Browser**     | browser-automation settings for web tools, including the viewport size                                                                                                                                    |
+| **Connectors**  | one-click OAuth sign-ins for GitHub, GitLab, Supabase, Netlify, Vercel, and Sentry (see [Connectors](#connectors)), plus GitHub signals (`/github`) and Observability (`/observability`)                  |
+| **MCP Servers** | Model Context Protocol servers — global by default, or project-specific via the scope toggle + project picker, with live status (see below)                                                               |
+| **Agents**      | custom subagents — global by default, or project-specific via the scope toggle + project picker (see below)                                                                                               |
+| **Languages**   | optional language-server downloads for IDE diagnostics — Web (HTML/CSS/JSON), YAML, Python, and ERB packs with per-pack download / update / remove                                                        |
+| **About**       | versions, runtime boot status, global CLI install + update, app updates, storage pruning (`/prune`), re-run setup                                                                                         |
 
 Everything you change here is written to mastracode's own config files
 (atomically, preserving keys the app doesn't know about), so the CLI picks up
@@ -705,7 +738,9 @@ single project:
 - **Memory resource id** (`.mastracode/database.json`)
 - Installed **skills and plugins** — plugins that declare a configuration
   schema get a generated settings form (toggles, text fields, and model
-  pickers), written back to the plugin's config
+  pickers), written back to the plugin's config. A **Create plugin** button
+  scaffolds a new plugin (name, id, and target directory, in global or
+  project scope) ready to fill in
 
 Project-specific MCP servers and custom subagents are managed in
 **Settings → MCP Servers** and **Settings → Agents** (pick the project
@@ -759,8 +794,9 @@ providers you configured.
   it, so multi-hour sessions keep their thread. Check `/om` to see it work.
 - **Local models:** context window ≥ 64k, and start a fresh chat when a long
   session slows down — that resets the conversation and frees context.
-- **The CLI is always there.** Settings → About installs the global
-  `mastracode` CLI in one click; it shares every config file with the app.
+- **The CLI is always there.** Settings → About installs (and updates) the
+  global `mastracode` CLI in one click; it shares every config file with
+  the app.
 
 ## Where to get help
 

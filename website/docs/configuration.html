@@ -143,6 +143,34 @@
               <td>review a PR or the local changes</td>
             </tr>
             <tr>
+              <td><code>/setup</code></td>
+              <td>re-run the setup wizard</td>
+            </tr>
+            <tr>
+              <td><code>/update</code></td>
+              <td>check for app updates</td>
+            </tr>
+            <tr>
+              <td><code>/browser</code></td>
+              <td>browser-tool settings</td>
+            </tr>
+            <tr>
+              <td><code>/github</code></td>
+              <td>GitHub signals integration</td>
+            </tr>
+            <tr>
+              <td><code>/observability</code></td>
+              <td>observability integration</td>
+            </tr>
+            <tr>
+              <td><code>/prune</code></td>
+              <td>prune old storage data</td>
+            </tr>
+            <tr>
+              <td><code>/report-issue</code></td>
+              <td>report a mastracode issue</td>
+            </tr>
+            <tr>
               <td><code>/help</code></td>
               <td>the full list</td>
             </tr>
@@ -174,7 +202,8 @@
               <td><strong>Preferences</strong></td>
               <td>
                 default auto-approve (yolo), CLI theme, default thinking level, tool-output
-                previews, new-chat sandbox defaults, token compression + verbosity steering
+                previews, new-chat sandbox defaults, token compression + verbosity steering,
+                per-tool toggles to disable built-in agent tools
               </td>
             </tr>
             <tr>
@@ -208,7 +237,8 @@
               <td><strong>Connectors</strong></td>
               <td>
                 one-click OAuth sign-ins for GitHub, GitLab, Supabase, Netlify, Vercel, and Sentry
-                (see <a href="workspace.html#connectors">Connectors</a>)
+                (see <a href="workspace.html#connectors">Connectors</a>), plus GitHub signals
+                (<code>/github</code>) and Observability (<code>/observability</code>)
               </td>
             </tr>
             <tr>
@@ -234,7 +264,10 @@
             </tr>
             <tr>
               <td><strong>About</strong></td>
-              <td>versions, runtime boot status, CLI install, updates, re-run setup</td>
+              <td>
+                versions, runtime boot status, global CLI install + update, app updates, storage
+                pruning (<code>/prune</code>), re-run setup
+              </td>
             </tr>
           </tbody>
         </table>
@@ -312,7 +345,8 @@
           <li>
             Installed <strong>skills and plugins</strong> — plugins that declare a configuration
             schema get a generated settings form (toggles, text fields, and model pickers), written
-            back to the plugin's config
+            back to the plugin's config. A <strong>Create plugin</strong> button scaffolds a new
+            plugin (name, id, and target directory, in global or project scope) ready to fill in
           </li>
         </ul>
         <p>

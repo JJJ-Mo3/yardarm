@@ -166,8 +166,10 @@
             file.
           </li>
           <li>
-            <strong>Attachments</strong> — click the paperclip, or paste/drag-and-drop images
-            straight into the composer.
+            <strong>Attachments</strong> — click the paperclip, or paste/drag-and-drop files
+            straight into the composer. Images and PDFs are sent to the model directly; text/code
+            files (markdown, logs, CSV, source files, …) are inlined into the prompt so any model
+            can read them.
           </li>
           <li>
             <strong>Mic button</strong> — voice dictation, if enabled. See
@@ -383,6 +385,11 @@
             into a prioritized implementation plan for approval.
           </li>
         </ul>
+        <p>
+          If the agent performed the review but never wrote the findings out, the bar says so and
+          offers a one-click nudge that asks the agent to share the review it just did — the
+          comment/plan follow-ups appear once it does.
+        </p>
         <p>
           The same review can be started from the magnifier button on the Changes tab or from the
           keyboard: <code>/review changes</code> (local), <code>/review &lt;pr-number&gt;</code> (a
