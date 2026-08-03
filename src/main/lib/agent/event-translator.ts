@@ -15,6 +15,7 @@ import type {
   ToolCallPart,
   UsageInfo
 } from '../../../shared/ui-message'
+import { describeAgentError } from './agent-error-text'
 import { withMaxOutputHint } from './max-output-hint'
 import { withPrefillHint } from './prefill-error'
 
@@ -298,8 +299,10 @@ export class EventTranslator {
       }
 
       case 'error': {
-        const error = ev.error as { message?: string } | undefined
-        const raw = error?.message ?? String(ev.error ?? 'Unknown agent error')
+        // The error payload arrives after a JSON round-trip and can have an
+        // empty/missing message (e.g. unavailable-model failures), so use the
+        // robust extractor — never render an empty error banner.
+        const raw = describeAgentError(ev.error)
         if (this.cb.onAgentError?.(raw)) {
           this.cb.emit({
             type: 'info',

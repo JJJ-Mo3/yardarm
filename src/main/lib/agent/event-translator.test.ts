@@ -377,6 +377,17 @@ describe('session meta and misc events', () => {
     expect(infos[1].type === 'info' && infos[1].text).toContain('context')
   })
 
+  it('never emits an empty error banner for message-less error payloads', () => {
+    const h = makeTranslator()
+    h.t.handle({ type: 'error', error: { message: '' } })
+    h.t.handle({ type: 'error', error: {} })
+    h.t.handle({ type: 'error', error: { message: '', cause: { message: 'model unavailable' } } })
+    const infos = h.emitted.filter((e) => e.type === 'info')
+    expect(infos[0].type === 'info' && infos[0].text).toBe('Unknown agent error')
+    expect(infos[1].type === 'info' && infos[1].text).toBe('Unknown agent error')
+    expect(infos[2].type === 'info' && infos[2].text).toBe('model unavailable')
+  })
+
   it('replaces the raw error with an info line when onAgentError says it will recover', () => {
     const seen: string[] = []
     const h = makeTranslator((text) => {
