@@ -301,6 +301,72 @@ describe('approvals and suspensions', () => {
     expect(h.emitted.some((e) => e.type === 'suspension-resolved')).toBe(true)
   })
 
+  it('keeps a pending suspension part when a content rebuild omits its invocation', () => {
+    const h = makeTranslator()
+    h.t.handle(msgEvent('message_start', 'm1', []))
+    h.t.handle({
+      type: 'tool_suspended',
+      toolCallId: 't1',
+      toolName: 'ask_user',
+      args: {},
+      suspendPayload: { question: 'Pick one' }
+    })
+    // The SDK streams a text-only rebuild of the same message — the gate part
+    // must survive or the interactive card (the only way to answer) vanishes
+    // while the suspension still blocks the chat.
+    h.t.handle(msgEvent('message_end', 'm1', [{ type: 'text', text: 'One question first.' }]))
+    const msg = lastUpsert(h.emitted, 'm1')
+    expect(msg?.parts).toHaveLength(2)
+    expect(msg?.parts[1]).toMatchObject({
+      type: 'tool-call',
+      toolCallId: 't1',
+      toolName: 'ask_user',
+      status: 'suspended'
+    })
+    // The persisted copy keeps the part too, so reloads stay answerable.
+    const persisted = h.persisted.at(-1)?.message
+    expect(persisted?.parts.some((p) => p.type === 'tool-call' && p.toolCallId === 't1')).toBe(true)
+  })
+
+  it('keeps an awaiting-approval part when a content rebuild omits its invocation', () => {
+    const h = makeTranslator()
+    h.t.handle(msgEvent('message_start', 'm1', []))
+    h.t.handle({
+      type: 'tool_approval_required',
+      toolCallId: 't1',
+      toolName: 'shell',
+      args: { cmd: 'rm x' }
+    })
+    h.t.handle(msgEvent('message_update', 'm1', [{ type: 'text', text: 'Running a command.' }]))
+    const part = lastUpsert(h.emitted, 'm1')?.parts.at(-1)
+    expect(part).toMatchObject({
+      type: 'tool-call',
+      toolCallId: 't1',
+      status: 'awaiting-approval'
+    })
+  })
+
+  it('does not copy a pending part into a message that is not its home', () => {
+    const h = makeTranslator()
+    h.t.handle(
+      msgEvent('message_start', 'm1', [
+        invocation({ toolCallId: 't1', toolName: 'ask_user', state: 'call' })
+      ])
+    )
+    h.t.handle({
+      type: 'tool_suspended',
+      toolCallId: 't1',
+      toolName: 'ask_user',
+      args: {},
+      suspendPayload: { question: 'Pick one' }
+    })
+    // A different assistant message streams — the gate stays homed in m1 only.
+    h.t.handle(msgEvent('message_update', 'm2', [{ type: 'text', text: 'unrelated' }]))
+    expect(lastUpsert(h.emitted, 'm2')?.parts).toEqual([{ type: 'text', text: 'unrelated' }])
+    const m1Part = lastUpsert(h.emitted, 'm1')?.parts[0]
+    expect(m1Part?.type === 'tool-call' && m1Part.status).toBe('suspended')
+  })
+
   it('clears a suspension and errors the tool part on tool_suspension_cancelled', () => {
     const h = makeTranslator()
     h.t.handle(msgEvent('message_start', 'm1', []))

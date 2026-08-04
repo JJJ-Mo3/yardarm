@@ -426,6 +426,7 @@ export class EventTranslator {
   /** Rebuild a StoredMessage from a mastracode message + tool overlays. */
   private upsertFromMastra(msg: MastraMessageLike, persist: boolean): void {
     const parts: MessagePart[] = []
+    const seenToolIds = new Set<string>()
     for (const item of msg.content?.parts ?? []) {
       switch (item.type) {
         case 'text':
@@ -449,6 +450,7 @@ export class EventTranslator {
           const prevMsgId = this.toolToMessage.get(id)
           if (prevMsgId && prevMsgId !== msg.id) this.removeToolPart(prevMsgId, id)
           this.toolToMessage.set(id, msg.id)
+          seenToolIds.add(id)
           const meta = this.ensureTool(id, inv.toolName, inv.args)
           if (inv.state === 'result') {
             meta.result = inv.result
@@ -463,6 +465,21 @@ export class EventTranslator {
         default:
           break // step-start, file, source, data-* — not rendered
       }
+    }
+
+    // A pending gate (awaiting-approval / suspended) homed to this message
+    // must survive a content rebuild that omits its invocation — no further
+    // tool events arrive while the gate waits on the user, so a dropped part
+    // would take the interactive card (the only way to respond) with it and
+    // leave the chat blocked on an invisible request.
+    const pendingIds = new Set([...this.pendingApprovals.keys(), ...this.pendingSuspensions.keys()])
+    for (const id of pendingIds) {
+      if (seenToolIds.has(id)) continue
+      if ((this.toolToMessage.get(id) ?? this.currentAssistantId) !== msg.id) continue
+      const meta = this.toolMeta.get(id)
+      if (!meta) continue
+      parts.push(this.toolPartFor(id, meta))
+      this.toolToMessage.set(id, msg.id)
     }
 
     const existing = this.messages.get(msg.id)

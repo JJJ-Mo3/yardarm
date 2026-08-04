@@ -31,7 +31,9 @@ import { useConfirm } from '../../components/ConfirmDialog'
 import { useAgentStream } from './use-agent-stream'
 import { MessageList, INTERACTIVE_TOOLS } from './MessageList'
 import { ApprovalCard } from './ApprovalCard'
+import { AskUserCard } from './AskUserCard'
 import { PlanApprovalCard } from './PlanApprovalCard'
+import { SandboxAccessCard } from './SandboxAccessCard'
 import { PromptInput } from './PromptInput'
 import { QueuedPrompts } from './QueuedPrompts'
 import { HelpDialog } from './HelpDialog'
@@ -294,6 +296,20 @@ export function ChatView({
   const visibleErrors = state.infos
     .filter((i) => i.level === 'error' && i.ts > dismissedErrorTs)
     .slice(-1)
+
+  // Safety net: an interactive suspension normally renders inline on its
+  // tool-call part, but if that part is missing from the transcript the
+  // pending request would be invisible and unanswerable (it still blocks the
+  // prompt queue) — render such orphans in the gates strip instead.
+  const orphanedSuspensionIds = useMemo(() => {
+    const interactive = state.suspensions.filter((s) => INTERACTIVE_TOOLS.has(s.toolName))
+    if (interactive.length === 0) return new Set<string>()
+    const present = new Set<string>()
+    for (const m of state.messages) {
+      for (const p of m.parts) if (p.type === 'tool-call') present.add(p.toolCallId)
+    }
+    return new Set(interactive.filter((s) => !present.has(s.toolCallId)).map((s) => s.toolCallId))
+  }, [state.suspensions, state.messages])
 
   // OS notification when a run finishes while the window is unfocused,
   // honoring the mastracode `notifications` session-state setting.
@@ -732,9 +748,12 @@ export function ChatView({
 
       {/* Pending gates + errors. Interactive suspensions (ask_user /
           submit_plan / request_access) render inline in the transcript, so
-          only unknown suspension tools fall back to this strip. */}
+          only unknown suspension tools — plus interactive ones whose tool
+          part is missing from the transcript — fall back to this strip. */}
       {(state.approvals.length > 0 ||
-        state.suspensions.some((s) => !INTERACTIVE_TOOLS.has(s.toolName)) ||
+        state.suspensions.some(
+          (s) => !INTERACTIVE_TOOLS.has(s.toolName) || orphanedSuspensionIds.has(s.toolCallId)
+        ) ||
         visibleErrors.length > 0) && (
         <div className="px-4 pb-2 space-y-2">
           {visibleErrors.map((i) => (
@@ -769,16 +788,20 @@ export function ChatView({
             />
           ))}
           {state.suspensions
-            .filter((s) => !INTERACTIVE_TOOLS.has(s.toolName))
-            .map((s) => (
-              <PlanApprovalCard
-                key={s.toolCallId}
-                suspension={s}
-                onResume={(resumeData) =>
-                  respondSuspension.mutate({ subchatId, toolCallId: s.toolCallId, resumeData })
-                }
-              />
-            ))}
+            .filter(
+              (s) => !INTERACTIVE_TOOLS.has(s.toolName) || orphanedSuspensionIds.has(s.toolCallId)
+            )
+            .map((s) => {
+              const respond = (resumeData: unknown): void =>
+                respondSuspension.mutate({ subchatId, toolCallId: s.toolCallId, resumeData })
+              return s.toolName === 'ask_user' ? (
+                <AskUserCard key={s.toolCallId} suspension={s} onResume={respond} />
+              ) : s.toolName === 'request_access' ? (
+                <SandboxAccessCard key={s.toolCallId} suspension={s} onResume={respond} />
+              ) : (
+                <PlanApprovalCard key={s.toolCallId} suspension={s} onResume={respond} />
+              )
+            })}
         </div>
       )}
 
