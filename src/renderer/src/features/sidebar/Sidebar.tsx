@@ -186,10 +186,15 @@ export function Sidebar(): React.JSX.Element {
           }}
         >
           <Tip content="Switch between your projects" side="bottom">
-            <SelectTrigger className="flex-1 h-8">
-              <span className="flex items-center gap-1.5 truncate">
+            {/* min-w-0 + nested truncate: a long project name must ellipsize
+                inside the trigger instead of pushing the icon buttons past
+                the sidebar edge. */}
+            <SelectTrigger className="min-w-0 flex-1 h-8">
+              <span className="flex min-w-0 items-center gap-1.5">
                 <FolderGit2 size={13} className="shrink-0 text-muted-foreground" />
-                <SelectValue placeholder="Select project" />
+                <span className="truncate">
+                  <SelectValue placeholder="Select project" />
+                </span>
               </span>
             </SelectTrigger>
           </Tip>
@@ -214,7 +219,7 @@ export function Sidebar(): React.JSX.Element {
           </SelectContent>
         </Select>
         <Tip content="Project settings — MCP servers, commands, instructions, plugins">
-          <span className="inline-flex">
+          <span className="inline-flex shrink-0">
             <Button
               size="icon"
               variant="ghost"
@@ -236,7 +241,12 @@ export function Sidebar(): React.JSX.Element {
           </span>
         </Tip>
         <Tip content="Add a project — local folder or GitHub clone">
-          <Button size="icon" variant="ghost" onClick={() => setAddProjectOpen('local')}>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="shrink-0"
+            onClick={() => setAddProjectOpen('local')}
+          >
             <Plus size={14} />
           </Button>
         </Tip>
