@@ -31,8 +31,22 @@ async function pickDirectory(title: string): Promise<string | null> {
   return res.canceled || res.filePaths.length === 0 ? null : res.filePaths[0]
 }
 
+/** Throw when another project already uses this name (case-insensitive). */
+function assertNameAvailable(name: string, excludeId?: string): void {
+  const wanted = name.trim().toLowerCase()
+  const clash = getDb()
+    .select()
+    .from(schema.projects)
+    .all()
+    .find((p) => p.id !== excludeId && p.name.trim().toLowerCase() === wanted)
+  if (clash) throw new Error(`A project named "${clash.name}" already exists`)
+}
+
 /** Insert a project row, or return the existing one for this path. */
-async function insertProject(projectPath: string): Promise<typeof schema.projects.$inferSelect> {
+async function insertProject(
+  projectPath: string,
+  name?: string
+): Promise<typeof schema.projects.$inferSelect> {
   const db = getDb()
   const existing = db
     .select()
@@ -41,9 +55,12 @@ async function insertProject(projectPath: string): Promise<typeof schema.project
     .get()
   if (existing) return existing
 
+  const projectName = name?.trim() || path.basename(projectPath)
+  assertNameAvailable(projectName)
+
   const project = {
     id: randomUUID(),
-    name: path.basename(projectPath),
+    name: projectName,
     path: projectPath,
     defaultBranch: await detectDefaultBranch(projectPath),
     settings: null,
@@ -70,7 +87,13 @@ export const projectsRouter = router({
    * so the UI can offer to initialize a repository; pass init=true to do so.
    */
   add: publicProcedure
-    .input(z.object({ path: z.string().min(1), init: z.boolean().default(false) }))
+    .input(
+      z.object({
+        path: z.string().min(1),
+        init: z.boolean().default(false),
+        name: z.string().trim().min(1).optional()
+      })
+    )
     .mutation(async ({ input }) => {
       if (!(await isGitRepo(input.path))) {
         if (!input.init) return { ok: false as const, reason: 'not-git' as const }
@@ -78,13 +101,22 @@ export const projectsRouter = router({
         // A repo with an unborn HEAD can't host worktrees; bootstrap it.
         await ensureBaseCommit(input.path)
       }
-      return { ok: true as const, project: await insertProject(input.path) }
+      return { ok: true as const, project: await insertProject(input.path, input.name) }
     }),
 
   /** Clone a remote repository into parentDir/<repo-name> and add it as a project. */
   cloneFromUrl: publicProcedure
-    .input(z.object({ url: z.string().min(1), parentDir: z.string().min(1) }))
+    .input(
+      z.object({
+        url: z.string().min(1),
+        parentDir: z.string().min(1),
+        name: z.string().trim().min(1).optional()
+      })
+    )
     .mutation(async ({ input }) => {
+      // Check the name before the (slow) clone so a clash doesn't leave a
+      // freshly cloned folder behind.
+      if (input.name) assertNameAvailable(input.name)
       const url = input.url.trim()
       // Restrict to real transport prefixes so the value can never be
       // interpreted as a git flag, and pathological inputs fail fast.
@@ -102,7 +134,7 @@ export const projectsRouter = router({
       if (existsSync(target)) throw new Error(`Destination already exists: ${target}`)
 
       await simpleGit().clone(url, target)
-      return insertProject(target)
+      return insertProject(target, input.name)
     }),
 
   /**
@@ -213,8 +245,9 @@ export const projectsRouter = router({
     }),
 
   rename: publicProcedure
-    .input(z.object({ id: z.string(), name: z.string().min(1) }))
+    .input(z.object({ id: z.string(), name: z.string().trim().min(1) }))
     .mutation(({ input }) => {
+      assertNameAvailable(input.name, input.id)
       getDb()
         .update(schema.projects)
         .set({ name: input.name, updatedAt: Date.now() })

@@ -15,9 +15,22 @@ import { Textarea } from '../../components/ui/textarea'
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
 import { Tip } from '../../components/ui/tooltip'
 
+/** Repository name implied by a git URL, e.g. "repo" for …/owner/repo.git. */
+function repoNameFromUrl(url: string): string {
+  return (
+    url
+      .trim()
+      .replace(/\/+$/, '')
+      .split(/[/:]/)
+      .pop()
+      ?.replace(/\.git$/, '') ?? ''
+  )
+}
+
 /**
  * Add-project dialog: open an existing local folder (offering `git init`
- * when it isn't a repository yet) or clone a repository from a URL.
+ * when it isn't a repository yet) or clone a repository from a URL, under a
+ * user-chosen project name that must be unique across projects.
  * After the project is created, a second "Set up project" step prompts for
  * project-specific settings (agent instructions) before closing.
  */
@@ -33,11 +46,16 @@ export function AddProjectDialog(): React.JSX.Element {
   const [needsInit, setNeedsInit] = useState(false)
   const [url, setUrl] = useState('')
   const [parentDir, setParentDir] = useState<string | null>(null)
+  // The user-facing project name: prefilled from the folder/repo but freely
+  // editable; once the user types, prefills stop overwriting it.
+  const [name, setName] = useState('')
+  const [nameTouched, setNameTouched] = useState(false)
   // Second step: the created project awaiting setup, and the instructions
   // draft (null = untouched, falls back to the repo's existing file).
   const [setup, setSetup] = useState<{ projectId: string; projectPath: string } | null>(null)
   const [draft, setDraft] = useState<string | null>(null)
 
+  const projects = trpc.projects.list.useQuery()
   const pickFolder = trpc.projects.pickFolder.useMutation()
   const add = trpc.projects.add.useMutation({
     onSuccess: (res) => {
@@ -59,6 +77,8 @@ export function AddProjectDialog(): React.JSX.Element {
     setNeedsInit(false)
     setUrl('')
     setParentDir(null)
+    setName('')
+    setNameTouched(false)
     setSetup(null)
     setDraft(null)
     pickFolder.reset()
@@ -110,12 +130,40 @@ export function AddProjectDialog(): React.JSX.Element {
     void pickFolder.mutateAsync({ title: 'Select a project folder' }).then((p) => {
       if (!p) return
       setPickedPath(p)
-      add.mutate({ path: p, init: false })
+      if (!nameTouched) setName(p.split(/[\\/]/).filter(Boolean).pop() ?? '')
     })
   }
 
   const busy = pickFolder.isPending || add.isPending || clone.isPending
   const error = add.error?.message ?? clone.error?.message ?? pickFolder.error?.message ?? null
+
+  const trimmedName = name.trim()
+  // Instant duplicate feedback (the backend enforces this too). Re-adding the
+  // already-registered folder under its own name is allowed — it's a no-op.
+  const nameTaken =
+    trimmedName !== '' &&
+    (projects.data ?? []).some(
+      (p) => p.name.trim().toLowerCase() === trimmedName.toLowerCase() && p.path !== pickedPath
+    )
+
+  const nameField = (
+    <div className="space-y-1">
+      <div className="text-xs font-medium">Project name</div>
+      <Input
+        placeholder="A unique name for this project"
+        value={name}
+        onChange={(e) => {
+          setNameTouched(true)
+          setName(e.target.value)
+        }}
+      />
+      {nameTaken && (
+        <div className="text-xs text-destructive">
+          A project named &ldquo;{trimmedName}&rdquo; already exists — pick another name.
+        </div>
+      )}
+    </div>
+  )
 
   return (
     <Dialog
@@ -260,6 +308,7 @@ export function AddProjectDialog(): React.JSX.Element {
                   <FolderOpen size={14} />
                   <span className="truncate">{pickedPath ?? 'Choose folder…'}</span>
                 </Button>
+                {nameField}
                 {needsInit && pickedPath && (
                   <div className="space-y-2 rounded-md border border-border bg-accent/30 p-3 text-xs">
                     <div>
@@ -270,8 +319,10 @@ export function AddProjectDialog(): React.JSX.Element {
                       <span className="inline-flex">
                         <Button
                           size="sm"
-                          disabled={add.isPending}
-                          onClick={() => add.mutate({ path: pickedPath, init: true })}
+                          disabled={add.isPending || !trimmedName || nameTaken}
+                          onClick={() =>
+                            add.mutate({ path: pickedPath, init: true, name: trimmedName })
+                          }
                         >
                           {add.isPending ? 'Initializing…' : 'Initialize git repository here'}
                         </Button>
@@ -279,6 +330,21 @@ export function AddProjectDialog(): React.JSX.Element {
                     </Tip>
                   </div>
                 )}
+                <div className="flex justify-end">
+                  <Tip content="Add the chosen folder as a project under this name">
+                    <span className="inline-flex">
+                      <Button
+                        disabled={!pickedPath || !trimmedName || nameTaken || busy}
+                        onClick={() =>
+                          pickedPath &&
+                          add.mutate({ path: pickedPath, init: false, name: trimmedName })
+                        }
+                      >
+                        {add.isPending ? 'Adding…' : 'Add project'}
+                      </Button>
+                    </span>
+                  </Tip>
+                </div>
               </div>
             ) : (
               <div className="space-y-3">
@@ -286,7 +352,10 @@ export function AddProjectDialog(): React.JSX.Element {
                   autoFocus
                   placeholder="https://github.com/owner/repo.git or https://gitlab.com/owner/repo.git"
                   value={url}
-                  onChange={(e) => setUrl(e.target.value)}
+                  onChange={(e) => {
+                    setUrl(e.target.value)
+                    if (!nameTouched) setName(repoNameFromUrl(e.target.value))
+                  }}
                 />
                 <Button
                   variant="outline"
@@ -301,24 +370,26 @@ export function AddProjectDialog(): React.JSX.Element {
                   <FolderOpen size={14} />
                   <span className="truncate">{parentDir ?? 'Choose destination folder…'}</span>
                 </Button>
+                {nameField}
                 {parentDir && url.trim() && (
                   <div className="truncate font-mono text-[11px] text-muted-foreground">
-                    → {parentDir}/
-                    {url
-                      .trim()
-                      .replace(/\/+$/, '')
-                      .split(/[/:]/)
-                      .pop()
-                      ?.replace(/\.git$/, '')}
+                    → {parentDir}/{repoNameFromUrl(url)}
                   </div>
                 )}
                 <div className="flex justify-end">
-                  <Button
-                    disabled={!url.trim() || !parentDir || busy}
-                    onClick={() => parentDir && clone.mutate({ url: url.trim(), parentDir })}
-                  >
-                    {clone.isPending ? 'Cloning…' : 'Clone'}
-                  </Button>
+                  <Tip content="Clone the repository and add it as a project under this name">
+                    <span className="inline-flex">
+                      <Button
+                        disabled={!url.trim() || !parentDir || !trimmedName || nameTaken || busy}
+                        onClick={() =>
+                          parentDir &&
+                          clone.mutate({ url: url.trim(), parentDir, name: trimmedName })
+                        }
+                      >
+                        {clone.isPending ? 'Cloning…' : 'Clone'}
+                      </Button>
+                    </span>
+                  </Tip>
                 </div>
               </div>
             )}
