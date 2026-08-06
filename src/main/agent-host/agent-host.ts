@@ -970,16 +970,18 @@ async function main(): Promise<void> {
   // no-timeout-fetch.ts), so a half-dead provider connection can stall the
   // SDK stream silently — no data, no error, no agent_end — leaving the run
   // spinning forever and the prompt queue blocked behind it. When a run has
-  // been waiting on the model (no tool executing, no gate on the user) with
-  // zero events for the whole budget, abort it; if even the abort produces
-  // no agent_end, synthesize one so the UI and queue unblock.
+  // gone completely silent for its whole budget (model budget while waiting
+  // on output, a much larger one while a tool executes, never while a gate
+  // waits on the user), abort it; if even the abort produces no agent_end,
+  // synthesize one so the UI and queue unblock.
   const stallTracker = new RunStallTracker()
   const stallCheck = setInterval(() => {
     if (!stallTracker.check()) return
     const mins = Math.round(stallTracker.silenceMs() / 60_000)
-    const msg =
-      `No response from the model provider for ~${mins} minute${mins === 1 ? '' : 's'} — ` +
-      'the run looks stalled and was stopped. Send a new message to retry.'
+    const what = stallTracker.stalledInTool
+      ? `A tool call produced no output for ~${mins} minute${mins === 1 ? '' : 's'}`
+      : `No response from the model provider for ~${mins} minute${mins === 1 ? '' : 's'}`
+    const msg = `${what} — the run looks stalled and was stopped. Send a new message to retry.`
     post({ t: 'log', level: 'error', msg: `stall watchdog fired: ${msg}` })
     post({ t: 'event', ev: { type: 'error', error: { message: msg } } })
     try {
@@ -1137,6 +1139,9 @@ async function main(): Promise<void> {
             })
             break
           case 'approve':
+            // The gate is answered — the tool (or the model) must make
+            // progress now, so the stall watchdog re-arms for this call.
+            stallTracker.noteGateResponse(cmd.toolCallId)
             session.respondToToolApproval({
               decision: cmd.decision,
               toolCallId: cmd.toolCallId,
@@ -1166,6 +1171,8 @@ async function main(): Promise<void> {
             ) {
               resumeData = { ...(resumeData as Record<string, unknown>), approved: true }
             }
+            // Same as approvals: once answered, silence is a stall again.
+            stallTracker.noteGateResponse(cmd.toolCallId)
             await session.respondToToolSuspension({
               resumeData,
               toolCallId: cmd.toolCallId
