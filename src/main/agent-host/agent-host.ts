@@ -33,6 +33,7 @@ import { resolvePackEntry } from './lsp-pack-resolve'
 import { installNoTimeoutFetch } from './no-timeout-fetch'
 import { RETRIEVAL_TOOL_NAME } from './prompt-compression'
 import { createRetrievalStore } from './retrieval-store'
+import { RunStallTracker } from './run-stall-watchdog'
 import { SandboxIsolationManager, type WorkspaceLike } from './sandbox-isolation'
 import {
   buildSttRequest,
@@ -965,7 +966,36 @@ async function main(): Promise<void> {
     post({ t: 'log', level: 'error', msg: `plugin update subscription failed: ${String(err)}` })
   }
 
+  // Stalled-run watchdog. HTTP timeouts are deliberately disabled (see
+  // no-timeout-fetch.ts), so a half-dead provider connection can stall the
+  // SDK stream silently — no data, no error, no agent_end — leaving the run
+  // spinning forever and the prompt queue blocked behind it. When a run has
+  // been waiting on the model (no tool executing, no gate on the user) with
+  // zero events for the whole budget, abort it; if even the abort produces
+  // no agent_end, synthesize one so the UI and queue unblock.
+  const stallTracker = new RunStallTracker()
+  const stallCheck = setInterval(() => {
+    if (!stallTracker.check()) return
+    const mins = Math.round(stallTracker.silenceMs() / 60_000)
+    const msg =
+      `No response from the model provider for ~${mins} minute${mins === 1 ? '' : 's'} — ` +
+      'the run looks stalled and was stopped. Send a new message to retry.'
+    post({ t: 'log', level: 'error', msg: `stall watchdog fired: ${msg}` })
+    post({ t: 'event', ev: { type: 'error', error: { message: msg } } })
+    try {
+      session.abort()
+    } catch {}
+    setTimeout(() => {
+      if (!stallTracker.active) return // the abort produced a real agent_end
+      stallTracker.noteEvent('agent_end')
+      post({ t: 'event', ev: { type: 'agent_end', reason: 'stalled' } })
+    }, 15_000)
+  }, 30_000)
+  stallCheck.unref()
+
   session.subscribe((event) => {
+    const raw = event as { type?: unknown; toolCallId?: unknown }
+    stallTracker.noteEvent(String(raw.type ?? ''), raw.toolCallId)
     // The display_state_changed firehose is large and derivable; skip it.
     if ((event as { type: string }).type === 'display_state_changed') return
     const ev = sanitizeEvent(event as unknown as Record<string, unknown>)
@@ -1097,6 +1127,7 @@ async function main(): Promise<void> {
       try {
         switch (cmd.t) {
           case 'send':
+            stallTracker.noteSend()
             session.sendMessage({ content: cmd.text, files: cmd.files }).catch((err: unknown) => {
               post({ t: 'log', level: 'error', msg: `sendMessage failed: ${String(err)}` })
               post({
