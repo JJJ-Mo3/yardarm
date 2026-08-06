@@ -62,7 +62,7 @@ const TABS: Array<{ id: MainTab; label: string; icon: React.ReactNode; tip: stri
     id: 'cli',
     label: 'CLI',
     icon: <SquareChevronRight size={13} />,
-    tip: 'Interactive Mastra Code CLI in the chat worktree — it sees the same threads as this chat. Avoid running the chat and the CLI on the same thread at once.'
+    tip: 'Interactive Mastra Code CLI in the chat worktree — it shares this chat’s threads, and runs started here stream live into the Chat tab (and vice versa)'
   },
   {
     id: 'files',

@@ -813,6 +813,14 @@ async function main(): Promise<void> {
     type SdkSubagents = NonNullable<Parameters<typeof sdk.createMastraCode>[0]>['subagents']
     mc = await sdk.createMastraCode({
       cwd: boot.cwd,
+      // Cross-process run streaming (unix sockets under /tmp/mc/<resourceId>).
+      // The CLI tab's mastracode TUI runs in this same cwd with this mode on
+      // by default; sharing it means runs started in either process stream
+      // live into the other (the SDK's subscribeToThread remote-run path), so
+      // CLI-tab activity shows up in the chat transcript and vice versa.
+      // Thread locks are dropped in this mode — the pubsub coordinates
+      // concurrent sends instead. The SDK self-disables this on win32.
+      unixSocketPubSub: true,
       initialState: Object.keys(initialState).length ? (initialState as never) : undefined,
       subagents: boot.subagents?.length ? (boot.subagents as SdkSubagents) : undefined,
       disabledTools: boot.disabledTools?.length ? boot.disabledTools : undefined,
@@ -2064,6 +2072,16 @@ async function main(): Promise<void> {
                   [...lspClients.values()].map((p) => p.then((c) => c.shutdown?.()))
                 ),
                 new Promise((r) => setTimeout(r, 1500))
+              ])
+            } catch {}
+            // Leave the cross-process pubsub politely (broker election
+            // tolerates unclean exits, but this avoids stale-socket churn).
+            // close() lives on the concrete SignalsPubSub, not the base type.
+            try {
+              const pubsub = mc.signalsPubSub as { close?: () => Promise<void> } | undefined
+              await Promise.race([
+                Promise.resolve(pubsub?.close?.()),
+                new Promise((r) => setTimeout(r, 1000))
               ])
             } catch {}
             process.exit(0)

@@ -49,9 +49,10 @@ export const terminalRouter = router({
       let command: string | undefined
       if (input.kind === 'mastracode') {
         // Interactive TUI in the given cwd. It resolves the same cwd-derived
-        // resourceId as the chat's agent-host, so it sees the same threads —
-        // but it takes no thread locks (unix-socket pubsub mode), so
-        // concurrent runs on the same thread are uncoordinated.
+        // resourceId as the chat's agent-host, so it sees the same threads,
+        // and both sides run in unix-socket pubsub mode (the agent-host
+        // passes unixSocketPubSub: true), so runs started in either process
+        // stream live into the other.
         const cliPath = getMastracodeCliPath()
         if (!cliPath) throw new Error('Bundled mastracode runtime not found')
         command = buildMastracodeCommand(process.execPath, cliPath)
