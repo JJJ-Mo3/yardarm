@@ -15,6 +15,7 @@ import { EventTranslator } from './event-translator'
 import { addIdeEditPath, parseIdeEditPaths, formatIdeEditNote } from './ide-edit-notes'
 import { clampMessageForStorage } from './message-clamp'
 import { isPrefillError } from './prefill-error'
+import { splitPlanRejectionFeedback } from './plan-rejection'
 import { PromptQueue } from './prompt-queue'
 import {
   normalizeCustomProviderModelId,
@@ -1199,13 +1200,29 @@ export class AgentSessionManager {
     this.sendCommand(handle, { t: 'alwaysAllowTool', toolName })
   }
 
+  /**
+   * Resume a suspended tool call. For submit_plan rejections the user's
+   * feedback is stripped out of the resume and queued as the next user
+   * message instead (CLI parity): the rejection result tells the model to
+   * stop, the SDK's PlanRejectionAbortProcessor ends the run, and the queued
+   * feedback flushes on agent_end (maybeFlushQueue is blocked only while the
+   * suspension is still pending) — giving the model a fresh turn to revise
+   * and resubmit the plan. Feedback left inside the resume would let the run
+   * continue straight into that abort processor and die before revising.
+   */
   async respondSuspension(
     subchatId: string,
     toolCallId: string,
     resumeData: unknown
   ): Promise<void> {
     const handle = await this.ensureHost(subchatId)
-    this.sendCommand(handle, { t: 'suspension', toolCallId, resumeData })
+    const toolName = handle.translator.pendingSuspensions.get(toolCallId)?.toolName
+    const split = splitPlanRejectionFeedback(toolName, resumeData)
+    if (split.feedback) {
+      this.promptQueue.enqueue(subchatId, split.feedback)
+      this.emitQueuedPrompts(subchatId)
+    }
+    this.sendCommand(handle, { t: 'suspension', toolCallId, resumeData: split.resumeData })
   }
 
   abort(subchatId: string): void {

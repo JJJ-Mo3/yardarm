@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Check, ClipboardList } from 'lucide-react'
+import { Check, ClipboardList, Undo2 } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { Textarea } from '../../components/ui/textarea'
 import { Tip } from '../../components/ui/tooltip'
@@ -18,6 +18,27 @@ function extractPlanText(suspension: PendingSuspension): string | null {
     }
   }
   return null
+}
+
+/**
+ * Plan identity fields echoed back in submit_plan resumes (what the CLI
+ * sends) so the tool result carries the plan title/path for history views.
+ */
+function planResumeRefs(suspension: PendingSuspension): {
+  path?: string
+  title?: string
+  plan?: string
+} {
+  const refs: { path?: string; title?: string; plan?: string } = {}
+  const payload = suspension.suspendPayload
+  if (payload && typeof payload === 'object') {
+    const obj = payload as Record<string, unknown>
+    for (const key of ['path', 'title', 'plan'] as const) {
+      const value = obj[key]
+      if (typeof value === 'string' && value) refs[key] = value
+    }
+  }
+  return refs
 }
 
 export function PlanApprovalCard({
@@ -63,7 +84,14 @@ export function PlanApprovalCard({
             <Button
               size="sm"
               variant="destructive"
-              onClick={() => onResume({ action: 'rejected', feedback })}
+              onClick={() => {
+                const trimmed = feedback.trim()
+                onResume({
+                  action: 'rejected',
+                  ...(isPlan ? planResumeRefs(suspension) : {}),
+                  ...(trimmed ? { feedback: trimmed } : {})
+                })
+              }}
             >
               Request changes
             </Button>
@@ -122,7 +150,15 @@ export function PlanApprovalCard({
                 : 'Approve and let the agent continue'
             }
           >
-            <Button size="sm" onClick={() => onResume({ action: 'approved' })}>
+            <Button
+              size="sm"
+              onClick={() =>
+                onResume({
+                  action: 'approved',
+                  ...(isPlan ? planResumeRefs(suspension) : {})
+                })
+              }
+            >
               {isPlan ? 'Approve plan & build' : 'Approve'}
             </Button>
           </Tip>
@@ -157,9 +193,17 @@ export function PlanApprovalAnswered({ part }: { part: ToolCallPart }): React.JS
     content?: unknown
     submittedPlan?: { title?: string; path?: string }
   }
-  const approved = result.submittedPlan != null
-  const title = result.submittedPlan?.title
   const content = typeof result.content === 'string' ? result.content : null
+  // The SDK returns `submittedPlan` for rejections too, so the verdict has to
+  // come from the result text, not from that field's presence.
+  const rejected = content?.startsWith('Plan was not approved') === true
+  const approved =
+    !rejected && (content?.startsWith('Plan approved') === true || result.submittedPlan != null)
+  const title = result.submittedPlan?.title
+  // Older transcripts embedded the user's feedback inside the rejection text.
+  const legacyFeedback = rejected
+    ? content?.match(/User feedback: ([\s\S]*?)\n\nPlease revise/)?.[1]
+    : undefined
 
   return (
     <div className="rounded-lg border border-blue-500/40 bg-blue-500/5 p-3 space-y-1.5">
@@ -172,6 +216,18 @@ export function PlanApprovalAnswered({ part }: { part: ToolCallPart }): React.JS
           <Check size={13} />
           Plan approved{title ? ` — ${title}` : ''}
         </div>
+      ) : rejected ? (
+        <>
+          <div className="flex items-center gap-1.5 text-xs text-amber-500 selectable">
+            <Undo2 size={13} />
+            Changes requested{title ? ` — ${title}` : ''}
+          </div>
+          {legacyFeedback && (
+            <div className="text-xs text-muted-foreground selectable whitespace-pre-wrap">
+              {legacyFeedback}
+            </div>
+          )}
+        </>
       ) : content ? (
         <div className="text-xs text-muted-foreground selectable whitespace-pre-wrap">
           {content}
