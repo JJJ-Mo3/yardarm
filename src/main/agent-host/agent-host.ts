@@ -21,6 +21,11 @@ import type {
 } from '../../shared/ipc-types'
 import { z } from 'zod'
 import { patchApprovalRunBudget } from './approval-run-budget'
+import {
+  installCoordinatedTokenRefresh,
+  KEEP_FRESH_INTERVAL_MS,
+  type AuthStorageLike
+} from './auth-token-refresh'
 import { createCompressionProcessor } from './compression-processor'
 import {
   fallbackLanguageId,
@@ -837,6 +842,28 @@ async function main(): Promise<void> {
   }
 
   const { session, controller, authStorage } = mc
+
+  // OAuth tokens expire while the app sits idle, and the SDK's lazy
+  // refresh-on-request both races across our per-subchat host processes
+  // (refresh tokens rotate — the losers get invalid_grant and can revoke the
+  // whole grant) and silently gives up on any failure, telling the user to
+  // /login again. Coordinate refreshes with an in-process mutex + a lock file
+  // next to auth.json, and keep tokens fresh on an interval so expiry is
+  // handled while idle instead of at send time. authPath is soft-private.
+  try {
+    const tokenRefresh = installCoordinatedTokenRefresh(authStorage as unknown as AuthStorageLike, {
+      authPath: (authStorage as unknown as { authPath?: string }).authPath,
+      log: (level, msg) => post({ t: 'log', level, msg })
+    })
+    const keepFresh = setInterval(
+      () => void tokenRefresh.refreshExpiringSoon(),
+      KEEP_FRESH_INTERVAL_MS
+    )
+    keepFresh.unref()
+    void tokenRefresh.refreshExpiringSoon()
+  } catch (err) {
+    post({ t: 'log', level: 'error', msg: `token refresh install failed: ${String(err)}` })
+  }
 
   // The SDK never connects MCP servers on its own — the mastracode TUI calls
   // mcpManager.initInBackground() after boot. Mirror that here so server
