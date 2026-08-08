@@ -86,9 +86,14 @@ export interface RecommendedModel {
   label: string
   note: string
   sizeLabel: string
+  /**
+   * Runs on Ollama Cloud (no local weights — pulling only registers the
+   * model, and running it needs an Ollama account). Ollama-only.
+   */
+  cloud?: boolean
 }
 
-// Tags and sizes verified against ollama.com/library (July 2026).
+// Tags and sizes verified against ollama.com/library (August 2026).
 export const RECOMMENDED_MODELS: RecommendedModel[] = [
   {
     tag: 'qwen3.6:27b',
@@ -125,5 +130,12 @@ export const RECOMMENDED_MODELS: RecommendedModel[] = [
     label: 'GPT-OSS 120B',
     note: 'Strong general model — needs a big machine',
     sizeLabel: '~65 GB'
+  },
+  {
+    tag: 'kimi-k3:cloud',
+    label: 'Kimi K3',
+    note: "Moonshot's frontier agentic model (1M context) — runs on Ollama Cloud, not on-device",
+    sizeLabel: 'needs Ollama sign-in',
+    cloud: true
   }
 ]

@@ -5,7 +5,7 @@
  * `customProviders` via the existing upsert path.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Check, Download, ExternalLink, X } from 'lucide-react'
+import { Check, Cloud, Download, ExternalLink, X } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
 import { Button } from '../../components/ui/button'
@@ -505,7 +505,7 @@ export function AddLocalProviderDialog({
                 )}
                 <div className="space-y-1.5">
                   <div className="text-xs font-medium">Recommended models</div>
-                  {RECOMMENDED_MODELS.map((r) => {
+                  {RECOMMENDED_MODELS.filter((r) => !r.cloud || presetId === 'ollama').map((r) => {
                     const installed = installedSet.has(r.tag)
                     const job = pulls[r.tag]
                     if (installed) {
@@ -583,7 +583,11 @@ export function AddLocalProviderDialog({
                         </div>
                         {presetId === 'ollama' ? (
                           <Tip
-                            content={`Download ${r.tag} to your machine via Ollama (${r.sizeLabel})`}
+                            content={
+                              r.cloud
+                                ? `Add ${r.tag} — runs on Ollama Cloud (needs an Ollama account), not on your machine`
+                                : `Download ${r.tag} to your machine via Ollama (${r.sizeLabel})`
+                            }
                           >
                             <Button
                               size="sm"
@@ -591,10 +595,16 @@ export function AddLocalProviderDialog({
                               className="h-6 px-2 text-[10px]"
                               onClick={() => doPull(r.tag)}
                             >
-                              <Download size={11} className="mr-1" />
+                              {r.cloud ? (
+                                <Cloud size={11} className="mr-1" />
+                              ) : (
+                                <Download size={11} className="mr-1" />
+                              )}
                               {job?.status === 'error' || job?.status === 'cancelled'
                                 ? 'Retry'
-                                : 'Download'}
+                                : r.cloud
+                                  ? 'Add'
+                                  : 'Download'}
                             </Button>
                           </Tip>
                         ) : (
