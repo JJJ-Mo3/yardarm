@@ -278,7 +278,13 @@ export class EventTranslator {
         }
         this.cb.onMetaChanged(meta)
         this.cb.emit({ type: 'session-meta', meta })
-        if (Array.isArray(state.tasks)) {
+        // Session state no longer carries the live task list (the SDK's
+        // Harness stopped storing it there, so `state.tasks` is always the
+        // schema default `[]`). Only seed from it when it actually has tasks
+        // (older SDKs / boot snapshots) — never wipe the task_updated-driven
+        // list with the empty default, which used to blank the checklist on
+        // any mid-run state write (e.g. while a prompt was pending).
+        if (Array.isArray(state.tasks) && state.tasks.length > 0) {
           this.tasks = state.tasks as TaskItem[]
           this.cb.emit({ type: 'task-list', tasks: this.tasks })
         }

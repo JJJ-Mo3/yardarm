@@ -423,6 +423,19 @@ describe('session meta and misc events', () => {
     expect(h.emitted.filter((e) => e.type === 'task-list')).toHaveLength(2)
   })
 
+  it('does not wipe tasks when state_changed carries the empty schema default', () => {
+    const h = makeTranslator()
+    h.t.handle({ type: 'task_updated', tasks: [{ id: '1', content: 'do it' }] })
+    // The SDK's Harness no longer stores tasks in session state, so every
+    // state_changed carries `tasks: []` — it must not blank the live list.
+    h.t.handle({ type: 'state_changed', state: { yolo: false, tasks: [] } })
+    expect(h.t.tasks).toEqual([{ id: '1', content: 'do it' }])
+    expect(h.emitted.filter((e) => e.type === 'task-list')).toHaveLength(1)
+    // An explicit empty task_updated (the live channel) still clears it.
+    h.t.handle({ type: 'task_updated', tasks: [] })
+    expect(h.t.tasks).toEqual([])
+  })
+
   it('forwards thread ids from thread_created and thread_changed', () => {
     const h = makeTranslator()
     h.t.handle({ type: 'thread_created', thread: { id: 'th1' } })
