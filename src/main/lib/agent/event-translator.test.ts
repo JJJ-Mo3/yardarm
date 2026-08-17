@@ -4,7 +4,7 @@
  * session-meta plumbing.
  */
 import { describe, expect, it } from 'vitest'
-import { EventTranslator } from './event-translator'
+import { EventTranslator, userSignalText } from './event-translator'
 import type { AgentControllerEventLike } from '../../../shared/ipc-types'
 import type { AgentUIEvent, StoredMessage } from '../../../shared/ui-message'
 
@@ -15,6 +15,7 @@ interface Harness {
   metaChanges: Array<Record<string, unknown>>
   threads: string[]
   runStates: boolean[]
+  userMessages: Array<{ id: string; text: string; createdAt: number }>
 }
 
 function makeTranslator(onAgentError?: (text: string) => boolean): Harness {
@@ -23,7 +24,8 @@ function makeTranslator(onAgentError?: (text: string) => boolean): Harness {
     persisted: [],
     metaChanges: [],
     threads: [],
-    runStates: []
+    runStates: [],
+    userMessages: []
   }
   const t = new EventTranslator({
     // Clone: the translator mutates StoredMessage objects in place.
@@ -33,7 +35,8 @@ function makeTranslator(onAgentError?: (text: string) => boolean): Harness {
     onThreadChanged: (id) => h.threads.push(id),
     onMetaChanged: (m) => h.metaChanges.push(m),
     onRunStateChanged: (r) => h.runStates.push(r),
-    onAgentError
+    onAgentError,
+    onUserMessage: (m) => h.userMessages.push(m)
   })
   return { t, ...h }
 }
@@ -129,7 +132,7 @@ describe('message streaming', () => {
     ])
   })
 
-  it('ignores non-assistant messages', () => {
+  it('never streams or persists non-assistant messages itself', () => {
     const h = makeTranslator()
     h.t.handle({
       type: 'message_end',
@@ -141,6 +144,8 @@ describe('message streaming', () => {
     })
     expect(h.emitted).toHaveLength(0)
     expect(h.persisted).toHaveLength(0)
+    // …but it surfaces the prompt to the owner for dedupe + recording.
+    expect(h.userMessages).toEqual([{ id: 'u1', text: 'hi', createdAt: expect.any(Number) }])
   })
 
   it('handles createdAt as number, ISO string, and invalid string', () => {
@@ -154,6 +159,85 @@ describe('message streaming', () => {
     const before = Date.now()
     h.t.handle(msgEvent('message_end', 'm3', [{ type: 'text', text: 'c' }], 'not-a-date'))
     expect(lastUpsert(h.emitted, 'm3')?.createdAt).toBeGreaterThanOrEqual(before)
+  })
+})
+
+describe('user-prompt echoes', () => {
+  /** Signal-role echo event as the SDK emits for every user prompt. */
+  function signalEvent(
+    type: 'message_start' | 'message_end',
+    id: string,
+    data: Record<string, unknown>,
+    createdAt?: unknown
+  ): AgentControllerEventLike {
+    return {
+      type,
+      message: {
+        id,
+        role: 'signal',
+        content: { format: 2, parts: [{ type: 'data-user-message', data }] },
+        createdAt
+      }
+    }
+  }
+
+  it('fires onUserMessage once, on message_end only', () => {
+    const h = makeTranslator()
+    h.t.handle(signalEvent('message_start', 's1', { contents: 'from the CLI' }, 1234))
+    expect(h.userMessages).toHaveLength(0)
+    h.t.handle(signalEvent('message_end', 's1', { contents: 'from the CLI' }, 1234))
+    expect(h.userMessages).toEqual([{ id: 's1', text: 'from the CLI', createdAt: 1234 }])
+    expect(h.emitted).toHaveLength(0)
+    expect(h.persisted).toHaveLength(0)
+  })
+
+  it('extracts text parts from array-shaped contents (file attachments)', () => {
+    const h = makeTranslator()
+    h.t.handle(
+      signalEvent('message_end', 's1', {
+        contents: [
+          { type: 'text', text: 'look at this' },
+          { type: 'file', data: 'AAAA', mediaType: 'image/png' }
+        ]
+      })
+    )
+    expect(h.userMessages).toEqual([
+      { id: 's1', text: 'look at this', createdAt: expect.any(Number) }
+    ])
+  })
+
+  it('ignores system-reminder and other signal parts', () => {
+    const h = makeTranslator()
+    h.t.handle({
+      type: 'message_end',
+      message: {
+        id: 's1',
+        role: 'signal',
+        content: {
+          format: 2,
+          parts: [{ type: 'data-signal', data: { contents: '<system-reminder>x' } }]
+        }
+      }
+    })
+    expect(h.userMessages).toHaveLength(0)
+  })
+
+  it('userSignalText returns null for assistant roles and empty contents', () => {
+    expect(
+      userSignalText({
+        id: 'a1',
+        role: 'assistant',
+        content: { parts: [{ type: 'text', text: 'hi' }] }
+      })
+    ).toBeNull()
+    expect(
+      userSignalText({
+        id: 's1',
+        role: 'signal',
+        content: { parts: [{ type: 'data-user-message', data: { contents: '   ' } }] }
+      })
+    ).toBeNull()
+    expect(userSignalText({ id: 's2', role: 'signal', content: null })).toBeNull()
   })
 })
 

@@ -122,6 +122,8 @@ const REQUEST_TIMEOUT_MS = 30_000
 const SEED_BYTE_BUDGET = 24 * 1024 * 1024
 /** Debounce for mid-run IDE-edit note delivery, batching rapid Cmd+S saves. */
 const IDE_NOTE_DEBOUNCE_MS = 1200
+/** Max recent own-send prompt texts kept per subchat for echo dedupe. */
+const SENT_PROMPT_ECHO_LIMIT = 20
 
 export class AgentSessionManager {
   private hosts = new Map<string, HostHandle>()
@@ -150,6 +152,13 @@ export class AgentSessionManager {
   private prefillRetried = new Set<string>()
   /** Pending per-subchat debounce timers for mid-run IDE-note delivery. */
   private ideNoteTimers = new Map<string, NodeJS.Timeout>()
+  /**
+   * Recent prompt texts this app sent to each host. The SDK echoes every
+   * user prompt back through the run stream (including our own sends), so
+   * echoes matching an entry here are consumed silently; the rest are
+   * external prompts (typed in the CLI) and get recorded as user messages.
+   */
+  private sentPromptEchoes = new Map<string, string[]>()
 
   private emitterFor(subchatId: string): EventEmitter {
     let em = this.emitters.get(subchatId)
@@ -592,6 +601,11 @@ export class AgentSessionManager {
             })
             .run()
         } catch {}
+      },
+      onUserMessage: (m) => {
+        // Echo of our own send → already recorded at send time; skip.
+        if (this.consumeSentPrompt(subchatId, m.text)) return
+        this.recordExternalUserMessage(subchatId, m)
       }
     })
     translator.seed(this.loadMessages(subchatId))
@@ -749,6 +763,7 @@ export class AgentSessionManager {
       // stays intact and resumes via the sendOrQueue idle kick.
       this.awaitingRunStart.delete(subchatId)
       this.prefillRetryPending.delete(subchatId)
+      this.sentPromptEchoes.delete(subchatId)
       throttle.dispose()
       this.writeBuffer.flush(subchatId)
       for (const [, req] of handle.pending) {
@@ -780,11 +795,33 @@ export class AgentSessionManager {
    */
   private sendCommand(handle: HostHandle, cmd: HostCommand): void {
     if (handle.killed) return
+    if (cmd.t === 'send') this.noteSentPrompt(handle.subchatId, cmd.text)
     try {
       handle.proc.postMessage(cmd)
     } catch {
       // Host died between the killed check and the write.
     }
+  }
+
+  /** Remember a prompt we sent so its run-stream echo can be deduped. */
+  private noteSentPrompt(subchatId: string, text: string): void {
+    let list = this.sentPromptEchoes.get(subchatId)
+    if (!list) {
+      list = []
+      this.sentPromptEchoes.set(subchatId, list)
+    }
+    list.push(text.trim())
+    if (list.length > SENT_PROMPT_ECHO_LIMIT) list.splice(0, list.length - SENT_PROMPT_ECHO_LIMIT)
+  }
+
+  /** True (and consumes the entry) when the echoed text matches an own send. */
+  private consumeSentPrompt(subchatId: string, text: string): boolean {
+    const list = this.sentPromptEchoes.get(subchatId)
+    if (!list) return false
+    const idx = list.indexOf(text.trim())
+    if (idx === -1) return false
+    list.splice(idx, 1)
+    return true
   }
 
   private request<T>(
@@ -832,6 +869,11 @@ export class AgentSessionManager {
     }
     this.persistMessage(subchatId, userMessage, true)
     this.emitUI(subchatId, { type: 'message-upsert', message: userMessage })
+    this.touchChat(subchatId)
+  }
+
+  /** Bump the owning chat's updatedAt so sidebar ordering reflects activity. */
+  private touchChat(subchatId: string): void {
     const db = getDb()
     const subchat = db
       .select({ chatId: schema.subchats.chatId })
@@ -844,6 +886,27 @@ export class AgentSessionManager {
         .where(eq(schema.chats.id, subchat.chatId))
         .run()
     }
+  }
+
+  /**
+   * Persist + broadcast a user prompt that originated outside this app (e.g.
+   * typed in the CLI) and arrived as a run-stream echo. Keyed by the echo's
+   * signal id so replays upsert instead of duplicating.
+   */
+  private recordExternalUserMessage(
+    subchatId: string,
+    m: { id: string; text: string; createdAt: number }
+  ): void {
+    const userMessage: StoredMessage = {
+      id: m.id,
+      role: 'user',
+      parts: [{ type: 'text', text: m.text }],
+      checkpointRef: null,
+      createdAt: m.createdAt
+    }
+    this.persistMessage(subchatId, userMessage, true)
+    this.emitUI(subchatId, { type: 'message-upsert', message: userMessage })
+    this.touchChat(subchatId)
   }
 
   /**

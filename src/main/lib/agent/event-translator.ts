@@ -66,6 +66,38 @@ function normalizeUsage(raw: Record<string, unknown>): UsageInfo {
   return out
 }
 
+/**
+ * Extract the prompt text from a user-prompt echo message. The SDK echoes
+ * every user prompt into the run stream as a `role: 'signal'` message with a
+ * `data-user-message` part whose `data.contents` is the raw text (or a parts
+ * array when files are attached). System reminders and other signals arrive
+ * as `data-signal` parts and are ignored. Plain `role: 'user'` messages
+ * (older/alternate SDK shapes) fall back to their text parts.
+ */
+export function userSignalText(msg: MastraMessageLike): string | null {
+  if (msg.role !== 'signal' && msg.role !== 'user') return null
+  const texts: string[] = []
+  for (const item of msg.content?.parts ?? []) {
+    if (msg.role === 'user' && item.type === 'text' && typeof item.text === 'string') {
+      texts.push(item.text)
+      continue
+    }
+    if (item.type !== 'data-user-message') continue
+    const contents = (item.data as { contents?: unknown } | undefined)?.contents
+    if (typeof contents === 'string') {
+      texts.push(contents)
+    } else if (Array.isArray(contents)) {
+      for (const part of contents) {
+        if (!part || typeof part !== 'object') continue
+        const p = part as { type?: unknown; text?: unknown }
+        if (p.type === 'text' && typeof p.text === 'string') texts.push(p.text)
+      }
+    }
+  }
+  const text = texts.join('\n').trim()
+  return text.length > 0 ? text : null
+}
+
 export interface TranslatorCallbacks {
   emit: (event: AgentUIEvent) => void
   /** `final` marks a completed message that must be durable immediately. */
@@ -86,6 +118,13 @@ export interface TranslatorCallbacks {
   onAgentError?: (text: string) => boolean
   /** Called with each goal-judge verdict so it can be persisted as history. */
   onGoalEvaluation?: (goal: GoalEvaluationInfo) => void
+  /**
+   * Called when the run stream echoes a user prompt (`data-user-message`
+   * signal). Fired for every run's prompts — including this app's own sends —
+   * so the owner must dedupe against prompts it sent itself before treating
+   * it as external (e.g. typed in the CLI).
+   */
+  onUserMessage?: (msg: { id: string; text: string; createdAt: number }) => void
 }
 
 export class EventTranslator {
@@ -132,7 +171,22 @@ export class EventTranslator {
       case 'message_update':
       case 'message_end': {
         const msg = ev.message as unknown as MastraMessageLike
-        if (!msg || msg.role !== 'assistant') break
+        if (!msg) break
+        if (msg.role !== 'assistant') {
+          // The SDK echoes user prompts as data-user-message signal messages
+          // (start + end back-to-back) — surface each once, on message_end.
+          if (ev.type === 'message_end') {
+            const text = userSignalText(msg)
+            if (text) {
+              this.cb.onUserMessage?.({
+                id: msg.id,
+                text,
+                createdAt: this.toMillis(msg.createdAt)
+              })
+            }
+          }
+          break
+        }
         this.currentAssistantId = msg.id
         this.upsertFromMastra(msg, ev.type === 'message_end')
         break
