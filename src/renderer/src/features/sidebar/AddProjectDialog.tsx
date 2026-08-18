@@ -7,7 +7,9 @@ import {
   addProjectOpenAtom,
   projectSettingsOpenAtom,
   projectSettingsTabAtom,
-  selectedProjectIdAtom
+  selectedChatIdAtom,
+  selectedProjectIdAtom,
+  selectedSubchatIdAtom
 } from '../../lib/atoms'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -36,7 +38,9 @@ function repoNameFromUrl(url: string): string {
  */
 export function AddProjectDialog(): React.JSX.Element {
   const [openMode, setOpenMode] = useAtom(addProjectOpenAtom)
-  const setProjectId = useSetAtom(selectedProjectIdAtom)
+  const [projectId, setProjectId] = useAtom(selectedProjectIdAtom)
+  const setChatId = useSetAtom(selectedChatIdAtom)
+  const setSubchatId = useSetAtom(selectedSubchatIdAtom)
   const setProjectSettingsOpen = useSetAtom(projectSettingsOpenAtom)
   const setProjectSettingsTab = useSetAtom(projectSettingsTabAtom)
   const utils = trpc.useUtils()
@@ -90,6 +94,12 @@ export function AddProjectDialog(): React.JSX.Element {
   /** Project created — select it immediately and move to the setup step. */
   function finish(project: { id: string; path: string }): void {
     void utils.projects.list.invalidate()
+    if (project.id !== projectId) {
+      // Same rule as the sidebar project picker: the old project's chat must
+      // not stay visible under the newly selected project.
+      setChatId(null)
+      setSubchatId(null)
+    }
     setProjectId(project.id)
     setSetup({ projectId: project.id, projectPath: project.path })
   }
