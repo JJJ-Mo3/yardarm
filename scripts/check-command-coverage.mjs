@@ -25,7 +25,7 @@ const CANONICAL = [
   'cost', 'diff', 'prune',
   // config & extensions
   'settings', 'theme', 'mcp', 'hooks', 'commands', 'skills', 'skill',
-  'subagents', 'plugins', 'custom-providers',
+  'subagents', 'plugins', 'workflows', 'custom-providers',
   // auth
   'login', 'logout', 'api-keys',
   // integrations (TUI-only)

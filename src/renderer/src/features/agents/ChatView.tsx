@@ -65,7 +65,7 @@ import {
 } from './review-prompts'
 import { MODES, type Mode } from '../../../../shared/ui-message'
 
-const THINKING = ['off', 'low', 'medium', 'high', 'xhigh'] as const
+const THINKING = ['off', 'low', 'medium', 'high', 'xhigh', 'max'] as const
 
 export function ChatView({
   subchatId,
@@ -449,6 +449,9 @@ export function ChatView({
       case 'skills':
       case 'plugins':
         openProjectSettings('plugins')
+        return
+      case 'workflows':
+        openProjectSettings('workflows')
         return
       case 'skill': {
         const trimmed = args.trim()

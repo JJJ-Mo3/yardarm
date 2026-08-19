@@ -29,7 +29,7 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
   {
     name: 'think',
     description: 'Set thinking level',
-    args: '<off|low|medium|high|xhigh>',
+    args: '<off|low|medium|high|xhigh|max>',
     kind: 'builtin'
   },
   { name: 'yolo', description: 'Toggle auto-approve (YOLO)', kind: 'builtin' },
@@ -39,6 +39,7 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
   { name: 'resource', description: 'Show/set the memory resource id', kind: 'builtin' },
   { name: 'skills', description: 'List installed skills & plugins', kind: 'builtin' },
   { name: 'plugins', description: 'Manage Mastra Code plugins', kind: 'builtin' },
+  { name: 'workflows', description: 'Run and manage stored workflows', kind: 'builtin' },
   { name: 'skill', description: 'Run a skill', args: '<name> [args]', kind: 'builtin' },
   { name: 'subagents', description: 'Manage custom subagents', kind: 'builtin' },
   { name: 'sandbox', description: 'Sandbox & session settings', kind: 'builtin' },

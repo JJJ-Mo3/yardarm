@@ -6,7 +6,7 @@
 
 export const MODES = ['build', 'plan', 'fast'] as const
 export type Mode = (typeof MODES)[number]
-export type ThinkingLevel = 'off' | 'low' | 'medium' | 'high' | 'xhigh'
+export type ThinkingLevel = 'off' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 
 export interface TextPart {
   type: 'text'

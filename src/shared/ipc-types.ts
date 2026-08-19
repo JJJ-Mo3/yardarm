@@ -105,6 +105,11 @@ export type HostCommand =
       key: string
       value: string | boolean
     }
+  /** Chat-built workflows stored by the SDK (responds with WorkflowInfo[]). */
+  | { t: 'workflowsList'; reqId: string }
+  /** Run a stored workflow; inputJson is a JSON object string (responds with WorkflowRunResult). */
+  | { t: 'workflowRun'; reqId: string; workflowId: string; inputJson?: string }
+  | { t: 'workflowDelete'; reqId: string; workflowId: string }
   /** Read session-state keys (notifications, smartEditing, sandboxAllowedPaths). */
   | { t: 'stateGet'; reqId: string }
   | { t: 'stateSet'; reqId: string; patch: SessionStatePatch }
@@ -153,6 +158,12 @@ export type HostCommand =
   | { t: 'mcpAuthenticate'; reqId: string; serverName: string }
   | { t: 'mcpCancelAuth'; reqId: string; serverName: string }
   | { t: 'mcpReconnect'; reqId: string; serverName: string }
+  /**
+   * Persistently enable/disable an MCP server (SDK mcp-state.json) without
+   * editing mcp.json. Enabling reconnects; disabling closes the connection.
+   * Resolves with the server's updated McpServerStatusInfo.
+   */
+  | { t: 'mcpSetEnabled'; reqId: string; serverName: string; enabled: boolean }
   /**
    * IDE diagnostics for one absolute file path via the SDK's LSP manager.
    * `root` bounds the LSP workspace-root walk (needed when the utility host
@@ -374,6 +385,27 @@ export interface PluginInfo {
 /** Where a plugin is installed: global (~/.mastracode) or project-local. */
 export type PluginScope = 'global' | 'project'
 
+/** A chat-built workflow stored by the SDK (workflowsList response). */
+export interface WorkflowInfo {
+  id: string
+  description?: string
+  status: 'active' | 'archived'
+  /** Step count derived from the stored graph, when available. */
+  stepCount?: number
+  createdAt?: number
+  updatedAt?: number
+}
+
+/** Response payload of the `workflowRun` host command. */
+export interface WorkflowRunResult {
+  status: string
+  /** Per-step outcomes in execution order (from workflow-step-result events). */
+  steps: Array<{ id: string; status: string }>
+  /** Final run output, JSON-stringified when present. */
+  resultJson?: string
+  error?: string
+}
+
 /**
  * MCP OAuth authorization URL relayed to the renderer (the main process
  * already opened it in the system browser; the UI shows a fallback link).
@@ -399,6 +431,10 @@ export interface McpServerStatusInfo {
   authenticating?: boolean
   /** The last OAuth flow was cancelled by the user (error is expected then). */
   cancelled?: boolean
+  /** Persistently disabled via mcp-state.json (never connects until re-enabled). */
+  disabled?: boolean
+  /** Where the disable flag lives: this project's entry or the global section. */
+  disabledScope?: 'project' | 'global'
 }
 
 /** One IDE diagnostic. Positions are 1-based (Monaco marker convention). */
@@ -439,6 +475,8 @@ export interface SessionStateInfo {
   notifications: 'bell' | 'system' | 'both' | 'off'
   smartEditing: boolean
   sandboxAllowedPaths: string[]
+  /** Skip ~/.mastracode global instruction files for this session. */
+  skipGlobalInstructions: boolean
 }
 
 export type SessionStatePatch = Partial<SessionStateInfo>

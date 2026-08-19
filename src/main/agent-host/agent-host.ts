@@ -6,6 +6,7 @@
  * This is the single integration point with the mastracode SDK.
  */
 import { spawn } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import os from 'node:os'
@@ -954,7 +955,8 @@ async function main(): Promise<void> {
     return {
       notifications: st.notifications ?? 'off',
       smartEditing: st.smartEditing ?? false,
-      sandboxAllowedPaths: st.sandboxAllowedPaths ?? []
+      sandboxAllowedPaths: st.sandboxAllowedPaths ?? [],
+      skipGlobalInstructions: st.skipGlobalInstructions ?? false
     }
   }
 
@@ -989,8 +991,78 @@ async function main(): Promise<void> {
     error: s.error,
     needsAuth: s.needsAuth,
     authenticating: s.authenticating,
-    cancelled: s.cancelled
+    cancelled: s.cancelled,
+    disabled: s.disabled,
+    disabledScope: s.disabledScope
   })
+
+  /** Project the SDK's StoredWorkflowRow onto the wire-safe WorkflowInfo shape. */
+  const mapWorkflow = (w: {
+    id: string
+    description?: string
+    status: 'active' | 'archived'
+    graph?: unknown[]
+    createdAt?: Date
+    updatedAt?: Date
+  }): Record<string, unknown> => ({
+    id: w.id,
+    description: w.description,
+    status: w.status,
+    stepCount: Array.isArray(w.graph) ? w.graph.length : undefined,
+    createdAt: w.createdAt ? new Date(w.createdAt).getTime() : undefined,
+    updatedAt: w.updatedAt ? new Date(w.updatedAt).getTime() : undefined
+  })
+
+  /** The Mastra instance workflow storage/runs hang off; throws when absent. */
+  const mastraForWorkflows = (): NonNullable<ReturnType<typeof controller.getMastra>> => {
+    const mastra = controller.getMastra()
+    if (!mastra) throw new Error('Workflow storage unavailable')
+    return mastra
+  }
+
+  /**
+   * Synthetic RequestContext for workflow runs, mirroring the CLI's
+   * /workflows-run shim: agent steps resolve their model from
+   * `controller.session.modelId` on the context and Memory reads the
+   * MastraMemory entry — without these the run fails before the first step.
+   */
+  const buildWorkflowRequestContext = async (): Promise<unknown> => {
+    const rcMod = await runtimeImport<{
+      RequestContext: new () => { set(key: string, value: unknown): void }
+    }>('@mastra/core/request-context')
+    const modeId = session.mode.get()
+    const modelId =
+      session.model.get() ||
+      controller.listModes().find((m) => m.id === modeId)?.defaultModelId ||
+      ''
+    const rc = new rcMod.RequestContext()
+    rc.set('controller', {
+      controllerId: controller.id,
+      state: session.state.get() ?? {},
+      getState: () => session.state.get() ?? {},
+      setState: (updates: never) => session.state.set(updates),
+      threadId: session.thread.getId() ?? undefined,
+      resourceId: session.identity.getResourceId(),
+      session: {
+        id: session.identity.getId(),
+        ownerId: session.identity.getOwnerId(),
+        modeId,
+        modelId,
+        state: {
+          get: () => session.state.get() ?? {},
+          set: (updates: never) => session.state.set(updates),
+          update: (updater: never) =>
+            (session.state as { update?: (u: never) => unknown }).update?.(updater)
+        }
+      }
+    })
+    rc.set('MastraMemory', {
+      thread: { id: randomUUID() },
+      resourceId: session.identity.getResourceId(),
+      memoryConfig: undefined
+    })
+    return rc
+  }
 
   // Surface the SDK's background GitHub-plugin update poll so the UI can
   // tell the user their installed plugins changed. Best-effort.
@@ -1656,6 +1728,67 @@ async function main(): Promise<void> {
               return mapPlugins(await pm.reload())
             })
             break
+          case 'workflowsList':
+            await respond(cmd.reqId, async () => {
+              const svc = await runtimeImport<typeof import('@mastra/code-sdk/workflows/service')>(
+                '@mastra/code-sdk/workflows/service'
+              )
+              const { workflows } = await svc.listWorkflows(mastraForWorkflows())
+              return workflows.map(mapWorkflow)
+            })
+            break
+          case 'workflowRun':
+            await respond(cmd.reqId, async () => {
+              const svc = await runtimeImport<typeof import('@mastra/code-sdk/workflows/service')>(
+                '@mastra/code-sdk/workflows/service'
+              )
+              let input: unknown = {}
+              const raw = cmd.inputJson?.trim()
+              if (raw) {
+                try {
+                  input = JSON.parse(raw)
+                } catch {
+                  throw new Error('Workflow input must be valid JSON')
+                }
+              }
+              const steps: Array<{ id: string; status: string }> = []
+              const res = await svc.runWorkflow(
+                mastraForWorkflows(),
+                cmd.workflowId,
+                input,
+                (await buildWorkflowRequestContext()) as never,
+                (evt) => {
+                  const id = evt.payload?.id
+                  if (evt.type === 'workflow-step-result' && typeof id === 'string') {
+                    steps.push({ id, status: String(evt.payload?.status ?? 'unknown') })
+                  }
+                }
+              )
+              const errText =
+                res.error === undefined
+                  ? undefined
+                  : res.error instanceof Error
+                    ? res.error.message
+                    : typeof res.error === 'string'
+                      ? res.error
+                      : JSON.stringify(res.error)
+              return {
+                status: res.status,
+                steps,
+                resultJson: res.result === undefined ? undefined : JSON.stringify(res.result),
+                error: errText
+              }
+            })
+            break
+          case 'workflowDelete':
+            await respond(cmd.reqId, async () => {
+              const svc = await runtimeImport<typeof import('@mastra/code-sdk/workflows/service')>(
+                '@mastra/code-sdk/workflows/service'
+              )
+              await svc.deleteWorkflow(mastraForWorkflows(), cmd.workflowId)
+              return null
+            })
+            break
           case 'stateGet':
             await respond(cmd.reqId, async () => stateInfo())
             break
@@ -2031,6 +2164,13 @@ async function main(): Promise<void> {
               const mm = mc.mcpManager
               if (!mm) throw new Error('MCP manager unavailable')
               return mapMcpStatus(await mm.reconnectServer(cmd.serverName))
+            })
+            break
+          case 'mcpSetEnabled':
+            await respond(cmd.reqId, async () => {
+              const mm = mc.mcpManager
+              if (!mm) throw new Error('MCP manager unavailable')
+              return mapMcpStatus(await mm.setServerDisabled(cmd.serverName, !cmd.enabled))
             })
             break
           case 'lspDiagnostics':

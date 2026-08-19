@@ -108,6 +108,16 @@ export const mcpRouter = router({
     .input(serverNameInput)
     .mutation(({ input }) => agentSessionManager.mcpReconnect(input.subchatId, input.serverName)),
 
+  /**
+   * Persistently enable/disable a server (SDK mcp-state.json) without
+   * editing mcp.json — applies to the CLI too. Enabling reconnects.
+   */
+  setEnabled: publicProcedure
+    .input(serverNameInput.extend({ enabled: z.boolean() }))
+    .mutation(({ input }) =>
+      agentSessionManager.mcpSetEnabled(input.subchatId, input.serverName, input.enabled)
+    ),
+
   /** Auth URLs of in-flight MCP OAuth flows (fallback link — main already opened the browser). */
   onAuthUrl: publicProcedure.subscription(() => {
     return observable<McpAuthUrlEvent>((emit) => {

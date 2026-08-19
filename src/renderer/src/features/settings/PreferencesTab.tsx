@@ -8,7 +8,7 @@ import { Tip } from '../../components/ui/tooltip'
 import { useRestartBanner } from './restart-banner'
 
 const THEMES = ['auto', 'dark', 'light'] as const
-const THINKING_LEVELS = ['off', 'low', 'medium', 'high', 'xhigh'] as const
+const THINKING_LEVELS = ['off', 'low', 'medium', 'high', 'xhigh', 'max'] as const
 
 /**
  * Globally disable individual agent tools (SDK `disabledTools`). Edits are

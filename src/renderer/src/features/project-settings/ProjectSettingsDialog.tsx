@@ -1,7 +1,7 @@
 /**
  * Per-project .mastracode configuration: hooks, custom .md commands, agent
- * instructions, memory resource id, and loaded plugins.
- * Opened from the Sidebar gear or /hooks /commands /resource /skills.
+ * instructions, memory resource id, loaded plugins, and stored workflows.
+ * Opened from the Sidebar gear or /hooks /commands /resource /skills /workflows.
  */
 import React, { useEffect, useState } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
@@ -10,14 +10,16 @@ import {
   Database,
   ExternalLink,
   FileCode2,
+  Play,
   Puzzle,
   Settings2,
   Trash2,
-  Webhook
+  Webhook,
+  Workflow
 } from 'lucide-react'
 import type { PluginConfigOption, RepoHostSetting } from '@shared/ipc-types'
 import { trpc } from '../../lib/trpc'
-import { cn } from '../../lib/utils'
+import { cn, timeAgo } from '../../lib/utils'
 import {
   projectSettingsOpenAtom,
   projectSettingsTabAtom,
@@ -1093,6 +1095,169 @@ function PluginsTab({
   )
 }
 
+/**
+ * Stored chat-built workflows: list, run (with optional JSON input), delete.
+ * Creation is chat-driven — the agent saves workflows during a conversation.
+ */
+function WorkflowsTab({ subchatId }: { subchatId: string | null }): React.JSX.Element {
+  const utils = trpc.useUtils()
+  const workflows = trpc.projectConfig.workflowsList.useQuery(
+    { subchatId: subchatId ?? '' },
+    { enabled: !!subchatId }
+  )
+  const [runFor, setRunFor] = useState<string | null>(null)
+  const [inputJson, setInputJson] = useState('')
+  const confirmDialog = useConfirm()
+
+  const run = trpc.projectConfig.workflowRun.useMutation()
+  const remove = trpc.projectConfig.workflowDelete.useMutation({
+    onSuccess: () => utils.projectConfig.workflowsList.invalidate({ subchatId: subchatId ?? '' })
+  })
+
+  if (!subchatId) {
+    return (
+      <div className="text-[11px] text-muted-foreground">
+        Open a chat in this project to manage its stored workflows.
+      </div>
+    )
+  }
+  return (
+    <div className="space-y-2">
+      <div className="text-[11px] text-muted-foreground">
+        Workflows are reusable multi-step routines the agent builds for you — ask in chat (e.g.
+        &ldquo;create a workflow that&hellip;&rdquo;) and it appears here to re-run on demand.
+      </div>
+      {workflows.isLoading && <div className="text-xs text-muted-foreground">Loading…</div>}
+      {workflows.error && (
+        <div className="text-xs text-destructive selectable">{workflows.error.message}</div>
+      )}
+      {remove.error && (
+        <div className="text-xs text-destructive selectable">{remove.error.message}</div>
+      )}
+      <div className="space-y-1.5">
+        {(workflows.data ?? []).map((w) => (
+          <div key={w.id} className="rounded border border-border px-2 py-1.5">
+            <div className="flex items-center gap-2">
+              <span className="min-w-0 flex-1 truncate font-mono text-xs font-medium">{w.id}</span>
+              <span
+                className={cn(
+                  'rounded px-1 py-0.5 text-[9px] uppercase',
+                  w.status === 'active' ? 'bg-green-500/15 text-green-500' : 'bg-accent'
+                )}
+              >
+                {w.status}
+              </span>
+              <Tip
+                content={
+                  runFor === w.id
+                    ? 'Hide the run form'
+                    : 'Run this workflow now (optionally with JSON input)'
+                }
+              >
+                <button
+                  className="text-muted-foreground hover:text-foreground cursor-pointer"
+                  onClick={() => {
+                    setRunFor(runFor === w.id ? null : w.id)
+                    setInputJson('')
+                    run.reset()
+                  }}
+                >
+                  <Play size={11} />
+                </button>
+              </Tip>
+              <Tip content="Delete this stored workflow">
+                <button
+                  className="text-muted-foreground hover:text-destructive cursor-pointer"
+                  disabled={remove.isPending}
+                  onClick={() => {
+                    void confirmDialog({
+                      title: 'Delete workflow?',
+                      description: `"${w.id}" will be removed from workflow storage.`,
+                      confirmLabel: 'Delete'
+                    }).then((ok) => {
+                      if (ok) remove.mutate({ subchatId, workflowId: w.id })
+                    })
+                  }}
+                >
+                  <Trash2 size={11} />
+                </button>
+              </Tip>
+            </div>
+            {w.description && (
+              <div className="text-[10px] text-muted-foreground">{w.description}</div>
+            )}
+            {(w.stepCount !== undefined || w.updatedAt !== undefined) && (
+              <div className="text-[10px] text-muted-foreground">
+                {w.stepCount !== undefined && `${w.stepCount} step${w.stepCount === 1 ? '' : 's'}`}
+                {w.stepCount !== undefined && w.updatedAt !== undefined && ' · '}
+                {w.updatedAt !== undefined && `updated ${timeAgo(w.updatedAt)}`}
+              </div>
+            )}
+            {runFor === w.id && (
+              <div className="mt-1.5 space-y-1.5">
+                <Textarea
+                  rows={2}
+                  value={inputJson}
+                  onChange={(e) => setInputJson(e.target.value)}
+                  className="font-mono text-[10px]"
+                  spellCheck={false}
+                  placeholder='Optional JSON input, e.g. {"target": "src/"}'
+                />
+                <Tip content="Run the workflow to completion and show each step's outcome">
+                  <span className="inline-flex">
+                    <Button
+                      size="sm"
+                      disabled={run.isPending}
+                      onClick={() =>
+                        run.mutate({
+                          subchatId,
+                          workflowId: w.id,
+                          inputJson: inputJson.trim() || undefined
+                        })
+                      }
+                    >
+                      {run.isPending ? 'Running…' : 'Run workflow'}
+                    </Button>
+                  </span>
+                </Tip>
+                {run.error && (
+                  <div className="text-[10px] text-destructive selectable">{run.error.message}</div>
+                )}
+                {run.data && (
+                  <div className="space-y-0.5 rounded bg-accent/40 p-1.5 text-[10px]">
+                    <div>
+                      Status: <span className="font-medium">{run.data.status}</span>
+                    </div>
+                    {run.data.steps.map((s, i) => (
+                      <div key={`${s.id}-${i}`} className="font-mono">
+                        {s.id}: {s.status}
+                      </div>
+                    ))}
+                    {run.data.error && (
+                      <div className="text-destructive selectable">{run.data.error}</div>
+                    )}
+                    {run.data.resultJson && (
+                      <pre className="overflow-x-auto whitespace-pre-wrap font-mono selectable">
+                        {run.data.resultJson}
+                      </pre>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+        {workflows.data?.length === 0 && (
+          <div className="text-[11px] text-muted-foreground">
+            No workflows yet. Ask the agent in chat to create one — e.g. &ldquo;create a workflow
+            that runs the tests, fixes failures, and summarizes the changes&rdquo;.
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function ProjectSettingsDialog({
   projectId,
   projectPath,
@@ -1150,6 +1315,12 @@ export function ProjectSettingsDialog({
       label: 'Plugins',
       icon: <Puzzle size={13} />,
       tip: 'Install and manage plugins that add tools, skills, and commands'
+    },
+    {
+      id: 'workflows',
+      label: 'Workflows',
+      icon: <Workflow size={13} />,
+      tip: 'Run and manage reusable multi-step workflows the agent built in chat'
     }
   ]
 
@@ -1193,6 +1364,7 @@ export function ProjectSettingsDialog({
                 <ResourceTab projectPath={projectPath} subchatId={subchatId} />
               )}
               {tab === 'plugins' && <PluginsTab subchatId={subchatId} projectPath={projectPath} />}
+              {tab === 'workflows' && <WorkflowsTab subchatId={subchatId} />}
             </div>
           </div>
         )}

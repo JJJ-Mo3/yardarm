@@ -330,5 +330,33 @@ export const projectConfigRouter = router({
         input.key,
         input.value
       )
+    }),
+
+  // ---- workflows -------------------------------------------------------------
+  /** Chat-built workflows stored by the SDK (shared storage, listed via the chat's host). */
+  workflowsList: publicProcedure
+    .input(z.object({ subchatId: z.string() }))
+    .query(async ({ input }) => {
+      return agentSessionManager.workflowsList(input.subchatId)
+    }),
+
+  /** Run a stored workflow to completion; long-running by design. */
+  workflowRun: publicProcedure
+    .input(
+      z.object({
+        subchatId: z.string(),
+        workflowId: z.string().min(1),
+        inputJson: z.string().optional()
+      })
+    )
+    .mutation(async ({ input }) => {
+      return agentSessionManager.workflowRun(input.subchatId, input.workflowId, input.inputJson)
+    }),
+
+  workflowDelete: publicProcedure
+    .input(z.object({ subchatId: z.string(), workflowId: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      await agentSessionManager.workflowDelete(input.subchatId, input.workflowId)
+      return { ok: true }
     })
 })

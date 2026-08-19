@@ -43,6 +43,8 @@ export interface MastraModelsSettings {
   activeModelPackId?: string | null
   /** Explicit per-mode model overrides, e.g. { build: 'anthropic/claude-...' } */
   modeDefaults?: Record<string, string>
+  /** Per-mode thinking-level defaults, e.g. { plan: 'high' }; session /think overrides win. */
+  modeThinkingDefaults?: Record<string, string>
   activeOmPackId?: string | null
   omModelOverride?: string | null
   observerModelOverride?: string | null
@@ -61,7 +63,7 @@ export interface MastraModelsSettings {
 export interface MastraPreferencesSettings {
   yolo?: boolean | null
   theme?: 'auto' | 'dark' | 'light'
-  thinkingLevel?: 'off' | 'low' | 'medium' | 'high' | 'xhigh'
+  thinkingLevel?: 'off' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
   quietMode?: boolean
   quietModeMaxToolPreviewLines?: number
   [key: string]: unknown
@@ -121,6 +123,15 @@ export interface MastraOnboardingSettings {
   [key: string]: unknown
 }
 
+/** MCP discovery config (settings.json `mcp` section, read by the SDK's manager). */
+export interface MastraMcpSettings {
+  /** Also load servers from Claude Code's global ~/.claude.json. */
+  claudeCodeGlobal?: boolean
+  /** Also load servers from Codex's global ~/.codex/config.toml. */
+  codexGlobal?: boolean
+  [key: string]: unknown
+}
+
 /** Background signal sources (SignalSettings in the SDK). */
 export interface MastraSignalsSettings {
   unixSocketPubSub?: boolean
@@ -151,6 +162,7 @@ export interface MastraSettings {
   voice?: MastraVoiceSettings
   browser?: MastraBrowserSettings
   onboarding?: MastraOnboardingSettings
+  mcp?: MastraMcpSettings
   signals?: MastraSignalsSettings
   observability?: MastraObservabilitySettings
   [key: string]: unknown
@@ -160,7 +172,7 @@ export interface MastraSettings {
 export interface PreferencesPatch {
   yolo?: boolean | null
   theme?: 'auto' | 'dark' | 'light'
-  thinkingLevel?: 'off' | 'low' | 'medium' | 'high' | 'xhigh'
+  thinkingLevel?: 'off' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
   quietMode?: boolean
   quietModeMaxToolPreviewLines?: number
 }

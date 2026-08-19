@@ -424,7 +424,8 @@ export const agentRouter = router({
         patch: z.object({
           notifications: z.enum(['bell', 'system', 'both', 'off']).optional(),
           smartEditing: z.boolean().optional(),
-          sandboxAllowedPaths: z.array(z.string()).optional()
+          sandboxAllowedPaths: z.array(z.string()).optional(),
+          skipGlobalInstructions: z.boolean().optional()
         })
       })
     )

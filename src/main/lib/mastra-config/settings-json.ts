@@ -214,6 +214,21 @@ export function setGithubSignals(enabled: boolean): Promise<MastraSettings> {
   })
 }
 
+/**
+ * Toggle Claude Code / Codex global MCP-server discovery (settings.json
+ * `mcp` section, read by the SDK's MCP config loader at host boot).
+ */
+export function setMcpDiscovery(patch: {
+  claudeCodeGlobal?: boolean
+  codexGlobal?: boolean
+}): Promise<MastraSettings> {
+  return updateSettings((s) => {
+    if (!s.mcp) s.mcp = {}
+    if (patch.claudeCodeGlobal !== undefined) s.mcp.claudeCodeGlobal = patch.claudeCodeGlobal
+    if (patch.codexGlobal !== undefined) s.mcp.codexGlobal = patch.codexGlobal
+  })
+}
+
 /** Toggle local tracing (/observability local in the CLI). */
 export function setLocalTracing(enabled: boolean): Promise<MastraSettings> {
   return updateSettings((s) => {

@@ -72,7 +72,9 @@ import type {
   SlashCommandInfo,
   SttModelInfo,
   ThreadInfo,
-  ToolCategoryTools
+  ToolCategoryTools,
+  WorkflowInfo,
+  WorkflowRunResult
 } from '../../../shared/ipc-types'
 import type {
   AgentStatus,
@@ -1900,6 +1902,31 @@ export class AgentSessionManager {
     })
   }
 
+  /** Chat-built workflows stored by the SDK (subchat's host). */
+  async workflowsList(subchatId: string): Promise<WorkflowInfo[]> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<WorkflowInfo[]>(handle, { t: 'workflowsList', reqId: randomUUID() })
+  }
+
+  /** Run a stored workflow to completion; long timeout — steps may call models. */
+  async workflowRun(
+    subchatId: string,
+    workflowId: string,
+    inputJson?: string
+  ): Promise<WorkflowRunResult> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<WorkflowRunResult>(
+      handle,
+      { t: 'workflowRun', reqId: randomUUID(), workflowId, inputJson },
+      10 * 60_000
+    )
+  }
+
+  async workflowDelete(subchatId: string, workflowId: string): Promise<void> {
+    const handle = await this.ensureHost(subchatId)
+    await this.request(handle, { t: 'workflowDelete', reqId: randomUUID(), workflowId })
+  }
+
   /** Built-in + custom model packs and OM packs, filtered by provider access. */
   async listPacks(): Promise<PacksInfo> {
     const handle = await this.ensureUtilityHost()
@@ -2350,6 +2377,21 @@ export class AgentSessionManager {
     return this.request<McpServerStatusInfo>(
       handle,
       { t: 'mcpReconnect', reqId: randomUUID(), serverName },
+      60_000
+    )
+  }
+
+  /** Persistently enable/disable an MCP server (SDK mcp-state.json, no mcp.json edit). */
+  async mcpSetEnabled(
+    subchatId: string | null,
+    serverName: string,
+    enabled: boolean
+  ): Promise<McpServerStatusInfo> {
+    const handle = subchatId ? await this.ensureHost(subchatId) : await this.ensureUtilityHost()
+    // Enabling reconnects the server, which can involve slow remote endpoints.
+    return this.request<McpServerStatusInfo>(
+      handle,
+      { t: 'mcpSetEnabled', reqId: randomUUID(), serverName, enabled },
       60_000
     )
   }

@@ -2,8 +2,10 @@
  * MCP servers editor (Settings → MCP Servers). Edits ~/.mastracode/mcp.json
  * (global, the default scope) or a project's .mastracode/mcp.json (picked
  * from existing projects, merged over global) as raw JSON, plus live
- * per-server status with OAuth actions — served by the shared utility host
- * for the global scope, or by the open chat's agent for project scope.
+ * per-server status with OAuth actions and persistent enable/disable — served
+ * by the shared utility host for the global scope, or by the open chat's agent
+ * for project scope. Global scope also exposes the opt-in Claude Code / Codex
+ * server-discovery toggles (settings.json `mcp`).
  */
 import React, { useEffect, useState } from 'react'
 import { useAtomValue } from 'jotai'
@@ -11,8 +13,10 @@ import { trpc } from '../../lib/trpc'
 import { selectedProjectIdAtom, selectedSubchatIdAtom } from '../../lib/atoms'
 import { cn } from '../../lib/utils'
 import { Button } from '../../components/ui/button'
+import { Switch } from '../../components/ui/switch'
 import { Textarea } from '../../components/ui/textarea'
 import { Tip } from '../../components/ui/tooltip'
+import { useRestartBanner } from './restart-banner'
 
 type Scope = 'global' | 'project'
 
@@ -41,6 +45,7 @@ function McpStatusSection({
   const authenticate = trpc.mcp.authenticate.useMutation({ onSettled: invalidate })
   const cancelAuth = trpc.mcp.cancelAuth.useMutation({ onSettled: invalidate })
   const reconnect = trpc.mcp.reconnect.useMutation({ onSettled: invalidate })
+  const setEnabled = trpc.mcp.setEnabled.useMutation({ onSettled: invalidate })
 
   if (!live) {
     return (
@@ -61,7 +66,11 @@ function McpStatusSection({
       {servers.map((s) => {
         // The SDK resolves authentication with a status instead of rejecting;
         // a user-cancelled flow carries cancelled so its error isn't alarming.
-        const statusEl = s.connecting ? (
+        const statusEl = s.disabled ? (
+          <span className="text-muted-foreground">
+            Disabled{s.disabledScope === 'project' ? ' (project scope)' : ''}
+          </span>
+        ) : s.connecting ? (
           <span className="text-muted-foreground">Connecting…</span>
         ) : s.connected ? (
           <span className="text-green-600 dark:text-green-500">
@@ -87,7 +96,24 @@ function McpStatusSection({
                 {s.name}
               </span>
               <span className="text-[10px] text-muted-foreground">{s.transport}</span>
-              {s.needsAuth && !s.authenticating && (
+              <Tip
+                content={
+                  s.disabled
+                    ? 'Enable this server and reconnect it — persisted in mcp-state.json, shared with the CLI'
+                    : 'Disable this server without editing mcp.json — persisted in mcp-state.json, shared with the CLI'
+                }
+              >
+                <span className="inline-flex">
+                  <Switch
+                    checked={!s.disabled}
+                    disabled={setEnabled.isPending}
+                    onCheckedChange={(v) =>
+                      setEnabled.mutate({ subchatId, serverName: s.name, enabled: v })
+                    }
+                  />
+                </span>
+              </Tip>
+              {!s.disabled && s.needsAuth && !s.authenticating && (
                 <Tip content="Run the OAuth flow for this server in your browser, then reconnect it">
                   <span className="inline-flex">
                     <Button
@@ -117,21 +143,25 @@ function McpStatusSection({
                   </span>
                 </Tip>
               )}
-              {!s.connected && !s.needsAuth && !s.authenticating && !s.connecting && (
-                <Tip content="Retry the connection to this server">
-                  <span className="inline-flex">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-6 px-2 text-[10px]"
-                      disabled={reconnect.isPending}
-                      onClick={() => reconnect.mutate({ subchatId, serverName: s.name })}
-                    >
-                      Reconnect
-                    </Button>
-                  </span>
-                </Tip>
-              )}
+              {!s.disabled &&
+                !s.connected &&
+                !s.needsAuth &&
+                !s.authenticating &&
+                !s.connecting && (
+                  <Tip content="Retry the connection to this server">
+                    <span className="inline-flex">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-[10px]"
+                        disabled={reconnect.isPending}
+                        onClick={() => reconnect.mutate({ subchatId, serverName: s.name })}
+                      >
+                        Reconnect
+                      </Button>
+                    </span>
+                  </Tip>
+                )}
             </div>
             <div className="mt-0.5 text-[10px]">{statusEl}</div>
             {s.authenticating && authUrls[s.name] && (
@@ -150,10 +180,61 @@ function McpStatusSection({
           </div>
         )
       })}
-      {(authenticate.error ?? cancelAuth.error ?? reconnect.error) && (
+      {(authenticate.error ?? cancelAuth.error ?? reconnect.error ?? setEnabled.error) && (
         <div className="text-xs text-destructive selectable">
-          {(authenticate.error ?? cancelAuth.error ?? reconnect.error)?.message}
+          {(authenticate.error ?? cancelAuth.error ?? reconnect.error ?? setEnabled.error)?.message}
         </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * settings.json `mcp` toggles for opt-in discovery of MCP servers configured
+ * for other coding agents on this machine (Claude Code's ~/.claude.json and
+ * Codex's config). Hosts read them at boot — restart to apply.
+ */
+function McpDiscoverySection({ markDirty }: { markDirty: () => void }): React.JSX.Element {
+  const utils = trpc.useUtils()
+  const settings = trpc.mastraSettings.get.useQuery()
+  const setDiscovery = trpc.mastraSettings.setMcpDiscovery.useMutation({
+    onSuccess: () => {
+      markDirty()
+      utils.mastraSettings.get.invalidate()
+    }
+  })
+  const mcp = settings.data?.mcp
+  return (
+    <div className="space-y-2 rounded border border-border px-3 py-2.5">
+      <div>
+        <div className="text-xs font-medium">Global server discovery</div>
+        <div className="text-[11px] text-muted-foreground">
+          Opt in to also loading MCP servers configured for other coding agents on this machine.
+          Stored in <code>settings.json</code>; running agents pick it up after a restart.
+        </div>
+      </div>
+      <Tip content="Also load the global MCP servers from Claude Code's configuration in new agent sessions — restart running agents to apply">
+        <label className="flex w-fit items-center gap-2 text-xs">
+          <Switch
+            checked={mcp?.claudeCodeGlobal === true}
+            disabled={setDiscovery.isPending || settings.isLoading}
+            onCheckedChange={(v) => setDiscovery.mutate({ claudeCodeGlobal: v })}
+          />
+          Discover Claude Code MCP servers
+        </label>
+      </Tip>
+      <Tip content="Also load the global MCP servers from Codex's configuration in new agent sessions — restart running agents to apply">
+        <label className="flex w-fit items-center gap-2 text-xs">
+          <Switch
+            checked={mcp?.codexGlobal === true}
+            disabled={setDiscovery.isPending || settings.isLoading}
+            onCheckedChange={(v) => setDiscovery.mutate({ codexGlobal: v })}
+          />
+          Discover Codex MCP servers
+        </label>
+      </Tip>
+      {setDiscovery.error && (
+        <div className="text-xs text-destructive selectable">{setDiscovery.error.message}</div>
       )}
     </div>
   )
@@ -168,6 +249,7 @@ export function McpTab(): React.JSX.Element {
   const [text, setText] = useState('')
   const [dirty, setDirty] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { markDirty, banner } = useRestartBanner()
 
   const projects = trpc.projects.list.useQuery()
   const activeProjects = (projects.data ?? []).filter((p) => !p.archived)
@@ -320,6 +402,12 @@ export function McpTab(): React.JSX.Element {
           </div>
           <div className="pt-1 text-xs font-medium">Server status</div>
           <McpStatusSection subchatId={statusSubchatId} live={live} />
+          {scope === 'global' && (
+            <>
+              {banner}
+              <McpDiscoverySection markDirty={markDirty} />
+            </>
+          )}
         </>
       )}
     </div>

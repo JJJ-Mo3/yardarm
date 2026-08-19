@@ -1,7 +1,8 @@
 /**
  * Sandbox & session settings for the active agent session (/sandbox).
  * Edits mastracode session state (sandbox allowed paths, smart editing,
- * completion notifications) plus Yardarm's per-chat full sandbox mode
+ * skip-global-instructions, completion notifications) plus Yardarm's
+ * per-chat full sandbox mode
  * (OS-level isolation for shell commands).
  */
 import React, { useState } from 'react'
@@ -144,6 +145,26 @@ export function SandboxDialog({
                       disabled={stateSet.isPending}
                       onCheckedChange={(smartEditing) =>
                         stateSet.mutate({ subchatId, patch: { smartEditing } })
+                      }
+                    />
+                  </span>
+                </Tip>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs">Skip global instructions</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    Leave out ~/.mastracode global instructions for this session
+                  </div>
+                </div>
+                <Tip content="Don't inject the ~/.mastracode global agent instructions into this session — project instructions still apply">
+                  <span className="inline-flex">
+                    <Switch
+                      checked={info.skipGlobalInstructions ?? false}
+                      disabled={stateSet.isPending}
+                      onCheckedChange={(skipGlobalInstructions) =>
+                        stateSet.mutate({ subchatId, patch: { skipGlobalInstructions } })
                       }
                     />
                   </span>

@@ -16,6 +16,7 @@ import {
   setGithubSignals,
   setGoalDefaults,
   setLocalTracing,
+  setMcpDiscovery,
   setModeDefault,
   setObservabilityResource,
   setOmDefaults,
@@ -87,7 +88,7 @@ export const mastraSettingsRouter = router({
       z.object({
         yolo: z.boolean().nullable().optional(),
         theme: z.enum(['auto', 'dark', 'light']).optional(),
-        thinkingLevel: z.enum(['off', 'low', 'medium', 'high', 'xhigh']).optional(),
+        thinkingLevel: z.enum(['off', 'low', 'medium', 'high', 'xhigh', 'max']).optional(),
         quietMode: z.boolean().optional(),
         quietModeMaxToolPreviewLines: z.number().int().min(0).optional()
       })
@@ -149,6 +150,19 @@ export const mastraSettingsRouter = router({
     .input(z.object({ enabled: z.boolean() }))
     .mutation(async ({ input }) => {
       await setGithubSignals(input.enabled)
+      return NEEDS_RESTART
+    }),
+
+  /** Toggle Claude Code / Codex global MCP-server discovery (settings.json `mcp`). */
+  setMcpDiscovery: publicProcedure
+    .input(
+      z.object({
+        claudeCodeGlobal: z.boolean().optional(),
+        codexGlobal: z.boolean().optional()
+      })
+    )
+    .mutation(async ({ input }) => {
+      await setMcpDiscovery(input)
       return NEEDS_RESTART
     }),
 
