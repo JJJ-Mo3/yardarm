@@ -260,6 +260,11 @@ export interface OAuthProviderInfo {
   usesCallbackServer?: boolean
   authModes?: Array<{ id: string; name: string; description?: string }>
   loggedIn: boolean
+  /**
+   * Logged in, but the OAuth token is past expiry and a silent refresh
+   * failed — the session is dead and the user must log in again.
+   */
+  expired?: boolean
 }
 
 /**

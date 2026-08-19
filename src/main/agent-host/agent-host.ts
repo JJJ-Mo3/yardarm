@@ -23,6 +23,7 @@ import { z } from 'zod'
 import { patchApprovalRunBudget } from './approval-run-budget'
 import {
   installCoordinatedTokenRefresh,
+  isExpiredOAuth,
   KEEP_FRESH_INTERVAL_MS,
   type AuthStorageLike
 } from './auth-token-refresh'
@@ -1899,17 +1900,36 @@ async function main(): Promise<void> {
                 '@mastra/code-sdk/auth/index'
               )
               authStorage.reload()
-              return auth.getOAuthProviders().map((p) => ({
-                id: p.id,
-                name: p.name,
-                usesCallbackServer: p.usesCallbackServer,
-                authModes: p.authModes?.map((m) => ({
-                  id: m.id,
-                  name: m.name,
-                  description: m.description
-                })),
-                loggedIn: authStorage.isLoggedIn(p.id)
-              }))
+              const infos = []
+              for (const p of auth.getOAuthProviders()) {
+                let loggedIn = authStorage.isLoggedIn(p.id)
+                let expired = loggedIn && isExpiredOAuth(authStorage.get(p.id))
+                if (expired) {
+                  // getApiKey is patched with the coordinated refresh: a live
+                  // refresh token silently renews the session right here; a
+                  // dead one leaves the credential expired so the UI can
+                  // offer a re-login instead of a false "Logged in".
+                  try {
+                    await authStorage.getApiKey(p.id)
+                  } catch {}
+                  authStorage.reload()
+                  loggedIn = authStorage.isLoggedIn(p.id)
+                  expired = loggedIn && isExpiredOAuth(authStorage.get(p.id))
+                }
+                infos.push({
+                  id: p.id,
+                  name: p.name,
+                  usesCallbackServer: p.usesCallbackServer,
+                  authModes: p.authModes?.map((m) => ({
+                    id: m.id,
+                    name: m.name,
+                    description: m.description
+                  })),
+                  loggedIn,
+                  expired
+                })
+              }
+              return infos
             })
             break
           case 'oauthLogin': {

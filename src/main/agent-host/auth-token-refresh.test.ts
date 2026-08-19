@@ -7,7 +7,11 @@ import { mkdirSync, mkdtempSync, rmSync, utimesSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { installCoordinatedTokenRefresh, type AuthStorageLike } from './auth-token-refresh'
+import {
+  installCoordinatedTokenRefresh,
+  isExpiredOAuth,
+  type AuthStorageLike
+} from './auth-token-refresh'
 
 type Cred = { type: string; access?: string; expires?: number; key?: string }
 
@@ -72,6 +76,17 @@ function tempAuthPath(): string {
 
 afterEach(() => {
   while (tempDirs.length) rmSync(tempDirs.pop()!, { recursive: true, force: true })
+})
+
+describe('isExpiredOAuth', () => {
+  it('flags only oauth creds past their expiry', () => {
+    expect(isExpiredOAuth({ type: 'oauth', expires: Date.now() - 1 })).toBe(true)
+    expect(isExpiredOAuth({ type: 'oauth', expires: Date.now() + 3_600_000 })).toBe(false)
+    // No expiry timestamp, api keys, and missing creds are never "expired".
+    expect(isExpiredOAuth({ type: 'oauth' })).toBe(false)
+    expect(isExpiredOAuth({ type: 'api_key', expires: Date.now() - 1 })).toBe(false)
+    expect(isExpiredOAuth(undefined)).toBe(false)
+  })
 })
 
 describe('installCoordinatedTokenRefresh', () => {

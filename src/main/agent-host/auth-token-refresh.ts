@@ -53,7 +53,8 @@ export const KEEP_FRESH_INTERVAL_MS = 2 * 60_000
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
 
-function isExpiredOAuth(cred: { type: string; expires?: number } | undefined): boolean {
+/** True when a stored credential is an OAuth token past its SDK expiry. */
+export function isExpiredOAuth(cred: { type: string; expires?: number } | undefined): boolean {
   return cred?.type === 'oauth' && typeof cred.expires === 'number' && Date.now() >= cred.expires
 }
 

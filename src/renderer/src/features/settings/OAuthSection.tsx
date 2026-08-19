@@ -108,7 +108,7 @@ export function OAuthSection(): React.JSX.Element {
             className="flex items-center gap-2 rounded border border-border px-2 py-1.5"
           >
             <span className="flex-1 text-xs font-medium">{p.name}</span>
-            {(p.authModes?.length ?? 0) > 1 && !p.loggedIn && (
+            {(p.authModes?.length ?? 0) > 1 && (!p.loggedIn || p.expired) && (
               <Tip content="Which kind of account to log in with (e.g. subscription vs API billing)">
                 <select
                   value={modeByProvider[p.id] ?? p.authModes![0].id}
@@ -123,25 +123,35 @@ export function OAuthSection(): React.JSX.Element {
                 </select>
               </Tip>
             )}
-            {p.loggedIn ? (
-              <>
+            {p.loggedIn &&
+              (p.expired ? (
+                <span className="text-[11px] text-amber-500">Session expired</span>
+              ) : (
                 <span className="text-[11px] text-green-500">Logged in</span>
-                <Tip content="Sign out and remove the stored credentials for this provider">
-                  <span className="inline-flex">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={logout.isPending}
-                      onClick={() => logout.mutate({ provider: p.id })}
-                    >
-                      <LogOut size={12} />
-                      Log out
-                    </Button>
-                  </span>
-                </Tip>
-              </>
-            ) : (
-              <Tip content="Start the browser login flow for this provider">
+              ))}
+            {p.loggedIn && (
+              <Tip content="Sign out and remove the stored credentials for this provider">
+                <span className="inline-flex">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={logout.isPending}
+                    onClick={() => logout.mutate({ provider: p.id })}
+                  >
+                    <LogOut size={12} />
+                    Log out
+                  </Button>
+                </span>
+              </Tip>
+            )}
+            {(!p.loggedIn || p.expired) && (
+              <Tip
+                content={
+                  p.expired
+                    ? 'The saved session could not be renewed — run the browser login again'
+                    : 'Start the browser login flow for this provider'
+                }
+              >
                 <span className="inline-flex">
                   <Button
                     size="sm"
@@ -150,7 +160,7 @@ export function OAuthSection(): React.JSX.Element {
                     onClick={() => login(p.id, p.name)}
                   >
                     <LogIn size={12} />
-                    Log in
+                    {p.expired ? 'Log in again' : 'Log in'}
                   </Button>
                 </span>
               </Tip>
