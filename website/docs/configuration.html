@@ -23,7 +23,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="../assets/img/favicon-16.png" />
     <link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png" />
-    <link rel="stylesheet" href="../assets/css/site.css?v=0.9.10.1" />
+    <link rel="stylesheet" href="../assets/css/site.css?v=0.10.11" />
   </head>
   <body>
     <header class="site-header">
@@ -125,6 +125,10 @@
             <tr>
               <td><code>/mcp</code> <code>/hooks</code> <code>/skills</code></td>
               <td>inspect MCP servers, hooks, skills</td>
+            </tr>
+            <tr>
+              <td><code>/workflows</code></td>
+              <td>run and manage stored workflows</td>
             </tr>
             <tr>
               <td><code>/om</code></td>
@@ -291,6 +295,17 @@
           sign-in opens in your browser, and the server connects when it completes. A
           <strong>Reconnect</strong> button revives servers that dropped.
         </p>
+        <p>
+          Each server row also has an <strong>enable/disable switch</strong> — turn a server off
+          without touching the JSON (persisted in mastracode's state and shared with the CLI);
+          flipping it back on reconnects the server immediately.
+        </p>
+        <p>
+          The Global scope adds two <strong>server discovery</strong> switches: opt in to also load
+          the MCP servers you've already configured for <strong>Claude Code</strong> or
+          <strong>Codex</strong>, so you don't have to duplicate them in mastracode's config.
+          Running agents pick the change up after a restart (a banner offers one).
+        </p>
 
         <h2 id="custom-subagents">Custom subagents (Settings → Agents)</h2>
         <p>
@@ -347,6 +362,11 @@
             schema get a generated settings form (toggles, text fields, and model pickers), written
             back to the plugin's config. A <strong>Create plugin</strong> button scaffolds a new
             plugin (name, id, and target directory, in global or project scope) ready to fill in
+          </li>
+          <li>
+            <strong>Workflows</strong> (<code>/workflows</code>) — list, run (with optional JSON
+            input and per-step results), and delete the agent's stored workflows (see
+            <a href="using-the-app.html#workflows">Workflows</a>)
           </li>
         </ul>
         <p>

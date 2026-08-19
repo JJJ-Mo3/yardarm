@@ -99,6 +99,13 @@ The color-coded mode selector controls how the agent behaves:
 
 A common flow for larger changes: start in Plan, review and approve the plan, then let the
 agent switch to Build to implement it.
+
+### Thinking level
+
+The thinking selector next to the model (also \`/think\`) controls how much reasoning effort
+the model spends before answering: **off**, **low**, **medium**, **high**, **xhigh**, or
+**max**. Higher levels help on hard problems at the cost of speed and tokens; which levels
+apply depends on the selected model.
 `
   },
   {
@@ -118,6 +125,10 @@ deny inline.
 - **Sandbox** — the header sandbox toggle runs the agent's commands under OS-level isolation
   (per chat, with a global default in Settings → Preferences). Useful when trying untrusted
   prompts or dependencies.
+- **Session settings** — \`/sandbox\` opens the session's settings: extra writable paths for
+  sandboxed commands, smart editing, completion notifications, and **skip global
+  instructions** (leave your \`~/.mastracode\` global agent instructions out of this one
+  session — project instructions still apply).
 `
   },
   {
@@ -267,6 +278,24 @@ parallel, each in its own worktree.
 `
   },
   {
+    id: 'workflows',
+    title: 'Workflows',
+    body: `
+**Workflows** are reusable multi-step automations the agent builds for you in chat. Describe
+a repeatable process — a release checklist, a codebase audit, a scaffolding routine — and ask
+the agent to save it as a workflow; it becomes a stored sequence of steps you can re-run on
+demand.
+
+- **Create in chat** — just ask, e.g. "build a workflow that runs the tests, updates the
+  changelog, and drafts release notes". The agent designs the steps and stores the workflow.
+- **Manage & run** — Project Settings → **Workflows** (or \`/workflows\`) lists stored
+  workflows with their steps. Run one (optionally passing JSON input), watch the per-step
+  results, and delete workflows you no longer need.
+- **Shared with the CLI** — workflows live in mastracode's shared storage, so the same
+  workflows are available from the \`mastracode\` CLI.
+`
+  },
+  {
     id: 'connectors',
     title: 'Connectors & MCP servers',
     body: `
@@ -279,7 +308,12 @@ Agents can use external tools via the **Model Context Protocol (MCP)**.
   remote URLs, with OAuth handled in-app when a server requires it. Global by default
   (available in every project); switch the scope to Project and pick a project to manage its
   project-specific servers. The tab also shows each server's live status with authenticate /
-  reconnect actions. Configuration lives in the same \`mcp.json\` files the CLI uses.
+  reconnect actions and a per-server **enable/disable switch** — turn a server off without
+  editing any config (persisted, shared with the CLI). Configuration lives in the same
+  \`mcp.json\` files the CLI uses.
+- **Server discovery** — the Global scope has opt-in switches to also load the MCP servers
+  you've already configured for **Claude Code** or **Codex**, so you don't have to duplicate
+  them; running agents pick the change up after a restart.
 
 Tools exposed by connected servers appear to the agent automatically and go through the same
 approval flow as built-in tools.
@@ -339,8 +373,9 @@ App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
   logs), and "Run setup again" to redo onboarding.
 
 **Project settings** (gear on the project row) cover per-project hooks, custom slash
-commands, agent instructions, resources, and plugins — plugins with configuration schemas
-get generated settings forms, and **Create plugin** scaffolds a new plugin for you.
+commands, agent instructions, resources, plugins, and workflows — plugins with configuration
+schemas get generated settings forms, **Create plugin** scaffolds a new plugin for you, and
+the Workflows tab (\`/workflows\`) runs and manages the agent's stored workflows.
 `
   },
   {

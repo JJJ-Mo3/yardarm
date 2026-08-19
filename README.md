@@ -177,14 +177,17 @@ Yardarm puts a desktop workspace around the agent:
   prompts (allow once / always / deny)
 - Color-coded Plan / Build / Fast mode selector in the chat header — modes
   switch instantly, persist per chat, and are restored on relaunch — plus
-  per-mode model selection, an extended-thinking toggle, and yolo mode
+  per-mode model selection, a thinking-level selector (off / low / medium /
+  high / xhigh / max, also `/think`), and yolo mode
 - Session permissions panel (`/permissions`): per-category and per-tool
   allow / ask / deny
 - Full sandbox mode: run the agent's shell commands inside an OS-level
   sandbox (macOS seatbelt / Linux bubblewrap) — writes contained to the
   worktree and allowed paths, optional network block, a per-chat header
   toggle next to auto-approve (configure via the shield chip or `/sandbox`),
-  and a global default for new chats
+  and a global default for new chats — the `/sandbox` dialog also holds
+  per-session settings: extra writable paths, smart editing, completion
+  notifications, and a skip-global-instructions switch
 - Token compression: optionally shrink stale tool outputs before each model
   call to cut token costs (Settings → Preferences) — duplicates are stubbed,
   big JSON arrays crushed, noisy logs cleaned (progress bars, repeated
@@ -210,6 +213,10 @@ Yardarm puts a desktop workspace around the agent:
   them (`/review` does the same from the keyboard)
 - Observational Memory status (`/om`) showing observer/reflector activity
   and token budgets
+- Workflows (`/workflows`): ask the agent to save a repeatable multi-step
+  process as a stored workflow, then list, run (with optional JSON input,
+  showing per-step results), and delete workflows from Project Settings →
+  Workflows — stored workflows are shared with the CLI
 - Threads (`/threads`): switch, rename, clone, delete, open in a new subchat,
   with per-thread token usage in the cost popover (`/cost`)
 - Multiple subchats per chat, each with its own agent process
@@ -233,8 +240,8 @@ Yardarm puts a desktop workspace around the agent:
 
 - Autocomplete for the full command surface from code.mastra.ai — mode and
   model switches, threads, `/goal`, `/review`, `/subagents`, `/mcp`,
-  `/hooks`, `/commands`, `/skills`, `/resource`, `/login`, `/api-keys`,
-  `/diff`, `/help`, and more
+  `/hooks`, `/commands`, `/skills`, `/workflows`, `/resource`, `/login`,
+  `/api-keys`, `/diff`, `/help`, and more
 - App-native commands too: `/setup` (re-run the wizard), `/update` (check
   for app updates), `/browser` (browser-tool settings), `/github` and
   `/observability` (their Connectors sections), `/prune` (storage
@@ -341,15 +348,19 @@ Yardarm puts a desktop workspace around the agent:
   server lists — global by default, or project-specific via the scope
   toggle and project picker — with live server status (connected state and
   tool counts), one-click OAuth authentication for servers that need it,
-  and reconnect for ones that dropped
+  reconnect for ones that dropped, and a per-server enable/disable switch
+  (persisted in mastracode's state, shared with the CLI, no config edit
+  needed); the Global scope adds opt-in switches to also discover MCP
+  servers configured for Claude Code or Codex
 
 **Per-project configuration**
 
 - Project Settings dialog (gear in the sidebar): lifecycle hooks, custom
-  commands, agent instructions, memory `resourceId`, and installed
-  skills/plugins — plugins that declare a config schema get a generated
-  settings form, and a **Create plugin** button scaffolds a new plugin
-  (global or project scope)
+  commands, agent instructions, memory `resourceId`, installed
+  skills/plugins, and stored workflows — plugins that declare a config
+  schema get a generated settings form, a **Create plugin** button
+  scaffolds a new plugin (global or project scope), and the Workflows tab
+  (`/workflows`) lists, runs, and deletes the agent's chat-built workflows
 - Adding a project offers to write agent instructions (`AGENTS.md`) so the
   agent knows the project's conventions from the first prompt
 - Edits are atomic, preserve unknown keys, and restart affected agent

@@ -22,6 +22,7 @@ button beside the theme toggle (or `Cmd+9`) opens a built-in guide + FAQ.
 - [Reviewing and shipping changes](#reviewing-and-shipping-changes)
 - [Checkpoints and rollback](#checkpoints-and-rollback)
 - [Goals: let the agent run to completion](#goals-let-the-agent-run-to-completion)
+- [Workflows: save and re-run multi-step processes](#workflows-save-and-re-run-multi-step-processes)
 - [Threads, subchats, forking, and split view](#threads-subchats-forking-and-split-view)
 - [Terminal, IDE, CLI, and Preview tabs](#terminal-ide-cli-and-preview-tabs)
 - [The Kanban board and sidebar indicators](#the-kanban-board-and-sidebar-indicators)
@@ -187,8 +188,9 @@ A few notes on worktrees:
 - **Mode selector** — three color-coded buttons: Plan (blue), Build (green),
   Fast (amber). See [Modes](#modes-plan-build-fast).
 - **Model selector** — switch the active model for this chat.
-- **think** — extended-thinking level (off / low / medium / high / xhigh).
-  Higher levels are slower but better on hard problems.
+- **think** — extended-thinking level (off / low / medium / high / xhigh /
+  max). Higher levels are slower but better on hard problems; which levels
+  apply depends on the selected model.
 - **auto-approve** — the "yolo" switch. On, the agent runs tools and edits
   files without asking; off, you approve each sensitive action.
 - **sandbox** — run this chat's shell commands inside an OS-level sandbox.
@@ -300,6 +302,11 @@ while it's active (with "no net" when the network is blocked) — click it to
 reconfigure. Defaults for new chats live in Settings → **Preferences** →
 Agent sandbox. Pairs well with auto-approve: yolo speed, contained blast
 radius.
+
+The same `/sandbox` dialog holds the rest of the session's settings: smart
+editing, completion notifications, and a **skip global instructions** switch
+that leaves your `~/.mastracode` global agent instructions out of this one
+session (project instructions still apply).
 
 ### Token compression
 
@@ -455,6 +462,24 @@ amber when paused, green when the judge signs off.
 The popover also keeps an **evaluation history**: every past objective with
 its per-iteration pass/fail verdicts and the judge's reasoning, so you can
 see how a goal converged (or why it kept failing) long after it finished.
+
+## Workflows: save and re-run multi-step processes
+
+When you find yourself asking the agent for the same multi-step process again
+and again — a release checklist, a codebase audit, a scaffolding routine —
+ask it to **save the process as a workflow**. The agent builds the workflow
+in chat, and it's stored with the project's agent data (shared with the
+`mastracode` CLI).
+
+Manage stored workflows in **Project Settings → Workflows** (or run
+`/workflows`): the tab lists each workflow with its description and lets you
+
+- **Run** one on demand — optionally with a JSON input for workflows that
+  take parameters — and watch per-step results appear as it executes, and
+- **Delete** ones you no longer need.
+
+To change a workflow, just ask the agent in chat — describe the adjustment
+and have it save the workflow again.
 
 ## Threads, subchats, forking, and split view
 
@@ -638,6 +663,7 @@ command surface plus app commands. Highlights:
 | `/permissions`            | session permissions panel          |
 | `/sandbox`                | full sandbox + session settings    |
 | `/mcp` `/hooks` `/skills` | inspect MCP servers, hooks, skills |
+| `/workflows`              | run and manage stored workflows    |
 | `/om`                     | Observational Memory status        |
 | `/cost`                   | token usage per thread             |
 | `/diff`                   | show working-tree changes          |
@@ -696,6 +722,15 @@ use OAuth show **Needs authentication** with an **Authenticate** button:
 the sign-in opens in your browser, and the server connects when it
 completes. A **Reconnect** button revives servers that dropped.
 
+Each server row also has an **enable/disable switch** — turn a server off
+without touching the JSON (persisted in mastracode's state and shared with
+the CLI); flipping it back on reconnects the server immediately.
+
+The Global scope adds two **server discovery** switches: opt in to also load
+the MCP servers you've already configured for **Claude Code** or **Codex**,
+so you don't have to duplicate them in mastracode's config. Running agents
+pick the change up after a restart (a banner offers one).
+
 ### Custom subagents (Settings → Agents)
 
 Custom subagents (`~/.mastracode/agents/*.md` globally, or a project's
@@ -741,6 +776,9 @@ single project:
   pickers), written back to the plugin's config. A **Create plugin** button
   scaffolds a new plugin (name, id, and target directory, in global or
   project scope) ready to fill in
+- **Workflows** (`/workflows`) — list, run (with optional JSON input and
+  per-step results), and delete the agent's stored workflows (see
+  [Workflows](#workflows-save-and-re-run-multi-step-processes))
 
 Project-specific MCP servers and custom subagents are managed in
 **Settings → MCP Servers** and **Settings → Agents** (pick the project

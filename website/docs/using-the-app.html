@@ -6,7 +6,7 @@
     <title>Using the app — Yardarm documentation</title>
     <meta
       name="description"
-      content="The Yardarm chat screen piece by piece: modes, approvals, the full sandbox, token compression, reviewing and shipping changes, checkpoints, goals, threads, forking, and split view."
+      content="The Yardarm chat screen piece by piece: modes, approvals, the full sandbox, token compression, reviewing and shipping changes, checkpoints, goals, workflows, threads, forking, and split view."
     />
     <link rel="canonical" href="https://yardarmdev.com/docs/using-the-app.html" />
     <meta property="og:type" content="article" />
@@ -14,7 +14,7 @@
     <meta property="og:title" content="Using the app — Yardarm documentation" />
     <meta
       property="og:description"
-      content="Modes, approvals, the full sandbox, token compression, review and shipping, checkpoints, goals, threads, forking, and split view."
+      content="Modes, approvals, the full sandbox, token compression, review and shipping, checkpoints, goals, workflows, threads, forking, and split view."
     />
     <meta property="og:url" content="https://yardarmdev.com/docs/using-the-app.html" />
     <meta property="og:image" content="https://yardarmdev.com/assets/img/og-image.png" />
@@ -23,7 +23,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="../assets/img/favicon-16.png" />
     <link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png" />
-    <link rel="stylesheet" href="../assets/css/site.css?v=0.9.10.1" />
+    <link rel="stylesheet" href="../assets/css/site.css?v=0.10.11" />
   </head>
   <body>
     <header class="site-header">
@@ -74,6 +74,7 @@
             <li><a href="#agent-code-review">Agent code review</a></li>
             <li><a href="#checkpoints">Checkpoints &amp; rollback</a></li>
             <li><a href="#goals">Goals</a></li>
+            <li><a href="#workflows">Workflows</a></li>
             <li><a href="#threads">Threads, forking, split view</a></li>
           </ul>
         </nav>
@@ -82,8 +83,9 @@
       <article class="docs-content">
         <h1>Using the app</h1>
         <p class="lead">
-          The chat screen piece by piece, plus the workflows built around it: modes, approvals,
-          sandboxing, review and shipping, checkpoints, goals, and parallel conversations.
+          The chat screen piece by piece, plus everything built around it: modes, approvals,
+          sandboxing, review and shipping, checkpoints, goals, stored workflows, and parallel
+          conversations.
         </p>
 
         <h2 id="chat-screen">The chat screen, piece by piece</h2>
@@ -97,8 +99,9 @@
           </li>
           <li><strong>Model selector</strong> — switch the active model for this chat.</li>
           <li>
-            <strong>think</strong> — extended-thinking level (off / low / medium / high / xhigh).
-            Higher levels are slower but better on hard problems.
+            <strong>think</strong> — extended-thinking level (off / low / medium / high / xhigh /
+            max). Higher levels are slower but better on hard problems; which levels apply depends
+            on the selected model.
           </li>
           <li>
             <strong>auto-approve</strong> — the "yolo" switch. On, the agent runs tools and edits
@@ -276,6 +279,12 @@
           active (with "no net" when the network is blocked) — click it to reconfigure. Defaults for
           new chats live in Settings → <strong>Preferences</strong> → Agent sandbox. Pairs well with
           auto-approve: yolo speed, contained blast radius.
+        </p>
+        <p>
+          The same <code>/sandbox</code> dialog holds the rest of the session's settings: smart
+          editing, completion notifications, and a <strong>skip global instructions</strong> switch
+          that leaves your <code>~/.mastracode</code> global agent instructions out of this one
+          session (project instructions still apply).
         </p>
 
         <h2 id="token-compression">Token compression</h2>
@@ -473,6 +482,49 @@
           The popover also keeps an <strong>evaluation history</strong>: every past objective with
           its per-iteration pass/fail verdicts and the judge's reasoning, so you can see how a goal
           converged (or why it kept failing) long after it finished.
+        </p>
+
+        <h2 id="workflows">Workflows: save and re-run multi-step processes</h2>
+        <p>
+          When you find yourself asking the agent for the same multi-step process again and again,
+          ask it to <strong>save the process as a workflow</strong>. The agent builds the workflow
+          in chat, and from then on it's a stored, repeatable procedure you can run on demand — no
+          re-explaining, no forgotten steps. Stored workflows are shared with the
+          <code>mastracode</code> CLI.
+        </p>
+        <p>Where workflows shine:</p>
+        <ul>
+          <li>
+            <strong>Release checklists</strong> — bump the version, run the test suite, build the
+            installers, draft the release notes, tag: one workflow, the same way every time.
+          </li>
+          <li>
+            <strong>Repeated multi-step refactors</strong> — apply the same mechanical
+            transformation (rename a pattern, migrate an API, update imports) across the codebase,
+            module by module, whenever the next batch is ready.
+          </li>
+          <li>
+            <strong>Codebase audits</strong> — a standing security / dependency / dead-code audit
+            you re-run before every release and get comparable results each time.
+          </li>
+          <li>
+            <strong>PR-review pipelines</strong> — fetch the PR, review it with your team's
+            checklist, summarize the findings, and post the comments — the same rigor for every
+            review.
+          </li>
+          <li>
+            <strong>Scaffolding routines</strong> — "new API endpoint", "new React feature folder",
+            "new microservice": generate the files, tests, and docs your conventions require, fed
+            with a JSON input for the parts that vary (names, paths, options).
+          </li>
+        </ul>
+        <p>
+          Manage stored workflows in <strong>Project Settings → Workflows</strong> (or run
+          <code>/workflows</code>): the tab lists each workflow with its description and lets you
+          <strong>run</strong> one — optionally with a JSON input for workflows that take parameters
+          — watching per-step results appear as it executes, or <strong>delete</strong> ones you no
+          longer need. To change a workflow, just ask the agent in chat and have it save the
+          workflow again.
         </p>
 
         <h2 id="threads">Threads, subchats, forking, and split view</h2>
