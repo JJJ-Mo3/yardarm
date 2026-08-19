@@ -73,6 +73,7 @@ import type {
   SttModelInfo,
   ThreadInfo,
   ToolCategoryTools,
+  WorkflowDefinitionResult,
   WorkflowInfo,
   WorkflowRunResult
 } from '../../../shared/ipc-types'
@@ -1925,6 +1926,26 @@ export class AgentSessionManager {
   async workflowDelete(subchatId: string, workflowId: string): Promise<void> {
     const handle = await this.ensureHost(subchatId)
     await this.request(handle, { t: 'workflowDelete', reqId: randomUUID(), workflowId })
+  }
+
+  /** Read a stored workflow's editable definition as pretty-printed JSON. */
+  async workflowGet(subchatId: string, workflowId: string): Promise<WorkflowDefinitionResult> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<WorkflowDefinitionResult>(handle, {
+      t: 'workflowGet',
+      reqId: randomUUID(),
+      workflowId
+    })
+  }
+
+  /** Validated upsert of an edited workflow definition (addDynamicWorkflow). */
+  async workflowSave(subchatId: string, definitionJson: string): Promise<{ id: string }> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<{ id: string }>(handle, {
+      t: 'workflowSave',
+      reqId: randomUUID(),
+      definitionJson
+    })
   }
 
   /** Built-in + custom model packs and OM packs, filtered by provider access. */

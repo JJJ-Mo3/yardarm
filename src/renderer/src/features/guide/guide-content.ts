@@ -291,6 +291,8 @@ demand.
 - **Manage & run** — Project Settings → **Workflows** (or \`/workflows\`) lists stored
   workflows with their steps. Run one (optionally passing JSON input), watch the per-step
   results, and delete workflows you no longer need.
+- **View & edit** — the definition button on each workflow opens its stored JSON definition;
+  edit it in place and Save — the definition is fully validated before anything changes.
 - **Shared with the CLI** — workflows live in mastracode's shared storage, so the same
   workflows are available from the \`mastracode\` CLI.
 `

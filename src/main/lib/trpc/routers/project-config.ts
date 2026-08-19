@@ -358,5 +358,19 @@ export const projectConfigRouter = router({
     .mutation(async ({ input }) => {
       await agentSessionManager.workflowDelete(input.subchatId, input.workflowId)
       return { ok: true }
+    }),
+
+  /** Read a stored workflow's editable definition (pretty-printed JSON). */
+  workflowGet: publicProcedure
+    .input(z.object({ subchatId: z.string(), workflowId: z.string().min(1) }))
+    .query(async ({ input }) => {
+      return agentSessionManager.workflowGet(input.subchatId, input.workflowId)
+    }),
+
+  /** Validated upsert of an edited definition — same path as the agent's save-workflow tool. */
+  workflowSave: publicProcedure
+    .input(z.object({ subchatId: z.string(), definitionJson: z.string().min(2) }))
+    .mutation(async ({ input }) => {
+      return agentSessionManager.workflowSave(input.subchatId, input.definitionJson)
     })
 })

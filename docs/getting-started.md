@@ -475,11 +475,13 @@ Manage stored workflows in **Project Settings → Workflows** (or run
 `/workflows`): the tab lists each workflow with its description and lets you
 
 - **Run** one on demand — optionally with a JSON input for workflows that
-  take parameters — and watch per-step results appear as it executes, and
+  take parameters — and watch per-step results appear as it executes,
+- **View & edit** its stored JSON definition via the definition button —
+  edits are fully validated before anything is saved, and
 - **Delete** ones you no longer need.
 
-To change a workflow, just ask the agent in chat — describe the adjustment
-and have it save the workflow again.
+To make bigger changes to a workflow, just ask the agent in chat — describe
+the adjustment and have it save the workflow again.
 
 ## Threads, subchats, forking, and split view
 
@@ -777,7 +779,8 @@ single project:
   scaffolds a new plugin (name, id, and target directory, in global or
   project scope) ready to fill in
 - **Workflows** (`/workflows`) — list, run (with optional JSON input and
-  per-step results), and delete the agent's stored workflows (see
+  per-step results), view/edit each stored JSON definition (validated on
+  save), and delete the agent's stored workflows (see
   [Workflows](#workflows-save-and-re-run-multi-step-processes))
 
 Project-specific MCP servers and custom subagents are managed in

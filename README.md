@@ -215,7 +215,8 @@ Yardarm puts a desktop workspace around the agent:
   and token budgets
 - Workflows (`/workflows`): ask the agent to save a repeatable multi-step
   process as a stored workflow, then list, run (with optional JSON input,
-  showing per-step results), and delete workflows from Project Settings →
+  showing per-step results), view/edit each workflow's JSON definition
+  (validated on save), and delete workflows from Project Settings →
   Workflows — stored workflows are shared with the CLI
 - Threads (`/threads`): switch, rename, clone, delete, open in a new subchat,
   with per-thread token usage in the cost popover (`/cost`)

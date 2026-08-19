@@ -110,6 +110,10 @@ export type HostCommand =
   /** Run a stored workflow; inputJson is a JSON object string (responds with WorkflowRunResult). */
   | { t: 'workflowRun'; reqId: string; workflowId: string; inputJson?: string }
   | { t: 'workflowDelete'; reqId: string; workflowId: string }
+  /** Read a stored workflow's editable definition (responds with WorkflowDefinitionResult). */
+  | { t: 'workflowGet'; reqId: string; workflowId: string }
+  /** Validated upsert of a workflow definition via addDynamicWorkflow (responds with { id }). */
+  | { t: 'workflowSave'; reqId: string; definitionJson: string }
   /** Read session-state keys (notifications, smartEditing, sandboxAllowedPaths). */
   | { t: 'stateGet'; reqId: string }
   | { t: 'stateSet'; reqId: string; patch: SessionStatePatch }
@@ -394,6 +398,12 @@ export interface WorkflowInfo {
   stepCount?: number
   createdAt?: number
   updatedAt?: number
+}
+
+/** Response payload of the `workflowGet` host command. */
+export interface WorkflowDefinitionResult {
+  /** Pretty-printed JSON of the editable definition fields (id, schemas, graph, …). */
+  definitionJson: string
 }
 
 /** Response payload of the `workflowRun` host command. */

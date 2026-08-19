@@ -1789,6 +1789,57 @@ async function main(): Promise<void> {
               return null
             })
             break
+          case 'workflowGet':
+            await respond(cmd.reqId, async () => {
+              const svc = await runtimeImport<typeof import('@mastra/code-sdk/workflows/service')>(
+                '@mastra/code-sdk/workflows/service'
+              )
+              const row = await svc.getWorkflow(mastraForWorkflows(), cmd.workflowId)
+              if (!row) throw new Error('Workflow not found')
+              // Only the editable definition fields — drop storage bookkeeping
+              // (status, source, authorId, createdAt, updatedAt).
+              const r = row as unknown as Record<string, unknown>
+              const picked: Record<string, unknown> = {}
+              for (const key of [
+                'id',
+                'description',
+                'metadata',
+                'inputSchema',
+                'outputSchema',
+                'stateSchema',
+                'requestContextSchema',
+                'graph'
+              ]) {
+                if (r[key] !== undefined) picked[key] = r[key]
+              }
+              return { definitionJson: JSON.stringify(picked, null, 2) }
+            })
+            break
+          case 'workflowSave':
+            await respond(cmd.reqId, async () => {
+              let parsed: unknown
+              try {
+                parsed = JSON.parse(cmd.definitionJson)
+              } catch {
+                throw new Error('Definition must be valid JSON')
+              }
+              // Mirror the agent's save-workflow tool: normalize, then let
+              // addDynamicWorkflow fully validate + upsert + live-register.
+              let def = parsed
+              try {
+                const builder = await runtimeImport<{
+                  normalizeWorkflowBuilderDefinition: (d: unknown) => unknown
+                }>('@mastra/core/workflows/builder')
+                def = builder.normalizeWorkflowBuilderDefinition(parsed)
+              } catch {
+                // Subpath unavailable in this runtime — addDynamicWorkflow
+                // accepts builder input directly and validates before mutating.
+              }
+              await mastraForWorkflows().addDynamicWorkflow(def as never)
+              const id = (def as { id?: unknown }).id
+              return { id: typeof id === 'string' ? id : String(id ?? '') }
+            })
+            break
           case 'stateGet':
             await respond(cmd.reqId, async () => stateInfo())
             break

@@ -1096,8 +1096,113 @@ function PluginsTab({
 }
 
 /**
- * Stored chat-built workflows: list, run (with optional JSON input), delete.
- * Creation is chat-driven — the agent saves workflows during a conversation.
+ * View/edit dialog for a stored workflow's JSON definition. Save goes through
+ * the same validated addDynamicWorkflow upsert the agent's save-workflow tool
+ * uses, so bad references or schemas are rejected before anything is stored.
+ */
+function WorkflowDefinitionDialog({
+  subchatId,
+  workflowId,
+  onClose
+}: {
+  subchatId: string
+  workflowId: string | null
+  onClose: () => void
+}): React.JSX.Element {
+  const utils = trpc.useUtils()
+  const def = trpc.projectConfig.workflowGet.useQuery(
+    { subchatId, workflowId: workflowId ?? '' },
+    { enabled: workflowId !== null }
+  )
+  const [text, setText] = useState('')
+  const [dirty, setDirty] = useState(false)
+  const save = trpc.projectConfig.workflowSave.useMutation({
+    onSuccess: () => {
+      setDirty(false)
+      void utils.projectConfig.workflowsList.invalidate({ subchatId })
+      onClose()
+    }
+  })
+
+  // Sync the fetched definition into the editor until the user starts editing.
+  useEffect(() => {
+    if (!dirty) setText(def.data?.definitionJson ?? '')
+  }, [def.data, dirty])
+
+  let jsonError: string | null = null
+  if (text.trim()) {
+    try {
+      JSON.parse(text)
+    } catch {
+      jsonError = 'Not valid JSON yet — fix the syntax to enable Save.'
+    }
+  } else {
+    jsonError = 'Definition is empty.'
+  }
+
+  return (
+    <Dialog
+      open={workflowId !== null}
+      onOpenChange={(open) => {
+        if (!open) {
+          setDirty(false)
+          save.reset()
+          onClose()
+        }
+      }}
+    >
+      <DialogContent className="max-h-[80vh] max-w-2xl space-y-2 overflow-y-auto">
+        <DialogTitle className="font-mono text-xs">{workflowId}</DialogTitle>
+        {def.isLoading && <div className="text-xs text-muted-foreground">Loading…</div>}
+        {def.error && (
+          <div className="text-xs text-destructive selectable">{def.error.message}</div>
+        )}
+        {!def.isLoading && !def.error && (
+          <>
+            <Textarea
+              rows={18}
+              value={text}
+              onChange={(e) => {
+                setText(e.target.value)
+                setDirty(true)
+              }}
+              className="font-mono text-[10px]"
+              spellCheck={false}
+            />
+            <div className="flex items-center gap-2">
+              <Tip content="Validate the definition and save it — the workflow is updated immediately, no restart needed">
+                <span className="inline-flex">
+                  <Button
+                    size="sm"
+                    disabled={!dirty || jsonError !== null || save.isPending}
+                    onClick={() => save.mutate({ subchatId, definitionJson: text })}
+                  >
+                    {save.isPending ? 'Saving…' : 'Save'}
+                  </Button>
+                </span>
+              </Tip>
+              {dirty && jsonError && (
+                <span className="text-[10px] text-muted-foreground">{jsonError}</span>
+              )}
+            </div>
+            <div className="text-[10px] text-muted-foreground">
+              Saving fully validates the definition (structure, agent/tool references, schema flow).
+              Saving under a changed id creates a new workflow — the original keeps its id.
+            </div>
+            {save.error && (
+              <div className="text-xs text-destructive selectable">{save.error.message}</div>
+            )}
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/**
+ * Stored chat-built workflows: list, run (with optional JSON input), inspect
+ * and edit the stored definition, delete. Creation is chat-driven — the agent
+ * saves workflows during a conversation.
  */
 function WorkflowsTab({ subchatId }: { subchatId: string | null }): React.JSX.Element {
   const utils = trpc.useUtils()
@@ -1106,6 +1211,7 @@ function WorkflowsTab({ subchatId }: { subchatId: string | null }): React.JSX.El
     { enabled: !!subchatId }
   )
   const [runFor, setRunFor] = useState<string | null>(null)
+  const [defFor, setDefFor] = useState<string | null>(null)
   const [inputJson, setInputJson] = useState('')
   const confirmDialog = useConfirm()
 
@@ -1147,6 +1253,14 @@ function WorkflowsTab({ subchatId }: { subchatId: string | null }): React.JSX.El
               >
                 {w.status}
               </span>
+              <Tip content="View and edit this workflow's stored JSON definition">
+                <button
+                  className="text-muted-foreground hover:text-foreground cursor-pointer"
+                  onClick={() => setDefFor(w.id)}
+                >
+                  <FileCode2 size={11} />
+                </button>
+              </Tip>
               <Tip
                 content={
                   runFor === w.id
@@ -1254,6 +1368,11 @@ function WorkflowsTab({ subchatId }: { subchatId: string | null }): React.JSX.El
           </div>
         )}
       </div>
+      <WorkflowDefinitionDialog
+        subchatId={subchatId}
+        workflowId={defFor}
+        onClose={() => setDefFor(null)}
+      />
     </div>
   )
 }
