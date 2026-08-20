@@ -1,5 +1,6 @@
 import { useCallback, useReducer } from 'react'
 import { trpc } from '../../lib/trpc'
+import { useSubscriptionAutoReset } from '../../lib/use-subscription-auto-reset'
 import type {
   AgentStatus,
   AgentUIEvent,
@@ -130,10 +131,18 @@ export function useAgentStream(subchatId: string | null): AgentStreamState {
 
   const onData = useCallback((ev: AgentUIEvent) => dispatch(ev), [])
 
-  trpc.agent.stream.useSubscription(subchatId ? { subchatId } : (undefined as never), {
-    enabled: subchatId !== null,
-    onData
-  })
+  const subscription = trpc.agent.stream.useSubscription(
+    subchatId ? { subchatId } : (undefined as never),
+    {
+      enabled: subchatId !== null,
+      onData,
+      onError: (err) => console.error('agent.stream subscription error:', err)
+    }
+  )
+  // A dead subscription leaves the open chat frozen: the transcript still
+  // renders, but new sends and agent activity stay invisible until the chat
+  // is re-selected. Auto-resubscribe — the fresh stream re-seeds everything.
+  useSubscriptionAutoReset(subscription, subchatId !== null)
 
   return state
 }

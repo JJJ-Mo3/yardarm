@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { trpc } from '../../lib/trpc'
+import { useSubscriptionAutoReset } from '../../lib/use-subscription-auto-reset'
 import { selectedChatIdAtom, subchatStatusesAtom, unseenChatsAtom } from '../../lib/atoms'
 import type { SubchatStatusInfo } from '../../../../shared/ui-message'
 
@@ -43,7 +44,13 @@ export function useChatStatusTracker(): void {
     [setStatuses, setUnseen]
   )
 
-  trpc.agent.statusAll.useSubscription(undefined, { onData })
+  const subscription = trpc.agent.statusAll.useSubscription(undefined, {
+    onData,
+    onError: (err) => console.error('agent.statusAll subscription error:', err)
+  })
+  // Sidebar indicators would silently freeze if the stream died (tRPC never
+  // resubscribes on its own) — auto-reset re-seeds the full status snapshot.
+  useSubscriptionAutoReset(subscription, true)
 
   // Selecting a chat marks it seen.
   useEffect(() => {
