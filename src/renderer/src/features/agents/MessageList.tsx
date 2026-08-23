@@ -3,7 +3,7 @@ import { Brain, ChevronDown, ChevronRight, GitFork, RotateCcw, ScanSearch } from
 import { cn } from '../../lib/utils'
 import { Tip } from '../../components/ui/tooltip'
 import { Markdown } from './Markdown'
-import { ToolCallCard } from './ToolCallCard'
+import { ToolCallRow } from './tool-display/ToolCallRow'
 import { AskUserCard, AskUserAnswered } from './AskUserCard'
 import { PlanApprovalCard, PlanApprovalAnswered } from './PlanApprovalCard'
 import { SandboxAccessCard, SandboxAccessAnswered } from './SandboxAccessCard'
@@ -127,7 +127,7 @@ function Part({
           />
         )
       }
-      return <ToolCallCard part={part} />
+      return <ToolCallRow part={part} />
     case 'info':
       return (
         <div

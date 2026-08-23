@@ -57,7 +57,7 @@ export function toolTitle(toolName: string): string {
 }
 
 /** String → parsed JSON when possible; plain objects pass through. */
-function asRecord(args: unknown): Record<string, unknown> | null {
+export function asRecord(args: unknown): Record<string, unknown> | null {
   let value = args
   if (typeof value === 'string') {
     try {
@@ -72,7 +72,7 @@ function asRecord(args: unknown): Record<string, unknown> | null {
   return null
 }
 
-function rawText(args: unknown): string {
+export function rawText(args: unknown): string {
   if (typeof args === 'string') return args
   try {
     return JSON.stringify(args, null, 2)
@@ -81,7 +81,13 @@ function rawText(args: unknown): string {
   }
 }
 
-function CodeBlock({ text, className }: { text: string; className?: string }): React.JSX.Element {
+export function CodeBlock({
+  text,
+  className
+}: {
+  text: string
+  className?: string
+}): React.JSX.Element {
   return (
     <pre
       className={cn(
@@ -94,7 +100,7 @@ function CodeBlock({ text, className }: { text: string; className?: string }): R
   )
 }
 
-function PathRow({
+export function PathRow({
   path,
   icon,
   badges,
@@ -128,7 +134,7 @@ function PathRow({
   )
 }
 
-function MetaRow({ items }: { items: string[] }): React.JSX.Element | null {
+export function MetaRow({ items }: { items: string[] }): React.JSX.Element | null {
   if (items.length === 0) return null
   return (
     <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground font-mono">
@@ -157,7 +163,7 @@ function Disclosure({
   )
 }
 
-function RawArgsDisclosure({ args }: { args: unknown }): React.JSX.Element {
+export function RawArgsDisclosure({ args }: { args: unknown }): React.JSX.Element {
   return (
     <Disclosure label="Raw input">
       <CodeBlock text={rawText(args)} />
@@ -172,7 +178,7 @@ function capContent(text: string): { text: string; truncated: boolean } {
   return { text: text.slice(0, MAX_DIFF_CHARS) + '\n… [truncated]', truncated: true }
 }
 
-function ArgsDiff({
+export function ArgsDiff({
   path,
   oldContent,
   newContent
@@ -253,7 +259,7 @@ function LabeledValue({ label, value }: { label: string; value: string }): React
  * flags become badges, long values become code blocks), with the exact raw
  * payload behind a collapsed disclosure. Non-object args render as-is.
  */
-function DefaultArgs({ args }: { args: unknown }): React.JSX.Element {
+export function DefaultArgs({ args }: { args: unknown }): React.JSX.Element {
   const obj = asRecord(args)
   if (!obj) return <CodeBlock text={rawText(args)} />
 
