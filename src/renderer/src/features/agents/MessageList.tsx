@@ -217,20 +217,43 @@ const MessageItem = React.memo(function MessageItem({
       </div>
     )
   }
-  return (
-    <div className="max-w-full">
-      {message.parts.map((part, i) =>
-        hiddenParts?.has(`${message.id}:${i}`) ? null : (
-          <Part
-            key={i}
-            part={part}
-            suspensions={suspensions}
-            onRespondSuspension={onRespondSuspension}
-          />
-        )
-      )}
-    </div>
-  )
+  // Runs of consecutive passive tool calls render inside one shaded box so
+  // tool activity stands apart from the agent's prose.
+  const blocks: React.JSX.Element[] = []
+  let toolGroup: React.JSX.Element[] = []
+  let toolGroupStart = 0
+  const flushToolGroup = (): void => {
+    if (toolGroup.length === 0) return
+    blocks.push(
+      <div
+        key={`tools-${toolGroupStart}`}
+        className="my-1.5 rounded-md border border-border/60 bg-muted/50 px-1.5 py-1"
+      >
+        {toolGroup}
+      </div>
+    )
+    toolGroup = []
+  }
+  message.parts.forEach((part, i) => {
+    if (hiddenParts?.has(`${message.id}:${i}`)) return
+    const el = (
+      <Part
+        key={i}
+        part={part}
+        suspensions={suspensions}
+        onRespondSuspension={onRespondSuspension}
+      />
+    )
+    if (part.type === 'tool-call' && !INTERACTIVE_TOOLS.has(part.toolName)) {
+      if (toolGroup.length === 0) toolGroupStart = i
+      toolGroup.push(el)
+    } else {
+      flushToolGroup()
+      blocks.push(el)
+    }
+  })
+  flushToolGroup()
+  return <div className="max-w-full">{blocks}</div>
 })
 
 export function MessageList({
