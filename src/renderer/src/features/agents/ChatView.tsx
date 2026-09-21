@@ -44,7 +44,7 @@ import { SandboxDialog } from './SandboxDialog'
 import { PruneStorageDialog } from '../settings/PruneStorageDialog'
 import { GoalBanner } from './GoalBanner'
 import { TaskChecklist } from './TaskChecklist'
-import { GoalPopover } from './GoalPopover'
+import { GoalPanel } from './GoalPanel'
 import { OmStatusPopover } from './OmStatusPopover'
 import { ModeSelector } from './ModeSelector'
 import { ReviewPopover } from './ReviewPopover'
@@ -210,6 +210,9 @@ export function ChatView({
   const invalidateGoal = (): void => {
     utils.agent.goalGet.invalidate({ subchatId })
   }
+  // Ungated: drives the composer's Goal button chip (shares the cache key
+  // with GoalBanner and the inline GoalPanel).
+  const goalQuery = trpc.agent.goalGet.useQuery({ subchatId })
   const goalSet = trpc.agent.goalSet.useMutation({ onSuccess: invalidateGoal })
   const goalClear = trpc.agent.goalClear.useMutation({ onSuccess: invalidateGoal })
   const goalUpdate = trpc.agent.goalUpdate.useMutation({ onSuccess: invalidateGoal })
@@ -700,13 +703,6 @@ export function ChatView({
             </Badge>
           </Tip>
         )}
-        <GoalPopover
-          subchatId={subchatId}
-          live={state.goal}
-          running={state.running}
-          open={goalOpen}
-          onOpenChange={setGoalOpen}
-        />
         <ReviewPopover
           cwd={projectRoot}
           baseBranch={baseBranch}
@@ -903,6 +899,17 @@ export function ChatView({
         onDismiss={(id) => dismissQueued.mutate({ subchatId, id })}
       />
 
+      {goalOpen && (
+        <div className="px-4 pb-2">
+          <GoalPanel
+            subchatId={subchatId}
+            live={state.goal}
+            running={state.running}
+            onClose={() => setGoalOpen(false)}
+          />
+        </div>
+      )}
+
       <PromptInput
         disabled={busy}
         running={state.running}
@@ -936,6 +943,9 @@ export function ChatView({
         onSlashCommand={handleSlashCommand}
         prefill={prefill}
         onPrefillConsumed={() => setPrefill(null)}
+        goalStatus={goalQuery.data?.status ?? null}
+        goalOpen={goalOpen}
+        onToggleGoal={() => setGoalOpen((v) => !v)}
       />
       {primary && <HelpDialog commands={commands} />}
       <PermissionsDialog

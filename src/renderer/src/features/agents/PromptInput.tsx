@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { ArrowUp, FileText, Loader2, Mic, Paperclip, Square, X } from 'lucide-react'
+import { ArrowUp, FileText, Loader2, Mic, Paperclip, Square, Target, X } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { Tip } from '../../components/ui/tooltip'
 import { trpc } from '../../lib/trpc'
@@ -10,6 +10,7 @@ import {
   classifyAttachment,
   type ComposerAttachment
 } from './attachments'
+import { STATUS_CHIP } from './GoalPanel'
 import type { SlashCommandEntry } from './slash-commands'
 import { formatElapsed, micReleaseAction, useVoiceRecorder } from './use-voice-recorder'
 
@@ -42,7 +43,10 @@ export function PromptInput({
   onAbort,
   onSlashCommand,
   prefill,
-  onPrefillConsumed
+  onPrefillConsumed,
+  goalStatus,
+  goalOpen,
+  onToggleGoal
 }: {
   disabled: boolean
   running: boolean
@@ -55,6 +59,12 @@ export function PromptInput({
   /** One-shot text to place in the input (e.g. a rolled-back message). */
   prefill?: string | null
   onPrefillConsumed?: () => void
+  /** Current goal status ('active' | 'paused' | 'done') for the Goal button chip; null = no goal. */
+  goalStatus?: string | null
+  /** Whether the inline goal panel above the composer is open. */
+  goalOpen?: boolean
+  /** Toggles the inline goal panel; the Goal button renders only when provided. */
+  onToggleGoal?: () => void
 }): React.JSX.Element {
   const [value, setValue] = useState('')
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([])
@@ -440,6 +450,24 @@ export function PromptInput({
             e.target.value = ''
           }}
         />
+        {onToggleGoal && (
+          <Tip content="Goal — give the agent an objective a judge model evaluates after each run; click to set or manage it (/goal)">
+            <button
+              onClick={onToggleGoal}
+              className={cn(
+                'flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-[11px] cursor-pointer',
+                goalStatus
+                  ? STATUS_CHIP[goalStatus]
+                  : goalOpen
+                    ? 'border-border bg-accent text-foreground'
+                    : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
+              )}
+            >
+              <Target size={11} />
+              {goalStatus ? `goal: ${goalStatus}` : 'goal'}
+            </button>
+          </Tip>
+        )}
         <Tip content="Attach images, PDFs, or text files to your message — or paste or drag & drop them">
           <span className="inline-flex">
             <Button

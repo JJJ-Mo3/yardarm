@@ -1,0 +1,484 @@
+/**
+ * Inline goal panel (/goal), shown above the composer via its Goal button.
+ * Set a judge-evaluated objective for the thread, watch its progress,
+ * pause/resume it, tune the judge model and run limit, or clear it — no
+ * slash command needed.
+ */
+import React, { useEffect, useState } from 'react'
+import { ChevronDown, ChevronRight, Pause, Pencil, Play, Target, X } from 'lucide-react'
+import { trpc } from '../../lib/trpc'
+import { cn, timeAgo } from '../../lib/utils'
+import { Input } from '../../components/ui/input'
+import { Tip } from '../../components/ui/tooltip'
+import { ModelSelect } from '../../components/ModelSelect'
+import type { GoalEvaluationInfo } from '../../../../shared/ui-message'
+
+const STATUS_STYLES: Record<string, string> = {
+  active: 'text-blue-400',
+  paused: 'text-amber-500',
+  done: 'text-green-500'
+}
+
+/** Color-coded composer-button fills, matching the ModeSelector's active pattern. */
+export const STATUS_CHIP: Record<string, string> = {
+  active: 'border-blue-500/40 bg-blue-500/15 text-blue-400 hover:bg-blue-500/25',
+  paused: 'border-amber-500/40 bg-amber-500/15 text-amber-500 hover:bg-amber-500/25',
+  done: 'border-green-500/40 bg-green-500/15 text-green-500 hover:bg-green-500/25'
+}
+
+/** Mirrors @mastra/core DEFAULT_GOAL_MAX_RUNS — applied when no limit is set anywhere. */
+const SDK_DEFAULT_MAX_RUNS = 50
+
+/** Small max-runs field that commits on blur/Enter (positive integers only). */
+function MaxRunsField({
+  value,
+  disabled,
+  placeholder,
+  onCommit
+}: {
+  value: number | undefined
+  disabled?: boolean
+  placeholder?: string
+  onCommit: (n: number) => void
+}): React.JSX.Element {
+  const [draft, setDraft] = useState(value != null ? String(value) : '')
+  const [focused, setFocused] = useState(false)
+  useEffect(() => {
+    if (!focused) setDraft(value != null ? String(value) : '')
+  }, [value, focused])
+  const commit = (): void => {
+    const n = Math.round(Number(draft))
+    if (Number.isFinite(n) && n > 0 && n !== value) {
+      onCommit(n)
+      setDraft(String(n))
+      return
+    }
+    setDraft(value != null ? String(value) : '')
+  }
+  return (
+    <Input
+      value={draft}
+      disabled={disabled}
+      placeholder={placeholder}
+      onChange={(e) => setDraft(e.target.value)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => {
+        setFocused(false)
+        commit()
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') commit()
+      }}
+      className="h-6 w-24 font-mono text-[11px]"
+    />
+  )
+}
+
+export function GoalPanel({
+  subchatId,
+  live,
+  running,
+  onClose
+}: {
+  subchatId: string
+  /** Latest goal_evaluation from the event stream, if any. */
+  live: GoalEvaluationInfo | null
+  /** Whether a run is currently in progress (gates the auto-start option). */
+  running: boolean
+  onClose: () => void
+}): React.JSX.Element {
+  const utils = trpc.useUtils()
+  // Shares the cache key with GoalBanner and the composer's Goal button.
+  const goal = trpc.agent.goalGet.useQuery({ subchatId })
+  const history = trpc.goals.history.useQuery({ subchatId })
+  const models = trpc.agent.listModels.useQuery({ subchatId }, { staleTime: 60_000 })
+  // Global goal defaults (Settings → Models) — shown as resolved placeholders.
+  const settings = trpc.mastraSettings.get.useQuery(undefined, { staleTime: 30_000 })
+  const invalidate = (): void => {
+    void utils.agent.goalGet.invalidate({ subchatId })
+  }
+  const goalSet = trpc.agent.goalSet.useMutation({ onSuccess: invalidate })
+  const goalUpdate = trpc.agent.goalUpdate.useMutation({ onSuccess: invalidate })
+  const goalClear = trpc.agent.goalClear.useMutation({ onSuccess: invalidate })
+
+  // New-goal form state.
+  const [objective, setObjective] = useState('')
+  const [judge, setJudge] = useState('')
+  const [maxRuns, setMaxRuns] = useState('')
+  const [startNow, setStartNow] = useState(true)
+  // Editing state for an existing goal's objective.
+  const [editing, setEditing] = useState(false)
+  // Which history group (index) is expanded to show per-iteration verdicts.
+  const [expandedGroup, setExpandedGroup] = useState<number | null>(null)
+
+  // Each judge evaluation updates runsUsed/status server-side; refresh.
+  useEffect(() => {
+    if (live) {
+      void utils.agent.goalGet.invalidate({ subchatId })
+      void utils.goals.history.invalidate({ subchatId })
+    }
+  }, [live, subchatId, utils])
+
+  useEffect(() => {
+    // Reset transient form state whenever the chat changes (the panel itself
+    // unmounts on close, so mount state covers reopening).
+    setEditing(false)
+    setObjective('')
+    setStartNow(true)
+    setExpandedGroup(null)
+  }, [subchatId])
+
+  // Group consecutive verdicts (newest first) by objective — each group is
+  // one goal's lifetime, expandable to its per-iteration verdicts.
+  const historyGroups: { objective: string; rows: NonNullable<typeof history.data> }[] = []
+  for (const row of history.data ?? []) {
+    const last = historyGroups[historyGroups.length - 1]
+    if (last && last.objective === row.objective) last.rows.push(row)
+    else historyGroups.push({ objective: row.objective, rows: [row] })
+  }
+
+  const g = goal.data
+  const busy = goalSet.isPending || goalUpdate.isPending || goalClear.isPending
+  const mutationError = goalSet.error ?? goalUpdate.error ?? goalClear.error
+
+  // What "default" actually resolves to: Settings → Models overrides, then
+  // the chat's model (judge) / the SDK's built-in run limit.
+  const goalDefaults = settings.data?.models
+  const judgePlaceholder = goalDefaults?.goalJudgeModel
+    ? `default (${goalDefaults.goalJudgeModel})`
+    : 'default (chat model)'
+  const maxRunsPlaceholder = `default (${goalDefaults?.goalMaxTurns ?? SDK_DEFAULT_MAX_RUNS})`
+
+  const submitNew = (): void => {
+    const text = objective.trim()
+    if (!text) return
+    const n = Math.round(Number(maxRuns))
+    goalSet.mutate({
+      subchatId,
+      objective: text,
+      judgeModelId: judge || undefined,
+      maxRuns: Number.isFinite(n) && n > 0 ? n : undefined,
+      start: startNow && !running
+    })
+    setObjective('')
+  }
+
+  const submitEdit = (): void => {
+    if (!g) return
+    const text = objective.trim()
+    if (!text) return
+    // setObjective creates a fresh record (run count restarts); keep judge/limit.
+    goalSet.mutate({
+      subchatId,
+      objective: text,
+      judgeModelId: g.judgeModelId,
+      maxRuns: g.maxRuns
+    })
+    setEditing(false)
+    setObjective('')
+  }
+
+  return (
+    <div className="rounded-md border border-border bg-card p-3">
+      <div className="mb-1.5 flex items-center justify-between">
+        <div className="flex items-center gap-1.5 text-xs font-medium">
+          <Target size={12} />
+          Goal
+        </div>
+        <Tip content="Close the goal panel">
+          <button
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground cursor-pointer"
+          >
+            <X size={12} />
+          </button>
+        </Tip>
+      </div>
+      {goal.isLoading && <div className="text-[11px] text-muted-foreground">Loading…</div>}
+      {goal.error && (
+        <div className="text-[11px] text-destructive selectable">{goal.error.message}</div>
+      )}
+
+      {!goal.isLoading && !g && (
+        <div className="space-y-2">
+          <div className="text-[11px] text-muted-foreground">
+            Set an objective and a judge model evaluates each run against it, telling the agent to
+            keep going until the goal is met.
+          </div>
+          <textarea
+            value={objective}
+            disabled={busy}
+            onChange={(e) => setObjective(e.target.value)}
+            placeholder="Objective, e.g. all tests pass and the feature works end to end"
+            rows={3}
+            className="w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-[11px] focus:outline-none"
+          />
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] text-muted-foreground">Judge model</span>
+            <Tip content="Model that judges whether each run met the objective — defaults to your settings, then this chat's model">
+              <span className="inline-flex max-w-44">
+                <ModelSelect
+                  value={judge}
+                  onChange={setJudge}
+                  models={models.data ?? []}
+                  placeholder={judgePlaceholder}
+                />
+              </span>
+            </Tip>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] text-muted-foreground">Max runs</span>
+            <Tip content="Stop judging after this many runs — leave empty for the default">
+              <span className="inline-flex">
+                <Input
+                  value={maxRuns}
+                  disabled={busy}
+                  onChange={(e) => setMaxRuns(e.target.value)}
+                  placeholder={maxRunsPlaceholder}
+                  className="h-6 w-24 font-mono text-[11px]"
+                />
+              </span>
+            </Tip>
+          </div>
+          {running ? (
+            <div className="text-[11px] text-muted-foreground">
+              A run is in progress — the judge starts evaluating it against this goal when it
+              finishes.
+            </div>
+          ) : (
+            <Tip content="Kick off a run toward this goal as soon as it's set — untick to set the goal first and start it with your own prompt">
+              <label className="flex w-fit cursor-pointer items-center gap-2 text-[11px] text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={startNow}
+                  disabled={busy}
+                  onChange={(e) => setStartNow(e.target.checked)}
+                  className="accent-primary"
+                />
+                Start working right away
+              </label>
+            </Tip>
+          )}
+          <Tip
+            content={
+              startNow && !running
+                ? 'Set this goal and immediately start a run toward it'
+                : 'Set this goal — the judge starts evaluating runs against it'
+            }
+          >
+            <span className="inline-flex w-full">
+              <button
+                disabled={busy || !objective.trim()}
+                onClick={submitNew}
+                className="w-full rounded-md border border-border bg-accent/40 px-2 py-1 text-[11px] hover:bg-accent disabled:opacity-50 cursor-pointer"
+              >
+                {startNow && !running ? 'Set goal & start' : 'Set goal'}
+              </button>
+            </span>
+          </Tip>
+        </div>
+      )}
+
+      {g && (
+        <div className="space-y-2">
+          {editing ? (
+            <div className="space-y-1.5">
+              <textarea
+                value={objective}
+                disabled={busy}
+                onChange={(e) => setObjective(e.target.value)}
+                rows={3}
+                className="w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-[11px] focus:outline-none"
+              />
+              <div className="flex gap-1.5">
+                <Tip content="Replace the objective — this restarts the goal's run count">
+                  <span className="inline-flex">
+                    <button
+                      disabled={busy || !objective.trim()}
+                      onClick={submitEdit}
+                      className="rounded-md border border-border bg-accent/40 px-2 py-0.5 text-[11px] hover:bg-accent disabled:opacity-50 cursor-pointer"
+                    >
+                      Save
+                    </button>
+                  </span>
+                </Tip>
+                <Tip content="Keep the current objective">
+                  <button
+                    onClick={() => setEditing(false)}
+                    className="rounded-md border border-border px-2 py-0.5 text-[11px] hover:bg-accent cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </Tip>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start gap-1.5">
+              <div className="min-w-0 flex-1 text-[11px] selectable">{g.objective}</div>
+              <Tip content="Edit the objective — saving restarts the goal's run count">
+                <button
+                  onClick={() => {
+                    setObjective(g.objective)
+                    setEditing(true)
+                  }}
+                  className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  <Pencil size={11} />
+                </button>
+              </Tip>
+            </div>
+          )}
+          <div className="text-[10px] text-muted-foreground selectable">
+            <span className={cn('font-medium', STATUS_STYLES[g.status])}>{g.status}</span>
+            {' · '}run {g.runsUsed}
+            {g.maxRuns ? `/${g.maxRuns}` : ''}
+            {g.pausedReason ? ` · paused: ${g.pausedReason}` : ''}
+            {live?.reason
+              ? ` · last eval: ${live.passed ? 'passed' : 'not yet'} — ${live.reason}`
+              : ''}
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] text-muted-foreground">Judge model</span>
+            <Tip content="Model that judges whether each run met the objective">
+              <span className="inline-flex max-w-44">
+                <ModelSelect
+                  value={g.judgeModelId ?? ''}
+                  onChange={(v) => {
+                    if (v) goalUpdate.mutate({ subchatId, judgeModelId: v })
+                  }}
+                  models={models.data ?? []}
+                  placeholder={judgePlaceholder}
+                />
+              </span>
+            </Tip>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] text-muted-foreground">Max runs</span>
+            <Tip content="Stop judging after this many runs">
+              <span className="inline-flex">
+                <MaxRunsField
+                  value={g.maxRuns}
+                  disabled={busy}
+                  placeholder={maxRunsPlaceholder}
+                  onCommit={(n) => goalUpdate.mutate({ subchatId, maxRuns: n })}
+                />
+              </span>
+            </Tip>
+          </div>
+          <div className="flex gap-1.5">
+            {g.status === 'paused' ? (
+              <Tip content="Resume this goal — the agent picks the work back up right away">
+                <span className="inline-flex">
+                  <button
+                    disabled={busy}
+                    onClick={() => goalUpdate.mutate({ subchatId, status: 'active' })}
+                    className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] hover:bg-accent disabled:opacity-50 cursor-pointer"
+                  >
+                    <Play size={11} />
+                    Resume
+                  </button>
+                </span>
+              </Tip>
+            ) : (
+              <Tip content="Pause this goal — the judge stops evaluating until you resume">
+                <span className="inline-flex">
+                  <button
+                    disabled={busy || g.status === 'done'}
+                    onClick={() => goalUpdate.mutate({ subchatId, status: 'paused' })}
+                    className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] hover:bg-accent disabled:opacity-50 cursor-pointer"
+                  >
+                    <Pause size={11} />
+                    Pause
+                  </button>
+                </span>
+              </Tip>
+            )}
+            <Tip content="Clear this goal — the judge stops evaluating runs against it">
+              <span className="inline-flex">
+                <button
+                  disabled={busy}
+                  onClick={() => goalClear.mutate({ subchatId })}
+                  className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] hover:bg-accent disabled:opacity-50 cursor-pointer"
+                >
+                  <X size={11} />
+                  Clear
+                </button>
+              </span>
+            </Tip>
+          </div>
+        </div>
+      )}
+
+      {historyGroups.length > 0 && (
+        <div className="mt-3 border-t border-border pt-2">
+          <div className="mb-1 text-[11px] font-medium text-muted-foreground">History</div>
+          <div className="max-h-48 space-y-0.5 overflow-y-auto">
+            {historyGroups.map((grp, i) => {
+              const isOpen = expandedGroup === i
+              const latest = grp.rows[0]
+              return (
+                <div key={`${latest.id}`}>
+                  <Tip
+                    content={
+                      isOpen
+                        ? 'Hide the judge verdicts for this objective'
+                        : 'Show each judge verdict for this objective'
+                    }
+                  >
+                    <button
+                      onClick={() => setExpandedGroup(isOpen ? null : i)}
+                      className="flex w-full items-start gap-1 rounded px-1 py-0.5 text-left text-[11px] hover:bg-accent cursor-pointer"
+                    >
+                      {isOpen ? (
+                        <ChevronDown size={11} className="mt-0.5 shrink-0" />
+                      ) : (
+                        <ChevronRight size={11} className="mt-0.5 shrink-0" />
+                      )}
+                      <span className="min-w-0 flex-1 truncate" title={grp.objective}>
+                        {grp.objective}
+                      </span>
+                      <span
+                        className={cn(
+                          'shrink-0 text-[10px]',
+                          latest.passed ? 'text-green-500' : 'text-muted-foreground'
+                        )}
+                      >
+                        {grp.rows.length}
+                        {grp.rows.length === 1 ? ' eval' : ' evals'} ·{' '}
+                        {latest.passed ? 'passed' : 'not yet'}
+                      </span>
+                    </button>
+                  </Tip>
+                  {isOpen && (
+                    <div className="ml-4 space-y-0.5 pb-1">
+                      {[...grp.rows].reverse().map((r) => (
+                        <div key={r.id} className="text-[10px] text-muted-foreground selectable">
+                          <span
+                            className={cn(
+                              'font-medium',
+                              r.passed ? 'text-green-500' : 'text-amber-500'
+                            )}
+                          >
+                            #{r.iteration} {r.passed ? 'passed' : 'failed'}
+                          </span>
+                          {' · '}
+                          {timeAgo(r.createdAt)}
+                          {r.reason ? ` — ${r.reason}` : ''}
+                          {r.pausedReason ? ` — paused: ${r.pausedReason}` : ''}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {mutationError && (
+        <div className="mt-1 text-[11px] text-destructive selectable">{mutationError.message}</div>
+      )}
+    </div>
+  )
+}

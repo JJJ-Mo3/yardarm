@@ -135,13 +135,13 @@ deny inline.
     id: 'goals',
     title: 'Goals & evaluation history',
     body: `
-A **goal** gives the agent an objective to iterate on until it passes. Set one from the goal
-chip in the chat header: describe the objective (e.g. "all tests pass") and a maximum number
-of runs. The agent works, a judge model (selectable in the goal popover) evaluates the result
-against the objective, and the agent keeps iterating until it passes, pauses for your input,
-or hits the run limit.
+A **goal** gives the agent an objective to iterate on until it passes. Set one from the
+**goal button in the composer** (or \`/goal\`): describe the objective (e.g. "all tests
+pass") and a maximum number of runs. The agent works, a judge model (selectable in the goal
+panel) evaluates the result against the objective, and the agent keeps iterating until it
+passes, pauses for your input, or hits the run limit.
 
-The goal chip is color-coded by state, and the goal popover keeps an **evaluation history**:
+The goal button is color-coded by state, and the goal panel keeps an **evaluation history**:
 every past objective with its per-iteration pass/fail results and the evaluator's reasoning,
 so you can see how a goal converged.
 `
