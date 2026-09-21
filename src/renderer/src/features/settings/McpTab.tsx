@@ -24,13 +24,17 @@ type Scope = 'global' | 'project'
  * Live per-server MCP status with OAuth actions for servers that require
  * authentication. subchatId null queries the shared utility host (global
  * scope); live=false renders a hint instead (project scope without a chat).
+ * Global scope edits each server's global default; project scope sets a
+ * per-project override (enabled/disabled) or inherits the global default.
  */
 function McpStatusSection({
   subchatId,
-  live
+  live,
+  scope
 }: {
   subchatId: string | null
   live: boolean
+  scope: Scope
 }): React.JSX.Element {
   const utils = trpc.useUtils()
   const status = trpc.mcp.status.useQuery({ subchatId }, { enabled: live, refetchInterval: 5000 })
@@ -63,12 +67,23 @@ function McpStatusSection({
       {servers.length === 0 && !status.isLoading && !status.error && (
         <div className="text-[11px] text-muted-foreground">No MCP servers loaded.</div>
       )}
+      {servers.some((s) => s.globalKillSwitch) && (
+        <div className="rounded border border-amber-600/40 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-700 dark:text-amber-500">
+          All MCP servers are disabled by the global kill switch (mcp-state.json, shared with the
+          CLI). Per-server settings take effect once it is lifted.
+        </div>
+      )}
       {servers.map((s) => {
         // The SDK resolves authentication with a status instead of rejecting;
         // a user-cancelled flow carries cancelled so its error isn't alarming.
         const statusEl = s.disabled ? (
           <span className="text-muted-foreground">
-            Disabled{s.disabledScope === 'project' ? ' (project scope)' : ''}
+            Disabled
+            {s.globalKillSwitch
+              ? ' (global kill switch)'
+              : s.disabledScope === 'project'
+                ? ' (project override)'
+                : ' (global default)'}
           </span>
         ) : s.connecting ? (
           <span className="text-muted-foreground">Connecting…</span>
@@ -98,19 +113,38 @@ function McpStatusSection({
               <span className="text-[10px] text-muted-foreground">{s.transport}</span>
               <Tip
                 content={
-                  s.disabled
-                    ? 'Enable this server and reconnect it — persisted in mcp-state.json, shared with the CLI'
-                    : 'Disable this server without editing mcp.json — persisted in mcp-state.json, shared with the CLI'
+                  scope === 'project'
+                    ? 'Override this server for this project, or inherit the global default — persisted in mcp-state.json, shared with the CLI'
+                    : 'Set this server’s global default (projects can override it) — persisted in mcp-state.json, shared with the CLI'
                 }
               >
                 <span className="inline-flex">
-                  <Switch
-                    checked={!s.disabled}
-                    disabled={setEnabled.isPending}
-                    onCheckedChange={(v) =>
-                      setEnabled.mutate({ subchatId, serverName: s.name, enabled: v })
+                  <select
+                    value={
+                      scope === 'project'
+                        ? (s.projectOverride ?? 'inherit')
+                        : (s.globalDefault ?? (s.disabled ? 'disabled' : 'enabled'))
                     }
-                  />
+                    disabled={setEnabled.isPending}
+                    onChange={(e) =>
+                      setEnabled.mutate({
+                        subchatId,
+                        serverName: s.name,
+                        mode: e.target.value as 'enabled' | 'disabled' | 'inherit',
+                        global: scope === 'global' ? true : undefined
+                      })
+                    }
+                    className="rounded border border-border bg-background px-1.5 py-0.5 text-[10px]"
+                  >
+                    <option value="enabled">Enabled</option>
+                    <option value="disabled">Disabled</option>
+                    {scope === 'project' && (
+                      <option value="inherit">
+                        Inherit (
+                        {(s.globalDefault ?? 'enabled') === 'enabled' ? 'enabled' : 'disabled'})
+                      </option>
+                    )}
+                  </select>
                 </span>
               </Tip>
               {!s.disabled && s.needsAuth && !s.authenticating && (
@@ -401,7 +435,7 @@ export function McpTab(): React.JSX.Element {
             )}
           </div>
           <div className="pt-1 text-xs font-medium">Server status</div>
-          <McpStatusSection subchatId={statusSubchatId} live={live} />
+          <McpStatusSection subchatId={statusSubchatId} live={live} scope={scope} />
           {scope === 'global' && (
             <>
               {banner}

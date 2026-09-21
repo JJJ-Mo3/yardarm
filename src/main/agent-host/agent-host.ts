@@ -998,7 +998,10 @@ async function main(): Promise<void> {
     authenticating: s.authenticating,
     cancelled: s.cancelled,
     disabled: s.disabled,
-    disabledScope: s.disabledScope
+    disabledScope: s.disabledScope,
+    projectOverride: s.projectOverride,
+    globalDefault: s.globalDefault,
+    globalKillSwitch: s.globalKillSwitch
   })
 
   /** Project the SDK's StoredWorkflowRow onto the wire-safe WorkflowInfo shape. */
@@ -2333,7 +2336,13 @@ async function main(): Promise<void> {
             await respond(cmd.reqId, async () => {
               const mm = mc.mcpManager
               if (!mm) throw new Error('MCP manager unavailable')
-              return mapMcpStatus(await mm.setServerDisabled(cmd.serverName, !cmd.enabled))
+              if (cmd.mode === 'inherit')
+                return mapMcpStatus(await mm.inheritServer(cmd.serverName))
+              return mapMcpStatus(
+                await mm.setServerDisabled(cmd.serverName, cmd.mode === 'disabled', {
+                  global: cmd.global === true
+                })
+              )
             })
             break
           case 'lspDiagnostics':

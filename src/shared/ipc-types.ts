@@ -166,10 +166,18 @@ export type HostCommand =
   | { t: 'mcpReconnect'; reqId: string; serverName: string }
   /**
    * Persistently enable/disable an MCP server (SDK mcp-state.json) without
-   * editing mcp.json. Enabling reconnects; disabling closes the connection.
-   * Resolves with the server's updated McpServerStatusInfo.
+   * editing mcp.json. `mode: 'inherit'` clears this project's override so the
+   * global default applies again; `global: true` writes the global default
+   * instead of a project override. Enabling reconnects; disabling closes the
+   * connection. Resolves with the server's updated McpServerStatusInfo.
    */
-  | { t: 'mcpSetEnabled'; reqId: string; serverName: string; enabled: boolean }
+  | {
+      t: 'mcpSetEnabled'
+      reqId: string
+      serverName: string
+      mode: 'enabled' | 'disabled' | 'inherit'
+      global?: boolean
+    }
   /**
    * IDE diagnostics for one absolute file path via the SDK's LSP manager.
    * `root` bounds the LSP workspace-root walk (needed when the utility host
@@ -447,6 +455,12 @@ export interface McpServerStatusInfo {
   disabled?: boolean
   /** Where the disable flag lives: this project's entry or the global section. */
   disabledScope?: 'project' | 'global'
+  /** This project's explicit override; undefined means inheriting the global default. */
+  projectOverride?: 'enabled' | 'disabled'
+  /** The global default that applies when no project override exists. */
+  globalDefault?: 'enabled' | 'disabled'
+  /** All MCP servers are disabled by the global kill switch. */
+  globalKillSwitch?: boolean
 }
 
 /** One measured contributor to the context window (SDK ContextAuditEntry). */

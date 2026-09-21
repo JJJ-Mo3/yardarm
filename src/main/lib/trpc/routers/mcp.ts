@@ -110,12 +110,19 @@ export const mcpRouter = router({
 
   /**
    * Persistently enable/disable a server (SDK mcp-state.json) without
-   * editing mcp.json — applies to the CLI too. Enabling reconnects.
+   * editing mcp.json — applies to the CLI too. `mode: 'inherit'` clears the
+   * project override so the global default applies; `global: true` writes the
+   * global default instead. Enabling reconnects.
    */
   setEnabled: publicProcedure
-    .input(serverNameInput.extend({ enabled: z.boolean() }))
+    .input(
+      serverNameInput.extend({
+        mode: z.enum(['enabled', 'disabled', 'inherit']),
+        global: z.boolean().optional()
+      })
+    )
     .mutation(({ input }) =>
-      agentSessionManager.mcpSetEnabled(input.subchatId, input.serverName, input.enabled)
+      agentSessionManager.mcpSetEnabled(input.subchatId, input.serverName, input.mode, input.global)
     ),
 
   /** Auth URLs of in-flight MCP OAuth flows (fallback link — main already opened the browser). */

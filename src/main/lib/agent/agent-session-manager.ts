@@ -2410,17 +2410,22 @@ export class AgentSessionManager {
     )
   }
 
-  /** Persistently enable/disable an MCP server (SDK mcp-state.json, no mcp.json edit). */
+  /**
+   * Persistently enable/disable an MCP server (SDK mcp-state.json, no mcp.json
+   * edit). `mode: 'inherit'` clears the project override; `global: true`
+   * writes the global default instead of a project override.
+   */
   async mcpSetEnabled(
     subchatId: string | null,
     serverName: string,
-    enabled: boolean
+    mode: 'enabled' | 'disabled' | 'inherit',
+    global?: boolean
   ): Promise<McpServerStatusInfo> {
     const handle = subchatId ? await this.ensureHost(subchatId) : await this.ensureUtilityHost()
     // Enabling reconnects the server, which can involve slow remote endpoints.
     return this.request<McpServerStatusInfo>(
       handle,
-      { t: 'mcpSetEnabled', reqId: randomUUID(), serverName, enabled },
+      { t: 'mcpSetEnabled', reqId: randomUUID(), serverName, mode, global },
       60_000
     )
   }
