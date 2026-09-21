@@ -66,6 +66,10 @@ export interface MastraPreferencesSettings {
   thinkingLevel?: 'off' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
   quietMode?: boolean
   quietModeMaxToolPreviewLines?: number
+  /** Opt-in for the SDK's built-in explore/plan/execute subagents (default off, matching the CLI). */
+  subagentsEnabled?: boolean
+  /** Web-search tool provider; 'auto' (default) picks the first configured. */
+  webSearchProvider?: 'auto' | 'tavily' | 'parallel'
   [key: string]: unknown
 }
 
@@ -155,6 +159,13 @@ export interface MastraObservabilitySettings {
 }
 
 export interface MastraSettings {
+  /**
+   * LSP-backed edit tools (string_replace_lsp / lsp_inspect). Opt-in since
+   * mastracode 0.36: `true` enables with defaults, an object passes LSPConfig
+   * through, `false`/absent disables. Yardarm seeds `true` at startup when
+   * the key is missing (see seedLspEnabled) so agents keep their LSP tools.
+   */
+  lsp?: boolean | Record<string, unknown>
   models?: MastraModelsSettings
   preferences?: MastraPreferencesSettings
   customProviders?: CustomProviderSetting[]

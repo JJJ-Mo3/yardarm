@@ -99,6 +99,17 @@ No accounts or login — everything runs locally against mastracode's own config
   `apiKeyEnvVar` names against the new SDK's provider registry →
   `pnpm package` restages `vendor/` → packaged boot-check + a real agent turn.
   Dev typecheck alone does not prove the packaged runtime (npm-staged vs pnpm dev trees).
+- Agent LSP tools (string_replace_lsp / lsp_inspect) are opt-in since mastracode 0.36: the
+  SDK's workspace factory reads settings.json `lsp` and skips LSP entirely when falsy.
+  `seedLspEnabled()` (settings-json.ts, called from `src/main/index.ts` before preflight)
+  seeds `lsp: true` when the key is absent; an explicit user `false` is respected.
+- The SDK ships built-in explore/plan/execute subagents that a `subagents` array REPLACES
+  (`undefined` enables them, `[]` disables). Yardarm mirrors the CLI's
+  `preferences.subagentsEnabled` opt-in via `HostBootConfig.nativeSubagents`; custom
+  definitions from `.mastracode/agents` always win.
+- Agent-made commits carry a `Co-Authored-By` trailer by unconditional SDK prompt guidance;
+  the default identity is `mastra-platform[bot]` unless `createMastraCode({ coAuthor })` is
+  passed (the CLI passes `{ name: 'mastracode' }`).
 - LSP pack pins live in `src/shared/lsp-packs.ts` and must match the exact devDependencies
   pins (vitest tripwire in `src/shared/lsp-packs.test.ts`); `scripts/build-lsp-packs.mjs`
   builds the per-pack release zips; the 4 pack packages must never be re-added to

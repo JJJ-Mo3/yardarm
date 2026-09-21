@@ -71,6 +71,20 @@ export function updateSettings(mutate: (s: MastraSettings) => void): Promise<Mas
   return task
 }
 
+/**
+ * LSP-backed edit tools became opt-in in mastracode 0.36 (the SDK's workspace
+ * factory reads settings.json `lsp` and skips LSP entirely when it's falsy).
+ * Seed `lsp: true` once when the key is absent so agents keep their
+ * string_replace_lsp / lsp_inspect tools; an explicit user `false` is kept.
+ */
+export async function seedLspEnabled(): Promise<void> {
+  const current = await readSettings()
+  if (current.lsp !== undefined) return
+  await updateSettings((s) => {
+    if (s.lsp === undefined) s.lsp = true
+  })
+}
+
 function models(s: MastraSettings): NonNullable<MastraSettings['models']> {
   if (!s.models) s.models = {}
   return s.models

@@ -24,6 +24,13 @@ function extract(err: unknown, depth: number): string | null {
     return text.length > 0 ? text : null
   }
   const obj = err as Record<string, unknown>
+  // SDK 1.4.0+ signals missing/expired provider credentials with a dedicated
+  // error whose name survives the server's {name, message} wire flatten —
+  // make it actionable instead of surfacing the bare message.
+  if (obj.name === 'ProviderAuthRequiredError') {
+    const detail = typeof obj.message === 'string' ? fromString(obj.message, depth) : null
+    return `${detail ?? 'Provider authentication required'} — log in again in Settings → Providers.`
+  }
   if (typeof obj.message === 'string') {
     const message = fromString(obj.message, depth)
     if (message) return message

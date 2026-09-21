@@ -606,6 +606,12 @@ export interface HostBootConfig {
   compression?: { enabled: boolean; verbosity: boolean }
   /** Custom subagent definitions (global + project .mastracode/agents). */
   subagents?: SubagentDefinition[]
+  /**
+   * Enable the SDK's built-in explore/plan/execute subagents when no custom
+   * definitions exist (mirrors the CLI's preferences.subagentsEnabled gate;
+   * the SDK enables natives by default, so omitting/false passes [] instead).
+   */
+  nativeSubagents?: boolean
   /** Tool names removed from the agent's tool set before exposure to the model. */
   disabledTools?: string[]
   /**

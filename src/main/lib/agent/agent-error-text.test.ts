@@ -57,6 +57,15 @@ describe('describeAgentError', () => {
     expect(describeAgentError({ code: 404 })).toBe('404')
   })
 
+  it('makes ProviderAuthRequiredError actionable', () => {
+    expect(
+      describeAgentError({ name: 'ProviderAuthRequiredError', message: 'anthropic auth expired' })
+    ).toBe('anthropic auth expired — log in again in Settings → Providers.')
+    expect(describeAgentError({ name: 'ProviderAuthRequiredError' })).toBe(
+      'Provider authentication required — log in again in Settings → Providers.'
+    )
+  })
+
   it('ignores a bare generic Error name', () => {
     expect(describeAgentError({ name: 'Error' })).toBe('Unknown agent error')
   })

@@ -434,14 +434,12 @@ export class AgentSessionManager {
     if (!project) throw new Error(`Project not found: ${chat.projectId}`)
 
     const cwd = chat.worktreePath ?? project.path
+    const settings = await readSettings()
     // Stored ids may predate catalog-id normalization (gateway-prefixed custom
     // provider ids the SDK can't resolve) — normalize before handing to the host.
     // The resulting model_changed event persists the normalized id back.
     const modelId = subchat.modelId
-      ? normalizeCustomProviderModelId(
-          subchat.modelId,
-          (await readSettings()).customProviders ?? []
-        )
+      ? normalizeCustomProviderModelId(subchat.modelId, settings.customProviders ?? [])
       : undefined
     // Custom subagents are read from the project root (where the Agents
     // editor writes .mastracode/agents), not the worktree cwd — unlike
@@ -458,6 +456,9 @@ export class AgentSessionManager {
       sandbox: { enabled: subchat.fullSandbox, allowNetwork: subchat.sandboxNetwork },
       compression: this.compressionSettings(),
       subagents,
+      // The SDK enables its built-in explore/plan/execute subagents by
+      // default; mirror the CLI's opt-in gate (preferences.subagentsEnabled).
+      nativeSubagents: settings.preferences?.subagentsEnabled === true,
       disabledTools: this.getDisabledTools()
     }
 

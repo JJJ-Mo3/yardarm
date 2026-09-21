@@ -814,9 +814,10 @@ async function main(): Promise<void> {
 
   let mc: Awaited<ReturnType<typeof sdk.createMastraCode>>
   try {
-    // NOTE: sdk 1.0.1 ships no built-in subagents, so passing our custom
-    // definitions REPLACES nothing — but revisit at the next runtime bump in
-    // case the SDK grows defaults that a plain array would clobber.
+    // The SDK ships built-in explore/plan/execute subagents that a `subagents`
+    // array REPLACES (undefined enables them, [] disables). Custom definitions
+    // win; otherwise mirror the CLI's preferences.subagentsEnabled opt-in gate
+    // (boot.nativeSubagents) so natives stay off unless the user asked.
     type SdkSubagents = NonNullable<Parameters<typeof sdk.createMastraCode>[0]>['subagents']
     mc = await sdk.createMastraCode({
       cwd: boot.cwd,
@@ -829,7 +830,11 @@ async function main(): Promise<void> {
       // concurrent sends instead. The SDK self-disables this on win32.
       unixSocketPubSub: true,
       initialState: Object.keys(initialState).length ? (initialState as never) : undefined,
-      subagents: boot.subagents?.length ? (boot.subagents as SdkSubagents) : undefined,
+      subagents: boot.subagents?.length
+        ? (boot.subagents as SdkSubagents)
+        : boot.nativeSubagents
+          ? undefined
+          : [],
       disabledTools: boot.disabledTools?.length ? boot.disabledTools : undefined,
       inputProcessors: [compression.processor as never],
       extraTools: { [RETRIEVAL_TOOL_NAME]: retrievalToolInstance as never }

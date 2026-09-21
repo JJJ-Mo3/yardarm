@@ -4,6 +4,7 @@ import { initDb, closeDb, maintainDb } from './lib/db'
 import { appRouter } from './lib/trpc/routers'
 import { agentSessionManager } from './lib/agent/agent-session-manager'
 import { normalizeModelIdsInSettings } from './lib/mastra-config/normalize-model-ids'
+import { seedLspEnabled } from './lib/mastra-config/settings-json'
 import { ptyManager } from './lib/terminal/pty-manager'
 import { createWindow, setIpcHandler } from './windows/window-manager'
 import { updateManager } from './lib/updates/update-manager'
@@ -50,11 +51,14 @@ app.whenReady().then(() => {
 
   // Capture the login-shell PATH (packaged apps launch with the bare launchd
   // one), heal gateway-prefixed model ids saved before catalog normalization,
-  // then warm up + verify the bundled mastracode runtime (hosts read
-  // settings.json at boot and inherit the captured PATH, so both run before
-  // the first host spawns); renderer preflight queries reuse the booted host.
+  // seed the (0.36+ opt-in) LSP tools flag, then warm up + verify the bundled
+  // mastracode runtime (hosts read settings.json at boot and inherit the
+  // captured PATH, so these run before the first host spawns); renderer
+  // preflight queries reuse the booted host.
   warmLoginPath()
     .then(() => normalizeModelIdsInSettings())
+    .catch(() => {})
+    .then(() => seedLspEnabled())
     .catch(() => {})
     .then(() => agentSessionManager.preflight())
     .then((res) => {
