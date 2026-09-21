@@ -42,6 +42,7 @@ import { createUpsertThrottle } from './upsert-throttle'
 import type {
   AgentControllerEventLike,
   AuthEntry,
+  ContextUsageInfo,
   FileAttachment,
   GoalInfo,
   HostBootConfig,
@@ -1809,6 +1810,12 @@ export class AgentSessionManager {
   async stateSet(subchatId: string, patch: SessionStatePatch): Promise<SessionStateInfo> {
     const handle = await this.ensureHost(subchatId)
     return this.request<SessionStateInfo>(handle, { t: 'stateSet', reqId: randomUUID(), patch })
+  }
+
+  /** Context-window usage audit for the /context popover. */
+  async contextUsage(subchatId: string): Promise<ContextUsageInfo> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<ContextUsageInfo>(handle, { t: 'contextUsage', reqId: randomUUID() })
   }
 
   /** User-invocable workspace skills (SKILL.md) for the subchat's cwd. */

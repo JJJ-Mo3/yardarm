@@ -1069,6 +1069,106 @@ async function main(): Promise<void> {
     return rc
   }
 
+  // Latest request's prompt-token count, tracked from raw usage_update
+  // events — sizes the conversation share of the /context audit.
+  let latestPromptTokens: number | undefined
+
+  /**
+   * Build the /context usage audit, mirroring the CLI's handler: dynamic
+   * instruction sections read the live session through a minimal
+   * RequestContext shim, the skills catalog and MCP tool definitions are
+   * rebuilt from the workspace, and the conversation share comes from the
+   * latest request's prompt tokens plus observation-memory progress.
+   */
+  const collectContextUsage = async (): Promise<unknown> => {
+    const { getDynamicInstructionSections } = await runtimeImport<{
+      getDynamicInstructionSections: (opts: { requestContext: unknown }) => Promise<unknown[]>
+    }>('@mastra/code-sdk/agents/instructions')
+    const { buildContextAudit } = await runtimeImport<{
+      buildContextAudit: (input: Record<string, unknown>) => unknown
+    }>('@mastra/code-sdk/agents/context-audit')
+    // getDynamicInstructionSections only reads live state and the session's
+    // mode/model through requestContext.get('controller') — supplying that
+    // shape directly audits the session as it is now, without a request.
+    const requestContext = {
+      get: (key: string) =>
+        key === 'controller'
+          ? {
+              getState: () => session.state.get(),
+              session: { modeId: session.mode.get(), modelId: session.model.get() }
+            }
+          : undefined
+    }
+    const instructionSections = await getDynamicInstructionSections({ requestContext })
+    // Skills catalog, rebuilt exactly as the skills processor injects it
+    // (the `${path}/SKILL.md` location matches the processor default).
+    let skillsCatalog: string | undefined
+    try {
+      const workspace = await controller.resolveWorkspace({ session: session as never })
+      const skillsApi = workspace?.skills as
+        | {
+            list: () => Promise<{ path: string }[]>
+            get: (name: string) => Promise<unknown>
+          }
+        | undefined
+      const listed = skillsApi ? await skillsApi.list() : []
+      if (skillsApi && listed.length > 0) {
+        const skills = (await Promise.all(listed.map((meta) => skillsApi.get(meta.path)))).filter(
+          (
+            s
+          ): s is { name: string; description?: string; path: string; source: { type: string } } =>
+            !!s
+        )
+        const { formatSkillsCatalog } = await runtimeImport<{
+          formatSkillsCatalog: (skills: unknown[]) => string
+        }>('@mastra/core/processors')
+        skillsCatalog = formatSkillsCatalog(
+          Array.from(new Map(skills.map((s) => [s.path, s])).values()).map((s) => ({
+            name: s.name,
+            description: s.description,
+            location: `${s.path}/SKILL.md`,
+            source: s.source.type
+          }))
+        )
+      }
+    } catch {}
+    // MCP tool definitions, attributed to the server that provides each one.
+    const mcpTools: Record<string, unknown>[] = []
+    try {
+      const mm = mc.mcpManager
+      if (mm) {
+        const tools = mm.getTools() as Record<
+          string,
+          { description?: unknown; inputSchema?: unknown; parameters?: unknown } | undefined
+        >
+        const serverByTool = new Map<string, string>()
+        for (const status of mm.getServerStatuses()) {
+          for (const toolName of status.toolNames) serverByTool.set(toolName, status.name)
+        }
+        for (const [name, tool] of Object.entries(tools)) {
+          mcpTools.push({
+            name,
+            description: typeof tool?.description === 'string' ? tool.description : undefined,
+            parameters: tool?.inputSchema ?? tool?.parameters,
+            server: serverByTool.get(name) ?? 'mcp'
+          })
+        }
+      }
+    } catch {}
+    const ds = session.displayState.get() as unknown as {
+      omProgress?: { observationTokens?: number }
+    }
+    const audit = buildContextAudit({
+      instructionSections,
+      skillsCatalog,
+      tools: mcpTools,
+      conversation: { promptTokens: latestPromptTokens },
+      injectedObservations: { tokens: ds?.omProgress?.observationTokens ?? 0 }
+    })
+    // The audit is plain data; round-trip through JSON to guarantee it.
+    return JSON.parse(JSON.stringify(audit))
+  }
+
   // Surface the SDK's background GitHub-plugin update poll so the UI can
   // tell the user their installed plugins changed. Best-effort.
   try {
@@ -1111,6 +1211,10 @@ async function main(): Promise<void> {
   session.subscribe((event) => {
     const raw = event as { type?: unknown; toolCallId?: unknown }
     stallTracker.noteEvent(String(raw.type ?? ''), raw.toolCallId)
+    if (raw.type === 'usage_update') {
+      const usage = (event as { usage?: { promptTokens?: number } }).usage
+      if (typeof usage?.promptTokens === 'number') latestPromptTokens = usage.promptTokens
+    }
     // The display_state_changed firehose is large and derivable; skip it.
     if ((event as { type: string }).type === 'display_state_changed') return
     const ev = sanitizeEvent(event as unknown as Record<string, unknown>)
@@ -1857,6 +1961,9 @@ async function main(): Promise<void> {
               await session.state.set(patch as never)
               return stateInfo()
             })
+            break
+          case 'contextUsage':
+            await respond(cmd.reqId, () => collectContextUsage())
             break
           case 'listSkills':
             await respond(cmd.reqId, async () => {

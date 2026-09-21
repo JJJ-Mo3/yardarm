@@ -26,6 +26,7 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
   { name: 'mode', description: 'Switch agent mode', args: '<build|plan|fast>', kind: 'builtin' },
   { name: 'model', description: 'Switch model', args: '<model-id>', kind: 'builtin' },
   { name: 'models', description: 'Pick a model', kind: 'builtin' },
+  { name: 'packs', description: 'Alias for /models — pick a model', kind: 'builtin' },
   {
     name: 'think',
     description: 'Set thinking level',
@@ -57,6 +58,8 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
   { name: 'name', description: 'Rename the current thread', args: '<title>', kind: 'builtin' },
   { name: 'clone', description: 'Clone the current thread', kind: 'builtin' },
   { name: 'cost', description: 'Show token usage', kind: 'builtin' },
+  { name: 'context', description: 'Audit what is using the context window', kind: 'builtin' },
+  { name: 'ctx', description: 'Alias for /context', kind: 'builtin' },
   { name: 'diff', description: 'Open the Changes view', kind: 'builtin' },
   {
     name: 'review',
@@ -70,6 +73,7 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
   { name: 'api-keys', description: 'Manage provider API keys', kind: 'builtin' },
   { name: 'login', description: 'Log in to a model provider', kind: 'builtin' },
   { name: 'logout', description: 'Log out of a model provider', kind: 'builtin' },
+  { name: 'connect', description: 'Connect a provider account or API key', kind: 'builtin' },
   { name: 'custom-providers', description: 'Manage custom providers', kind: 'builtin' },
   { name: 'setup', description: 'Re-run the setup wizard', kind: 'builtin' },
   { name: 'update', description: 'Check for app updates', kind: 'builtin' },
@@ -92,6 +96,18 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
  */
 export const CLI_ONLY_COMMANDS: SlashCommandEntry[] = [
   { name: 'thread:tag-dir', description: 'Tag threads by directory', kind: 'cli-only' },
+  {
+    name: 'profile',
+    description: 'Control process memory diagnostics',
+    kind: 'cli-only',
+    hint: 'Process memory profiling only exists in the mastracode CLI (`/profile` in a terminal).'
+  },
+  {
+    name: 'knowledge',
+    description: 'Browse scoped Subconscious knowledge',
+    kind: 'cli-only',
+    hint: 'Subconscious knowledge browsing only exists in the mastracode CLI (`/knowledge` in a terminal).'
+  },
   {
     name: 'voice',
     description: 'Voice input',

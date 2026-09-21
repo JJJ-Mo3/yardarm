@@ -417,6 +417,13 @@ export const agentRouter = router({
     return agentSessionManager.stateGet(input.subchatId)
   }),
 
+  /** Context-window usage audit for the /context popover. */
+  contextUsage: publicProcedure
+    .input(z.object({ subchatId: z.string() }))
+    .query(async ({ input }) => {
+      return agentSessionManager.contextUsage(input.subchatId)
+    }),
+
   stateSet: publicProcedure
     .input(
       z.object({

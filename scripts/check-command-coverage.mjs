@@ -10,24 +10,26 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// Canonical command list from code.mastra.ai (TUI slash commands).
+// Canonical command list from code.mastra.ai (TUI slash commands, v0.40).
+// `/commands` was removed upstream but stays a Yardarm builtin (custom .md
+// command management); `plan`/`build`/`fast`/`skill` are Yardarm conveniences.
 // prettier-ignore
 const CANONICAL = [
   // modes & models
-  'plan', 'build', 'fast', 'mode', 'model', 'models', 'think',
+  'plan', 'build', 'fast', 'mode', 'model', 'models', 'packs', 'think',
   // approvals & permissions
   'yolo', 'permissions',
   // goals & memory
-  'goal', 'om', 'memory', 'resource',
+  'goal', 'om', 'memory', 'resource', 'knowledge',
   // threads
   'new', 'threads', 'thread', 'name', 'clone', 'thread:tag-dir',
   // usage & git
-  'cost', 'diff', 'prune',
+  'cost', 'context', 'ctx', 'diff', 'prune', 'profile',
   // config & extensions
   'settings', 'theme', 'mcp', 'hooks', 'commands', 'skills', 'skill',
   'subagents', 'plugins', 'workflows', 'custom-providers',
   // auth
-  'login', 'logout', 'api-keys',
+  'login', 'logout', 'connect', 'api-keys',
   // integrations (TUI-only)
   'sandbox', 'review', 'github', 'observability', 'voice', 'browser',
   // meta

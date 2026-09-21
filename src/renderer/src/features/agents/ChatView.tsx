@@ -38,6 +38,7 @@ import { PromptInput } from './PromptInput'
 import { QueuedPrompts } from './QueuedPrompts'
 import { HelpDialog } from './HelpDialog'
 import { CostPopover } from './CostPopover'
+import { ContextPopover } from './ContextPopover'
 import { ThreadsPopover } from './ThreadsPopover'
 import { PermissionsDialog } from './PermissionsDialog'
 import { SandboxDialog } from './SandboxDialog'
@@ -227,6 +228,7 @@ export function ChatView({
   const setForceOnboarding = useSetAtom(onboardingForceOpenAtom)
   const updatesCheck = trpc.updates.check.useMutation()
   const [costOpen, setCostOpen] = useState(false)
+  const [contextOpen, setContextOpen] = useState(false)
   const [threadsOpen, setThreadsOpen] = useAtom(threadsOpenAtom)
   const [permissionsOpen, setPermissionsOpen] = useState(false)
   const [sandboxOpen, setSandboxOpen] = useState(false)
@@ -361,7 +363,8 @@ export function ChatView({
         changeMode(args as Mode)
         return
       case 'model':
-      case 'models': {
+      case 'models':
+      case 'packs': {
         if (!args) return 'Pick a model from the header dropdown, or use /model <model-id>.'
         const match = (models.data ?? []).find((m) => m.id === args)
         if (!match) return `Unknown model: ${args}. See the header dropdown for available ids.`
@@ -395,6 +398,10 @@ export function ChatView({
         return
       case 'cost':
         setCostOpen(true)
+        return
+      case 'context':
+      case 'ctx':
+        setContextOpen(true)
         return
       case 'diff':
         setMainTab('changes')
@@ -431,7 +438,8 @@ export function ChatView({
         return
       case 'login':
       case 'logout':
-        // OAuth logins live on the Providers tab.
+      case 'connect':
+        // OAuth logins and API keys live on the Providers tab.
         openSettings('providers')
         return
       case 'custom-providers':
@@ -720,6 +728,7 @@ export function ChatView({
           open={omOpen}
           onOpenChange={setOmOpen}
         />
+        <ContextPopover subchatId={subchatId} open={contextOpen} onOpenChange={setContextOpen} />
         <CostPopover
           subchatId={subchatId}
           usage={state.usage}

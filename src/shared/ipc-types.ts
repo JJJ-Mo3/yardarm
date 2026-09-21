@@ -117,6 +117,8 @@ export type HostCommand =
   /** Read session-state keys (notifications, smartEditing, sandboxAllowedPaths). */
   | { t: 'stateGet'; reqId: string }
   | { t: 'stateSet'; reqId: string; patch: SessionStatePatch }
+  /** Context-window usage audit (/context) — responds with ContextUsageInfo. */
+  | { t: 'contextUsage'; reqId: string }
   | { t: 'listSkills'; reqId: string }
   /** Activate a workspace skill: returns the display text + expanded content. */
   | { t: 'runSkill'; reqId: string; name: string; args: string }
@@ -445,6 +447,41 @@ export interface McpServerStatusInfo {
   disabled?: boolean
   /** Where the disable flag lives: this project's entry or the global section. */
   disabledScope?: 'project' | 'global'
+}
+
+/** One measured contributor to the context window (SDK ContextAuditEntry). */
+export interface ContextUsageEntry {
+  id: string
+  label: string
+  /** Provenance: file path, server name, model id — whatever identifies the source. */
+  detail?: string
+  tokens: number
+  /** Share of the audit total, 0-100. */
+  percent: number
+}
+
+/** A category of contributors, e.g. all MCP tool definitions. */
+export interface ContextUsageGroup {
+  id: string
+  label: string
+  tokens: number
+  percent: number
+  entries: ContextUsageEntry[]
+  /** Shown alongside the group when its numbers need qualifying. */
+  note?: string
+}
+
+/**
+ * Wire-safe projection of the SDK's ContextAudit (/context report). Token
+ * counts are heuristic estimates; percentages are shares of the audited
+ * total, not of the model's context window.
+ */
+export interface ContextUsageInfo {
+  /** Context present before the first message: instructions, skills, tools. */
+  startup: { tokens: number; percent: number; groups: ContextUsageGroup[] }
+  /** Context accumulated by the session: conversation and observation memory. */
+  accumulated: { tokens: number; percent: number; groups: ContextUsageGroup[] }
+  totalTokens: number
 }
 
 /** One IDE diagnostic. Positions are 1-based (Monaco marker convention). */
