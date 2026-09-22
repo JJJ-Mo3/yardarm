@@ -10,6 +10,7 @@ import {
   classifyAttachment,
   type ComposerAttachment
 } from './attachments'
+import { clearDraft, loadDraft, saveDraft } from './drafts'
 import { STATUS_CHIP } from './GoalPanel'
 import type { SlashCommandEntry } from './slash-commands'
 import { formatElapsed, micReleaseAction, useVoiceRecorder } from './use-voice-recorder'
@@ -42,6 +43,7 @@ export function PromptInput({
   onSend,
   onAbort,
   onSlashCommand,
+  draftKey,
   prefill,
   onPrefillConsumed,
   goalStatus,
@@ -56,6 +58,8 @@ export function PromptInput({
   onAbort: () => void
   /** Handle a slash command; return a string to show as an inline hint. */
   onSlashCommand: (entry: SlashCommandEntry, args: string) => string | void
+  /** Persist unsent text as a draft under this key (usually the subchatId). */
+  draftKey?: string
   /** One-shot text to place in the input (e.g. a rolled-back message). */
   prefill?: string | null
   onPrefillConsumed?: () => void
@@ -100,6 +104,23 @@ export function PromptInput({
   const slashMatches = slashActive
     ? commands.filter((c) => c.name.startsWith(slashQuery)).slice(0, 12)
     : []
+
+  // Restore the draft when the composer (re)binds to a subchat, and flush the
+  // current text synchronously when it unbinds so nothing is lost on switch.
+  const valueRef = useRef(value)
+  valueRef.current = value
+  useEffect(() => {
+    if (!draftKey) return
+    setValue(loadDraft(draftKey) ?? '')
+    return () => saveDraft(draftKey, valueRef.current)
+  }, [draftKey])
+
+  // Debounced draft save while typing.
+  useEffect(() => {
+    if (!draftKey) return
+    const t = setTimeout(() => saveDraft(draftKey, value), 300)
+    return () => clearTimeout(t)
+  }, [draftKey, value])
 
   useEffect(() => {
     if (typeof prefill === 'string') {
@@ -204,6 +225,7 @@ export function PromptInput({
     const result = onSlashCommand(entry, args)
     setHint(typeof result === 'string' ? result : null)
     setValue('')
+    if (draftKey) clearDraft(draftKey)
   }
 
   /** Complete to `/name ` when the command takes args, else run it. */
@@ -257,6 +279,7 @@ export function PromptInput({
     setAttachments([])
     setHint(null)
     setMentionQuery(null)
+    if (draftKey) clearDraft(draftKey)
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>): void {

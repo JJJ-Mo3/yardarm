@@ -955,6 +955,7 @@ export function ChatView({
         }}
         onAbort={() => abort.mutate({ subchatId })}
         onSlashCommand={handleSlashCommand}
+        draftKey={subchatId}
         prefill={prefill}
         onPrefillConsumed={() => setPrefill(null)}
         goalStatus={goalQuery.data?.status ?? null}
