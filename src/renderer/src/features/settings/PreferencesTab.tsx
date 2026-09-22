@@ -9,6 +9,7 @@ import { useRestartBanner } from './restart-banner'
 
 const THEMES = ['auto', 'dark', 'light'] as const
 const THINKING_LEVELS = ['off', 'low', 'medium', 'high', 'xhigh', 'max'] as const
+const WEB_SEARCH_PROVIDERS = ['auto', 'tavily', 'parallel'] as const
 
 /**
  * Globally disable individual agent tools (SDK `disabledTools`). Edits are
@@ -218,6 +219,27 @@ export function PreferencesTab(): React.JSX.Element {
             className="h-7 rounded-md border border-border bg-background px-2 text-[11px]"
           >
             {THINKING_LEVELS.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </Tip>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <span className="w-28 text-[11px] text-muted-foreground">Web search</span>
+        <Tip content="Provider for the agent's web_search tool — auto picks the first configured key (Tavily, then Parallel); an explicit choice is honored only while its key is set. Keys go in API Keys → Environment variables (TAVILY_API_KEY / PARALLEL_API_KEY)">
+          <select
+            value={p.webSearchProvider ?? 'auto'}
+            onChange={(e) =>
+              setPreferences.mutate({
+                webSearchProvider: e.target.value as (typeof WEB_SEARCH_PROVIDERS)[number]
+              })
+            }
+            className="h-7 rounded-md border border-border bg-background px-2 text-[11px]"
+          >
+            {WEB_SEARCH_PROVIDERS.map((t) => (
               <option key={t} value={t}>
                 {t}
               </option>

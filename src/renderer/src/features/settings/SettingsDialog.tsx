@@ -55,6 +55,10 @@ const PROVIDERS = [
   'deepgram'
 ]
 
+// tavily/parallel (web search) read env vars directly — a stored key would be
+// silently ignored, so they appear only in the environment-variable select.
+const ENV_PROVIDERS = [...PROVIDERS, 'tavily', 'parallel']
+
 function AppearanceTab(): React.JSX.Element {
   const [theme, setTheme] = useAtom(themeAtom)
   const [debug, setDebug] = useAtom(debugEventsAtom)
@@ -253,7 +257,7 @@ export function KeysTab(): React.JSX.Element {
             onChange={(e) => setEnvProvider(e.target.value)}
             className="h-8 rounded-md border border-border bg-background px-2 text-xs"
           >
-            {PROVIDERS.map((p) => (
+            {ENV_PROVIDERS.map((p) => (
               <option key={p} value={p}>
                 {p}
               </option>

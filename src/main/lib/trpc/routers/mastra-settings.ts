@@ -91,7 +91,8 @@ export const mastraSettingsRouter = router({
         theme: z.enum(['auto', 'dark', 'light']).optional(),
         thinkingLevel: z.enum(['off', 'low', 'medium', 'high', 'xhigh', 'max']).optional(),
         quietMode: z.boolean().optional(),
-        quietModeMaxToolPreviewLines: z.number().int().min(0).optional()
+        quietModeMaxToolPreviewLines: z.number().int().min(0).optional(),
+        webSearchProvider: z.enum(['auto', 'tavily', 'parallel']).optional()
       })
     )
     .mutation(async ({ input }) => {

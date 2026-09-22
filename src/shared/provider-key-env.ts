@@ -32,7 +32,9 @@ export const ENV_VAR_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
  * Names verified against the SDK's PROVIDER_REGISTRY (@mastra/core llm) —
  * arrays there resolve to their first entry, hence google → GOOGLE_API_KEY.
  * deepgram is STT-only (absent from the registry); its name matches the CLI's
- * STT map. Re-verify on runtime bumps (see AGENTS.md).
+ * STT map. tavily/parallel are web-search-only (also absent) — the SDK's web
+ * tools read those env vars directly. Re-verify on runtime bumps (see
+ * AGENTS.md).
  */
 export const SEED_PROVIDER_ENV_VARS: Record<string, string> = {
   anthropic: 'ANTHROPIC_API_KEY',
@@ -48,7 +50,9 @@ export const SEED_PROVIDER_ENV_VARS: Record<string, string> = {
   togetherai: 'TOGETHER_API_KEY',
   cerebras: 'CEREBRAS_API_KEY',
   huggingface: 'HF_TOKEN',
-  deepgram: 'DEEPGRAM_API_KEY'
+  deepgram: 'DEEPGRAM_API_KEY',
+  tavily: 'TAVILY_API_KEY',
+  parallel: 'PARALLEL_API_KEY'
 }
 
 /** The provider's standard key var: seed entry, else UPPER_SNAKE + _API_KEY. */

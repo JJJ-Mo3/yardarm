@@ -188,6 +188,7 @@ export interface PreferencesPatch {
   thinkingLevel?: 'off' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
   quietMode?: boolean
   quietModeMaxToolPreviewLines?: number
+  webSearchProvider?: 'auto' | 'tavily' | 'parallel'
 }
 
 export interface VoiceSettingsPatch {
