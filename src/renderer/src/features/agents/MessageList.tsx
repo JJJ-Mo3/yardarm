@@ -305,7 +305,9 @@ export function MessageList({
   onFork,
   resetKey,
   suspensions,
-  onRespondSuspension
+  onRespondSuspension,
+  searchActive,
+  scrollRef
 }: {
   messages: StoredMessage[]
   running: boolean
@@ -313,6 +315,10 @@ export function MessageList({
   onFork?: (messageId: string) => void
   /** Changes when the transcript identity changes (e.g. subchat switch). */
   resetKey?: string
+  /** In-chat search is open: render the full transcript so every message is searchable. */
+  searchActive?: boolean
+  /** Receives the scroll container element (the search overlay walks its text nodes). */
+  scrollRef?: React.RefObject<HTMLDivElement | null>
 } & SuspensionProps): React.JSX.Element {
   const bottomRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -375,12 +381,16 @@ export function MessageList({
     }
   }, [messages, running])
 
-  const visible = messages.length > visibleCount ? messages.slice(-visibleCount) : messages
+  const visible =
+    !searchActive && messages.length > visibleCount ? messages.slice(-visibleCount) : messages
   const earlierCount = messages.length - visible.length
 
   return (
     <div
-      ref={containerRef}
+      ref={(el) => {
+        containerRef.current = el
+        if (scrollRef) scrollRef.current = el
+      }}
       onScroll={() => {
         const el = containerRef.current
         if (!el) return

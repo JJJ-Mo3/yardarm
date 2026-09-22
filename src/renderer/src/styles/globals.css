@@ -198,3 +198,13 @@ body {
   border: 1px solid var(--border);
   padding: 4px 8px;
 }
+
+/* In-chat search (Cmd+F): CSS Custom Highlight API pseudo-elements — no DOM
+   mutation, so React-managed markdown stays untouched. */
+::highlight(cz-search) {
+  background-color: rgb(250 204 21 / 0.35);
+}
+::highlight(cz-search-active) {
+  background-color: rgb(249 115 22 / 0.7);
+  color: #0a0a0a;
+}

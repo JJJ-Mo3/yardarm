@@ -31,6 +31,7 @@ import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { useAgentStream } from './use-agent-stream'
 import { MessageList, INTERACTIVE_TOOLS } from './MessageList'
+import { ChatSearchBar } from './ChatSearchBar'
 import { ApprovalCard } from './ApprovalCard'
 import { AskUserCard } from './AskUserCard'
 import { PlanApprovalCard } from './PlanApprovalCard'
@@ -245,6 +246,27 @@ export function ChatView({
   const [pruneOpen, setPruneOpen] = useState(false)
   // Details side panel (primary pane only — the split pane stays compact).
   const [detailsOpen, setDetailsOpen] = useAtom(detailsOpenAtom)
+
+  // In-chat search (Cmd+F). Window-level listener, gated on the primary pane
+  // and on the transcript actually being visible (tabs stay mounted hidden),
+  // so terminal search and the split pane stay independent.
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchSeq, setSearchSeq] = useState(0)
+  const transcriptRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!primary) return
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return
+      if (e.key.toLowerCase() !== 'f' || e.defaultPrevented) return
+      if (!transcriptRef.current || transcriptRef.current.offsetParent === null) return
+      e.preventDefault()
+      setSearchOpen(true)
+      setSearchSeq((s) => s + 1)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [primary])
+  useEffect(() => setSearchOpen(false), [subchatId])
 
   const meta = state.meta
   const busy = send.isPending
@@ -798,15 +820,27 @@ export function ChatView({
 
         <TaskChecklist key={subchatId} tasks={state.tasks} running={state.running} />
 
-        <MessageList
-          messages={state.messages}
-          running={state.running}
-          onRollback={handleRollback}
-          onFork={handleFork}
-          resetKey={subchatId}
-          suspensions={state.suspensions}
-          onRespondSuspension={handleRespondSuspension}
-        />
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          {searchOpen && (
+            <ChatSearchBar
+              containerRef={transcriptRef}
+              refreshKey={state.messages}
+              focusSeq={searchSeq}
+              onClose={() => setSearchOpen(false)}
+            />
+          )}
+          <MessageList
+            messages={state.messages}
+            running={state.running}
+            onRollback={handleRollback}
+            onFork={handleFork}
+            resetKey={subchatId}
+            suspensions={state.suspensions}
+            onRespondSuspension={handleRespondSuspension}
+            searchActive={searchOpen}
+            scrollRef={transcriptRef}
+          />
+        </div>
 
         {/* Pending gates + errors. Interactive suspensions (ask_user /
           submit_plan / request_access) render inline in the transcript, so
