@@ -229,6 +229,17 @@ export function setGithubSignals(enabled: boolean): Promise<MastraSettings> {
 }
 
 /**
+ * Toggle the SDK's experimental cross-agent communication (peer discovery +
+ * agent_connect / agent_signal_send tools). Hosts read it at boot.
+ */
+export function setCrossAgentSignals(enabled: boolean): Promise<MastraSettings> {
+  return updateSettings((s) => {
+    if (!s.signals) s.signals = {}
+    s.signals.experimentalCrossAgentSignals = enabled
+  })
+}
+
+/**
  * Toggle Claude Code / Codex global MCP-server discovery (settings.json
  * `mcp` section, read by the SDK's MCP config loader at host boot).
  */

@@ -141,6 +141,8 @@ export interface MastraSignalsSettings {
   unixSocketPubSub?: boolean
   /** Enables GitHub PR polling for subscribed threads (experimental upstream). */
   experimentalGithubSignals?: boolean
+  /** Enables cross-agent communication tools (peer discovery + agent signals, experimental). */
+  experimentalCrossAgentSignals?: boolean
   [key: string]: unknown
 }
 

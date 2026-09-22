@@ -17,12 +17,16 @@ import {
   FolderSearch,
   Globe,
   Info,
+  Link2,
   ListChecks,
+  Network,
   OctagonX,
   ScanSearch,
   Search,
+  Send,
   Terminal,
   Trash2,
+  Unlink,
   Wrench,
   type LucideIcon
 } from 'lucide-react'
@@ -80,6 +84,15 @@ function truncate(text: string, max: number): string {
 function str(args: Args, key: string): string | null {
   const v = args?.[key]
   return typeof v === 'string' && v.length > 0 ? v : null
+}
+
+/** Subject for cross-agent tools taking `ids: string[]` ("2 agent peers"). */
+function peerSubject(args: Args): string | null {
+  const ids = args?.ids
+  if (!Array.isArray(ids)) return null
+  return ids.length === 1 && typeof ids[0] === 'string'
+    ? `agent ${truncate(ids[0], 24)}`
+    : `${ids.length} agent peers`
 }
 
 /**
@@ -400,6 +413,45 @@ const DESCRIPTORS: Record<string, ToolDescriptor> = {
       verbTitle(phase, 'Retrieving', 'Retrieved', 'Failed to retrieve', 'full output'),
     stats: noStats,
     Details: OutputOnlyDetails
+  },
+  agent_connections_list: {
+    icon: Network,
+    title: (_part, _args, phase) =>
+      verbTitle(phase, 'Listing', 'Listed', 'Failed to list', 'agent peers'),
+    stats: noStats,
+    Details: OutputOnlyDetails
+  },
+  agent_connect: {
+    icon: Link2,
+    title: (_part, args, phase) =>
+      verbTitle(phase, 'Connecting to', 'Connected to', 'Failed to connect to', peerSubject(args)),
+    stats: noStats,
+    Details: GenericDetails
+  },
+  agent_disconnect: {
+    icon: Unlink,
+    title: (_part, args, phase) =>
+      verbTitle(phase, 'Disconnecting', 'Disconnected', 'Failed to disconnect', peerSubject(args)),
+    stats: noStats,
+    Details: GenericDetails
+  },
+  agent_signal_send: {
+    icon: Send,
+    title: (_part, args, phase) => {
+      const target = str(args, 'targetId')
+      const title = verbTitle(
+        phase,
+        'Signaling',
+        'Signaled',
+        'Failed to signal',
+        target !== null ? `agent ${truncate(target, 24)}` : 'agent'
+      )
+      const summary = str(args, 'summary')
+      if (summary !== null) title.suffix = truncate(summary, 60)
+      return title
+    },
+    stats: noStats,
+    Details: GenericDetails
   },
   'web-search': webSearchDescriptor,
   web_search: webSearchDescriptor,

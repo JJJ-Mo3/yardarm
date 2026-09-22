@@ -13,6 +13,7 @@ import {
   saveCustomPack,
   setActiveModelPack,
   setBrowserSettings,
+  setCrossAgentSignals,
   setGithubSignals,
   setGoalDefaults,
   setLocalTracing,
@@ -150,6 +151,14 @@ export const mastraSettingsRouter = router({
     .input(z.object({ enabled: z.boolean() }))
     .mutation(async ({ input }) => {
       await setGithubSignals(input.enabled)
+      return NEEDS_RESTART
+    }),
+
+  /** Toggle experimental cross-agent communication (peer discovery + agent signal tools). */
+  setCrossAgentSignals: publicProcedure
+    .input(z.object({ enabled: z.boolean() }))
+    .mutation(async ({ input }) => {
+      await setCrossAgentSignals(input.enabled)
       return NEEDS_RESTART
     }),
 

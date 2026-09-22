@@ -154,9 +154,20 @@ export function PreferencesTab(): React.JSX.Element {
   const compressionEnabled = tc.enabled === true
   const verbosityEnabled = tc.verbosity === true
 
+  const setCrossAgent = trpc.mastraSettings.setCrossAgentSignals.useMutation({
+    onSuccess: () => {
+      markDirty()
+      utils.mastraSettings.get.invalidate()
+    }
+  })
+
   const p = settings.data?.preferences ?? {}
   const error =
-    settings.error ?? setPreferences.error ?? setSetting.error ?? setTokenCompression.error
+    settings.error ??
+    setPreferences.error ??
+    setSetting.error ??
+    setTokenCompression.error ??
+    setCrossAgent.error
 
   return (
     <div className="space-y-4">
@@ -313,6 +324,26 @@ export function PreferencesTab(): React.JSX.Element {
               }
             />
             Verbosity steering (nudge the agent to reply concisely)
+          </label>
+        </Tip>
+      </div>
+
+      <div className="space-y-3 rounded border border-border p-3">
+        <div>
+          <div className="text-xs font-medium">Experimental</div>
+          <div className="text-[11px] text-muted-foreground">
+            Early mastracode features that may change or break. Shared with the CLI via
+            settings.json.
+          </div>
+        </div>
+        <Tip content="Gives agents tools to discover other running mastracode agents on this machine and send signals to them (agent_connect, agent_signal_send). Restart running agents to apply">
+          <label className="flex w-fit items-center gap-2 text-xs">
+            <Switch
+              checked={settings.data?.signals?.experimentalCrossAgentSignals === true}
+              disabled={setCrossAgent.isPending}
+              onCheckedChange={(v) => setCrossAgent.mutate({ enabled: v })}
+            />
+            Cross-agent communication (peer discovery + signal tools)
           </label>
         </Tip>
       </div>
