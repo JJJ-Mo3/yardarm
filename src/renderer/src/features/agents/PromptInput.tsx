@@ -450,100 +450,104 @@ export function PromptInput({
             e.target.value = ''
           }}
         />
-        {onToggleGoal && (
-          <Tip content="Goal — give the agent an objective a judge model evaluates after each run; click to set or manage it (/goal)">
-            <button
-              onClick={onToggleGoal}
-              className={cn(
-                'flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-[11px] cursor-pointer',
-                goalStatus
-                  ? STATUS_CHIP[goalStatus]
-                  : goalOpen
-                    ? 'border-border bg-accent text-foreground'
-                    : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
-              )}
-            >
-              <Target size={11} />
-              {goalStatus ? `goal: ${goalStatus}` : 'goal'}
-            </button>
-          </Tip>
-        )}
-        <Tip content="Attach images, PDFs, or text files to your message — or paste or drag & drop them">
-          <span className="inline-flex">
-            <Button
-              size="icon"
-              variant="ghost"
-              disabled={disabled}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Paperclip size={14} />
-            </Button>
-          </span>
-        </Tip>
-        {voice.supported && voiceEnabled && voiceCloud && (
-          <Tip
-            content={
-              micDenied
-                ? 'Microphone access is blocked — allow Yardarm in System Settings → Privacy & Security → Microphone.'
-                : voice.state === 'recording'
-                  ? 'Stop recording and transcribe (Esc cancels).'
-                  : voice.state === 'transcribing'
-                    ? 'Transcribing…'
-                    : 'Dictate into the prompt — click to start/stop recording, or hold to talk. Esc cancels.'
-            }
-          >
-            <span className="inline-flex items-center gap-1.5">
-              {voice.state === 'recording' && (
-                <span className="text-[11px] tabular-nums text-destructive">
-                  {formatElapsed(voice.elapsedMs)}
-                </span>
-              )}
-              <Button
-                size="icon"
-                variant={voice.state === 'recording' ? 'destructive' : 'ghost'}
-                className={voice.state === 'recording' ? 'animate-pulse' : undefined}
-                disabled={micDenied || voice.state === 'transcribing'}
-                onPointerDown={(e) => void onMicPointerDown(e)}
-                onPointerUp={onMicPointerUp}
-                onPointerLeave={onMicPointerUp}
-                onPointerCancel={onMicPointerUp}
-              >
-                {voice.state === 'recording' ? (
-                  <Square size={13} />
-                ) : voice.state === 'transcribing' ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <Mic size={14} />
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          {onToggleGoal && (
+            <Tip content="Goal — give the agent an objective a judge model evaluates after each run; click to set or manage it (/goal)">
+              <button
+                onClick={onToggleGoal}
+                className={cn(
+                  'flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-[11px] cursor-pointer',
+                  goalStatus
+                    ? STATUS_CHIP[goalStatus]
+                    : goalOpen
+                      ? 'border-border bg-accent text-foreground'
+                      : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
                 )}
-              </Button>
-            </span>
-          </Tip>
-        )}
-        {running && !value.trim() ? (
-          <Tip content="Stop the agent's current run">
-            <Button size="icon" variant="destructive" onClick={onAbort}>
-              <Square size={13} />
-            </Button>
-          </Tip>
-        ) : (
-          <Tip
-            content={
-              running
-                ? 'Queue this message — it will be sent after the current run finishes'
-                : 'Send the message to the agent (Enter)'
-            }
-          >
-            <span className="inline-flex">
-              <Button
-                size="icon"
-                disabled={disabled || (!value.trim() && attachments.length === 0)}
-                onClick={submit}
               >
-                <ArrowUp size={14} />
-              </Button>
-            </span>
-          </Tip>
-        )}
+                <Target size={11} />
+                {goalStatus ? `goal: ${goalStatus}` : 'goal'}
+              </button>
+            </Tip>
+          )}
+          <div className="flex items-end gap-2">
+            <Tip content="Attach images, PDFs, or text files to your message — or paste or drag & drop them">
+              <span className="inline-flex">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  disabled={disabled}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Paperclip size={14} />
+                </Button>
+              </span>
+            </Tip>
+            {voice.supported && voiceEnabled && voiceCloud && (
+              <Tip
+                content={
+                  micDenied
+                    ? 'Microphone access is blocked — allow Yardarm in System Settings → Privacy & Security → Microphone.'
+                    : voice.state === 'recording'
+                      ? 'Stop recording and transcribe (Esc cancels).'
+                      : voice.state === 'transcribing'
+                        ? 'Transcribing…'
+                        : 'Dictate into the prompt — click to start/stop recording, or hold to talk. Esc cancels.'
+                }
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  {voice.state === 'recording' && (
+                    <span className="text-[11px] tabular-nums text-destructive">
+                      {formatElapsed(voice.elapsedMs)}
+                    </span>
+                  )}
+                  <Button
+                    size="icon"
+                    variant={voice.state === 'recording' ? 'destructive' : 'ghost'}
+                    className={voice.state === 'recording' ? 'animate-pulse' : undefined}
+                    disabled={micDenied || voice.state === 'transcribing'}
+                    onPointerDown={(e) => void onMicPointerDown(e)}
+                    onPointerUp={onMicPointerUp}
+                    onPointerLeave={onMicPointerUp}
+                    onPointerCancel={onMicPointerUp}
+                  >
+                    {voice.state === 'recording' ? (
+                      <Square size={13} />
+                    ) : voice.state === 'transcribing' ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Mic size={14} />
+                    )}
+                  </Button>
+                </span>
+              </Tip>
+            )}
+            {running && !value.trim() ? (
+              <Tip content="Stop the agent's current run">
+                <Button size="icon" variant="destructive" onClick={onAbort}>
+                  <Square size={13} />
+                </Button>
+              </Tip>
+            ) : (
+              <Tip
+                content={
+                  running
+                    ? 'Queue this message — it will be sent after the current run finishes'
+                    : 'Send the message to the agent (Enter)'
+                }
+              >
+                <span className="inline-flex">
+                  <Button
+                    size="icon"
+                    disabled={disabled || (!value.trim() && attachments.length === 0)}
+                    onClick={submit}
+                  >
+                    <ArrowUp size={14} />
+                  </Button>
+                </span>
+              </Tip>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )
