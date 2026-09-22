@@ -5,6 +5,7 @@
  * code.mastra.ai).
  */
 import { useMemo } from 'react'
+import { atom } from 'jotai'
 import { trpc } from '../../lib/trpc'
 
 export type CommandKind = 'builtin' | 'custom' | 'cli-only'
@@ -18,6 +19,17 @@ export interface SlashCommandEntry {
   /** cli-only: custom hint shown when run, replacing the generic CLI pointer. */
   hint?: string
 }
+
+/**
+ * Bridge the primary ChatView registers so the global Cmd+K palette can act
+ * on the active chat: run a slash command, or prefill the composer (used for
+ * arg-taking commands, which the palette can't execute directly).
+ */
+export interface PaletteDispatch {
+  run: (entry: SlashCommandEntry, args: string) => void
+  prefill: (text: string) => void
+}
+export const paletteDispatchAtom = atom<PaletteDispatch | null>(null)
 
 export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
   { name: 'plan', description: 'Switch to plan mode', kind: 'builtin' },

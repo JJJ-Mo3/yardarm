@@ -4,6 +4,7 @@
  * from the keyboard. Cmd on macOS, Ctrl elsewhere.
  *
  *   Cmd+N     new chat
+ *   Cmd+K     command palette
  *   Cmd+P     thread switcher
  *   Cmd+J     toggle terminal tab
  *   Cmd+1–9   main tabs in visual order (chat / CLI / IDE / changes / terminal / kanban / analytics / preview / guide)
@@ -12,6 +13,7 @@
 import { useEffect } from 'react'
 import { useSetAtom } from 'jotai'
 import {
+  commandPaletteOpenAtom,
   mainTabAtom,
   newChatOpenAtom,
   settingsOpenAtom,
@@ -37,6 +39,7 @@ export function useAppShortcuts(): void {
   const setSettingsOpen = useSetAtom(settingsOpenAtom)
   const setNewChatOpen = useSetAtom(newChatOpenAtom)
   const setThreadsOpen = useSetAtom(threadsOpenAtom)
+  const setPaletteOpen = useSetAtom(commandPaletteOpenAtom)
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent): void => {
@@ -46,6 +49,12 @@ export function useAppShortcuts(): void {
         case 'n':
           e.preventDefault()
           setNewChatOpen(true)
+          break
+        case 'k':
+          // Skip when a focused surface (e.g. Monaco) already claimed the key.
+          if (e.defaultPrevented) break
+          e.preventDefault()
+          setPaletteOpen(true)
           break
         case 'p':
           e.preventDefault()
@@ -75,5 +84,5 @@ export function useAppShortcuts(): void {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [setTab, setSettingsOpen, setNewChatOpen, setThreadsOpen])
+  }, [setTab, setSettingsOpen, setNewChatOpen, setThreadsOpen, setPaletteOpen])
 }

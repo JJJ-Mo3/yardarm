@@ -51,6 +51,8 @@ export const detailsOpenAtom = atomWithStorage<boolean>('cz.detailsOpen', false)
 export const detailsWidthAtom = atomWithStorage<number>('cz.detailsWidth', 320)
 /** Worktree-relative file the Files tab should open on next activation. */
 export const fileOpenRequestAtom = atom<string | null>(null)
+/** Global Cmd+K command palette. */
+export const commandPaletteOpenAtom = atom(false)
 /** Re-open the first-run onboarding wizard (Settings → About → Run setup again). */
 export const onboardingForceOpenAtom = atom(false)
 

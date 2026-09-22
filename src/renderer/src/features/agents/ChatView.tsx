@@ -54,7 +54,7 @@ import { OmStatusPopover } from './OmStatusPopover'
 import { ModeSelector } from './ModeSelector'
 import { ReviewPopover } from './ReviewPopover'
 import { ReviewFollowupBar } from './ReviewFollowupBar'
-import { useSlashCommands, type SlashCommandEntry } from './slash-commands'
+import { paletteDispatchAtom, useSlashCommands, type SlashCommandEntry } from './slash-commands'
 import { buildReportIssuePrompt } from './report-issue-prompt'
 import { buildAttachmentPrompt, classifyAttachment } from './attachments'
 import { downloadChatMarkdown } from './export-chat'
@@ -363,6 +363,27 @@ export function ChatView({
     }
     wasRunning.current = state.running
   }, [state.running, notifyMode])
+
+  // Cmd+K palette bridge: expose this pane's slash dispatcher + composer
+  // prefill to the global command palette. Only the primary pane registers,
+  // and a ref keeps the latest closures without re-registering every render.
+  const setPaletteDispatch = useSetAtom(paletteDispatchAtom)
+  const slashRef = useRef<(entry: SlashCommandEntry, args: string) => string | void>(
+    () => undefined
+  )
+  useEffect(() => {
+    slashRef.current = handleSlashCommand
+  })
+  useEffect(() => {
+    if (!primary) return
+    setPaletteDispatch({
+      run: (entry, args) => {
+        slashRef.current(entry, args)
+      },
+      prefill: setPrefill
+    })
+    return () => setPaletteDispatch(null)
+  }, [primary, setPaletteDispatch])
 
   function openSettings(tab: SettingsTab): void {
     setSettingsTab(tab)

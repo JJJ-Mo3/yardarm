@@ -37,6 +37,7 @@ import { Sidebar } from './features/sidebar/Sidebar'
 import { BootErrorScreen } from './features/boot/BootErrorScreen'
 import { OnboardingWizard } from './features/onboarding/OnboardingWizard'
 import { ChatView } from './features/agents/ChatView'
+import { CommandPalette } from './features/agents/CommandPalette'
 import { SplitChatPane } from './features/agents/SplitChatPane'
 import { SplitDivider } from './components/SplitDivider'
 import { useChatStatusTracker } from './features/agents/use-chat-status-tracker'
@@ -440,6 +441,7 @@ export default function App(): React.JSX.Element {
           )}
         </div>
       </div>
+      <CommandPalette />
       <SettingsDialog />
       <ProjectSettingsDialog
         projectId={project?.id ?? null}
