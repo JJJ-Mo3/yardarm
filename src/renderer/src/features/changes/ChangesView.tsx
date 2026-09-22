@@ -7,7 +7,7 @@
  * diffs the working tree against the merge-base with another branch,
  * and a checkpoint manager pane (named + auto snapshots, A/B compare).
  */
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
 import {
   Download,
@@ -25,7 +25,7 @@ import {
   X
 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
-import { mainTabAtom } from '../../lib/atoms'
+import { changesPaneRequestAtom, mainTabAtom } from '../../lib/atoms'
 import { forgeCopy } from '../../lib/forge-copy'
 import { compareRefAtomFamily } from './compare-ref-atom'
 import { buildLocalReviewPrompt, buildReviewMarker } from '../agents/review-prompts'
@@ -116,6 +116,13 @@ export function ChangesView({
   const [prTitle, setPrTitle] = useState('')
   const [prBody, setPrBody] = useState('')
   const [pane, setPane] = useState<'changes' | 'history' | 'checkpoints'>('changes')
+  const [paneRequest, setPaneRequest] = useAtom(changesPaneRequestAtom)
+  // Apply deep-link pane requests (e.g. the chat header's checkpoints popover).
+  useEffect(() => {
+    if (!paneRequest) return
+    if (paneRequest !== 'checkpoints' || checkpoints) setPane(paneRequest)
+    setPaneRequest(null)
+  }, [paneRequest, setPaneRequest, checkpoints])
   const [selectedCommit, setSelectedCommit] = useState<string | null>(null)
   const [commitFile, setCommitFile] = useState<string | null>(null)
   const [ckA, setCkA] = useState<SnapshotSel | null>(null)

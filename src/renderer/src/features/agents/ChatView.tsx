@@ -42,6 +42,7 @@ import { HelpDialog } from './HelpDialog'
 import { CostPopover } from './CostPopover'
 import { ContextPopover } from './ContextPopover'
 import { GithubPrPopover } from './GithubPrPopover'
+import { CheckpointsPopover } from './CheckpointsPopover'
 import { OpenLocallyMenu } from './OpenLocallyMenu'
 import { ThreadsPopover } from './ThreadsPopover'
 import { PermissionsDialog } from './PermissionsDialog'
@@ -236,6 +237,7 @@ export function ChatView({
   const [costOpen, setCostOpen] = useState(false)
   const [contextOpen, setContextOpen] = useState(false)
   const [githubPrOpen, setGithubPrOpen] = useState(false)
+  const [checkpointsOpen, setCheckpointsOpen] = useState(false)
   const [threadsOpen, setThreadsOpen] = useAtom(threadsOpenAtom)
   const [permissionsOpen, setPermissionsOpen] = useState(false)
   const [sandboxOpen, setSandboxOpen] = useState(false)
@@ -772,6 +774,9 @@ export function ChatView({
             open={githubPrOpen}
             onOpenChange={setGithubPrOpen}
           />
+          {primary && (
+            <CheckpointsPopover open={checkpointsOpen} onOpenChange={setCheckpointsOpen} />
+          )}
           <OpenLocallyMenu path={projectRoot} />
           <Tip content="Export this thread's transcript as a Markdown file" side="bottom">
             <span className="inline-flex">
