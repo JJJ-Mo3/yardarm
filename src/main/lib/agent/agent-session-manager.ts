@@ -51,6 +51,9 @@ import type {
   HostCommand,
   HostMessage,
   IdeNoteResult,
+  KnowledgeEntryDetail,
+  KnowledgeListInfo,
+  KnowledgeScopeLevel,
   McpAuthUrlEvent,
   LspDiagnosticsResult,
   McpServerStatusInfo,
@@ -1885,6 +1888,26 @@ export class AgentSessionManager {
       number,
       owner,
       repo
+    })
+  }
+
+  /** Subconscious knowledge nodes for one scope (/knowledge browser). */
+  async knowledgeList(subchatId: string, scope?: KnowledgeScopeLevel): Promise<KnowledgeListInfo> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<KnowledgeListInfo>(handle, {
+      t: 'knowledgeList',
+      reqId: randomUUID(),
+      scope
+    })
+  }
+
+  /** Detail for one knowledge node by handle. */
+  async knowledgeGet(subchatId: string, id: string): Promise<KnowledgeEntryDetail> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<KnowledgeEntryDetail>(handle, {
+      t: 'knowledgeGet',
+      reqId: randomUUID(),
+      id
     })
   }
 

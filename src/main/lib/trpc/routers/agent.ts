@@ -477,6 +477,21 @@ export const agentRouter = router({
       )
     }),
 
+  /** Subconscious knowledge browser (/knowledge dialog). */
+  knowledgeList: publicProcedure
+    .input(
+      z.object({ subchatId: z.string(), scope: z.enum(['org', 'resource', 'thread']).optional() })
+    )
+    .query(async ({ input }) => {
+      return agentSessionManager.knowledgeList(input.subchatId, input.scope)
+    }),
+
+  knowledgeGet: publicProcedure
+    .input(z.object({ subchatId: z.string(), id: z.string().min(1) }))
+    .query(async ({ input }) => {
+      return agentSessionManager.knowledgeGet(input.subchatId, input.id)
+    }),
+
   stateSet: publicProcedure
     .input(
       z.object({

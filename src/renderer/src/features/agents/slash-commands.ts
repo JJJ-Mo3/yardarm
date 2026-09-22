@@ -64,6 +64,7 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
   },
   { name: 'om', description: 'Observational Memory status', kind: 'builtin' },
   { name: 'memory', description: 'Configure Observational Memory', kind: 'builtin' },
+  { name: 'knowledge', description: 'Browse scoped Subconscious knowledge', kind: 'builtin' },
   { name: 'new', description: 'Start a new thread', kind: 'builtin' },
   { name: 'threads', description: 'List and switch threads', kind: 'builtin' },
   { name: 'thread', description: 'Thread operations', kind: 'builtin' },
@@ -113,12 +114,6 @@ export const CLI_ONLY_COMMANDS: SlashCommandEntry[] = [
     description: 'Control process memory diagnostics',
     kind: 'cli-only',
     hint: 'Process memory profiling only exists in the mastracode CLI (`/profile` in a terminal).'
-  },
-  {
-    name: 'knowledge',
-    description: 'Browse scoped Subconscious knowledge',
-    kind: 'cli-only',
-    hint: 'Subconscious knowledge browsing only exists in the mastracode CLI (`/knowledge` in a terminal).'
   },
   {
     name: 'voice',

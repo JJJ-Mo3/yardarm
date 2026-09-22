@@ -48,6 +48,7 @@ import { ThreadsPopover } from './ThreadsPopover'
 import { PermissionsDialog } from './PermissionsDialog'
 import { SandboxDialog } from './SandboxDialog'
 import { PruneStorageDialog } from '../settings/PruneStorageDialog'
+import { KnowledgeDialog } from './KnowledgeDialog'
 import { DetailsPanel } from './details/DetailsPanel'
 import { GoalBanner } from './GoalBanner'
 import { TaskChecklist } from './TaskChecklist'
@@ -240,6 +241,7 @@ export function ChatView({
   const [checkpointsOpen, setCheckpointsOpen] = useState(false)
   const [threadsOpen, setThreadsOpen] = useAtom(threadsOpenAtom)
   const [permissionsOpen, setPermissionsOpen] = useState(false)
+  const [knowledgeOpen, setKnowledgeOpen] = useState(false)
   const [sandboxOpen, setSandboxOpen] = useState(false)
   // On failure the switch reverts (fail-visible meta) — open the dialog so the error is seen.
   const setSandbox = trpc.agent.setSandbox.useMutation({ onError: () => setSandboxOpen(true) })
@@ -561,6 +563,9 @@ export function ChatView({
         return
       case 'github':
         setGithubPrOpen(true)
+        return
+      case 'knowledge':
+        setKnowledgeOpen(true)
         return
       case 'observability':
         openSettings('connectors')
@@ -1067,6 +1072,11 @@ export function ChatView({
           onOpenChange={setSandboxOpen}
         />
         <PruneStorageDialog open={pruneOpen} onOpenChange={setPruneOpen} />
+        <KnowledgeDialog
+          subchatId={subchatId}
+          open={knowledgeOpen}
+          onOpenChange={setKnowledgeOpen}
+        />
       </div>
       {primary && detailsOpen && (
         <DetailsPanel

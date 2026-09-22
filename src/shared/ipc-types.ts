@@ -134,6 +134,10 @@ export type HostCommand =
       mode?: 'working' | 'review'
     }
   | { t: 'githubPrUnsubscribe'; reqId: string; number: number; owner?: string; repo?: string }
+  /** Browse the SDK's Subconscious knowledge nodes — responds with KnowledgeListInfo. */
+  | { t: 'knowledgeList'; reqId: string; scope?: KnowledgeScopeLevel }
+  /** Detail for one knowledge node by handle — responds with KnowledgeEntryDetail. */
+  | { t: 'knowledgeGet'; reqId: string; id: string }
   | { t: 'listSkills'; reqId: string }
   /** Activate a workspace skill: returns the display text + expanded content. */
   | { t: 'runSkill'; reqId: string; name: string; args: string }
@@ -538,6 +542,54 @@ export interface GithubPrStatusInfo {
   polling: boolean
   pollIntervalMs?: number
   subscriptions: GithubPrSubscriptionInfo[]
+}
+
+/** Scope level of the SDK's Subconscious knowledge inspector. */
+export type KnowledgeScopeLevel = 'org' | 'resource' | 'thread'
+
+/** One Subconscious knowledge node summary (/knowledge browser). */
+export interface KnowledgeEntryInfo {
+  handle: string
+  name: string
+  kind?: string
+  scopeLevel: KnowledgeScopeLevel
+  updatedAt: string
+  /** Observation records attached to the node (sampled count). */
+  records?: number
+}
+
+/** Result of a knowledgeList host command. */
+export interface KnowledgeListInfo {
+  /** The SDK constructed a knowledge inspector for this workspace. */
+  available: boolean
+  /** Why the inspector (or the requested scope) has nothing to show. */
+  unavailableReason?: string
+  scopeLevel: KnowledgeScopeLevel
+  /** Scope roots the inspector reports, with per-scope availability. */
+  scopes: Array<{ level: KnowledgeScopeLevel; available: boolean; reason?: string }>
+  entries: KnowledgeEntryInfo[]
+}
+
+/** One captured observation record in the knowledge detail pane. */
+export interface KnowledgeRecordInfo {
+  text: string
+  capturedAt: string
+  /** Human time qualifier the agent recorded, e.g. "last week". */
+  when?: string
+}
+
+/** Result of a knowledgeGet host command. */
+export interface KnowledgeEntryDetail {
+  available: boolean
+  unavailableReason?: string
+  entry?: KnowledgeEntryInfo
+  records: KnowledgeRecordInfo[]
+  /** Records of other nodes that mention this one. */
+  mentioning: KnowledgeRecordInfo[]
+  content?: string
+  contentTruncated?: boolean
+  /** Outgoing targets + incoming parents (relationship preview). */
+  related: KnowledgeEntryInfo[]
 }
 
 /** One IDE diagnostic. Positions are 1-based (Monaco marker convention). */

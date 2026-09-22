@@ -2052,6 +2052,97 @@ async function main(): Promise<void> {
               return collectGithubPrStatus()
             })
             break
+          case 'knowledgeList':
+            // Subconscious knowledge browser (/knowledge). mc.knowledgeInspector
+            // is undefined when the workspace has no Subconscious storage —
+            // knowledgeInspectorUnavailableReason says why.
+            await respond(cmd.reqId, async () => {
+              const inspector = mc.knowledgeInspector
+              if (!inspector) {
+                return {
+                  available: false,
+                  unavailableReason:
+                    mc.knowledgeInspectorUnavailableReason ??
+                    'The knowledge inspector is unavailable in this workspace',
+                  scopeLevel: cmd.scope ?? 'resource',
+                  scopes: [],
+                  entries: []
+                }
+              }
+              const tree = await inspector.getScopeTree()
+              const scopes = tree.roots.map((r) => ({
+                level: r.level,
+                available: r.available,
+                reason: r.reason
+              }))
+              const level = cmd.scope ?? tree.defaultLevel
+              const root = tree.roots.find((r) => r.level === level)
+              if (root && !root.available) {
+                return {
+                  available: true,
+                  unavailableReason: root.reason ?? `The ${level} scope is unavailable`,
+                  scopeLevel: level,
+                  scopes,
+                  entries: []
+                }
+              }
+              const list = await inspector.listNodes({ level, sort: 'recent', limit: 100 })
+              return {
+                available: true,
+                scopeLevel: list.scopeLevel,
+                scopes,
+                entries: list.nodes.map((n) => ({
+                  handle: n.handle,
+                  name: n.name,
+                  kind: n.kind,
+                  scopeLevel: n.scope.level,
+                  updatedAt: n.updatedAt,
+                  records: n.relationshipCounts?.records
+                }))
+              }
+            })
+            break
+          case 'knowledgeGet':
+            await respond(cmd.reqId, async () => {
+              const inspector = mc.knowledgeInspector
+              if (!inspector) {
+                return {
+                  available: false,
+                  unavailableReason:
+                    mc.knowledgeInspectorUnavailableReason ??
+                    'The knowledge inspector is unavailable in this workspace',
+                  records: [],
+                  mentioning: [],
+                  related: []
+                }
+              }
+              const detail = await inspector.getNode({ handle: cmd.id, recordLimit: 25 })
+              const toEntry = (n: typeof detail.node): Record<string, unknown> => ({
+                handle: n.handle,
+                name: n.name,
+                kind: n.kind,
+                scopeLevel: n.scope.level,
+                updatedAt: n.updatedAt,
+                records: n.relationshipCounts?.records
+              })
+              const toRecord = (r: (typeof detail.records)[number]): Record<string, unknown> => ({
+                text: r.text,
+                capturedAt: r.capturedAt,
+                when: r.when
+              })
+              return {
+                available: true,
+                entry: toEntry(detail.node),
+                records: detail.records.map(toRecord),
+                mentioning: detail.mentioningRecords.map(toRecord),
+                content: detail.content,
+                contentTruncated: detail.contentTruncated,
+                related: [...detail.outgoingTargets.nodes, ...detail.incomingParents.nodes].map(
+                  toEntry
+                )
+              }
+            })
+            break
           case 'listSkills':
             await respond(cmd.reqId, async () => {
               const workspace = await controller.resolveWorkspace({ session: session as never })
