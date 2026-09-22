@@ -1,7 +1,10 @@
+import fs from 'node:fs'
 import os from 'node:os'
+import path from 'node:path'
 import { app, shell } from 'electron'
 import { z } from 'zod'
 import { agentSessionManager } from '../../agent/agent-session-manager'
+import { mastraAppDataDir } from '../../mastra-config/settings-json'
 import {
   detectGlobalCli,
   fetchMastracodeLatest,
@@ -14,6 +17,25 @@ import { publicProcedure, router } from '../trpc'
 
 /** Terminal id used for the one-click global CLI install. */
 export const CLI_INSTALL_TERMINAL_ID = '__cli-install__'
+
+/** Best-effort recursive directory size (skips unreadable entries). */
+function dirSize(dir: string): number {
+  let total = 0
+  let entries: fs.Dirent[]
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true })
+  } catch {
+    return 0
+  }
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name)
+    try {
+      if (entry.isDirectory()) total += dirSize(full)
+      else if (entry.isFile()) total += fs.statSync(full).size
+    } catch {}
+  }
+  return total
+}
 
 export const systemRouter = router({
   /** Boots the utility agent host to prove the bundled runtime works. */
@@ -29,6 +51,19 @@ export const systemRouter = router({
   }),
 
   detectCli: publicProcedure.query(() => detectGlobalCli()),
+
+  /** On-disk sizes: the app DB (+WAL/SHM) and mastracode's data dir (what prune targets). */
+  storageInfo: publicProcedure.query(() => {
+    const userData = app.getPath('userData')
+    let appDbBytes = 0
+    for (const f of ['yardarm.db', 'yardarm.db-wal', 'yardarm.db-shm']) {
+      try {
+        appDbBytes += fs.statSync(path.join(userData, f)).size
+      } catch {}
+    }
+    const mastraDir = mastraAppDataDir()
+    return { appDbBytes, mastraBytes: dirSize(mastraDir), mastraDir }
+  }),
 
   /** Latest mastracode on npm vs the bundled runtime (offline-safe nulls). */
   mastracodeLatest: publicProcedure.query(() => fetchMastracodeLatest()),

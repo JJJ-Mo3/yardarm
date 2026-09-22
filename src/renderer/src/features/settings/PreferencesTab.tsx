@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Switch } from '../../components/ui/switch'
 import { Tip } from '../../components/ui/tooltip'
+import { PruneStorageDialog } from './PruneStorageDialog'
 import { useRestartBanner } from './restart-banner'
 
 const THEMES = ['auto', 'dark', 'light'] as const
@@ -120,6 +121,57 @@ function ToolsSection(): React.JSX.Element {
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+/** On-disk storage sizes with a shortcut to the shared prune dialog. */
+function StorageSection(): React.JSX.Element {
+  const [pruneOpen, setPruneOpen] = useState(false)
+  const utils = trpc.useUtils()
+  const info = trpc.system.storageInfo.useQuery(undefined, { staleTime: 30_000 })
+
+  return (
+    <div className="space-y-3 rounded border border-border p-3">
+      <div>
+        <div className="text-xs font-medium">Storage</div>
+        <div className="text-[11px] text-muted-foreground">
+          Disk space used by mastracode&apos;s local data (threads, traces, memory — shared with the
+          CLI) and by Yardarm&apos;s own chat database.
+        </div>
+      </div>
+      <div className="space-y-1 text-[11px]">
+        <div className="flex items-center gap-2">
+          <span className="w-40 text-muted-foreground">mastracode storage</span>
+          <span className="font-mono">{info.data ? formatBytes(info.data.mastraBytes) : '…'}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-40 text-muted-foreground">Yardarm chat database</span>
+          <span className="font-mono">{info.data ? formatBytes(info.data.appDbBytes) : '…'}</span>
+        </div>
+      </div>
+      <Tip content="Delete old threads, traces and logs from mastracode storage (stops running agents while pruning)">
+        <span className="inline-flex">
+          <Button variant="outline" size="sm" onClick={() => setPruneOpen(true)}>
+            Prune now
+          </Button>
+        </span>
+      </Tip>
+      {info.error && (
+        <div className="text-xs text-destructive selectable">{info.error.message}</div>
+      )}
+      <PruneStorageDialog
+        open={pruneOpen}
+        onOpenChange={(open) => {
+          setPruneOpen(open)
+          if (!open) utils.system.storageInfo.invalidate()
+        }}
+      />
     </div>
   )
 }
@@ -422,6 +474,8 @@ export function PreferencesTab(): React.JSX.Element {
       </div>
 
       <ToolsSection />
+
+      <StorageSection />
 
       {error && <div className="text-xs text-destructive selectable">{error.message}</div>}
       {banner}
