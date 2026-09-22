@@ -1175,6 +1175,49 @@ async function main(): Promise<void> {
     return JSON.parse(JSON.stringify(audit))
   }
 
+  /**
+   * GitHub PR subscription state for the active thread (wire-safe
+   * GithubPrStatusInfo). Subscriptions live in the thread's metadata under
+   * metadata.mastra.githubSignals (the SDK's GITHUB_SIGNALS_METADATA_KEY) —
+   * the same place the mastracode TUI reads them from. `mc.githubSignals` is
+   * undefined unless settings.json signals.experimentalGithubSignals is on.
+   */
+  const collectGithubPrStatus = async (): Promise<Record<string, unknown>> => {
+    const gh = mc.githubSignals
+    const threadId = session.thread.getId()
+    if (!gh || !threadId) return { enabled: !!gh, polling: false, subscriptions: [] }
+    const resourceId = session.identity.getResourceId()
+    const thread = await session.thread.getById({ threadId })
+    const mastraMeta = (thread?.metadata as { mastra?: Record<string, unknown> } | undefined)
+      ?.mastra
+    const ghMeta = mastraMeta?.githubSignals as { subscriptions?: unknown } | undefined
+    const rawSubs = Array.isArray(ghMeta?.subscriptions) ? ghMeta.subscriptions : []
+    const subscriptions = rawSubs
+      .filter(
+        (s): s is Record<string, unknown> =>
+          !!s && typeof s === 'object' && typeof (s as { number?: unknown }).number === 'number'
+      )
+      .map((s) => ({
+        owner: typeof s.owner === 'string' ? s.owner : '',
+        repo: typeof s.repo === 'string' ? s.repo : '',
+        number: s.number,
+        mode: s.mode === 'review' ? 'review' : 'working',
+        subscribedAt: s.subscribedAt,
+        lastSyncAt: s.lastSyncAt,
+        lastSyncStatus: s.lastSyncStatus,
+        lastSyncError: s.lastSyncError,
+        lastObservedState: s.lastObservedState,
+        lastObservedCiState: s.lastObservedCiState,
+        lastNotificationSummary: s.lastNotificationSummary
+      }))
+    return {
+      enabled: true,
+      polling: gh.isPollingThreadRunning({ threadId, resourceId }),
+      pollIntervalMs: gh.getPollIntervalMs(),
+      subscriptions
+    }
+  }
+
   // Surface the SDK's background GitHub-plugin update poll so the UI can
   // tell the user their installed plugins changed. Best-effort.
   try {
@@ -1970,6 +2013,44 @@ async function main(): Promise<void> {
             break
           case 'contextUsage':
             await respond(cmd.reqId, () => collectContextUsage())
+            break
+          case 'githubPrStatus':
+            await respond(cmd.reqId, () => collectGithubPrStatus())
+            break
+          case 'githubPrSubscribe':
+            await respond(cmd.reqId, async () => {
+              const gh = mc.githubSignals
+              if (!gh) throw new Error('GitHub signals are disabled — enable them in Settings')
+              const threadId = session.thread.requireId()
+              const result = await gh.subscribeThreadToPR({
+                threadId,
+                resourceId: session.identity.getResourceId(),
+                pr: { number: cmd.number, owner: cmd.owner, repo: cmd.repo },
+                mode: cmd.mode
+              })
+              if (result.syncResult && !result.syncResult.ok) {
+                throw new Error(
+                  result.syncResult.error ?? result.syncResult.stderr ?? 'PR sync failed'
+                )
+              }
+              if (result.terminalState) {
+                throw new Error(`PR #${cmd.number} is already ${result.terminalState}`)
+              }
+              return collectGithubPrStatus()
+            })
+            break
+          case 'githubPrUnsubscribe':
+            await respond(cmd.reqId, async () => {
+              const gh = mc.githubSignals
+              if (!gh) throw new Error('GitHub signals are disabled — enable them in Settings')
+              const threadId = session.thread.requireId()
+              await gh.unsubscribeThreadFromPR({
+                threadId,
+                resourceId: session.identity.getResourceId(),
+                pr: { number: cmd.number, owner: cmd.owner, repo: cmd.repo }
+              })
+              return collectGithubPrStatus()
+            })
             break
           case 'listSkills':
             await respond(cmd.reqId, async () => {

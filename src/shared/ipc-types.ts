@@ -119,6 +119,21 @@ export type HostCommand =
   | { t: 'stateSet'; reqId: string; patch: SessionStatePatch }
   /** Context-window usage audit (/context) — responds with ContextUsageInfo. */
   | { t: 'contextUsage'; reqId: string }
+  /** GitHub PR subscriptions for the active thread — responds with GithubPrStatusInfo. */
+  | { t: 'githubPrStatus'; reqId: string }
+  /**
+   * Subscribe the active thread to a PR (owner/repo default to the workspace
+   * origin remote). Responds with the refreshed GithubPrStatusInfo.
+   */
+  | {
+      t: 'githubPrSubscribe'
+      reqId: string
+      number: number
+      owner?: string
+      repo?: string
+      mode?: 'working' | 'review'
+    }
+  | { t: 'githubPrUnsubscribe'; reqId: string; number: number; owner?: string; repo?: string }
   | { t: 'listSkills'; reqId: string }
   /** Activate a workspace skill: returns the display text + expanded content. */
   | { t: 'runSkill'; reqId: string; name: string; args: string }
@@ -496,6 +511,33 @@ export interface ContextUsageInfo {
   /** Context accumulated by the session: conversation and observation memory. */
   accumulated: { tokens: number; percent: number; groups: ContextUsageGroup[] }
   totalTokens: number
+}
+
+/** One PR the active thread is subscribed to (SDK GithubPRSubscription projection). */
+export interface GithubPrSubscriptionInfo {
+  owner: string
+  repo: string
+  number: number
+  /** working = agent acts on updates; review = notifications only. */
+  mode: 'working' | 'review'
+  subscribedAt?: string
+  lastSyncAt?: string
+  lastSyncStatus?: 'success' | 'error' | 'skipped'
+  lastSyncError?: string
+  /** e.g. open / closed / merged, from the last observed snapshot. */
+  lastObservedState?: string
+  lastObservedCiState?: string
+  lastNotificationSummary?: string
+}
+
+/** GitHub PR subscription state for the active thread (/github popover). */
+export interface GithubPrStatusInfo {
+  /** GithubSignals is constructed (settings.json signals.experimentalGithubSignals). */
+  enabled: boolean
+  /** The background poller is currently running for this thread. */
+  polling: boolean
+  pollIntervalMs?: number
+  subscriptions: GithubPrSubscriptionInfo[]
 }
 
 /** One IDE diagnostic. Positions are 1-based (Monaco marker convention). */

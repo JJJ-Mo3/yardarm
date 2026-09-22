@@ -424,6 +424,51 @@ export const agentRouter = router({
       return agentSessionManager.contextUsage(input.subchatId)
     }),
 
+  /** GitHub PR subscriptions for this subchat's active thread. */
+  githubPrStatus: publicProcedure
+    .input(z.object({ subchatId: z.string() }))
+    .query(async ({ input }) => {
+      return agentSessionManager.githubPrStatus(input.subchatId)
+    }),
+
+  githubPrSubscribe: publicProcedure
+    .input(
+      z.object({
+        subchatId: z.string(),
+        number: z.number().int().positive(),
+        mode: z.enum(['working', 'review']).optional(),
+        owner: z.string().optional(),
+        repo: z.string().optional()
+      })
+    )
+    .mutation(async ({ input }) => {
+      return agentSessionManager.githubPrSubscribe(
+        input.subchatId,
+        input.number,
+        input.mode,
+        input.owner,
+        input.repo
+      )
+    }),
+
+  githubPrUnsubscribe: publicProcedure
+    .input(
+      z.object({
+        subchatId: z.string(),
+        number: z.number().int().positive(),
+        owner: z.string().optional(),
+        repo: z.string().optional()
+      })
+    )
+    .mutation(async ({ input }) => {
+      return agentSessionManager.githubPrUnsubscribe(
+        input.subchatId,
+        input.number,
+        input.owner,
+        input.repo
+      )
+    }),
+
   stateSet: publicProcedure
     .input(
       z.object({

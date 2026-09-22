@@ -85,7 +85,7 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
     kind: 'builtin'
   },
   { name: 'prune', description: 'Prune old storage data', kind: 'builtin' },
-  { name: 'github', description: 'GitHub signals integration', kind: 'builtin' },
+  { name: 'github', description: 'GitHub PR subscriptions for this thread', kind: 'builtin' },
   { name: 'observability', description: 'Observability integration', kind: 'builtin' },
   { name: 'help', description: 'Show all commands', kind: 'builtin' }
 ]

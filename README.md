@@ -198,12 +198,13 @@ Yardarm puts a desktop workspace around the agent:
   the savings show up in the cost popover (`/cost`) and as a green figure
   next to the usage counter in the chat header. An optional
   verbosity-steering switch nudges the agent toward terser replies
-- Goals (`/goal`) with a live goal banner and a color-coded header chip
-  (blue active, amber paused, green done) whose popover sets, pauses/resumes,
-  or clears the goal and tunes the judge model and run limit — setting a
-  goal can kick off a run toward it immediately, and past goals stay
-  browsable in the popover's evaluation history with per-iteration
-  pass/fail results and the judge's reasoning
+- Goals (`/goal`) with a live goal banner and a color-coded **Goal button
+  in the composer** (blue active, amber paused, green done) that opens an
+  inline panel above the input to set, pause/resume, or clear the goal and
+  tune the judge model and run limit — setting a goal can kick off a run
+  toward it immediately, and past goals stay browsable in the panel's
+  evaluation history with per-iteration pass/fail results and the judge's
+  reasoning
 - Agent code review from the **review** button in the header: review the
   chat's local changes against their base branch, or pick any open PR/MR
   from a `gh`/`glab`-powered list, optionally with a focus. Reviews run
@@ -219,7 +220,16 @@ Yardarm puts a desktop workspace around the agent:
   (validated on save), and delete workflows from Project Settings →
   Workflows — stored workflows are shared with the CLI
 - Threads (`/threads`): switch, rename, clone, delete, open in a new subchat,
-  with per-thread token usage in the cost popover (`/cost`)
+  with per-thread token usage in the cost popover (`/cost`) — new threads
+  name themselves automatically after your first message
+- Context audit (`/context` or the header context button): a breakdown of
+  what's occupying the context window — instructions, skills, tool
+  definitions, conversation, and memory — split into startup vs accumulated
+  shares
+- GitHub PR subscriptions (`/github` or the header PR button): with GitHub
+  signals enabled, subscribe the current thread to pull requests so the
+  agent follows new comments, reviews, and CI results (working mode) or
+  just gets notified (review mode)
 - Multiple subchats per chat, each with its own agent process
 - Fork from any message: a fork pill on your messages clones the agent's
   memory (a Mastra thread clone) into a new subchat tab, truncated to just
@@ -244,9 +254,10 @@ Yardarm puts a desktop workspace around the agent:
   `/hooks`, `/commands`, `/skills`, `/workflows`, `/resource`, `/login`,
   `/api-keys`, `/diff`, `/help`, and more
 - App-native commands too: `/setup` (re-run the wizard), `/update` (check
-  for app updates), `/browser` (browser-tool settings), `/github` and
-  `/observability` (their Connectors sections), `/prune` (storage
-  maintenance), and `/report-issue` (file a mastracode issue on GitHub)
+  for app updates), `/browser` (browser-tool settings), `/github` (PR
+  subscriptions for the thread), `/observability` (its Connectors section),
+  `/context` (context-window audit), `/prune` (storage maintenance), and
+  `/report-issue` (file a mastracode issue on GitHub)
 - Project and global custom commands (`.md` files with frontmatter) are
   loaded through the mastracode command loader and run as prompts
 - Commands that only make sense in a terminal (e.g. `/voice`) are listed in
@@ -315,6 +326,10 @@ Yardarm puts a desktop workspace around the agent:
   data (threads, traces, logs — also `/prune`)
 - Per-tool toggles in Settings → Preferences to disable built-in agent
   tools you never want used, grouped by category
+- More agent preferences: the web-search provider the agent's search tool
+  uses (Tavily or Parallel), commit attribution (customize or disable the
+  co-author trailer on agent-made commits), and experimental cross-agent
+  communication (running agents can discover and signal each other)
 
 **Providers & auth**
 
@@ -325,9 +340,9 @@ Yardarm puts a desktop workspace around the agent:
   GitHub, GitLab, Supabase, Netlify, Vercel, and Sentry MCP servers, with
   verified connection status — sign-ins are shared across all of a
   project's worktrees, so one login covers every chat. The same tab hosts
-  **GitHub signals** (experimental PR-status awareness via the `gh` CLI,
-  `/github`) and **Observability** (local tracing / Mastra Cloud,
-  `/observability`)
+  **GitHub signals** (experimental PR awareness via the `gh` CLI — enables
+  the per-thread PR subscriptions above) and **Observability** (local
+  tracing / Mastra Cloud, `/observability`)
 - API keys for any supported provider in Settings → API Keys, plus custom
   OpenAI-compatible providers in Settings → Providers
 - API keys by environment variable: reference a variable name (any name)
@@ -344,15 +359,18 @@ Yardarm puts a desktop workspace around the agent:
   Templates section listing 18 ready-made subagents (12 team roles such
   as developer, QA engineer, and security engineer, plus 6 domain
   specialists such as SaaS, mobile, and AI apps) added with one click
-  and fully editable afterwards
+  and fully editable afterwards — plus a toggle for the runtime's built-in
+  explore/plan/execute subagents
 - MCP servers editor (Settings → MCP Servers, `/mcp`): edit the `mcp.json`
   server lists — global by default, or project-specific via the scope
   toggle and project picker — with live server status (connected state and
   tool counts), one-click OAuth authentication for servers that need it,
   reconnect for ones that dropped, and a per-server enable/disable switch
   (persisted in mastracode's state, shared with the CLI, no config edit
-  needed); the Global scope adds opt-in switches to also discover MCP
-  servers configured for Claude Code or Codex
+  needed) — the Project scope adds per-server Enabled / Disabled / Inherit
+  overrides on top of the global default, and a global kill switch is
+  surfaced when active; the Global scope adds opt-in switches to also
+  discover MCP servers configured for Claude Code or Codex
 
 **Per-project configuration**
 

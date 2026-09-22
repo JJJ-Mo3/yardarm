@@ -158,8 +158,18 @@ to jump between them, create new ones, or open a thread in a new tab.
 - **Split view** — the split button in the tab bar shows a second chat of the same project
   side by side, so two agents can work (and be watched) at once. Drag the divider to resize.
 
+Threads **name themselves** after your first message — the agent generates a short title
+automatically, and you can rename it any time with \`/name\`.
+
 Threads are shared with the \`mastracode\` CLI — the CLI tab sees the same conversations.
 Avoid driving the same thread from the chat and the CLI at the same time.
+
+### Following pull requests
+
+With **GitHub signals** enabled (Settings → Connectors), the PR button in the chat header
+(or \`/github\`) subscribes the current thread to one or more pull requests: in **working**
+mode the agent acts on new comments, reviews, and CI results; in **review** mode it only
+gets notified. The repository defaults to the project's origin remote.
 `
   },
   {
@@ -332,6 +342,9 @@ The chart icon in the tab bar opens **Analytics**: token usage for the current p
   shrinks bulky tool output (logs, diffs, HTML) before it reaches the model and lets the
   agent retrieve the original on demand; Analytics shows how many tokens that saved. The
   savings also appear in the chat's usage bar.
+- **Context audit** — the context button in the chat header (or \`/context\`) breaks down
+  what's occupying the context window right now: instructions, skills, tool definitions,
+  conversation, and memory, split into startup vs accumulated shares.
 - **CSV export** for your own analysis.
 
 Figures are token counts, not prices — pricing varies by provider and plan, so Yardarm
@@ -346,8 +359,11 @@ App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
 
 - **Appearance** — light/dark/system theme.
 - **Preferences** — agent behavior defaults (auto-approve, sandbox), token compression and
-  verbosity steering, and per-tool toggles to disable built-in agent tools you never want
-  used.
+  verbosity steering, the **web-search provider** the agent's search tool uses (Tavily or
+  Parallel), **commit attribution** (the co-author trailer on agent-made commits — customize
+  or disable it), experimental **cross-agent communication** (lets running agents discover
+  and signal each other), and per-tool toggles to disable built-in agent tools you never
+  want used.
 - **API Keys** — keys for model providers, stored locally. Instead of pasting a key you can
   reference an environment variable (e.g. \`ANTHROPIC_API_KEY\`) — the value is read from your
   login shell at launch and never saved by Yardarm. Standard variables are detected
@@ -360,12 +376,15 @@ App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
 - **Voice** — speech-to-text for the composer microphone.
 - **Browser** — the agent's built-in browser tool, including viewport size.
 - **Connectors** — one-click service sign-ins (see the Connectors section), plus
-  **GitHub signals** (experimental PR-status awareness via the \`gh\` CLI) and
-  **Observability** (local tracing / Mastra Cloud). \`/github\` and \`/observability\` jump
-  straight there.
+  **GitHub signals** (experimental PR awareness via the \`gh\` CLI — enables per-thread PR
+  subscriptions, see Threads) and **Observability** (local tracing / Mastra Cloud).
+  \`/observability\` jumps straight there.
 - **MCP Servers** — MCP server lists and live status, global or per-project (scope toggle +
-  project picker). \`/mcp\` opens this tab.
-- **Agents** — custom subagents the main agent can delegate tasks to. Global by default
+  project picker). Project scope adds per-server **Enabled / Disabled / Inherit** overrides
+  on top of the global default, and a global kill switch state is surfaced when active.
+  \`/mcp\` opens this tab.
+- **Agents** — custom subagents the main agent can delegate tasks to, plus a toggle for the
+  runtime's **built-in explore/plan/execute subagents**. Global by default
   (available in every project); switch the scope to Project and pick a project to manage
   project-specific subagents. A Templates section lists ready-made subagents — team roles
   (product manager, developer, QA, …) and domain specialists (SaaS, mobile, AI apps, …) —

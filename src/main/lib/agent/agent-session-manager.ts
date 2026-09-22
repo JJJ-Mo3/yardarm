@@ -44,6 +44,7 @@ import type {
   AuthEntry,
   ContextUsageInfo,
   FileAttachment,
+  GithubPrStatusInfo,
   GoalInfo,
   HostBootConfig,
   HostCommand,
@@ -1828,6 +1829,48 @@ export class AgentSessionManager {
   async contextUsage(subchatId: string): Promise<ContextUsageInfo> {
     const handle = await this.ensureHost(subchatId)
     return this.request<ContextUsageInfo>(handle, { t: 'contextUsage', reqId: randomUUID() })
+  }
+
+  /** GitHub PR subscription state for the subchat's active thread. */
+  async githubPrStatus(subchatId: string): Promise<GithubPrStatusInfo> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<GithubPrStatusInfo>(handle, { t: 'githubPrStatus', reqId: randomUUID() })
+  }
+
+  /** Subscribe the active thread to a PR (owner/repo default to the origin remote). */
+  async githubPrSubscribe(
+    subchatId: string,
+    number: number,
+    mode?: 'working' | 'review',
+    owner?: string,
+    repo?: string
+  ): Promise<GithubPrStatusInfo> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<GithubPrStatusInfo>(handle, {
+      t: 'githubPrSubscribe',
+      reqId: randomUUID(),
+      number,
+      mode,
+      owner,
+      repo
+    })
+  }
+
+  /** Unsubscribe the active thread from a PR. */
+  async githubPrUnsubscribe(
+    subchatId: string,
+    number: number,
+    owner?: string,
+    repo?: string
+  ): Promise<GithubPrStatusInfo> {
+    const handle = await this.ensureHost(subchatId)
+    return this.request<GithubPrStatusInfo>(handle, {
+      t: 'githubPrUnsubscribe',
+      reqId: randomUUID(),
+      number,
+      owner,
+      repo
+    })
   }
 
   /** User-invocable workspace skills (SKILL.md) for the subchat's cwd. */

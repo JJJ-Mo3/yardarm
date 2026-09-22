@@ -39,6 +39,7 @@ import { QueuedPrompts } from './QueuedPrompts'
 import { HelpDialog } from './HelpDialog'
 import { CostPopover } from './CostPopover'
 import { ContextPopover } from './ContextPopover'
+import { GithubPrPopover } from './GithubPrPopover'
 import { ThreadsPopover } from './ThreadsPopover'
 import { PermissionsDialog } from './PermissionsDialog'
 import { SandboxDialog } from './SandboxDialog'
@@ -229,6 +230,7 @@ export function ChatView({
   const updatesCheck = trpc.updates.check.useMutation()
   const [costOpen, setCostOpen] = useState(false)
   const [contextOpen, setContextOpen] = useState(false)
+  const [githubPrOpen, setGithubPrOpen] = useState(false)
   const [threadsOpen, setThreadsOpen] = useAtom(threadsOpenAtom)
   const [permissionsOpen, setPermissionsOpen] = useState(false)
   const [sandboxOpen, setSandboxOpen] = useState(false)
@@ -526,6 +528,8 @@ export function ChatView({
         )
         return
       case 'github':
+        setGithubPrOpen(true)
+        return
       case 'observability':
         openSettings('connectors')
         return
@@ -728,6 +732,7 @@ export function ChatView({
           open={omOpen}
           onOpenChange={setOmOpen}
         />
+        <GithubPrPopover subchatId={subchatId} open={githubPrOpen} onOpenChange={setGithubPrOpen} />
         <ContextPopover subchatId={subchatId} open={contextOpen} onOpenChange={setContextOpen} />
         <CostPopover
           subchatId={subchatId}
