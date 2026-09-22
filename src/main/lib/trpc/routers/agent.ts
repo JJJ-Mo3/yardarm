@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb, schema } from '../../db'
 import { agentSessionManager } from '../../agent/agent-session-manager'
+import { onFocusChat, type FocusChatRequest } from '../../notifications'
 import { captureCheckpoint } from '../../git/ops'
 import { readSettings } from '../../mastra-config/settings-json'
 import { MODES, type AgentUIEvent, type SubchatStatusInfo } from '../../../../shared/ui-message'
@@ -57,6 +58,13 @@ export const agentRouter = router({
     return observable<SubchatStatusInfo>((emit) => {
       for (const info of agentSessionManager.statusSnapshot()) emit.next(info)
       return agentSessionManager.onStatus((info) => emit.next(info))
+    })
+  }),
+
+  /** Fired when a desktop notification is clicked; the renderer selects the chat. */
+  focusRequests: publicProcedure.subscription(() => {
+    return observable<FocusChatRequest>((emit) => {
+      return onFocusChat((req) => emit.next(req))
     })
   }),
 

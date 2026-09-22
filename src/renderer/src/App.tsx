@@ -41,6 +41,7 @@ import { CommandPalette } from './features/agents/CommandPalette'
 import { SplitChatPane } from './features/agents/SplitChatPane'
 import { SplitDivider } from './components/SplitDivider'
 import { useChatStatusTracker } from './features/agents/use-chat-status-tracker'
+import { useNotificationFocus } from './features/agents/use-notification-focus'
 import { ChangesView } from './features/changes/ChangesView'
 import { TerminalView } from './features/terminal/TerminalView'
 import { FilesView } from './features/file-viewer/FilesView'
@@ -130,6 +131,7 @@ export default function App(): React.JSX.Element {
   useThemeEffect()
   useAppShortcuts()
   useChatStatusTracker()
+  useNotificationFocus()
   const projectId = useAtomValue(selectedProjectIdAtom)
   const setAddProjectOpen = useSetAtom(addProjectOpenAtom)
   const chatId = useAtomValue(selectedChatIdAtom)

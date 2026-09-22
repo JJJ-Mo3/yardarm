@@ -345,25 +345,6 @@ export function ChatView({
     return new Set(interactive.filter((s) => !present.has(s.toolCallId)).map((s) => s.toolCallId))
   }, [state.suspensions, state.messages])
 
-  // OS notification when a run finishes while the window is unfocused,
-  // honoring the mastracode `notifications` session-state setting.
-  const sessionState = trpc.agent.stateGet.useQuery({ subchatId }, { staleTime: 30_000 })
-  const notifyMode = sessionState.data?.notifications
-  const wasRunning = useRef(false)
-  useEffect(() => {
-    if (wasRunning.current && !state.running) {
-      const wants = notifyMode === 'system' || notifyMode === 'both'
-      if (wants && !document.hasFocus() && 'Notification' in window) {
-        if (Notification.permission === 'granted') {
-          new Notification('Yardarm', { body: 'Agent run finished', silent: false })
-        } else if (Notification.permission === 'default') {
-          void Notification.requestPermission()
-        }
-      }
-    }
-    wasRunning.current = state.running
-  }, [state.running, notifyMode])
-
   // Cmd+K palette bridge: expose this pane's slash dispatcher + composer
   // prefill to the global command palette. Only the primary pane registers,
   // and a ref keeps the latest closures without re-registering every render.

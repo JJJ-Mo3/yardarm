@@ -10,6 +10,7 @@ import path from 'node:path'
 import { app, shell, utilityProcess, type UtilityProcess } from 'electron'
 import { and, eq, desc, isNull, or, sql } from 'drizzle-orm'
 import { getDb, schema } from '../db'
+import { notifyAgentEvent } from '../notifications'
 import { captureCheckpoint } from '../git/ops'
 import { EventTranslator } from './event-translator'
 import { addIdeEditPath, parseIdeEditPaths, formatIdeEditNote } from './ide-edit-notes'
@@ -177,6 +178,20 @@ export class AgentSessionManager {
 
   private emitUI(subchatId: string, event: AgentUIEvent): void {
     this.emitterFor(subchatId).emit('event', event)
+    // Desktop notification for background activity (module suppresses these
+    // while the window is focused; '__utility__' has no chat and is skipped).
+    const notifyBody =
+      event.type === 'run-finished'
+        ? 'Agent run finished'
+        : event.type === 'approval-request'
+          ? 'The agent is asking to run a tool'
+          : event.type === 'suspension-request'
+            ? 'The agent needs your input'
+            : null
+    if (notifyBody) {
+      const chatId = this.chatIdFor(subchatId)
+      if (chatId) notifyAgentEvent(notifyBody, chatId, subchatId)
+    }
     switch (event.type) {
       case 'run-started':
       case 'run-finished':

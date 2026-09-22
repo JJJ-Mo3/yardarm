@@ -214,6 +214,14 @@ export function PreferencesTab(): React.JSX.Element {
     }
   })
 
+  // Desktop notifications for background agent activity (app_settings KV,
+  // read by the main process at notify time; absent means enabled).
+  const desktopNotif = trpc.settings.get.useQuery({ key: 'desktopNotifications' })
+  const setDesktopNotif = trpc.settings.set.useMutation({
+    onSuccess: () => utils.settings.get.invalidate({ key: 'desktopNotifications' })
+  })
+  const notifEnabled = desktopNotif.data !== false
+
   // Commit co-author identity (app_settings KV); applied to hosts at boot.
   const coAuthor = trpc.settings.get.useQuery({ key: 'commitCoAuthor' })
   const setCoAuthor = trpc.settings.set.useMutation({
@@ -236,6 +244,7 @@ export function PreferencesTab(): React.JSX.Element {
     setSetting.error ??
     setTokenCompression.error ??
     setCrossAgent.error ??
+    setDesktopNotif.error ??
     setCoAuthor.error
 
   return (
@@ -380,6 +389,27 @@ export function PreferencesTab(): React.JSX.Element {
               }
             />
             Allow network in the sandbox
+          </label>
+        </Tip>
+      </div>
+
+      <div className="space-y-3 rounded border border-border p-3">
+        <div>
+          <div className="text-xs font-medium">Notifications</div>
+          <div className="text-[11px] text-muted-foreground">
+            System notification when a run finishes or the agent needs approval or input while the
+            app is in the background. Clicking one opens the chat.
+          </div>
+        </div>
+        <Tip content="Show a desktop notification for agent activity while the app is unfocused">
+          <label className="flex w-fit items-center gap-2 text-xs">
+            <Switch
+              checked={notifEnabled}
+              onCheckedChange={(v) =>
+                setDesktopNotif.mutate({ key: 'desktopNotifications', value: v })
+              }
+            />
+            Desktop notifications
           </label>
         </Tip>
       </div>
