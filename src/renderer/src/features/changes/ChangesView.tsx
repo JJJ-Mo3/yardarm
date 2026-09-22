@@ -720,7 +720,16 @@ export function ChangesView({
       </div>
 
       {/* New branch dialog */}
-      <Dialog open={newBranchOpen} onOpenChange={setNewBranchOpen}>
+      <Dialog
+        open={newBranchOpen}
+        onOpenChange={(o) => {
+          setNewBranchOpen(o)
+          if (!o) {
+            setNewBranchName('')
+            createBranch.reset()
+          }
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogTitle>New branch</DialogTitle>
           <div className="space-y-3">
@@ -739,7 +748,15 @@ export function ChangesView({
               Created from the current HEAD ({currentBranch}) and checked out.
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setNewBranchOpen(false)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setNewBranchOpen(false)
+                  setNewBranchName('')
+                  createBranch.reset()
+                }}
+              >
                 Cancel
               </Button>
               <Button

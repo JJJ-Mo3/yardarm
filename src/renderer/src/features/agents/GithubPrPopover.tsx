@@ -5,7 +5,7 @@
  * commands, which wrap the SDK's GithubSignals service — only constructed when
  * GitHub signals are enabled in Settings → Connectors.
  */
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { GitPullRequest, X } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
@@ -96,6 +96,14 @@ export function GithubPrPopover({
   const [prNumber, setPrNumber] = useState('')
   const [mode, setMode] = useState<'working' | 'review'>('working')
   const [error, setError] = useState<string | null>(null)
+
+  // Clear the one-shot form state when the popover reopens.
+  useEffect(() => {
+    if (open) {
+      setPrNumber('')
+      setError(null)
+    }
+  }, [open])
 
   const onResult = (data: (typeof status)['data']): void => {
     setError(null)

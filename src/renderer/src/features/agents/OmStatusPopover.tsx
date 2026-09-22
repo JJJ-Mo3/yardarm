@@ -92,6 +92,12 @@ export function OmStatusPopover({
     onSuccess: (info) => utils.agent.omGet.setData({ subchatId }, info)
   })
 
+  // Clear a stale mutation error when the popover reopens.
+  const resetOmSet = omSet.reset
+  useEffect(() => {
+    if (open) resetOmSet()
+  }, [open, resetOmSet])
+
   const info = om.data
   const busy = omSet.isPending
 

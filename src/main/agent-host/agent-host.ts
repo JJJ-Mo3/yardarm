@@ -2130,6 +2130,12 @@ async function main(): Promise<void> {
                 capturedAt: r.capturedAt,
                 when: r.when
               })
+              // Dedupe by handle — a node can be both an outgoing target and an
+              // incoming parent — and drop the node itself.
+              const related = new Map<string, Record<string, unknown>>()
+              for (const n of [...detail.outgoingTargets.nodes, ...detail.incomingParents.nodes]) {
+                if (n.handle !== detail.node.handle) related.set(n.handle, toEntry(n))
+              }
               return {
                 available: true,
                 entry: toEntry(detail.node),
@@ -2137,9 +2143,7 @@ async function main(): Promise<void> {
                 mentioning: detail.mentioningRecords.map(toRecord),
                 content: detail.content,
                 contentTruncated: detail.contentTruncated,
-                related: [...detail.outgoingTargets.nodes, ...detail.incomingParents.nodes].map(
-                  toEntry
-                )
+                related: [...related.values()]
               }
             })
             break
