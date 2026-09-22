@@ -45,6 +45,12 @@ export type ProjectSettingsTab =
 export const projectSettingsOpenAtom = atom(false)
 export const projectSettingsTabAtom = atom<ProjectSettingsTab>('general')
 export const debugEventsAtom = atomWithStorage<boolean>('cz.debugEvents', false)
+/** Right-hand details panel on the Chat tab (changed files / tasks / plan). */
+export const detailsOpenAtom = atomWithStorage<boolean>('cz.detailsOpen', false)
+/** Details panel width in px (clamped 240–480 on use). */
+export const detailsWidthAtom = atomWithStorage<number>('cz.detailsWidth', 320)
+/** Worktree-relative file the Files tab should open on next activation. */
+export const fileOpenRequestAtom = atom<string | null>(null)
 /** Re-open the first-run onboarding wizard (Settings → About → Run setup again). */
 export const onboardingForceOpenAtom = atom(false)
 

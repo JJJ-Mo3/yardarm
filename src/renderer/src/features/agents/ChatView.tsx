@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { Download, KeyRound, Server, ShieldCheck } from 'lucide-react'
+import { Download, KeyRound, PanelRight, Server, ShieldCheck } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import {
   debugEventsAtom,
+  detailsOpenAtom,
   helpOpenAtom,
   mainTabAtom,
   onboardingForceOpenAtom,
@@ -44,6 +45,7 @@ import { ThreadsPopover } from './ThreadsPopover'
 import { PermissionsDialog } from './PermissionsDialog'
 import { SandboxDialog } from './SandboxDialog'
 import { PruneStorageDialog } from '../settings/PruneStorageDialog'
+import { DetailsPanel } from './details/DetailsPanel'
 import { GoalBanner } from './GoalBanner'
 import { TaskChecklist } from './TaskChecklist'
 import { GoalPanel } from './GoalPanel'
@@ -241,6 +243,8 @@ export function ChatView({
   const [goalOpen, setGoalOpen] = useState(false)
   const [reviewOpen, setReviewOpen] = useState(false)
   const [pruneOpen, setPruneOpen] = useState(false)
+  // Details side panel (primary pane only — the split pane stays compact).
+  const [detailsOpen, setDetailsOpen] = useAtom(detailsOpenAtom)
 
   const meta = state.meta
   const busy = send.isPending
@@ -546,453 +550,489 @@ export function ChatView({
   }
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Header controls — wraps so narrow panes (split view) flow onto
+    <div className="flex h-full">
+      <div className="flex h-full min-w-0 flex-1 flex-col">
+        {/* Header controls — wraps so narrow panes (split view) flow onto
           extra rows instead of overflowing the pane. */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-border px-3 py-2">
-        <ModeSelector value={currentMode} pending={pendingMode} onChange={changeMode} />
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-border px-3 py-2">
+          <ModeSelector value={currentMode} pending={pendingMode} onChange={changeMode} />
 
-        {(() => {
-          const usable = (models.data ?? []).filter((m) => m.hasApiKey)
-          const currentUnusable =
-            meta.modelId && !usable.some((m) => m.id === meta.modelId) ? meta.modelId : null
-          if (usable.length === 0 && !currentUnusable) return null
-          return (
-            <Select
-              value={meta.modelId ?? ''}
-              onValueChange={(modelId) => setModel.mutate({ subchatId, modelId })}
-            >
+          {(() => {
+            const usable = (models.data ?? []).filter((m) => m.hasApiKey)
+            const currentUnusable =
+              meta.modelId && !usable.some((m) => m.id === meta.modelId) ? meta.modelId : null
+            if (usable.length === 0 && !currentUnusable) return null
+            return (
+              <Select
+                value={meta.modelId ?? ''}
+                onValueChange={(modelId) => setModel.mutate({ subchatId, modelId })}
+              >
+                <Tip
+                  content="Model used for this chat (configure more in Settings → Models)"
+                  side="bottom"
+                >
+                  <SelectTrigger className="max-w-56">
+                    <SelectValue placeholder="Model" />
+                  </SelectTrigger>
+                </Tip>
+                <SelectContent>
+                  {usable.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.id}
+                    </SelectItem>
+                  ))}
+                  {currentUnusable && (
+                    <SelectItem value={currentUnusable} disabled>
+                      {currentUnusable} (no key)
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            )
+          })()}
+
+          {models.data && models.data.length > 0 && !models.data.some((m) => m.hasApiKey) && (
+            <>
               <Tip
-                content="Model used for this chat (configure more in Settings → Models)"
+                content="No provider is authenticated — add an API key (OAuth logins are under Providers)"
                 side="bottom"
               >
-                <SelectTrigger className="max-w-56">
-                  <SelectValue placeholder="Model" />
-                </SelectTrigger>
+                <button
+                  className="flex items-center gap-1 rounded-md border border-amber-600/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-500 hover:bg-amber-500/20 cursor-pointer"
+                  onClick={() => openSettings('keys')}
+                >
+                  <KeyRound size={11} />
+                  Add API key
+                </button>
               </Tip>
-              <SelectContent>
-                {usable.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.id}
-                  </SelectItem>
-                ))}
-                {currentUnusable && (
-                  <SelectItem value={currentUnusable} disabled>
-                    {currentUnusable} (no key)
-                  </SelectItem>
-                )}
-              </SelectContent>
-            </Select>
-          )
-        })()}
+              <Tip
+                content="Run a model on your own machine with Ollama, LM Studio, and more"
+                side="bottom"
+              >
+                <button
+                  className="flex items-center gap-1 rounded-md border border-amber-600/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-500 hover:bg-amber-500/20 cursor-pointer"
+                  onClick={() => openSettings('providers')}
+                >
+                  <Server size={11} />
+                  Use a local model
+                </button>
+              </Tip>
+            </>
+          )}
 
-        {models.data && models.data.length > 0 && !models.data.some((m) => m.hasApiKey) && (
-          <>
+          <Select
+            value={meta.thinkingLevel ?? 'off'}
+            onValueChange={(level) => setThinking.mutate({ subchatId, level })}
+          >
             <Tip
-              content="No provider is authenticated — add an API key (OAuth logins are under Providers)"
+              content="Extended thinking — higher levels let the model reason longer before answering (slower, better on hard problems)"
               side="bottom"
             >
-              <button
-                className="flex items-center gap-1 rounded-md border border-amber-600/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-500 hover:bg-amber-500/20 cursor-pointer"
-                onClick={() => openSettings('keys')}
-              >
-                <KeyRound size={11} />
-                Add API key
-              </button>
+              {/* Wide enough that the longest value ("think: medium") never wraps */}
+              <SelectTrigger className="w-30 whitespace-nowrap">
+                <SelectValue placeholder="Thinking" />
+              </SelectTrigger>
             </Tip>
-            <Tip
-              content="Run a model on your own machine with Ollama, LM Studio, and more"
-              side="bottom"
-            >
-              <button
-                className="flex items-center gap-1 rounded-md border border-amber-600/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-500 hover:bg-amber-500/20 cursor-pointer"
-                onClick={() => openSettings('providers')}
-              >
-                <Server size={11} />
-                Use a local model
-              </button>
-            </Tip>
-          </>
-        )}
+            <SelectContent>
+              {THINKING.map((t) => (
+                <SelectItem key={t} value={t}>
+                  think: {t}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <Select
-          value={meta.thinkingLevel ?? 'off'}
-          onValueChange={(level) => setThinking.mutate({ subchatId, level })}
-        >
           <Tip
-            content="Extended thinking — higher levels let the model reason longer before answering (slower, better on hard problems)"
+            content="Let the agent run tools and edit files without asking for approval each time"
             side="bottom"
           >
-            {/* Wide enough that the longest value ("think: medium") never wraps */}
-            <SelectTrigger className="w-30 whitespace-nowrap">
-              <SelectValue placeholder="Thinking" />
-            </SelectTrigger>
-          </Tip>
-          <SelectContent>
-            {THINKING.map((t) => (
-              <SelectItem key={t} value={t}>
-                think: {t}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Tip
-          content="Let the agent run tools and edit files without asking for approval each time"
-          side="bottom"
-        >
-          <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground ml-1">
-            <Switch
-              checked={meta.yolo ?? false}
-              onCheckedChange={(yolo) => setYolo.mutate({ subchatId, yolo })}
-            />
-            auto-approve
-          </label>
-        </Tip>
-
-        <Tip
-          content={
-            meta.isolationAvailable === false
-              ? 'OS-level sandboxing is only supported on macOS (built-in seatbelt) and Linux (needs the bwrap package)'
-              : meta.fullSandbox
-                ? 'Full sandbox active — configure network and allowed paths via the shield or /sandbox'
-                : "Run this chat's shell commands in an OS-level sandbox — writes contained to the worktree and allowed paths"
-          }
-          side="bottom"
-        >
-          <span className="inline-flex">
             <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground ml-1">
               <Switch
-                checked={meta.fullSandbox ?? false}
-                disabled={setSandbox.isPending || meta.isolationAvailable === false}
-                onCheckedChange={(enabled) =>
-                  setSandbox.mutate({
-                    subchatId,
-                    enabled,
-                    allowNetwork: meta.sandboxNetwork ?? true
-                  })
-                }
+                checked={meta.yolo ?? false}
+                onCheckedChange={(yolo) => setYolo.mutate({ subchatId, yolo })}
               />
-              sandbox
+              auto-approve
             </label>
-          </span>
-        </Tip>
+          </Tip>
 
-        {meta.fullSandbox && (
           <Tip
             content={
-              meta.sandboxNetwork === false
-                ? 'Sandbox is active and network access is blocked — click to configure network access and allowed paths'
-                : 'Sandbox is active — click to configure network access and allowed paths'
+              meta.isolationAvailable === false
+                ? 'OS-level sandboxing is only supported on macOS (built-in seatbelt) and Linux (needs the bwrap package)'
+                : meta.fullSandbox
+                  ? 'Full sandbox active — configure network and allowed paths via the shield or /sandbox'
+                  : "Run this chat's shell commands in an OS-level sandbox — writes contained to the worktree and allowed paths"
             }
             side="bottom"
           >
-            <button
-              className="flex items-center gap-1 rounded-md border border-emerald-600/40 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-500 hover:bg-emerald-500/20 cursor-pointer"
-              onClick={() => setSandboxOpen(true)}
-            >
-              <ShieldCheck size={11} />
-              {meta.sandboxNetwork === false && 'no net'}
-            </button>
+            <span className="inline-flex">
+              <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground ml-1">
+                <Switch
+                  checked={meta.fullSandbox ?? false}
+                  disabled={setSandbox.isPending || meta.isolationAvailable === false}
+                  onCheckedChange={(enabled) =>
+                    setSandbox.mutate({
+                      subchatId,
+                      enabled,
+                      allowNetwork: meta.sandboxNetwork ?? true
+                    })
+                  }
+                />
+                sandbox
+              </label>
+            </span>
           </Tip>
-        )}
 
-        <div className="flex-1" />
-
-        {state.approvals.length + state.suspensions.length > 0 && (
-          <Tip content="Requests waiting for your approval below" side="bottom">
-            <Badge className="border-amber-500/50 text-amber-500">
-              {state.approvals.length + state.suspensions.length} pending
-            </Badge>
-          </Tip>
-        )}
-        {state.queuedPrompts.length > 0 && (
-          <Tip
-            content="Messages queued behind the active run — sent in order when it finishes; dismiss them above the composer"
-            side="bottom"
-          >
-            <Badge className="border-sky-500/50 text-sky-500">
-              {state.queuedPrompts.length} queued
-            </Badge>
-          </Tip>
-        )}
-        <ReviewPopover
-          cwd={projectRoot}
-          baseBranch={baseBranch}
-          running={state.running}
-          open={reviewOpen}
-          onOpenChange={setReviewOpen}
-          onReview={sendMarked}
-        />
-        {primary && (
-          <ThreadsPopover subchatId={subchatId} open={threadsOpen} onOpenChange={setThreadsOpen} />
-        )}
-        <OmStatusPopover
-          subchatId={subchatId}
-          omEvents={state.omEvents}
-          open={omOpen}
-          onOpenChange={setOmOpen}
-        />
-        <GithubPrPopover subchatId={subchatId} open={githubPrOpen} onOpenChange={setGithubPrOpen} />
-        <Tip content="Export this thread's transcript as a Markdown file" side="bottom">
-          <span className="inline-flex">
-            <button
-              className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-50"
-              disabled={state.messages.length === 0}
-              onClick={() =>
-                downloadChatMarkdown(
-                  state.messages,
-                  `Yardarm chat ${new Date().toISOString().slice(0, 10)}`
-                )
+          {meta.fullSandbox && (
+            <Tip
+              content={
+                meta.sandboxNetwork === false
+                  ? 'Sandbox is active and network access is blocked — click to configure network access and allowed paths'
+                  : 'Sandbox is active — click to configure network access and allowed paths'
               }
+              side="bottom"
             >
-              <Download size={11} />
-              export
-            </button>
-          </span>
-        </Tip>
-        <ContextPopover subchatId={subchatId} open={contextOpen} onOpenChange={setContextOpen} />
-        <CostPopover
-          subchatId={subchatId}
-          usage={state.usage}
-          compressionSaved={meta.compressionSaved}
-          compressionEnabled={meta.compressionEnabled}
-          open={costOpen}
-          onOpenChange={setCostOpen}
+              <button
+                className="flex items-center gap-1 rounded-md border border-emerald-600/40 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-500 hover:bg-emerald-500/20 cursor-pointer"
+                onClick={() => setSandboxOpen(true)}
+              >
+                <ShieldCheck size={11} />
+                {meta.sandboxNetwork === false && 'no net'}
+              </button>
+            </Tip>
+          )}
+
+          <div className="flex-1" />
+
+          {state.approvals.length + state.suspensions.length > 0 && (
+            <Tip content="Requests waiting for your approval below" side="bottom">
+              <Badge className="border-amber-500/50 text-amber-500">
+                {state.approvals.length + state.suspensions.length} pending
+              </Badge>
+            </Tip>
+          )}
+          {state.queuedPrompts.length > 0 && (
+            <Tip
+              content="Messages queued behind the active run — sent in order when it finishes; dismiss them above the composer"
+              side="bottom"
+            >
+              <Badge className="border-sky-500/50 text-sky-500">
+                {state.queuedPrompts.length} queued
+              </Badge>
+            </Tip>
+          )}
+          <ReviewPopover
+            cwd={projectRoot}
+            baseBranch={baseBranch}
+            running={state.running}
+            open={reviewOpen}
+            onOpenChange={setReviewOpen}
+            onReview={sendMarked}
+          />
+          {primary && (
+            <ThreadsPopover
+              subchatId={subchatId}
+              open={threadsOpen}
+              onOpenChange={setThreadsOpen}
+            />
+          )}
+          <OmStatusPopover
+            subchatId={subchatId}
+            omEvents={state.omEvents}
+            open={omOpen}
+            onOpenChange={setOmOpen}
+          />
+          <GithubPrPopover
+            subchatId={subchatId}
+            open={githubPrOpen}
+            onOpenChange={setGithubPrOpen}
+          />
+          <Tip content="Export this thread's transcript as a Markdown file" side="bottom">
+            <span className="inline-flex">
+              <button
+                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-50"
+                disabled={state.messages.length === 0}
+                onClick={() =>
+                  downloadChatMarkdown(
+                    state.messages,
+                    `Yardarm chat ${new Date().toISOString().slice(0, 10)}`
+                  )
+                }
+              >
+                <Download size={11} />
+                export
+              </button>
+            </span>
+          </Tip>
+          {primary && (
+            <Tip
+              content={
+                detailsOpen
+                  ? 'Hide the details panel'
+                  : 'Show changed files, tasks and the latest plan'
+              }
+              side="bottom"
+            >
+              <button
+                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+                onClick={() => setDetailsOpen((v) => !v)}
+              >
+                <PanelRight size={11} />
+                details
+              </button>
+            </Tip>
+          )}
+          <ContextPopover subchatId={subchatId} open={contextOpen} onOpenChange={setContextOpen} />
+          <CostPopover
+            subchatId={subchatId}
+            usage={state.usage}
+            compressionSaved={meta.compressionSaved}
+            compressionEnabled={meta.compressionEnabled}
+            open={costOpen}
+            onOpenChange={setCostOpen}
+          />
+          <Badge>{state.status}</Badge>
+        </div>
+
+        <GoalBanner subchatId={subchatId} live={state.goal} running={state.running} />
+
+        <TaskChecklist key={subchatId} tasks={state.tasks} running={state.running} />
+
+        <MessageList
+          messages={state.messages}
+          running={state.running}
+          onRollback={handleRollback}
+          onFork={handleFork}
+          resetKey={subchatId}
+          suspensions={state.suspensions}
+          onRespondSuspension={handleRespondSuspension}
         />
-        <Badge>{state.status}</Badge>
-      </div>
 
-      <GoalBanner subchatId={subchatId} live={state.goal} running={state.running} />
-
-      <TaskChecklist key={subchatId} tasks={state.tasks} running={state.running} />
-
-      <MessageList
-        messages={state.messages}
-        running={state.running}
-        onRollback={handleRollback}
-        onFork={handleFork}
-        resetKey={subchatId}
-        suspensions={state.suspensions}
-        onRespondSuspension={handleRespondSuspension}
-      />
-
-      {/* Pending gates + errors. Interactive suspensions (ask_user /
+        {/* Pending gates + errors. Interactive suspensions (ask_user /
           submit_plan / request_access) render inline in the transcript, so
           only unknown suspension tools — plus interactive ones whose tool
           part is missing from the transcript — fall back to this strip. */}
-      {(state.approvals.length > 0 ||
-        state.suspensions.some(
-          (s) => !INTERACTIVE_TOOLS.has(s.toolName) || orphanedSuspensionIds.has(s.toolCallId)
-        ) ||
-        visibleErrors.length > 0) && (
-        <div className="px-4 pb-2 space-y-2">
-          {visibleErrors.map((i) => (
-            <div
-              key={i.ts}
-              className="flex items-start gap-2 rounded bg-destructive/10 px-2 py-1.5 text-xs text-destructive"
-            >
-              <span className="min-w-0 flex-1 selectable">{i.text}</span>
-              <Tip content="Dismiss this error">
-                <button
-                  className="shrink-0 cursor-pointer text-destructive/70 hover:text-destructive"
-                  onClick={() => setDismissedErrorTs(i.ts)}
-                >
-                  ×
-                </button>
-              </Tip>
-            </div>
-          ))}
-          {state.approvals.map((a) => (
-            <ApprovalCard
-              key={a.toolCallId}
-              approval={a}
-              onDecide={(decision, opts) =>
-                approve.mutate({
-                  subchatId,
-                  toolCallId: a.toolCallId,
-                  decision,
-                  feedback: opts?.feedback,
-                  alwaysAllowToolName: opts?.alwaysAllowToolName
-                })
-              }
-            />
-          ))}
-          {state.suspensions
-            .filter(
-              (s) => !INTERACTIVE_TOOLS.has(s.toolName) || orphanedSuspensionIds.has(s.toolCallId)
-            )
-            .map((s) => {
-              const respond = (resumeData: unknown): void =>
-                respondSuspension.mutate({ subchatId, toolCallId: s.toolCallId, resumeData })
-              return s.toolName === 'ask_user' ? (
-                <AskUserCard key={s.toolCallId} suspension={s} onResume={respond} />
-              ) : s.toolName === 'request_access' ? (
-                <SandboxAccessCard key={s.toolCallId} suspension={s} onResume={respond} />
-              ) : (
-                <PlanApprovalCard key={s.toolCallId} suspension={s} onResume={respond} />
-              )
-            })}
-        </div>
-      )}
-
-      {debug && state.rawEvents.length > 0 && (
-        <div className="max-h-32 overflow-y-auto border-t border-border bg-card px-3 py-1 font-mono text-[10px] text-muted-foreground selectable">
-          {state.rawEvents.slice(-20).map((e, i) => (
-            <div key={i} className="truncate">
-              {JSON.stringify(e)}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {rollbackNotice && (
-        <div className="px-4 pb-2">
-          <div
-            className={
-              rollbackNotice.warn
-                ? 'flex items-start gap-2 rounded bg-amber-500/10 px-2 py-1.5 text-xs text-amber-500'
-                : 'flex items-start gap-2 rounded bg-accent px-2 py-1.5 text-xs text-muted-foreground'
-            }
-          >
-            <span className="min-w-0 flex-1 selectable">{rollbackNotice.text}</span>
-            <Tip content="Dismiss this notice">
-              <button
-                className="shrink-0 cursor-pointer opacity-70 hover:opacity-100"
-                onClick={() => setRollbackNotice(null)}
+        {(state.approvals.length > 0 ||
+          state.suspensions.some(
+            (s) => !INTERACTIVE_TOOLS.has(s.toolName) || orphanedSuspensionIds.has(s.toolCallId)
+          ) ||
+          visibleErrors.length > 0) && (
+          <div className="px-4 pb-2 space-y-2">
+            {visibleErrors.map((i) => (
+              <div
+                key={i.ts}
+                className="flex items-start gap-2 rounded bg-destructive/10 px-2 py-1.5 text-xs text-destructive"
               >
-                ×
-              </button>
-            </Tip>
+                <span className="min-w-0 flex-1 selectable">{i.text}</span>
+                <Tip content="Dismiss this error">
+                  <button
+                    className="shrink-0 cursor-pointer text-destructive/70 hover:text-destructive"
+                    onClick={() => setDismissedErrorTs(i.ts)}
+                  >
+                    ×
+                  </button>
+                </Tip>
+              </div>
+            ))}
+            {state.approvals.map((a) => (
+              <ApprovalCard
+                key={a.toolCallId}
+                approval={a}
+                onDecide={(decision, opts) =>
+                  approve.mutate({
+                    subchatId,
+                    toolCallId: a.toolCallId,
+                    decision,
+                    feedback: opts?.feedback,
+                    alwaysAllowToolName: opts?.alwaysAllowToolName
+                  })
+                }
+              />
+            ))}
+            {state.suspensions
+              .filter(
+                (s) => !INTERACTIVE_TOOLS.has(s.toolName) || orphanedSuspensionIds.has(s.toolCallId)
+              )
+              .map((s) => {
+                const respond = (resumeData: unknown): void =>
+                  respondSuspension.mutate({ subchatId, toolCallId: s.toolCallId, resumeData })
+                return s.toolName === 'ask_user' ? (
+                  <AskUserCard key={s.toolCallId} suspension={s} onResume={respond} />
+                ) : s.toolName === 'request_access' ? (
+                  <SandboxAccessCard key={s.toolCallId} suspension={s} onResume={respond} />
+                ) : (
+                  <PlanApprovalCard key={s.toolCallId} suspension={s} onResume={respond} />
+                )
+              })}
           </div>
-        </div>
-      )}
+        )}
 
-      {failedActions.length > 0 && (
-        <div className="px-4 pb-2 space-y-1">
-          {failedActions.map(([label, m], i) => (
+        {debug && state.rawEvents.length > 0 && (
+          <div className="max-h-32 overflow-y-auto border-t border-border bg-card px-3 py-1 font-mono text-[10px] text-muted-foreground selectable">
+            {state.rawEvents.slice(-20).map((e, i) => (
+              <div key={i} className="truncate">
+                {JSON.stringify(e)}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {rollbackNotice && (
+          <div className="px-4 pb-2">
             <div
-              key={`${label}-${i}`}
-              className="flex items-start gap-2 rounded bg-destructive/10 px-2 py-1.5 text-xs text-destructive"
+              className={
+                rollbackNotice.warn
+                  ? 'flex items-start gap-2 rounded bg-amber-500/10 px-2 py-1.5 text-xs text-amber-500'
+                  : 'flex items-start gap-2 rounded bg-accent px-2 py-1.5 text-xs text-muted-foreground'
+              }
             >
-              <span className="min-w-0 flex-1 selectable">
-                {label} failed: {m.error?.message}
-              </span>
-              <Tip content="Dismiss this error">
+              <span className="min-w-0 flex-1 selectable">{rollbackNotice.text}</span>
+              <Tip content="Dismiss this notice">
                 <button
-                  className="shrink-0 cursor-pointer text-destructive/70 hover:text-destructive"
-                  onClick={() => m.reset()}
+                  className="shrink-0 cursor-pointer opacity-70 hover:opacity-100"
+                  onClick={() => setRollbackNotice(null)}
                 >
                   ×
                 </button>
               </Tip>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        )}
 
-      {completedReview && completedReview.markerId !== dismissedReviewId && (
-        <div className="px-4">
-          <ReviewFollowupBar
-            target={completedReview.target}
-            cwd={projectRoot}
-            provider={provider}
-            busy={busy}
-            shared={completedReview.shared}
-            onAskForReview={() =>
-              sendMarked(
-                buildShareReviewPrompt(),
-                buildReviewMarker(completedReview.target, provider ?? 'github')
-              )
-            }
-            onPostComments={(prNumber) =>
-              sendMarked(
-                buildPrCommentsPrompt(provider ?? 'github', prNumber),
-                'Review follow-up: post PR comments'
-              )
-            }
-            onBuildPlan={() => {
-              const go = (): void =>
-                sendMarked(buildPlanFromReviewPrompt(), 'Review follow-up: build a plan')
-              if (currentMode === 'plan') {
-                go()
-                return
+        {failedActions.length > 0 && (
+          <div className="px-4 pb-2 space-y-1">
+            {failedActions.map(([label, m], i) => (
+              <div
+                key={`${label}-${i}`}
+                className="flex items-start gap-2 rounded bg-destructive/10 px-2 py-1.5 text-xs text-destructive"
+              >
+                <span className="min-w-0 flex-1 selectable">
+                  {label} failed: {m.error?.message}
+                </span>
+                <Tip content="Dismiss this error">
+                  <button
+                    className="shrink-0 cursor-pointer text-destructive/70 hover:text-destructive"
+                    onClick={() => m.reset()}
+                  >
+                    ×
+                  </button>
+                </Tip>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {completedReview && completedReview.markerId !== dismissedReviewId && (
+          <div className="px-4">
+            <ReviewFollowupBar
+              target={completedReview.target}
+              cwd={projectRoot}
+              provider={provider}
+              busy={busy}
+              shared={completedReview.shared}
+              onAskForReview={() =>
+                sendMarked(
+                  buildShareReviewPrompt(),
+                  buildReviewMarker(completedReview.target, provider ?? 'github')
+                )
               }
-              setPendingMode('plan')
-              setMode.mutate({ subchatId, modeId: 'plan' }, { onSuccess: go })
-            }}
-            onDismiss={() => setDismissedReviewId(completedReview.markerId)}
-          />
-        </div>
+              onPostComments={(prNumber) =>
+                sendMarked(
+                  buildPrCommentsPrompt(provider ?? 'github', prNumber),
+                  'Review follow-up: post PR comments'
+                )
+              }
+              onBuildPlan={() => {
+                const go = (): void =>
+                  sendMarked(buildPlanFromReviewPrompt(), 'Review follow-up: build a plan')
+                if (currentMode === 'plan') {
+                  go()
+                  return
+                }
+                setPendingMode('plan')
+                setMode.mutate({ subchatId, modeId: 'plan' }, { onSuccess: go })
+              }}
+              onDismiss={() => setDismissedReviewId(completedReview.markerId)}
+            />
+          </div>
+        )}
+
+        <QueuedPrompts
+          items={state.queuedPrompts}
+          onDismiss={(id) => dismissQueued.mutate({ subchatId, id })}
+        />
+
+        {goalOpen && (
+          <div className="px-4 pb-2">
+            <GoalPanel
+              subchatId={subchatId}
+              live={state.goal}
+              running={state.running}
+              onClose={() => setGoalOpen(false)}
+            />
+          </div>
+        )}
+
+        <PromptInput
+          disabled={busy}
+          running={state.running}
+          projectRoot={projectRoot}
+          commands={commands}
+          onSend={(content, files) => {
+            setRollbackNotice(null)
+            // Text-like attachments are inlined into the prompt (providers only
+            // accept images/PDFs as native file parts); displayText keeps the
+            // transcript bubble clean. The main process queues this behind an
+            // active run (dismissable, flushed in order on run end) or sends
+            // immediately when idle.
+            const texts =
+              files?.filter((f) => classifyAttachment(f.mediaType, f.filename) === 'text') ?? []
+            if (texts.length === 0) {
+              send.mutate({ subchatId, content, files })
+              return
+            }
+            const native = files?.filter(
+              (f) => classifyAttachment(f.mediaType, f.filename) !== 'text'
+            )
+            const built = buildAttachmentPrompt(content, texts)
+            send.mutate({
+              subchatId,
+              content: built.content,
+              displayText: built.displayText,
+              files: native?.length ? native : undefined
+            })
+          }}
+          onAbort={() => abort.mutate({ subchatId })}
+          onSlashCommand={handleSlashCommand}
+          draftKey={subchatId}
+          prefill={prefill}
+          onPrefillConsumed={() => setPrefill(null)}
+          goalStatus={goalQuery.data?.status ?? null}
+          goalOpen={goalOpen}
+          onToggleGoal={() => setGoalOpen((v) => !v)}
+        />
+        {primary && <HelpDialog commands={commands} />}
+        <PermissionsDialog
+          subchatId={subchatId}
+          open={permissionsOpen}
+          onOpenChange={setPermissionsOpen}
+        />
+        <SandboxDialog
+          subchatId={subchatId}
+          meta={meta}
+          open={sandboxOpen}
+          onOpenChange={setSandboxOpen}
+        />
+        <PruneStorageDialog open={pruneOpen} onOpenChange={setPruneOpen} />
+      </div>
+      {primary && detailsOpen && (
+        <DetailsPanel
+          cwd={projectRoot}
+          tasks={state.tasks}
+          messages={state.messages}
+          onClose={() => setDetailsOpen(false)}
+        />
       )}
-
-      <QueuedPrompts
-        items={state.queuedPrompts}
-        onDismiss={(id) => dismissQueued.mutate({ subchatId, id })}
-      />
-
-      {goalOpen && (
-        <div className="px-4 pb-2">
-          <GoalPanel
-            subchatId={subchatId}
-            live={state.goal}
-            running={state.running}
-            onClose={() => setGoalOpen(false)}
-          />
-        </div>
-      )}
-
-      <PromptInput
-        disabled={busy}
-        running={state.running}
-        projectRoot={projectRoot}
-        commands={commands}
-        onSend={(content, files) => {
-          setRollbackNotice(null)
-          // Text-like attachments are inlined into the prompt (providers only
-          // accept images/PDFs as native file parts); displayText keeps the
-          // transcript bubble clean. The main process queues this behind an
-          // active run (dismissable, flushed in order on run end) or sends
-          // immediately when idle.
-          const texts =
-            files?.filter((f) => classifyAttachment(f.mediaType, f.filename) === 'text') ?? []
-          if (texts.length === 0) {
-            send.mutate({ subchatId, content, files })
-            return
-          }
-          const native = files?.filter(
-            (f) => classifyAttachment(f.mediaType, f.filename) !== 'text'
-          )
-          const built = buildAttachmentPrompt(content, texts)
-          send.mutate({
-            subchatId,
-            content: built.content,
-            displayText: built.displayText,
-            files: native?.length ? native : undefined
-          })
-        }}
-        onAbort={() => abort.mutate({ subchatId })}
-        onSlashCommand={handleSlashCommand}
-        draftKey={subchatId}
-        prefill={prefill}
-        onPrefillConsumed={() => setPrefill(null)}
-        goalStatus={goalQuery.data?.status ?? null}
-        goalOpen={goalOpen}
-        onToggleGoal={() => setGoalOpen((v) => !v)}
-      />
-      {primary && <HelpDialog commands={commands} />}
-      <PermissionsDialog
-        subchatId={subchatId}
-        open={permissionsOpen}
-        onOpenChange={setPermissionsOpen}
-      />
-      <SandboxDialog
-        subchatId={subchatId}
-        meta={meta}
-        open={sandboxOpen}
-        onOpenChange={setSandboxOpen}
-      />
-      <PruneStorageDialog open={pruneOpen} onOpenChange={setPruneOpen} />
     </div>
   )
 }

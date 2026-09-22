@@ -34,7 +34,7 @@ import { LSP_PACKS } from '@shared/lsp-packs'
 import '../../lib/monaco-setup'
 import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
-import { mainTabAtom, themeAtom } from '../../lib/atoms'
+import { fileOpenRequestAtom, mainTabAtom, themeAtom } from '../../lib/atoms'
 import { Button } from '../../components/ui/button'
 import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
@@ -263,6 +263,16 @@ export function FilesView({
       setError(err instanceof Error ? err.message : String(err))
     }
   }
+
+  // Cross-tab open requests (e.g. clicking a changed file in the chat
+  // details panel): open the requested worktree-relative path, then clear.
+  const [fileOpenRequest, setFileOpenRequest] = useAtom(fileOpenRequestAtom)
+  useEffect(() => {
+    if (!fileOpenRequest) return
+    void openFile(fileOpenRequest)
+    setFileOpenRequest(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fileOpenRequest])
 
   // Language-server diagnostics for the active file, fetched from the chat's
   // agent host (or the shared utility host when no chat is selected).
