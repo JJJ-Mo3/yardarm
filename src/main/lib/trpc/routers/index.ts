@@ -3,6 +3,7 @@ import { agentRouter } from './agent'
 import { analyticsRouter } from './analytics'
 import { chatsRouter } from './chats'
 import { checkpointsRouter } from './checkpoints'
+import { externalRouter } from './external'
 import { filesRouter } from './files'
 import { gitRouter } from './git'
 import { goalsRouter } from './goals'
@@ -25,6 +26,7 @@ export const appRouter = router({
   agent: agentRouter,
   analytics: analyticsRouter,
   checkpoints: checkpointsRouter,
+  external: externalRouter,
   git: gitRouter,
   goals: goalsRouter,
   kanban: kanbanRouter,

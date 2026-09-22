@@ -42,6 +42,7 @@ import { HelpDialog } from './HelpDialog'
 import { CostPopover } from './CostPopover'
 import { ContextPopover } from './ContextPopover'
 import { GithubPrPopover } from './GithubPrPopover'
+import { OpenLocallyMenu } from './OpenLocallyMenu'
 import { ThreadsPopover } from './ThreadsPopover'
 import { PermissionsDialog } from './PermissionsDialog'
 import { SandboxDialog } from './SandboxDialog'
@@ -771,6 +772,7 @@ export function ChatView({
             open={githubPrOpen}
             onOpenChange={setGithubPrOpen}
           />
+          <OpenLocallyMenu path={projectRoot} />
           <Tip content="Export this thread's transcript as a Markdown file" side="bottom">
             <span className="inline-flex">
               <button
