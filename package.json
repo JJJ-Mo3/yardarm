@@ -78,6 +78,7 @@
     "jotai": "^2.20.2",
     "lucide-react": "^1.25.0",
     "mastracode": "0.40.0",
+    "mermaid": "^12.0.0",
     "monaco-editor": "^0.55.1",
     "prettier": "^3.9.5",
     "pyright": "1.1.411",
