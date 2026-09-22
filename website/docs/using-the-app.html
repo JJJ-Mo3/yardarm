@@ -75,6 +75,7 @@
             <li><a href="#checkpoints">Checkpoints &amp; rollback</a></li>
             <li><a href="#goals">Goals</a></li>
             <li><a href="#workflows">Workflows</a></li>
+            <li><a href="#knowledge">Agent knowledge</a></li>
             <li><a href="#threads">Threads, forking, split view</a></li>
           </ul>
         </nav>
@@ -125,6 +126,23 @@
             <strong>Threads</strong> (<kbd>Cmd+P</kbd>) — switch, rename, clone, or delete
             conversation threads. See <a href="#threads">Threads and subchats</a>.
           </li>
+          <li>
+            <strong>checkpoints</strong> — a quick popover listing the chat's rollback checkpoints
+            (auto and named, with ages and tags), deep-linking to the checkpoint manager. See
+            <a href="#checkpoints">Checkpoints</a>.
+          </li>
+          <li>
+            <strong>open</strong> — open the chat's folder locally: reveal it in Finder, or open it
+            in a detected editor or terminal (VS Code, Cursor, Zed, Terminal, iTerm, Warp, Ghostty).
+          </li>
+          <li>
+            <strong>export</strong> — download the current thread's transcript as a Markdown file
+            (messages as headings, tool calls as blockquotes).
+          </li>
+          <li>
+            <strong>details</strong> — toggle the <a href="#details-panel">details panel</a>: a
+            resizable side panel with the chat's changed files, live tasks, and latest plan.
+          </li>
         </ul>
 
         <h3>The transcript</h3>
@@ -155,6 +173,20 @@
             a user bubble; the transcript shows a compact muted one-liner (e.g. "Review: PR #42 —
             fix auth") instead. Hover it to roll back, like any message.
           </li>
+          <li>
+            <strong>Copy a message</strong> — hover any message and click the copy button to grab
+            its text.
+          </li>
+          <li>
+            <strong>Find in chat</strong> — <kbd>Cmd+F</kbd> opens a search overlay with a match
+            counter; <kbd>Enter</kbd> / <kbd>Shift+Enter</kbd> step through matches,
+            <kbd>Esc</kbd> closes.
+          </li>
+          <li>
+            <strong>Mermaid diagrams</strong> — <code>mermaid</code> code blocks in agent replies
+            render as diagrams (flowcharts, sequence diagrams, …), following the app theme; invalid
+            syntax falls back to the plain code block.
+          </li>
         </ul>
 
         <h3>The composer</h3>
@@ -184,7 +216,33 @@
             with a dismiss button) and delivered in order when the current run finishes. The red
             square button stops the current run.
           </li>
+          <li>
+            <strong>Drafts are automatic</strong> — whatever you've typed is saved per chat, so
+            switching chats or restarting the app never loses an unfinished prompt.
+          </li>
         </ul>
+
+        <h3 id="details-panel">The details panel</h3>
+        <p>
+          The <strong>details</strong> button in the chat header opens a side panel next to the
+          transcript (drag its edge to resize) with three live sections:
+        </p>
+        <ul>
+          <li>
+            <strong>Changed files</strong> — everything modified in the chat's worktree, with
+            per-file additions/deletions; click a file to view it.
+          </li>
+          <li><strong>Tasks</strong> — the agent's current task checklist as it progresses.</li>
+          <li><strong>Plan</strong> — the most recent plan the agent submitted.</li>
+        </ul>
+
+        <h3 id="command-palette">The command palette</h3>
+        <p>
+          Press <kbd>Cmd+K</kbd> anywhere to open the command palette. It fuzzy-searches across
+          <strong>slash commands</strong> (commands that take arguments prefill the composer instead
+          of running immediately), <strong>tabs</strong>, <strong>settings sections</strong>, and
+          your <strong>chats</strong> — one keystroke to run, jump, or switch.
+        </p>
 
         <h2 id="modes">Modes: Plan, Build, Fast</h2>
         <table>
@@ -449,6 +507,11 @@
           </li>
         </ul>
         <p>
+          The <strong>checkpoints</strong> button in the chat header shows the same list as a quick
+          popover — each checkpoint's name (or short id), auto/named badge, age, and tag — with a
+          one-click jump to the manager in the Changes tab.
+        </p>
+        <p>
           Checkpoints are ordinary git refs inside the repository — they never leave your machine
           and don't appear on your branches.
         </p>
@@ -526,6 +589,28 @@
           stored JSON definition (fully validated before anything is saved), or
           <strong>delete</strong> ones you no longer need. For bigger changes, just ask the agent in
           chat and have it save the workflow again.
+        </p>
+
+        <h2 id="knowledge">Agent knowledge</h2>
+        <p>
+          As the agent works it builds up <strong>knowledge</strong> about your project — durable
+          notes it captures and reuses across conversations. Run <code>/knowledge</code> to open the
+          knowledge browser:
+        </p>
+        <ul>
+          <li>
+            <strong>Scopes</strong> — browse knowledge attached to the whole organization, the
+            current project (resource), or just this thread.
+          </li>
+          <li>
+            <strong>Nodes</strong> — each entry shows its kind, age, and record count; open one to
+            read its full markdown content, its individual records, where it's mentioned, and
+            related nodes (click a related node to jump to it).
+          </li>
+        </ul>
+        <p>
+          Knowledge lives in mastracode's shared local storage, so the CLI sees the same knowledge
+          base.
         </p>
 
         <h2 id="threads">Threads, subchats, forking, and split view</h2>

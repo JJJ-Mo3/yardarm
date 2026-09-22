@@ -28,6 +28,9 @@ the two stay in sync.
 The main window has a project sidebar on the left and a set of tabs across the top: **Chat**,
 **CLI**, **IDE**, **Changes**, **Terminal**, **Kanban**, and **Preview**, plus icon buttons for
 **Analytics** and this **Guide**. Switch tabs with ⌘1–⌘9.
+
+Press **⌘K** anywhere for the **command palette**: run slash commands, jump to any tab or
+settings section, or switch to another chat — all from the keyboard.
 `
   },
   {
@@ -78,6 +81,25 @@ its reasoning, tool calls, and file edits into the transcript.
   key, configured in Settings → Voice).
 - **Queueing** — you can keep typing while the agent runs; queued prompts are sent in order
   when the current run finishes.
+- **Drafts** — whatever you've typed is saved automatically per chat, so switching chats or
+  restarting the app never loses an unfinished prompt.
+
+### The transcript
+
+- **Copy a message** — hover any message and click the copy button to grab its text.
+- **Find in chat** — press ⌘F to search the transcript, with match count and next/previous
+  navigation (Enter / Shift+Enter).
+- **Diagrams** — \`mermaid\` code blocks in agent replies render as diagrams (flowcharts,
+  sequence diagrams, …), following the app theme.
+
+### Header tools
+
+- **Details panel** — the details button opens a resizable side panel with the chat's
+  changed files (click to view), the live task checklist, and the latest plan.
+- **Export** — download the current thread's transcript as a Markdown file.
+- **Open locally** — open the chat's folder in Finder, an editor (VS Code, Cursor, Zed, …),
+  or a terminal app detected on your machine.
+- **Checkpoints** — a quick view of the chat's rollback checkpoints (see Checkpoints below).
 
 ### Models
 
@@ -206,6 +228,8 @@ reversible.
   (automatic and manual). You can create a named checkpoint now, rename or tag existing ones,
   **compare any two checkpoints** as a diff, and prune old automatic ones that are no longer
   referenced.
+- **Header popover** — the checkpoints button in the chat header shows the same list at a
+  glance (auto and named, with ages and tags) and deep-links to the manager.
 
 Checkpoints are stored as git refs inside the repository (\`refs/yardarm/checkpoints/*\`) —
 they never leave your machine and don't touch your branches.
@@ -242,7 +266,9 @@ Language servers come in three tiers:
     title: 'Terminal & the Mastra Code CLI',
     body: `
 - **Terminal tab** (⌘J) — a real shell in the chat's worktree (or project root). Use it for
-  anything: running dev servers, git, tests. Each chat gets its own terminal.
+  anything: running dev servers, git, tests. Each chat gets its own terminal. Press ⌘F while
+  the terminal is focused to search its scrollback (Enter / Shift+Enter to step through
+  matches, Esc to close).
 - **CLI tab** — an interactive \`mastracode\` CLI session in the same worktree. Because the
   app and the CLI share configuration and threads, this is the same agent with the same
   history — useful for CLI-only workflows or debugging. Avoid running the chat UI and the
@@ -308,6 +334,24 @@ demand.
 `
   },
   {
+    id: 'knowledge',
+    title: 'Agent knowledge',
+    body: `
+As the agent works it builds up **knowledge** about your project — durable notes it captures
+and reuses across conversations. \`/knowledge\` opens the **knowledge browser** to see what it
+has learned:
+
+- **Scopes** — browse knowledge attached to the whole organization, the current project
+  (resource), or just this thread.
+- **Nodes** — each entry shows its kind, age, and record count; open one to read its full
+  markdown content, its individual records, where it's mentioned, and related nodes (click a
+  related node to jump to it).
+
+Knowledge is stored locally in mastracode's shared storage, so the CLI sees the same
+knowledge base.
+`
+  },
+  {
     id: 'connectors',
     title: 'Connectors & MCP servers',
     body: `
@@ -363,7 +407,10 @@ App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
   Parallel), **commit attribution** (the co-author trailer on agent-made commits — customize
   or disable it), experimental **cross-agent communication** (lets running agents discover
   and signal each other), and per-tool toggles to disable built-in agent tools you never
-  want used.
+  want used. A **Notifications** card controls desktop notifications (a system notification
+  when a run finishes or the agent needs input while the app is in the background — clicking
+  one opens the chat), and a **Storage** card shows how much space mastracode storage and the
+  chat database use, with a **Prune now** button (\`/prune\`).
 - **API Keys** — keys for model providers, stored locally. Instead of pasting a key you can
   reference an environment variable (e.g. \`ANTHROPIC_API_KEY\`) — the value is read from your
   login shell at launch and never saved by Yardarm. Standard variables are detected
@@ -407,8 +454,10 @@ the Workflows tab (\`/workflows\`) runs and manages the agent's stored workflows
 
 | Shortcut | Action |
 | --- | --- |
+| ⌘K | Command palette |
 | ⌘N | New chat |
 | ⌘P | Thread switcher |
+| ⌘F | Find in chat (Chat tab) / find in terminal (Terminal tab) |
 | ⌘J | Toggle the Terminal tab |
 | ⌘, | Settings |
 | ⌘1 | Chat |

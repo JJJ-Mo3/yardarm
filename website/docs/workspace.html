@@ -91,6 +91,12 @@
           real shell that opens in the chat's worktree. Build, test, poke around; you and the agent
           are looking at the same files.
         </p>
+        <p>
+          Press <kbd>Cmd+F</kbd> while the terminal is focused to search its scrollback: a small
+          overlay shows a match counter, <kbd>Enter</kbd> / <kbd>Shift+Enter</kbd> step through
+          matches (highlighted in place), and <kbd>Esc</kbd> closes the search and returns focus to
+          the shell.
+        </p>
 
         <h2 id="ide">IDE</h2>
         <p>
@@ -224,6 +230,11 @@
         <p>
           The same states appear as dots on chat rows in the sidebar: amber = waiting for you,
           spinner = working, blue = finished and unseen.
+        </p>
+        <p>
+          While the app is in the background, a <strong>desktop notification</strong> fires when a
+          run finishes or an agent needs approval or input — clicking it focuses the app and opens
+          that chat. Toggle in Settings → <strong>Preferences → Notifications</strong>.
         </p>
         <p>
           When a chat is finished but you want to keep it around, hover its sidebar row and click
