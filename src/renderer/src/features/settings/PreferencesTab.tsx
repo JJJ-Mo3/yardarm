@@ -162,13 +162,29 @@ export function PreferencesTab(): React.JSX.Element {
     }
   })
 
+  // Commit co-author identity (app_settings KV); applied to hosts at boot.
+  const coAuthor = trpc.settings.get.useQuery({ key: 'commitCoAuthor' })
+  const setCoAuthor = trpc.settings.set.useMutation({
+    onSuccess: () => {
+      markDirty()
+      utils.settings.get.invalidate({ key: 'commitCoAuthor' })
+    }
+  })
+  const ca = (coAuthor.data as { name?: string; email?: string } | null) ?? {}
+  const saveCoAuthor = (field: 'name' | 'email', value: string): void => {
+    const v = value.trim()
+    if ((v || undefined) === (ca[field] || undefined)) return
+    setCoAuthor.mutate({ key: 'commitCoAuthor', value: { ...ca, [field]: v || undefined } })
+  }
+
   const p = settings.data?.preferences ?? {}
   const error =
     settings.error ??
     setPreferences.error ??
     setSetting.error ??
     setTokenCompression.error ??
-    setCrossAgent.error
+    setCrossAgent.error ??
+    setCoAuthor.error
 
   return (
     <div className="space-y-4">
@@ -348,6 +364,41 @@ export function PreferencesTab(): React.JSX.Element {
             Verbosity steering (nudge the agent to reply concisely)
           </label>
         </Tip>
+      </div>
+
+      <div className="space-y-3 rounded border border-border p-3">
+        <div>
+          <div className="text-xs font-medium">Commit attribution</div>
+          <div className="text-[11px] text-muted-foreground">
+            Agent-made commits include a <code>Co-Authored-By</code> trailer (built into
+            mastracode&apos;s commit guidance). Set a custom identity here; blank fields use the
+            mastracode default. Restart running agents to apply.
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-28 text-[11px] text-muted-foreground">Co-author name</span>
+          <Tip content="Name used in the Co-Authored-By trailer of agent-made commits — blank uses mastracode's default identity">
+            <Input
+              key={`name-${ca.name ?? ''}`}
+              className="h-7 w-64 text-[11px]"
+              defaultValue={ca.name ?? ''}
+              placeholder="mastra-platform[bot] (default)"
+              onBlur={(e) => saveCoAuthor('name', e.target.value)}
+            />
+          </Tip>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-28 text-[11px] text-muted-foreground">Co-author email</span>
+          <Tip content="Email used in the Co-Authored-By trailer of agent-made commits — blank uses the mastra-platform bot noreply address">
+            <Input
+              key={`email-${ca.email ?? ''}`}
+              className="h-7 w-64 text-[11px]"
+              defaultValue={ca.email ?? ''}
+              placeholder="bot noreply address (default)"
+              onBlur={(e) => saveCoAuthor('email', e.target.value)}
+            />
+          </Tip>
+        </div>
       </div>
 
       <div className="space-y-3 rounded border border-border p-3">

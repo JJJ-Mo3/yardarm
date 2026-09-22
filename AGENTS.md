@@ -109,7 +109,8 @@ No accounts or login — everything runs locally against mastracode's own config
   definitions from `.mastracode/agents` always win.
 - Agent-made commits carry a `Co-Authored-By` trailer by unconditional SDK prompt guidance;
   the default identity is `mastra-platform[bot]` unless `createMastraCode({ coAuthor })` is
-  passed (the CLI passes `{ name: 'mastracode' }`).
+  passed (the CLI passes `{ name: 'mastracode' }`; Yardarm passes the app_settings
+  `commitCoAuthor` identity set in Settings → Preferences → Commit attribution).
 - LSP pack pins live in `src/shared/lsp-packs.ts` and must match the exact devDependencies
   pins (vitest tripwire in `src/shared/lsp-packs.test.ts`); `scripts/build-lsp-packs.mjs`
   builds the per-pack release zips; the 4 pack packages must never be re-added to

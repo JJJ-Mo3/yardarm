@@ -460,6 +460,7 @@ export class AgentSessionManager {
       // The SDK enables its built-in explore/plan/execute subagents by
       // default; mirror the CLI's opt-in gate (preferences.subagentsEnabled).
       nativeSubagents: settings.preferences?.subagentsEnabled === true,
+      coAuthor: this.commitCoAuthor(),
       disabledTools: this.getDisabledTools()
     }
 
@@ -1429,6 +1430,17 @@ export class AgentSessionManager {
     } finally {
       this.pruneGate = null
     }
+  }
+
+  /** Commit co-author identity (app_settings KV); new hosts boot with it. */
+  private commitCoAuthor(): { name?: string; email?: string } | undefined {
+    const raw = this.readAppSetting('commitCoAuthor')
+    if (!raw || typeof raw !== 'object') return undefined
+    const { name, email } = raw as { name?: unknown; email?: unknown }
+    const out: { name?: string; email?: string } = {}
+    if (typeof name === 'string' && name.trim()) out.name = name.trim()
+    if (typeof email === 'string' && email.trim()) out.email = email.trim()
+    return out.name || out.email ? out : undefined
   }
 
   /** Global token-compression settings (app_settings KV); new hosts boot with them. */

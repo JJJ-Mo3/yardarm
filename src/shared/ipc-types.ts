@@ -663,6 +663,12 @@ export interface HostBootConfig {
    * the SDK enables natives by default, so omitting/false passes [] instead).
    */
   nativeSubagents?: boolean
+  /**
+   * Commit co-author identity for the SDK's commit guidance (the
+   * Co-Authored-By trailer is unconditional prompt text; unset fields fall
+   * back to the SDK default, mastra-platform[bot]).
+   */
+  coAuthor?: { name?: string; email?: string }
   /** Tool names removed from the agent's tool set before exposure to the model. */
   disabledTools?: string[]
   /**

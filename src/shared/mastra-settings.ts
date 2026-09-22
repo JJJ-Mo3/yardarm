@@ -188,6 +188,7 @@ export interface PreferencesPatch {
   thinkingLevel?: 'off' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
   quietMode?: boolean
   quietModeMaxToolPreviewLines?: number
+  subagentsEnabled?: boolean
   webSearchProvider?: 'auto' | 'tavily' | 'parallel'
 }
 

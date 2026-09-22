@@ -92,6 +92,7 @@ export const mastraSettingsRouter = router({
         thinkingLevel: z.enum(['off', 'low', 'medium', 'high', 'xhigh', 'max']).optional(),
         quietMode: z.boolean().optional(),
         quietModeMaxToolPreviewLines: z.number().int().min(0).optional(),
+        subagentsEnabled: z.boolean().optional(),
         webSearchProvider: z.enum(['auto', 'tavily', 'parallel']).optional()
       })
     )

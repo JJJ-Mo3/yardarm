@@ -23,6 +23,7 @@ import { Tip } from '../../components/ui/tooltip'
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
 import { ModelSelect } from '../../components/ModelSelect'
 import { useConfirm } from '../../components/ConfirmDialog'
+import { useRestartBanner } from './restart-banner'
 
 type Scope = 'global' | 'project'
 
@@ -119,6 +120,17 @@ export function AgentsTab(): React.JSX.Element {
     onSuccess: () => invalidate()
   })
 
+  // mastracode's built-in explore/plan/execute subagents (settings.json
+  // preferences.subagentsEnabled — off by default, matching the CLI's opt-in).
+  const { markDirty, banner } = useRestartBanner()
+  const settings = trpc.mastraSettings.get.useQuery()
+  const setPreferences = trpc.mastraSettings.setPreferences.useMutation({
+    onSuccess: () => {
+      markDirty()
+      utils.mastraSettings.get.invalidate()
+    }
+  })
+
   const selectAgent = (id: string): void => {
     setSelected(id)
     setDirty(false)
@@ -169,6 +181,30 @@ export function AgentsTab(): React.JSX.Element {
         Markdown files in <code>~/.mastracode/agents/</code> (global) or a project&apos;s{' '}
         <code>.mastracode/agents/</code> define <b>subagents</b> — helpers the main agent can
         delegate tasks to (it picks one by its description via the <code>subagent</code> tool).
+      </div>
+      <div className="space-y-2 rounded border border-border p-3">
+        <div>
+          <div className="text-xs font-medium">Built-in subagents</div>
+          <div className="text-[11px] text-muted-foreground">
+            mastracode ships ready-made <code>explore</code>/<code>plan</code>/<code>execute</code>{' '}
+            subagents (off by default, shared with the CLI via settings.json). Custom definitions
+            below always take precedence over them.
+          </div>
+        </div>
+        <Tip content="Enable the SDK's built-in explore/plan/execute subagents in chats without custom definitions. Restart running agents to apply">
+          <label className="flex w-fit items-center gap-2 text-xs">
+            <Switch
+              checked={settings.data?.preferences?.subagentsEnabled === true}
+              disabled={setPreferences.isPending}
+              onCheckedChange={(v) => setPreferences.mutate({ subagentsEnabled: v })}
+            />
+            Enable built-in explore/plan/execute subagents
+          </label>
+        </Tip>
+        {setPreferences.error && (
+          <div className="text-xs text-destructive selectable">{setPreferences.error.message}</div>
+        )}
+        {banner}
       </div>
       <div className="flex items-center gap-1">
         {(

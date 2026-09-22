@@ -836,6 +836,9 @@ async function main(): Promise<void> {
           ? undefined
           : [],
       disabledTools: boot.disabledTools?.length ? boot.disabledTools : undefined,
+      // Commit co-author identity for the SDK's (unconditional) commit
+      // guidance; unset fields fall back to mastra-platform[bot].
+      coAuthor: boot.coAuthor,
       inputProcessors: [compression.processor as never],
       extraTools: { [RETRIEVAL_TOOL_NAME]: retrievalToolInstance as never }
     })
