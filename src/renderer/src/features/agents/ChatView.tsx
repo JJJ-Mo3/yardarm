@@ -1,6 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { Download, KeyRound, PanelRight, Server, ShieldCheck } from 'lucide-react'
+import {
+  Brain,
+  Download,
+  FolderOpen,
+  GitPullRequest,
+  KeyRound,
+  MoreHorizontal,
+  PanelRight,
+  PieChart,
+  ScanSearch,
+  Server,
+  ShieldCheck
+} from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import {
   debugEventsAtom,
@@ -27,6 +39,7 @@ import {
   SelectValue
 } from '../../components/ui/select'
 import { Switch } from '../../components/ui/switch'
+import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
 import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { useAgentStream } from './use-agent-stream'
@@ -249,6 +262,14 @@ export function ChatView({
   const [goalOpen, setGoalOpen] = useState(false)
   const [reviewOpen, setReviewOpen] = useState(false)
   const [pruneOpen, setPruneOpen] = useState(false)
+  // "⋯" overflow menu for occasional header tools; the moved popovers anchor
+  // to its button so slash commands (/om, /context, /github…) still open them.
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [openLocallyOpen, setOpenLocallyOpen] = useState(false)
+  const moreBtnRef = useRef<HTMLButtonElement>(null)
+  // Same query key as OpenLocallyMenu — shared cache, no extra fetch.
+  const externalApps = trpc.external.detectApps.useQuery(undefined, { staleTime: Infinity })
+  const canOpenLocally = !!projectRoot && (externalApps.data?.length ?? 0) > 0
   // Details side panel (primary pane only — the split pane stays compact).
   const [detailsOpen, setDetailsOpen] = useAtom(detailsOpenAtom)
 
@@ -753,14 +774,6 @@ export function ChatView({
               </Badge>
             </Tip>
           )}
-          <ReviewPopover
-            cwd={projectRoot}
-            baseBranch={baseBranch}
-            running={state.running}
-            open={reviewOpen}
-            onOpenChange={setReviewOpen}
-            onReview={sendMarked}
-          />
           {primary && (
             <ThreadsPopover
               subchatId={subchatId}
@@ -768,38 +781,9 @@ export function ChatView({
               onOpenChange={setThreadsOpen}
             />
           )}
-          <OmStatusPopover
-            subchatId={subchatId}
-            omEvents={state.omEvents}
-            open={omOpen}
-            onOpenChange={setOmOpen}
-          />
-          <GithubPrPopover
-            subchatId={subchatId}
-            open={githubPrOpen}
-            onOpenChange={setGithubPrOpen}
-          />
           {primary && (
             <CheckpointsPopover open={checkpointsOpen} onOpenChange={setCheckpointsOpen} />
           )}
-          <OpenLocallyMenu path={projectRoot} />
-          <Tip content="Export this thread's transcript as a Markdown file" side="bottom">
-            <span className="inline-flex">
-              <button
-                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-50"
-                disabled={state.messages.length === 0}
-                onClick={() =>
-                  downloadChatMarkdown(
-                    state.messages,
-                    `Yardarm chat ${new Date().toISOString().slice(0, 10)}`
-                  )
-                }
-              >
-                <Download size={11} />
-                export
-              </button>
-            </span>
-          </Tip>
           {primary && (
             <Tip
               content={
@@ -818,7 +802,6 @@ export function ChatView({
               </button>
             </Tip>
           )}
-          <ContextPopover subchatId={subchatId} open={contextOpen} onOpenChange={setContextOpen} />
           <CostPopover
             subchatId={subchatId}
             usage={state.usage}
@@ -826,6 +809,148 @@ export function ChatView({
             compressionEnabled={meta.compressionEnabled}
             open={costOpen}
             onOpenChange={setCostOpen}
+          />
+          {/* Occasional tools live under "⋯"; their popovers anchor to this
+              button so they also open here via slash commands. */}
+          <Popover open={moreOpen} onOpenChange={setMoreOpen}>
+            <Tip
+              content="More tools — code review, memory, PR subscriptions, open folder, export, context audit"
+              side="bottom"
+            >
+              <PopoverTrigger asChild>
+                <button
+                  ref={moreBtnRef}
+                  className="flex items-center text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  <MoreHorizontal size={14} />
+                </button>
+              </PopoverTrigger>
+            </Tip>
+            <PopoverContent align="end" className="w-56 p-1.5">
+              <Tip
+                content="Have the agent code-review this chat's changes or an open PR/MR (/review)"
+                side="left"
+              >
+                <button
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] hover:bg-secondary cursor-pointer"
+                  onClick={() => {
+                    setMoreOpen(false)
+                    setReviewOpen(true)
+                  }}
+                >
+                  <ScanSearch size={12} className="shrink-0 text-muted-foreground" />
+                  Code review
+                </button>
+              </Tip>
+              <Tip
+                content="Observational Memory — the agent's long-term memory of this project; view status and tune models/thresholds (/om)"
+                side="left"
+              >
+                <button
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] hover:bg-secondary cursor-pointer"
+                  onClick={() => {
+                    setMoreOpen(false)
+                    setOmOpen(true)
+                  }}
+                >
+                  <Brain size={12} className="shrink-0 text-muted-foreground" />
+                  Observational memory
+                </button>
+              </Tip>
+              <Tip content="GitHub PR subscriptions for this thread (/github)" side="left">
+                <button
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] hover:bg-secondary cursor-pointer"
+                  onClick={() => {
+                    setMoreOpen(false)
+                    setGithubPrOpen(true)
+                  }}
+                >
+                  <GitPullRequest size={12} className="shrink-0 text-muted-foreground" />
+                  PR subscriptions
+                </button>
+              </Tip>
+              {canOpenLocally && (
+                <Tip
+                  content="Open this chat's folder in Finder, an editor or a terminal"
+                  side="left"
+                >
+                  <button
+                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] hover:bg-secondary cursor-pointer"
+                    onClick={() => {
+                      setMoreOpen(false)
+                      setOpenLocallyOpen(true)
+                    }}
+                  >
+                    <FolderOpen size={12} className="shrink-0 text-muted-foreground" />
+                    Open folder in…
+                  </button>
+                </Tip>
+              )}
+              <Tip content="Export this thread's transcript as a Markdown file" side="left">
+                <span className="flex">
+                  <button
+                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] hover:bg-secondary cursor-pointer disabled:opacity-50"
+                    disabled={state.messages.length === 0}
+                    onClick={() => {
+                      setMoreOpen(false)
+                      downloadChatMarkdown(
+                        state.messages,
+                        `Yardarm chat ${new Date().toISOString().slice(0, 10)}`
+                      )
+                    }}
+                  >
+                    <Download size={12} className="shrink-0 text-muted-foreground" />
+                    Export transcript
+                  </button>
+                </span>
+              </Tip>
+              <Tip content="Audit what is using the context window (/context)" side="left">
+                <button
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] hover:bg-secondary cursor-pointer"
+                  onClick={() => {
+                    setMoreOpen(false)
+                    setContextOpen(true)
+                  }}
+                >
+                  <PieChart size={12} className="shrink-0 text-muted-foreground" />
+                  Context audit
+                </button>
+              </Tip>
+            </PopoverContent>
+          </Popover>
+          <ReviewPopover
+            cwd={projectRoot}
+            baseBranch={baseBranch}
+            running={state.running}
+            open={reviewOpen}
+            onOpenChange={setReviewOpen}
+            onReview={sendMarked}
+            anchorRef={moreBtnRef}
+          />
+          <OmStatusPopover
+            subchatId={subchatId}
+            omEvents={state.omEvents}
+            open={omOpen}
+            onOpenChange={setOmOpen}
+            anchorRef={moreBtnRef}
+          />
+          <GithubPrPopover
+            subchatId={subchatId}
+            open={githubPrOpen}
+            onOpenChange={setGithubPrOpen}
+            anchorRef={moreBtnRef}
+          />
+          <OpenLocallyMenu
+            path={projectRoot}
+            open={openLocallyOpen}
+            onOpenChange={setOpenLocallyOpen}
+            anchorRef={moreBtnRef}
+          />
+          <ContextPopover
+            subchatId={subchatId}
+            open={contextOpen}
+            onOpenChange={setContextOpen}
+            anchorRef={moreBtnRef}
           />
           <Badge>{state.status}</Badge>
         </div>

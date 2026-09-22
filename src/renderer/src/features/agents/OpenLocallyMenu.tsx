@@ -5,20 +5,29 @@
  * (i.e. off macOS).
  */
 import React, { useState } from 'react'
-import { FolderOpen } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
-import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
+import { Popover, PopoverContent, PopoverVirtualAnchor } from '../../components/ui/popover'
 import { Tip } from '../../components/ui/tooltip'
 import { APP_META } from '../../../../shared/external-apps'
 
-export function OpenLocallyMenu({ path }: { path: string | null }): React.JSX.Element | null {
-  const [open, setOpen] = useState(false)
+export function OpenLocallyMenu({
+  path,
+  open,
+  onOpenChange,
+  anchorRef
+}: {
+  path: string | null
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  /** Header "⋯" button the popover anchors to (opened from its menu). */
+  anchorRef: React.RefObject<HTMLElement | null>
+}): React.JSX.Element | null {
   const [error, setError] = useState<string | null>(null)
   const apps = trpc.external.detectApps.useQuery(undefined, { staleTime: Infinity })
   const openIn = trpc.external.openPathInApp.useMutation({
     onSuccess: () => {
       setError(null)
-      setOpen(false)
+      onOpenChange(false)
     },
     onError: (e) => setError(e.message)
   })
@@ -28,18 +37,11 @@ export function OpenLocallyMenu({ path }: { path: string | null }): React.JSX.El
     <Popover
       open={open}
       onOpenChange={(v) => {
-        setOpen(v)
+        onOpenChange(v)
         if (!v) setError(null)
       }}
     >
-      <Tip content="Open this chat's folder in Finder, an editor or a terminal" side="bottom">
-        <PopoverTrigger asChild>
-          <button className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer">
-            <FolderOpen size={11} />
-            open
-          </button>
-        </PopoverTrigger>
-      </Tip>
+      <PopoverVirtualAnchor elementRef={anchorRef} />
       <PopoverContent align="end" className="w-52 p-1.5">
         <div className="truncate px-1.5 pb-1 pt-0.5 text-[10px] text-muted-foreground" title={path}>
           {path}

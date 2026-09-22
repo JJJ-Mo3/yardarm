@@ -5,10 +5,8 @@
  * agent host's contextUsage command, which mirrors the CLI's /context.
  */
 import React from 'react'
-import { PieChart } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
-import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
-import { Tip } from '../../components/ui/tooltip'
+import { Popover, PopoverContent, PopoverVirtualAnchor } from '../../components/ui/popover'
 import type { ContextUsageGroup } from '../../../../shared/ipc-types'
 
 function formatTokens(tokens: number): string {
@@ -100,11 +98,14 @@ function Section({
 export function ContextPopover({
   subchatId,
   open,
-  onOpenChange
+  onOpenChange,
+  anchorRef
 }: {
   subchatId: string
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Header "⋯" button the popover anchors to (opened from its menu). */
+  anchorRef: React.RefObject<HTMLElement | null>
 }): React.JSX.Element {
   const audit = trpc.agent.contextUsage.useQuery(
     { subchatId },
@@ -113,14 +114,7 @@ export function ContextPopover({
   const data = audit.data
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
-      <Tip content="Audit what is using the context window (/context)">
-        <PopoverTrigger asChild>
-          <button className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer">
-            <PieChart size={11} />
-            context
-          </button>
-        </PopoverTrigger>
-      </Tip>
+      <PopoverVirtualAnchor elementRef={anchorRef} />
       <PopoverContent align="end" className="w-72">
         <div className="mb-1.5 text-xs font-medium">
           Context audit

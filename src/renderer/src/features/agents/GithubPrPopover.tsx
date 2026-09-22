@@ -6,9 +6,9 @@
  * GitHub signals are enabled in Settings → Connectors.
  */
 import React, { useEffect, useState } from 'react'
-import { GitPullRequest, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
-import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
+import { Popover, PopoverContent, PopoverVirtualAnchor } from '../../components/ui/popover'
 import { Tip } from '../../components/ui/tooltip'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -81,11 +81,14 @@ function SubscriptionRow({
 export function GithubPrPopover({
   subchatId,
   open,
-  onOpenChange
+  onOpenChange,
+  anchorRef
 }: {
   subchatId: string
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Header "⋯" button the popover anchors to (opened from its menu). */
+  anchorRef: React.RefObject<HTMLElement | null>
 }): React.JSX.Element {
   const utils = trpc.useUtils()
   // Refetch while open so the background poller's sync/CI updates show live.
@@ -134,14 +137,7 @@ export function GithubPrPopover({
   const data = status.data
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
-      <Tip content="GitHub PR subscriptions for this thread (/github)">
-        <PopoverTrigger asChild>
-          <button className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer">
-            <GitPullRequest size={11} />
-            prs
-          </button>
-        </PopoverTrigger>
-      </Tip>
+      <PopoverVirtualAnchor elementRef={anchorRef} />
       <PopoverContent align="end" className="w-72">
         <div className="mb-1.5 text-xs font-medium">PR subscriptions</div>
         {status.isLoading && <div className="text-[11px] text-muted-foreground">Loading…</div>}

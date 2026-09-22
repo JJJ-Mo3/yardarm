@@ -10,7 +10,7 @@ import { GitPullRequest, ScanSearch } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { forgeCopy } from '../../lib/forge-copy'
 import { Input } from '../../components/ui/input'
-import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
+import { Popover, PopoverContent, PopoverVirtualAnchor } from '../../components/ui/popover'
 import { Tip } from '../../components/ui/tooltip'
 import { buildLocalReviewPrompt, buildPrReviewPrompt, buildReviewMarker } from './review-prompts'
 
@@ -20,7 +20,8 @@ export function ReviewPopover({
   running,
   open,
   onOpenChange,
-  onReview
+  onReview,
+  anchorRef
 }: {
   /** Worktree (or project) path PR/MR queries run in; null while the chat loads. */
   cwd: string | null
@@ -32,6 +33,8 @@ export function ReviewPopover({
   onOpenChange: (open: boolean) => void
   /** Send the expanded review prompt as a marker message. */
   onReview: (content: string, marker: string) => void
+  /** Header "⋯" button the popover anchors to (opened from its menu). */
+  anchorRef: React.RefObject<HTMLElement | null>
 }): React.JSX.Element {
   const forge = trpc.git.forgeInfo.useQuery(
     { cwd: cwd ?? '' },
@@ -57,14 +60,7 @@ export function ReviewPopover({
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
-      <Tip content="Review — have the agent code-review this chat's changes or an open PR/MR (/review)">
-        <PopoverTrigger asChild>
-          <button className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer">
-            <ScanSearch size={11} />
-            review
-          </button>
-        </PopoverTrigger>
-      </Tip>
+      <PopoverVirtualAnchor elementRef={anchorRef} />
       <PopoverContent align="end" className="w-80">
         <div className="mb-1.5 text-xs font-medium">Code review</div>
         <div className="space-y-2">

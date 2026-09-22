@@ -114,15 +114,6 @@
             network access and allowed paths. See <a href="#full-sandbox">Full sandbox</a>.
           </li>
           <li>
-            <strong>goal</strong> chip — set an objective the agent works toward across runs. The
-            chip is color-coded once a goal is set: blue while active, amber when paused, green when
-            done. See <a href="#goals">Goals</a>.
-          </li>
-          <li>
-            <strong>review</strong> chip — have the agent code-review this chat's changes or an open
-            PR. See <a href="#agent-code-review">Agent code review</a>.
-          </li>
-          <li>
             <strong>Threads</strong> (<kbd>Cmd+P</kbd>) — switch, rename, clone, or delete
             conversation threads. See <a href="#threads">Threads and subchats</a>.
           </li>
@@ -132,16 +123,19 @@
             <a href="#checkpoints">Checkpoints</a>.
           </li>
           <li>
-            <strong>open</strong> — open the chat's folder locally: reveal it in Finder, or open it
-            in a detected editor or terminal (VS Code, Cursor, Zed, Terminal, iTerm, Warp, Ghostty).
-          </li>
-          <li>
-            <strong>export</strong> — download the current thread's transcript as a Markdown file
-            (messages as headings, tool calls as blockquotes).
-          </li>
-          <li>
             <strong>details</strong> — toggle the <a href="#details-panel">details panel</a>: a
             resizable side panel with the chat's changed files, live tasks, and latest plan.
+          </li>
+          <li>
+            <strong>The ⋯ menu</strong> — occasional tools live behind the ⋯ button:
+            <strong>Code review</strong> (review this chat's changes or an open PR/MR, see
+            <a href="#agent-code-review">Agent code review</a>),
+            <strong>Observational memory</strong> (<code>/om</code> status and tuning),
+            <strong>PR subscriptions</strong> (<code>/github</code>),
+            <strong>Open folder in…</strong> (reveal the chat's folder in Finder, or open it in a
+            detected editor or terminal — VS Code, Cursor, Zed, Terminal, iTerm, Warp, Ghostty),
+            <strong>Export transcript</strong> (download the thread as a Markdown file), and
+            <strong>Context audit</strong> (<code>/context</code>).
           </li>
         </ul>
 
@@ -209,6 +203,11 @@
           <li>
             <strong>Mic button</strong> — voice dictation, if enabled. See
             <a href="workspace.html#voice-dictation">Voice dictation</a>.
+          </li>
+          <li>
+            <strong>Goal button</strong> — set an objective the agent works toward across runs. The
+            button is color-coded once a goal is set: blue while active, amber when paused, green
+            when done. See <a href="#goals">Goals</a>.
           </li>
           <li>
             <strong>While the agent is running</strong>, the send button becomes
@@ -415,8 +414,8 @@
 
         <h2 id="agent-code-review">Agent code review</h2>
         <p>
-          Click the <strong>review</strong> button in the chat header (next to the goal chip) to
-          open the review picker:
+          Pick <strong>Code review</strong> from the ⋯ menu in the chat header (or type
+          <code>/review</code>) to open the review picker:
         </p>
         <ul>
           <li>
@@ -518,7 +517,7 @@
 
         <h2 id="goals">Goals: let the agent run to completion</h2>
         <p>
-          For bigger objectives, click the <strong>goal</strong> chip in the header (or use
+          For bigger objectives, click the <strong>Goal</strong> button in the composer (or use
           <code>/goal</code>) and describe the outcome you want. The agent keeps working across runs
           until an independent <strong>judge model</strong> agrees the goal is met — not just until
           the agent claims it is.

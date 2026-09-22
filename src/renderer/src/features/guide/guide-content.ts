@@ -96,10 +96,12 @@ its reasoning, tool calls, and file edits into the transcript.
 
 - **Details panel** — the details button opens a resizable side panel with the chat's
   changed files (click to view), the live task checklist, and the latest plan.
-- **Export** — download the current thread's transcript as a Markdown file.
-- **Open locally** — open the chat's folder in Finder, an editor (VS Code, Cursor, Zed, …),
-  or a terminal app detected on your machine.
 - **Checkpoints** — a quick view of the chat's rollback checkpoints (see Checkpoints below).
+- **The ⋯ menu** — occasional tools live under the ⋯ button: **Code review** (review local
+  changes or an open PR/MR), **Observational memory** (\`/om\` status and tuning),
+  **PR subscriptions** (\`/github\`), **Open folder in…** (Finder, VS Code, Cursor, Zed, or a
+  terminal app), **Export transcript** (download the thread as Markdown), and
+  **Context audit** (\`/context\`).
 
 ### Models
 
@@ -188,8 +190,8 @@ Avoid driving the same thread from the chat and the CLI at the same time.
 
 ### Following pull requests
 
-With **GitHub signals** enabled (Settings → Connectors), the PR button in the chat header
-(or \`/github\`) subscribes the current thread to one or more pull requests: in **working**
+With **GitHub signals** enabled (Settings → Connectors), **PR subscriptions** in the chat
+header's ⋯ menu (or \`/github\`) subscribes the current thread to one or more pull requests: in **working**
 mode the agent acts on new comments, reviews, and CI results; in **review** mode it only
 gets notified. The repository defaults to the project's origin remote.
 `
@@ -207,8 +209,8 @@ root).
   working tree.
 - **Merge & pull** — worktree chats can merge their branch back into the base branch from
   here, and pull the base to stay current.
-- **Review** — the review action (also \`/review\`) has the agent review local changes or an
-  open PR/MR and post findings back into the chat.
+- **Review** — the review action (in the chat header's ⋯ menu, also \`/review\`) has the
+  agent review local changes or an open PR/MR and post findings back into the chat.
 - **Pull / merge requests** — with the GitHub CLI (\`gh\`) or GitLab CLI (\`glab\`) installed
   and authenticated, you can open PRs/MRs from the app. The host is auto-detected from the
   origin remote; for self-hosted instances, set it in Project Settings → General.
@@ -386,7 +388,7 @@ The chart icon in the tab bar opens **Analytics**: token usage for the current p
   shrinks bulky tool output (logs, diffs, HTML) before it reaches the model and lets the
   agent retrieve the original on demand; Analytics shows how many tokens that saved. The
   savings also appear in the chat's usage bar.
-- **Context audit** — the context button in the chat header (or \`/context\`) breaks down
+- **Context audit** — in the chat header's ⋯ menu (or \`/context\`) — breaks down
   what's occupying the context window right now: instructions, skills, tool definitions,
   conversation, and memory, split into startup vs accumulated shares.
 - **CSV export** for your own analysis.

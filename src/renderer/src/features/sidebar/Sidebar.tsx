@@ -173,7 +173,10 @@ export function Sidebar(): React.JSX.Element {
       </div>
 
       {/* Project picker */}
-      <div className="flex items-center gap-1 px-2 py-2">
+      <div className="px-3 pt-1">
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Projects</span>
+      </div>
+      <div className="flex items-center gap-1 px-2 pb-2 pt-0.5">
         <Select
           value={projectId ?? ''}
           onValueChange={(v) => {

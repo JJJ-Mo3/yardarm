@@ -4,11 +4,10 @@
  * om_* progress events from the stream.
  */
 import React, { useEffect, useState } from 'react'
-import { Brain } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { Input } from '../../components/ui/input'
 import { Switch } from '../../components/ui/switch'
-import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
+import { Popover, PopoverContent, PopoverVirtualAnchor } from '../../components/ui/popover'
 import { Tip } from '../../components/ui/tooltip'
 import {
   Select,
@@ -78,12 +77,15 @@ export function OmStatusPopover({
   subchatId,
   omEvents,
   open,
-  onOpenChange
+  onOpenChange,
+  anchorRef
 }: {
   subchatId: string
   omEvents: OmProgressInfo[]
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Header "⋯" button the popover anchors to (opened from its menu). */
+  anchorRef: React.RefObject<HTMLElement | null>
 }): React.JSX.Element {
   const utils = trpc.useUtils()
   const om = trpc.agent.omGet.useQuery({ subchatId }, { enabled: open })
@@ -103,14 +105,7 @@ export function OmStatusPopover({
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
-      <Tip content="Observational Memory — the agent's long-term memory of this project; click to view status and tune models/thresholds (/om)">
-        <PopoverTrigger asChild>
-          <button className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer">
-            <Brain size={11} />
-            om
-          </button>
-        </PopoverTrigger>
-      </Tip>
+      <PopoverVirtualAnchor elementRef={anchorRef} />
       <PopoverContent align="end" className="w-80">
         <div className="mb-1.5 text-xs font-medium">Observational Memory</div>
         {om.isLoading && <div className="text-[11px] text-muted-foreground">Loading…</div>}
