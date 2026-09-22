@@ -88,9 +88,10 @@ export function GithubPrPopover({
   onOpenChange: (open: boolean) => void
 }): React.JSX.Element {
   const utils = trpc.useUtils()
+  // Refetch while open so the background poller's sync/CI updates show live.
   const status = trpc.agent.githubPrStatus.useQuery(
     { subchatId },
-    { enabled: open, staleTime: 10_000, retry: false }
+    { enabled: open, staleTime: 10_000, refetchInterval: 15_000, retry: false }
   )
   const [prNumber, setPrNumber] = useState('')
   const [mode, setMode] = useState<'working' | 'review'>('working')
@@ -194,7 +195,7 @@ export function GithubPrPopover({
                   <option value="review">review</option>
                 </select>
               </Tip>
-              <Tip content="Subscribe this thread to the PR (repo defaults to the origin remote)">
+              <Tip content="Subscribe this thread to the PR (repo defaults to the origin remote) — re-subscribing an existing PR switches its mode">
                 <span className="inline-flex">
                   <Button
                     size="sm"
