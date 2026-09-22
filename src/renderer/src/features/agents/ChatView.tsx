@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { KeyRound, Server, ShieldCheck } from 'lucide-react'
+import { Download, KeyRound, Server, ShieldCheck } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import {
   debugEventsAtom,
@@ -54,6 +54,7 @@ import { ReviewFollowupBar } from './ReviewFollowupBar'
 import { useSlashCommands, type SlashCommandEntry } from './slash-commands'
 import { buildReportIssuePrompt } from './report-issue-prompt'
 import { buildAttachmentPrompt, classifyAttachment } from './attachments'
+import { downloadChatMarkdown } from './export-chat'
 import {
   buildLocalReviewPrompt,
   buildPlanFromReviewPrompt,
@@ -733,6 +734,23 @@ export function ChatView({
           onOpenChange={setOmOpen}
         />
         <GithubPrPopover subchatId={subchatId} open={githubPrOpen} onOpenChange={setGithubPrOpen} />
+        <Tip content="Export this thread's transcript as a Markdown file" side="bottom">
+          <span className="inline-flex">
+            <button
+              className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-50"
+              disabled={state.messages.length === 0}
+              onClick={() =>
+                downloadChatMarkdown(
+                  state.messages,
+                  `Yardarm chat ${new Date().toISOString().slice(0, 10)}`
+                )
+              }
+            >
+              <Download size={11} />
+              export
+            </button>
+          </span>
+        </Tip>
         <ContextPopover subchatId={subchatId} open={contextOpen} onOpenChange={setContextOpen} />
         <CostPopover
           subchatId={subchatId}

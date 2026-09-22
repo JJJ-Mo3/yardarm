@@ -1,5 +1,14 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Brain, ChevronDown, ChevronRight, GitFork, RotateCcw, ScanSearch } from 'lucide-react'
+import {
+  Brain,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  GitFork,
+  RotateCcw,
+  ScanSearch
+} from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { Tip } from '../../components/ui/tooltip'
 import { Markdown } from './Markdown'
@@ -43,6 +52,31 @@ function useStableSet(next: Set<string>): Set<string> {
     (prev.current.size === next.size && [...next].every((v) => prev.current.has(v)))
   if (!same) prev.current = next
   return prev.current
+}
+
+/** Hover button that copies a message's text parts to the clipboard. */
+function CopyMessageButton({ message }: { message: StoredMessage }): React.JSX.Element | null {
+  const [copied, setCopied] = useState(false)
+  const text = message.parts
+    .filter((p) => p.type === 'text')
+    .map((p) => p.text)
+    .join('\n\n')
+    .trim()
+  if (!text) return null
+  return (
+    <Tip content="Copy this message's text">
+      <button
+        onClick={() => {
+          void navigator.clipboard.writeText(text)
+          setCopied(true)
+          setTimeout(() => setCopied(false), 1500)
+        }}
+        className="flex items-center rounded-md border border-border bg-background p-1 text-muted-foreground shadow-sm opacity-0 group-hover/msg:opacity-100 hover:text-foreground cursor-pointer"
+      >
+        {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+      </button>
+    </Tip>
+  )
 }
 
 function InteractiveToolPart({
@@ -188,10 +222,11 @@ const MessageItem = React.memo(function MessageItem({
       )
     }
     return (
-      <div className="flex justify-end group">
+      <div className="flex justify-end group group/msg">
         <div className="relative max-w-[85%] rounded-lg bg-accent border border-border px-3 py-2 selectable whitespace-pre-wrap text-[13px]">
           {text}
           <div className="absolute right-full top-1.5 mr-1.5 flex items-center gap-1">
+            <CopyMessageButton message={message} />
             {onFork && showFork && (
               <Tip content="Fork the chat from just before this message into a new tab — the agent's memory is cloned as a new Mastra thread and the original continues unchanged">
                 <button
@@ -253,7 +288,14 @@ const MessageItem = React.memo(function MessageItem({
     }
   })
   flushToolGroup()
-  return <div className="max-w-full">{blocks}</div>
+  return (
+    <div className="group/msg relative max-w-full">
+      <div className="absolute -right-9 top-0 z-10">
+        <CopyMessageButton message={message} />
+      </div>
+      {blocks}
+    </div>
+  )
 })
 
 export function MessageList({
