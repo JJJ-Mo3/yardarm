@@ -105,8 +105,9 @@ its reasoning, tool calls, and file edits into the transcript.
 - **Checkpoints** — a quick view of the chat's rollback checkpoints (see Checkpoints below).
 - **The ⋯ menu** — occasional tools live under the ⋯ button: **Code review** (review local
   changes or an open PR/MR), **Observational memory** (\`/om\` status and tuning),
-  **PR subscriptions** (\`/github\`), **Open folder in…** (Finder, VS Code, Cursor, Zed, or a
-  terminal app), **Export transcript** (download the thread as Markdown), and
+  **PR subscriptions** (\`/github\`), **Open folder in…** (reveal the chat's folder in your
+  file manager, or open it in a detected editor or terminal — e.g. VS Code, Cursor, Zed),
+  **Export transcript** (download the thread as Markdown), and
   **Context audit** (\`/context\`).
 
 ### Models
@@ -549,6 +550,20 @@ commands, or enable auto-approve for a trusted chat — optionally combined with
 
 Settings → About shows the bundled runtime version and an update indicator when a newer one
 is available.
+
+### How do I update the app itself?
+
+On macOS, Settings → About checks GitHub Releases, downloads updates, and finishes with a
+restart banner (automatic checks can be turned off; \`/update\` checks on demand). On the
+beta Linux and Windows builds the same tab tells you when a new version is available, but
+you install it manually from the releases page for now.
+
+### Does Yardarm run on Linux or Windows?
+
+Yes, in beta. macOS (Apple Silicon) is the primary platform; Linux and Windows builds are
+new and lightly tested. Known limits: no OS-level sandbox mode on Windows (on Linux it
+requires bubblewrap), the CLI tab does not live-sync with the chat screen on Windows, and
+in-app self-update is macOS-only for now.
 `
   },
   {

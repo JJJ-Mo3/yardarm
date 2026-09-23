@@ -6,7 +6,7 @@
     <title>FAQ — Yardarm documentation</title>
     <meta
       name="description"
-      content="Frequently asked questions about Yardarm: accounts, what data leaves your machine, API key storage, offline use, local models, worktrees, and uninstalling."
+      content="Frequently asked questions about Yardarm: accounts, supported platforms, updates, what data leaves your machine, API key storage, offline use, local models, worktrees, and uninstalling."
     />
     <link rel="canonical" href="https://yardarmdev.com/docs/faq.html" />
     <meta property="og:type" content="article" />
@@ -14,7 +14,7 @@
     <meta property="og:title" content="FAQ — Yardarm documentation" />
     <meta
       property="og:description"
-      content="Frequently asked questions about Yardarm: accounts, data, API keys, offline use, local models, worktrees, and uninstalling."
+      content="Frequently asked questions about Yardarm: accounts, platforms, updates, data, API keys, offline use, local models, worktrees, and uninstalling."
     />
     <meta property="og:url" content="https://yardarmdev.com/docs/faq.html" />
     <meta property="og:image" content="https://yardarmdev.com/assets/img/og-image.png?v=2" />
@@ -66,6 +66,8 @@
           <p class="sidebar-title">On this page</p>
           <ul class="toc">
             <li><a href="#account">Do I need an account?</a></li>
+            <li><a href="#platforms">Linux or Windows?</a></li>
+            <li><a href="#updates">How do I update?</a></li>
             <li><a href="#data">What data leaves my machine?</a></li>
             <li><a href="#cli-and-app">CLI and app together?</a></li>
             <li><a href="#api-keys">Where are my API keys?</a></li>
@@ -89,6 +91,30 @@
         <p>
           No. There is no signup, login, or telemetry in Yardarm itself. You only authenticate with
           the model providers you choose to use.
+        </p>
+
+        <h2 id="platforms">Does Yardarm run on Linux or Windows?</h2>
+        <p>
+          Yes, in beta. macOS (Apple Silicon) is the primary platform; releases also carry Linux
+          (<code>-linux-x86_64</code> AppImage, <code>-linux-amd64</code> deb) and Windows (<code
+            >-win-x64</code
+          >
+          installer/zip) builds that are new and lightly tested. Known limits: no OS-level sandbox
+          mode on Windows (on Linux it requires
+          <a href="https://github.com/containers/bubblewrap">bubblewrap</a>), the CLI tab does not
+          live-sync with the chat screen on Windows, and in-app self-update is macOS-only for now.
+          Everything else — worktrees, checkpoints, review and shipping, the IDE and terminal —
+          works the same. See the <a href="index.html#install">install notes</a>.
+        </p>
+
+        <h2 id="updates">How do I update the app?</h2>
+        <p>
+          On macOS, Yardarm updates itself: Settings → About checks the project's GitHub Releases,
+          downloads the new version, and offers a restart-to-finish banner (automatic checks can be
+          turned off there, and <code>/update</code> checks on demand). On the beta Linux and
+          Windows builds the same tab tells you when a new version is available, but you install it
+          manually from the
+          <a href="https://github.com/JJJ-Mo3/yardarm/releases/latest">releases page</a> for now.
         </p>
 
         <h2 id="data">What data leaves my machine?</h2>
