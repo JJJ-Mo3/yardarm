@@ -1,10 +1,14 @@
 name: Release
 
-# Builds and publishes a macOS (arm64) release entirely on GitHub —
-# no local machine involved. Trigger from the Actions tab: pick a version
-# bump, and the workflow bumps package.json, builds the app, pushes the
-# version commit + tag, and publishes a GitHub Release with the dmg/zip
-# assets the in-app updater (src/main/lib/updates) consumes.
+# Builds and publishes a release entirely on GitHub — no local machine
+# involved. Trigger from the Actions tab: pick a version bump, and the
+# workflow computes the new version, builds macOS (arm64) plus beta
+# Linux/Windows (x64) apps in a matrix, then pushes the version commit + tag
+# and publishes a GitHub Release with all assets. The macOS dmg/zip names
+# are what the in-app updater (src/main/lib/updates) consumes — the version
+# commit is only pushed after every build succeeded, so a failed run never
+# burns a version number. The agent runtime is staged arch-native on each
+# runner (no cross-building; see scripts/build-agent-runtime.mjs).
 
 on:
   workflow_dispatch:
@@ -18,6 +22,10 @@ on:
           - patch
           - minor
           - major
+      dry-run:
+        description: Build only (skip the version push and the GitHub Release)
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -27,12 +35,36 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
-    runs-on: macos-latest # Apple Silicon; the agent runtime is staged arch-native
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+
+      # Compute the next version only — nothing is committed or pushed until
+      # the release job, after all platform builds have succeeded.
+      - name: Compute version
+        id: version
+        run: |
+          npm version ${{ inputs.bump }} --no-git-tag-version
+          echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: prepare
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: macos-latest # Apple Silicon
+            platform: mac
+          - os: ubuntu-latest
+            platform: linux
+          - os: windows-latest
+            platform: win
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
         with:
@@ -47,20 +79,18 @@ jobs:
       # app ships it.
       - run: pnpm install --frozen-lockfile
 
-      - name: Bump version
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          npm version ${{ inputs.bump }} -m "v%s"
-          echo "VERSION=$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
+      - name: Apply version locally
+        run: npm version ${{ needs.prepare.outputs.version }} --no-git-tag-version --allow-same-version
 
       - name: Stage agent runtime
         run: pnpm stage:agent-runtime
 
-      # Optional language-server packs (src/shared/lsp-packs.ts): built as
-      # separate release assets the app downloads on demand instead of
-      # bundling ~300MB of servers into every install.
+      # Optional language-server packs (src/shared/lsp-packs.ts): built once
+      # (they are platform-independent node packages) as separate release
+      # assets the app downloads on demand instead of bundling ~300MB of
+      # servers into every install.
       - name: Build LSP server packs
+        if: matrix.platform == 'mac'
         run: pnpm build:lsp-packs
 
       # The monaco-heavy renderer bundle blows Node's default ~2GB heap.
@@ -70,19 +100,68 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Package (unsigned)
-        run: pnpm exec electron-builder --mac --publish never
+        run: pnpm exec electron-builder --${{ matrix.platform }} --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
-      # Only push the version commit + tag once the build has succeeded, so a
-      # failed run never burns a version number.
+      # Best-effort boot smoke for the beta Linux build: launch the unpacked
+      # binary under a virtual display and require it to stay alive ~10s.
+      - name: Boot smoke (Linux, best effort)
+        if: matrix.platform == 'linux'
+        continue-on-error: true
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb
+          bin=$(find dist/linux-unpacked -maxdepth 1 -type f \( -name Yardarm -o -name yardarm \) | head -1)
+          echo "smoke binary: $bin"
+          xvfb-run --auto-servernum bash -c '
+            "$0" --no-sandbox > /tmp/yardarm-smoke.log 2>&1 &
+            pid=$!
+            sleep 10
+            kill -0 "$pid"
+          ' "$bin"
+          head -50 /tmp/yardarm-smoke.log || true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.platform }}
+          if-no-files-found: error
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.exe
+            dist/lsp-packs/*.zip
+
+  release:
+    if: ${{ !inputs.dry-run }}
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Only push the version commit + tag once every build has succeeded, so
+      # a failed run never burns a version number.
       - name: Push version commit and tag
-        run: git push origin HEAD:main --follow-tags
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          npm version ${{ needs.prepare.outputs.version }} -m "v%s"
+          git push origin HEAD:main --follow-tags
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ env.VERSION }}
+          tag_name: v${{ needs.prepare.outputs.version }}
           generate_release_notes: true
           # Builds are unsigned: browser downloads get quarantined and macOS
           # shows "Yardarm is damaged" with no bypass, so every release leads
@@ -103,7 +182,17 @@ jobs:
             xattr -dr com.apple.quarantine /Applications/Yardarm.app
             ```
 
+            ### Linux and Windows (beta)
+
+            The `-linux-x64` AppImage/deb and `-win-x64` installer/zip builds are
+            new and lightly tested. Known limits: no OS-level sandbox mode on
+            Windows (Linux needs bubblewrap installed), and the CLI tab does not
+            sync with the chat screen on Windows.
+
           files: |
             dist/*.dmg
             dist/*.zip
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.exe
             dist/lsp-packs/*.zip
