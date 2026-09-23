@@ -1,14 +1,13 @@
 /**
  * Header popover for opening the chat's working folder (worktree or project
- * root) in an installed external app — Finder reveal, editors and terminals
- * via the external router. Hidden when there is no path or no detected apps
- * (i.e. off macOS).
+ * root) in an installed external app — file-manager reveal, editors and
+ * terminals via the external router, with platform-appropriate labels
+ * computed in main. Hidden when there is no path or no detected apps.
  */
 import React, { useState } from 'react'
 import { trpc } from '../../lib/trpc'
 import { Popover, PopoverContent, PopoverVirtualAnchor } from '../../components/ui/popover'
 import { Tip } from '../../components/ui/tooltip'
-import { APP_META } from '../../../../shared/external-apps'
 
 export function OpenLocallyMenu({
   path,
@@ -46,13 +45,13 @@ export function OpenLocallyMenu({
         <div className="truncate px-1.5 pb-1 pt-0.5 text-[10px] text-muted-foreground" title={path}>
           {path}
         </div>
-        {apps.data.map((app) => (
+        {apps.data.map((item) => (
           <Tip
-            key={app}
+            key={item.app}
             content={
-              app === 'finder'
-                ? 'Reveal the folder in Finder'
-                : `Open the folder in ${APP_META[app].label}`
+              item.app === 'finder'
+                ? `Reveal the folder in ${item.label}`
+                : `Open the folder in ${item.label}`
             }
             side="left"
           >
@@ -60,9 +59,9 @@ export function OpenLocallyMenu({
               <button
                 className="w-full rounded px-1.5 py-1 text-left text-[11px] hover:bg-secondary cursor-pointer disabled:opacity-50"
                 disabled={openIn.isPending}
-                onClick={() => openIn.mutate({ app, path })}
+                onClick={() => openIn.mutate({ app: item.app, path })}
               >
-                {app === 'finder' ? 'Reveal in Finder' : `Open in ${APP_META[app].label}`}
+                {item.app === 'finder' ? `Reveal in ${item.label}` : `Open in ${item.label}`}
               </button>
             </span>
           </Tip>

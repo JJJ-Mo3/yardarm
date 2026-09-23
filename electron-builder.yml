@@ -52,10 +52,17 @@ mac:
     # Required for composer voice dictation (getUserMedia in the renderer).
     NSMicrophoneUsageDescription: Yardarm uses the microphone to dictate prompts into the composer.
 
+# Windows and Linux are beta targets, built x64-only on matching CI runners
+# (build-agent-runtime.mjs stages arch-native modules, so no cross-building).
+# Their artifactName overrides carry an explicit -win-/-linux- marker; the
+# global (mac) artifactName above must stay byte-identical for the updater.
 win:
   target:
     - target: nsis
       arch: [x64]
+    - target: zip
+      arch: [x64]
+  artifactName: ${productName}-${version}-win-${arch}.${ext}
 
 nsis:
   oneClick: false
@@ -63,8 +70,12 @@ nsis:
 
 linux:
   target:
-    - AppImage
-    - deb
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
   category: Development
+  maintainer: Yardarm contributors <noreply@yardarm.dev>
+  artifactName: ${productName}-${version}-linux-${arch}.${ext}
 
 publish: null

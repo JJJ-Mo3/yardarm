@@ -27,7 +27,8 @@ the two stay in sync.
 
 The main window has a project sidebar on the left and a set of tabs across the top: **Chat**,
 **CLI**, **IDE**, **Changes**, **Terminal**, **Kanban**, and **Preview**, plus icon buttons for
-**Analytics** and this **Guide**. Switch tabs with ⌘1–⌘9.
+**Analytics** and this **Guide**. Switch tabs with ⌘1–⌘9 (⌘ on macOS; use Ctrl on
+Windows/Linux throughout this guide).
 
 Press **⌘K** anywhere for the **command palette**: run slash commands, jump to any tab or
 settings section, or switch to another chat — all from the keyboard.

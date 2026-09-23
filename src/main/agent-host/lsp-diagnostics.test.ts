@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import {
+  executableCandidates,
   fallbackLanguageId,
   findExecutable,
   lspUriCandidates,
@@ -76,6 +77,36 @@ describe('findExecutable', () => {
 
   it('skips non-executable files and tolerates an unset PATH', () => {
     expect(findExecutable('not-exec', undefined, [extraDir])).toBeNull()
+  })
+})
+
+describe('executableCandidates', () => {
+  it('returns the bare name on POSIX', () => {
+    expect(executableCandidates('gopls', false)).toEqual(['gopls'])
+    expect(executableCandidates('gopls', false, '.EXE;.CMD')).toEqual(['gopls'])
+  })
+
+  it('appends default PATHEXT extensions on Windows', () => {
+    expect(executableCandidates('gopls', true)).toEqual([
+      'gopls.exe',
+      'gopls.cmd',
+      'gopls.bat',
+      'gopls.com'
+    ])
+  })
+
+  it('respects an explicit PATHEXT value and ignores junk entries', () => {
+    expect(executableCandidates('rust-analyzer', true, '.COM;.EXE;PS1;')).toEqual([
+      'rust-analyzer.com',
+      'rust-analyzer.exe'
+    ])
+  })
+
+  it('tries names that already carry an extension as-is first', () => {
+    expect(executableCandidates('ruby-lsp.bat', true, '.EXE')).toEqual([
+      'ruby-lsp.bat',
+      'ruby-lsp.bat.exe'
+    ])
   })
 })
 

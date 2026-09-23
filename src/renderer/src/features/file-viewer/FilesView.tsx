@@ -34,6 +34,7 @@ import type { LspDiagnosticInfo, LspDiagnosticsResult } from '@shared/ipc-types'
 import { LSP_PACKS } from '@shared/lsp-packs'
 import '../../lib/monaco-setup'
 import { trpc } from '../../lib/trpc'
+import { modLabel } from '../../lib/shortcuts'
 import { cn } from '../../lib/utils'
 import { composerInsertAtom, fileOpenRequestAtom, mainTabAtom, themeAtom } from '../../lib/atoms'
 import { Button } from '../../components/ui/button'
@@ -610,7 +611,7 @@ export function FilesView({
               ))}
             </div>
             <div className="px-1.5">
-              <Tip content="Save the active file to disk (⌘S)">
+              <Tip content={`Save the active file to disk (${modLabel('S')})`}>
                 <span className="inline-flex">
                   <Button
                     variant="ghost"

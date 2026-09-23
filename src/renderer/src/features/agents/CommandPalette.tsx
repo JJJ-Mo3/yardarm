@@ -32,6 +32,7 @@ import {
   type MainTab,
   type SettingsTab
 } from '../../lib/atoms'
+import { modLabel } from '../../lib/shortcuts'
 import { useSelectChat } from '../../lib/use-select-chat'
 import { CommandDialog, type CommandAction } from '../../components/ui/command'
 import { paletteDispatchAtom, useSlashCommands } from './slash-commands'
@@ -108,7 +109,7 @@ export function CommandPalette(): React.JSX.Element {
         group: 'Go to',
         label: t.label,
         icon: t.icon,
-        detail: `⌘${i + 1}`,
+        detail: modLabel(String(i + 1)),
         onSelect: () => setTab(t.id)
       })
     })

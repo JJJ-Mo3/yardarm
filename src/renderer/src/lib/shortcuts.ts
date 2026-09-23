@@ -21,6 +21,14 @@ import {
   type MainTab
 } from './atoms'
 
+/** True in macOS renderers; drives shortcut display labels (⌘ vs Ctrl+). */
+export const isMac = navigator.platform.toUpperCase().includes('MAC')
+
+/** Platform display label for a mod-key shortcut: modLabel('K') → "⌘K" / "Ctrl+K". */
+export function modLabel(key: string): string {
+  return isMac ? `⌘${key}` : `Ctrl+${key}`
+}
+
 // Must match the visual TABS order in App.tsx.
 const TAB_ORDER: MainTab[] = [
   'chat',

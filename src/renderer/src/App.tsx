@@ -30,7 +30,7 @@ import {
   themeAtom,
   type MainTab
 } from './lib/atoms'
-import { useAppShortcuts } from './lib/shortcuts'
+import { modLabel, useAppShortcuts } from './lib/shortcuts'
 import { useSelectChat } from './lib/use-select-chat'
 import { Button } from './components/ui/button'
 import { Tip } from './components/ui/tooltip'
@@ -83,7 +83,7 @@ const TABS: Array<{ id: MainTab; label: string; icon: React.ReactNode; tip: stri
     id: 'terminal',
     label: 'Terminal',
     icon: <TerminalSquare size={13} />,
-    tip: 'Shell in the chat worktree (or project root) — ⌘J toggles it'
+    tip: `Shell in the chat worktree (or project root) — ${modLabel('J')} toggles it`
   },
   {
     id: 'kanban',
@@ -289,7 +289,7 @@ export default function App(): React.JSX.Element {
               </div>
               <div className="max-w-md text-[11px] leading-5 text-muted-foreground">
                 Each chat can run in an isolated git worktree · @-mention files · / for slash
-                commands · paste images into the composer · ⌘J toggles the terminal
+                commands · paste images into the composer · {modLabel('J')} toggles the terminal
               </div>
             </div>
           ) : (

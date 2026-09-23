@@ -66,10 +66,30 @@ export function fallbackLanguageId(filePath: string): string | undefined {
   return FALLBACK_BASENAME_IDS[base] ?? FALLBACK_EXTENSION_IDS[path.extname(base).toLowerCase()]
 }
 
+/** Default Windows executable extensions when PATHEXT is unset. */
+const DEFAULT_PATHEXT = '.EXE;.CMD;.BAT;.COM'
+
+/**
+ * Filenames to try for an executable name: the bare name on POSIX; on
+ * Windows, the PATHEXT variants too (a bare `gopls` on PATH is really
+ * `gopls.exe`). Names that already carry an extension are tried as-is first.
+ */
+export function executableCandidates(name: string, isWindows: boolean, pathExt?: string): string[] {
+  if (!isWindows) return [name]
+  const exts = (pathExt ?? DEFAULT_PATHEXT)
+    .split(';')
+    .map((e) => e.trim().toLowerCase())
+    .filter((e) => e.startsWith('.'))
+  const candidates = name.includes('.') ? [name] : []
+  return [...candidates, ...exts.map((ext) => `${name}${ext}`)]
+}
+
 /**
  * Resolve an executable by name against a PATH-style env value plus extra
  * well-known install dirs (GUI/login PATHs regularly miss ~/go/bin and
- * friends). Returns the first hit that is an executable regular file.
+ * friends). Returns the first hit that is an executable regular file. On
+ * Windows the PATHEXT extensions are appended (X_OK is a no-op there, so the
+ * extension check is what distinguishes executables).
  */
 export function findExecutable(
   name: string,
@@ -77,14 +97,17 @@ export function findExecutable(
   extraDirs: string[]
 ): string | null {
   const dirs = [...(pathEnv ? pathEnv.split(path.delimiter) : []), ...extraDirs]
+  const names = executableCandidates(name, process.platform === 'win32', process.env.PATHEXT)
   for (const dir of dirs) {
     if (!dir) continue
-    const candidate = path.join(dir, name)
-    try {
-      accessSync(candidate, fsConstants.X_OK)
-      if (statSync(candidate).isFile()) return candidate
-    } catch {
-      // not there / not executable — keep looking
+    for (const filename of names) {
+      const candidate = path.join(dir, filename)
+      try {
+        accessSync(candidate, fsConstants.X_OK)
+        if (statSync(candidate).isFile()) return candidate
+      } catch {
+        // not there / not executable — keep looking
+      }
     }
   }
   return null

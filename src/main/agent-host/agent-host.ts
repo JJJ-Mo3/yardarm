@@ -206,12 +206,18 @@ interface LspServerDef {
   hint?: string
 }
 
-/** Well-known install dirs GUI/login PATHs regularly miss. */
+/**
+ * Well-known install dirs GUI/login PATHs regularly miss. Cross-platform:
+ * ~/go/bin and ~/.cargo/bin resolve on all three OSes, ~/.local/bin covers
+ * Linux pipx/user installs, scoop shims cover Windows.
+ */
 const EXTERNAL_LSP_DIRS = [
   path.join(os.homedir(), 'go', 'bin'),
   path.join(os.homedir(), '.cargo', 'bin'),
   '/opt/homebrew/bin',
   '/usr/local/bin',
+  path.join(os.homedir(), '.local', 'bin'),
+  path.join(os.homedir(), 'scoop', 'shims'),
   path.join(os.homedir(), '.rbenv', 'shims'),
   path.join(os.homedir(), '.asdf', 'shims')
 ]

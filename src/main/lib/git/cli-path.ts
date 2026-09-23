@@ -15,7 +15,9 @@ export function cliEnv(): NodeJS.ProcessEnv {
 function resolveCliPath(command: string): Promise<string | null> {
   return new Promise((resolve) => {
     try {
-      const child = spawn(`command -v ${command}`, { shell: true, env: cliEnv() })
+      // shell:true is cmd.exe on Windows, which has `where` but no `command -v`.
+      const probe = process.platform === 'win32' ? `where ${command}` : `command -v ${command}`
+      const child = spawn(probe, { shell: true, env: cliEnv() })
       let out = ''
       const timer = setTimeout(() => {
         try {
