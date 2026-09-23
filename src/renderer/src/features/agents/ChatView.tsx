@@ -267,6 +267,17 @@ export function ChatView({
   const [moreOpen, setMoreOpen] = useState(false)
   const [openLocallyOpen, setOpenLocallyOpen] = useState(false)
   const moreBtnRef = useRef<HTMLButtonElement>(null)
+  const moreSuppressCloseFocus = useRef(false)
+  // Open a tool popover from the ⋯ menu. The closing menu must NOT restore
+  // focus to the ⋯ button: Radix does that on a 0-timeout — after the tool
+  // popover's dismissable layer mounts — and the resulting focusin counts as
+  // focus-outside for the (triggerless, anchored) popover, instantly closing
+  // it again. Suppressing the restore keeps Esc/outside-click focus behavior.
+  const openFromMore = (openTool: () => void): void => {
+    moreSuppressCloseFocus.current = true
+    setMoreOpen(false)
+    openTool()
+  }
   // Same query key as OpenLocallyMenu — shared cache, no extra fetch.
   const externalApps = trpc.external.detectApps.useQuery(undefined, { staleTime: Infinity })
   const canOpenLocally = !!projectRoot && (externalApps.data?.length ?? 0) > 0
@@ -826,17 +837,23 @@ export function ChatView({
                 </button>
               </PopoverTrigger>
             </Tip>
-            <PopoverContent align="end" className="w-56 p-1.5">
+            <PopoverContent
+              align="end"
+              className="w-56 p-1.5"
+              onCloseAutoFocus={(e) => {
+                if (moreSuppressCloseFocus.current) {
+                  moreSuppressCloseFocus.current = false
+                  e.preventDefault()
+                }
+              }}
+            >
               <Tip
                 content="Have the agent code-review this chat's changes or an open PR/MR (/review)"
                 side="left"
               >
                 <button
                   className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] hover:bg-secondary cursor-pointer"
-                  onClick={() => {
-                    setMoreOpen(false)
-                    setReviewOpen(true)
-                  }}
+                  onClick={() => openFromMore(() => setReviewOpen(true))}
                 >
                   <ScanSearch size={12} className="shrink-0 text-muted-foreground" />
                   Code review
@@ -848,10 +865,7 @@ export function ChatView({
               >
                 <button
                   className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] hover:bg-secondary cursor-pointer"
-                  onClick={() => {
-                    setMoreOpen(false)
-                    setOmOpen(true)
-                  }}
+                  onClick={() => openFromMore(() => setOmOpen(true))}
                 >
                   <Brain size={12} className="shrink-0 text-muted-foreground" />
                   Observational memory
@@ -860,10 +874,7 @@ export function ChatView({
               <Tip content="GitHub PR subscriptions for this thread (/github)" side="left">
                 <button
                   className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] hover:bg-secondary cursor-pointer"
-                  onClick={() => {
-                    setMoreOpen(false)
-                    setGithubPrOpen(true)
-                  }}
+                  onClick={() => openFromMore(() => setGithubPrOpen(true))}
                 >
                   <GitPullRequest size={12} className="shrink-0 text-muted-foreground" />
                   PR subscriptions
@@ -876,10 +887,7 @@ export function ChatView({
                 >
                   <button
                     className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] hover:bg-secondary cursor-pointer"
-                    onClick={() => {
-                      setMoreOpen(false)
-                      setOpenLocallyOpen(true)
-                    }}
+                    onClick={() => openFromMore(() => setOpenLocallyOpen(true))}
                   >
                     <FolderOpen size={12} className="shrink-0 text-muted-foreground" />
                     Open folder in…
@@ -907,10 +915,7 @@ export function ChatView({
               <Tip content="Audit what is using the context window (/context)" side="left">
                 <button
                   className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] hover:bg-secondary cursor-pointer"
-                  onClick={() => {
-                    setMoreOpen(false)
-                    setContextOpen(true)
-                  }}
+                  onClick={() => openFromMore(() => setContextOpen(true))}
                 >
                   <PieChart size={12} className="shrink-0 text-muted-foreground" />
                   Context audit
