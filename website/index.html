@@ -23,7 +23,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="assets/img/favicon-16.png" />
     <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png" />
-    <link rel="stylesheet" href="assets/css/site.css?v=0.13.0" />
+    <link rel="stylesheet" href="assets/css/site.css?v=0.14.0" />
   </head>
   <body>
     <header class="site-header">
@@ -69,7 +69,7 @@
             window. No account, no telemetry, everything local.
           </p>
           <div class="hero-actions">
-            <a class="btn" href="#install">Install for macOS</a>
+            <a class="btn" href="#install">Install</a>
             <a class="btn btn-secondary" href="docs/index.html">Read the docs</a>
           </div>
           <p class="hero-meta">
@@ -83,24 +83,63 @@
         <div class="container">
           <h2>Install</h2>
           <p class="section-lead">
-            One command downloads the latest release and installs it to
-            <code>/Applications</code>. Requires macOS on Apple Silicon.
+            Every release ships builds for macOS, Linux, and Windows. Pick your platform:
           </p>
-          <div class="code-block">
-            <pre><code>curl -fsSL https://raw.githubusercontent.com/JJJ-Mo3/yardarm/main/scripts/install.sh | sh</code></pre>
-            <button
-              class="copy-btn"
-              type="button"
-              data-copy="curl -fsSL https://raw.githubusercontent.com/JJJ-Mo3/yardarm/main/scripts/install.sh | sh"
-            >
-              Copy
-            </button>
+          <div class="card-grid install-grid">
+            <div class="card install-card">
+              <h3>macOS <span class="badge">Apple Silicon</span></h3>
+              <p>
+                One command downloads the latest release and installs it to
+                <code>/Applications</code>:
+              </p>
+              <div class="code-block">
+                <pre><code>curl -fsSL https://raw.githubusercontent.com/JJJ-Mo3/yardarm/main/scripts/install.sh | sh</code></pre>
+                <button
+                  class="copy-btn"
+                  type="button"
+                  data-copy="curl -fsSL https://raw.githubusercontent.com/JJJ-Mo3/yardarm/main/scripts/install.sh | sh"
+                >
+                  Copy
+                </button>
+              </div>
+              <p>
+                Or grab the <code>.dmg</code> or <code>.zip</code> manually and drag
+                <code>Yardarm.app</code> into <code>/Applications</code> (see the quarantine note
+                below).
+              </p>
+              <a class="btn" href="https://github.com/JJJ-Mo3/yardarm/releases/latest"
+                >Download for macOS</a
+              >
+            </div>
+            <div class="card install-card">
+              <h3>Linux <span class="badge beta">Beta</span></h3>
+              <p>
+                Download the <code>-linux-x86_64.AppImage</code>, make it executable (<code
+                  >chmod +x</code
+                >), and run it — or install the <code>-linux-amd64.deb</code> package with
+                <code>sudo apt install ./Yardarm-*.deb</code>.
+              </p>
+              <p>
+                Sandbox mode needs
+                <a href="https://github.com/containers/bubblewrap">bubblewrap</a>
+                (<code>bwrap</code>) installed.
+              </p>
+              <a class="btn" href="https://github.com/JJJ-Mo3/yardarm/releases/latest"
+                >Download for Linux</a
+              >
+            </div>
+            <div class="card install-card">
+              <h3>Windows <span class="badge beta">Beta</span></h3>
+              <p>
+                Download and run the <code>-win-x64.exe</code> installer, or unzip the portable
+                <code>-win-x64.zip</code> anywhere and launch <code>Yardarm.exe</code>.
+              </p>
+              <p>Builds are unsigned — if SmartScreen objects, choose "More info → Run anyway".</p>
+              <a class="btn" href="https://github.com/JJJ-Mo3/yardarm/releases/latest"
+                >Download for Windows</a
+              >
+            </div>
           </div>
-          <p>
-            Prefer a manual download? Grab the <code>.dmg</code> or <code>.zip</code> from the
-            <a href="https://github.com/JJJ-Mo3/yardarm/releases/latest">latest release</a> and drag
-            <code>Yardarm.app</code> into <code>/Applications</code>.
-          </p>
           <div class="note warn">
             <strong>Manual downloads on macOS:</strong> release builds are unsigned, so macOS
             quarantines browser downloads and refuses to open them ("Yardarm is damaged and can't be
@@ -110,10 +149,8 @@
             <a href="docs/troubleshooting.html">More in troubleshooting</a>.
           </div>
           <p>
-            <strong>Linux and Windows (beta):</strong> releases also carry
-            <code>-linux-</code> (AppImage/deb) and <code>-win-x64</code> (installer/zip) builds —
-            new and lightly tested. See the <a href="docs/index.html#install">install docs</a> for
-            known limits. You can also
+            The Linux and Windows builds are new and lightly tested — see the
+            <a href="docs/index.html#linux-windows">install docs</a> for known limits. You can also
             <a href="docs/index.html#build-from-source">build from source</a> on any platform with
             Node 22+ and pnpm 10.
           </p>

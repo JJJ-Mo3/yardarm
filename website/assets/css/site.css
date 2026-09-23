@@ -298,6 +298,51 @@ img {
   color: var(--text-muted);
 }
 
+/* ---------- Install cards ---------- */
+
+.install-grid .card {
+  display: flex;
+  flex-direction: column;
+}
+
+.install-grid .card p {
+  margin: 0 0 0.75rem;
+}
+
+.install-grid .code-block {
+  margin: 0 0 0.75rem;
+}
+
+.install-grid .code-block pre {
+  margin: 0;
+}
+
+.install-grid .btn {
+  margin-top: auto;
+  align-self: flex-start;
+}
+
+.badge {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.05rem 0.55rem;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--bg-soft);
+}
+
+.badge.beta {
+  color: var(--fast);
+  border-color: var(--fast);
+  background: transparent;
+}
+
 /* ---------- Code blocks ---------- */
 
 pre {
