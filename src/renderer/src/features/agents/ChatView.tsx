@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import {
+  composerInsertAtom,
   debugEventsAtom,
   detailsOpenAtom,
   helpOpenAtom,
@@ -134,6 +135,8 @@ export function ChatView({
   const [rollbackNotice, setRollbackNotice] = useState<{ text: string; warn: boolean } | null>(null)
   // Rolled-back message text, handed to the prompt input for edit + resend.
   const [prefill, setPrefill] = useState<string | null>(null)
+  // One-shot composer insert (e.g. "@path " from the Files tree) — primary pane only.
+  const [composerInsert, setComposerInsert] = useAtom(composerInsertAtom)
   // × on the red agent-error banner: hide errors up to this timestamp; a
   // newer error (larger ts) brings the banner back.
   const [dismissedErrorTs, setDismissedErrorTs] = useState(0)
@@ -1174,6 +1177,8 @@ export function ChatView({
           draftKey={subchatId}
           prefill={prefill}
           onPrefillConsumed={() => setPrefill(null)}
+          insert={primary ? composerInsert : null}
+          onInsertConsumed={() => setComposerInsert(null)}
           goalStatus={goalQuery.data?.status ?? null}
           goalOpen={goalOpen}
           onToggleGoal={() => setGoalOpen((v) => !v)}

@@ -46,6 +46,8 @@ export function PromptInput({
   draftKey,
   prefill,
   onPrefillConsumed,
+  insert,
+  onInsertConsumed,
   goalStatus,
   goalOpen,
   onToggleGoal
@@ -63,6 +65,9 @@ export function PromptInput({
   /** One-shot text to place in the input (e.g. a rolled-back message). */
   prefill?: string | null
   onPrefillConsumed?: () => void
+  /** One-shot text appended at the caret (e.g. "@path " from the Files tree). */
+  insert?: string | null
+  onInsertConsumed?: () => void
   /** Current goal status ('active' | 'paused' | 'done') for the Goal button chip; null = no goal. */
   goalStatus?: string | null
   /** Whether the inline goal panel above the composer is open. */
@@ -130,6 +135,20 @@ export function PromptInput({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefill])
+
+  useEffect(() => {
+    if (insert) {
+      // Coming from another tab the textarea isn't focused — append at the
+      // end instead of at a stale caret position.
+      const el = textareaRef.current
+      if (el && document.activeElement !== el) {
+        el.setSelectionRange(el.value.length, el.value.length)
+      }
+      insertAtCursor(insert)
+      onInsertConsumed?.()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [insert])
 
   // Grow the textarea with its content (including wrapped long lines, which a
   // newline count alone misses) up to a cap, then scroll internally.

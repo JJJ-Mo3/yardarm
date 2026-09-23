@@ -23,18 +23,19 @@ import {
   FileText,
   Folder,
   Info,
+  Plus,
   RefreshCw,
   Save,
   X,
   XCircle
 } from 'lucide-react'
-import { useAtom, useAtomValue } from 'jotai'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import type { LspDiagnosticInfo, LspDiagnosticsResult } from '@shared/ipc-types'
 import { LSP_PACKS } from '@shared/lsp-packs'
 import '../../lib/monaco-setup'
 import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
-import { fileOpenRequestAtom, mainTabAtom, themeAtom } from '../../lib/atoms'
+import { composerInsertAtom, fileOpenRequestAtom, mainTabAtom, themeAtom } from '../../lib/atoms'
 import { Button } from '../../components/ui/button'
 import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
@@ -95,7 +96,8 @@ function DirNode({
   name,
   depth,
   selected,
-  onSelect
+  onSelect,
+  onAddToChat
 }: {
   root: string
   path: string
@@ -103,6 +105,7 @@ function DirNode({
   depth: number
   selected: string | null
   onSelect: (path: string) => void
+  onAddToChat: (path: string) => void
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const children = trpc.files.tree.useQuery({ root, dir: path, depth: 0 }, { enabled: open })
@@ -152,6 +155,7 @@ function DirNode({
               depth={depth + 1}
               selected={selected}
               onSelect={onSelect}
+              onAddToChat={onAddToChat}
             />
           ) : (
             <FileNodeRow
@@ -161,6 +165,7 @@ function DirNode({
               depth={depth + 1}
               selected={selected}
               onSelect={onSelect}
+              onAddToChat={onAddToChat}
             />
           )
         )}
@@ -173,26 +178,40 @@ function FileNodeRow({
   name,
   depth,
   selected,
-  onSelect
+  onSelect,
+  onAddToChat
 }: {
   path: string
   name: string
   depth: number
   selected: string | null
   onSelect: (path: string) => void
+  onAddToChat: (path: string) => void
 }): React.JSX.Element {
   return (
-    <button
-      onClick={() => onSelect(path)}
-      style={{ paddingLeft: depth * 12 + 8 + 13 }}
+    <div
       className={cn(
-        'flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-[12px] cursor-pointer',
+        'group/filerow flex w-full items-center rounded',
         selected === path ? 'bg-accent' : 'hover:bg-accent'
       )}
     >
-      <FileText size={12} className="shrink-0 text-muted-foreground" />
-      <span className="truncate">{name}</span>
-    </button>
+      <button
+        onClick={() => onSelect(path)}
+        style={{ paddingLeft: depth * 12 + 8 + 13 }}
+        className="flex min-w-0 flex-1 items-center gap-1.5 px-2 py-1 text-left text-[12px] cursor-pointer"
+      >
+        <FileText size={12} className="shrink-0 text-muted-foreground" />
+        <span className="truncate">{name}</span>
+      </button>
+      <Tip content="Mention this file in the chat composer">
+        <button
+          onClick={() => onAddToChat(path)}
+          className="mr-1 shrink-0 rounded p-0.5 text-muted-foreground opacity-0 hover:text-foreground group-hover/filerow:opacity-100 cursor-pointer"
+        >
+          <Plus size={12} />
+        </button>
+      </Tip>
+    </div>
   )
 }
 
@@ -204,7 +223,13 @@ export function FilesView({
   subchatId: string | null
 }): React.JSX.Element {
   const theme = useAtomValue(themeAtom)
-  const mainTab = useAtomValue(mainTabAtom)
+  const [mainTab, setMainTab] = useAtom(mainTabAtom)
+  const setComposerInsert = useSetAtom(composerInsertAtom)
+  // Mention format matches PromptInput's insertMention: "@<relpath> ".
+  const addToChat = (path: string): void => {
+    setComposerInsert(`@${path} `)
+    setMainTab('chat')
+  }
   const confirm = useConfirm()
   const utils = trpc.useUtils()
   const tree = trpc.files.tree.useQuery({ root, dir: '', depth: 0 })
@@ -531,6 +556,7 @@ export function FilesView({
               depth={0}
               selected={state.activePath}
               onSelect={(p) => void openFile(p)}
+              onAddToChat={addToChat}
             />
           ) : (
             <FileNodeRow
@@ -540,6 +566,7 @@ export function FilesView({
               depth={0}
               selected={state.activePath}
               onSelect={(p) => void openFile(p)}
+              onAddToChat={addToChat}
             />
           )
         )}

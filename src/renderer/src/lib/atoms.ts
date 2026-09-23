@@ -51,6 +51,8 @@ export const detailsOpenAtom = atomWithStorage<boolean>('cz.detailsOpen', false)
 export const detailsWidthAtom = atomWithStorage<number>('cz.detailsWidth', 320)
 /** Worktree-relative file the Files tab should open on next activation. */
 export const fileOpenRequestAtom = atom<string | null>(null)
+/** One-shot text inserted into the primary chat composer (e.g. "@path " from the Files tree). */
+export const composerInsertAtom = atom<string | null>(null)
 /** Pane the Changes tab should switch to on next render (deep links; cleared on use). */
 export const changesPaneRequestAtom = atom<'changes' | 'history' | 'checkpoints' | null>(null)
 /** Global Cmd+K command palette. */
