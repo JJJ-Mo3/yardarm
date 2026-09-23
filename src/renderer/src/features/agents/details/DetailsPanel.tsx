@@ -5,12 +5,13 @@
  */
 import React, { useRef } from 'react'
 import { useAtom } from 'jotai'
-import { FileDiff, ListTodo, ScrollText, X } from 'lucide-react'
+import { FileDiff, GitPullRequest, ListTodo, ScrollText, X } from 'lucide-react'
 import { detailsWidthAtom } from '../../../lib/atoms'
 import { Tip } from '../../../components/ui/tooltip'
 import { ChangedFilesWidget } from './ChangedFilesWidget'
 import { TasksWidget } from './TasksWidget'
 import { PlanWidget } from './PlanWidget'
+import { PrCommentsWidget } from './PrCommentsWidget'
 import type { StoredMessage, TaskItem } from '../../../../../shared/ui-message'
 
 const MIN_WIDTH = 240
@@ -94,6 +95,13 @@ export function DetailsPanel({
         <Section icon={<FileDiff size={11} />} title="Changed files">
           <ChangedFilesWidget cwd={cwd} />
         </Section>
+        <PrCommentsWidget cwd={cwd}>
+          {(content) => (
+            <Section icon={<GitPullRequest size={11} />} title="PR comments">
+              {content}
+            </Section>
+          )}
+        </PrCommentsWidget>
         <Section icon={<ListTodo size={11} />} title="Tasks">
           <TasksWidget tasks={tasks} />
         </Section>

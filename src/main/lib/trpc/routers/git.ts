@@ -19,6 +19,7 @@ import {
   unstageFiles
 } from '../../git/ops'
 import { forgeCreatePr, forgeInfo, forgeListPrs, forgePrForBranch } from '../../git/forge'
+import { prCommentsForBranch } from '../../git/gh'
 import { publicProcedure, router } from '../trpc'
 
 const cwdInput = z.object({ cwd: z.string() })
@@ -89,6 +90,16 @@ export const gitRouter = router({
 
   /** Open PR/MR for the branch checked out at cwd, or null (gates review follow-ups). */
   branchPr: publicProcedure.input(cwdInput).query(({ input }) => forgePrForBranch(input.cwd)),
+
+  /**
+   * PR conversation (comments + reviews) for the branch at cwd. GitHub-only —
+   * returns null when the repo isn't GitHub, gh is missing, or there's no PR.
+   */
+  prComments: publicProcedure.input(cwdInput).query(async ({ input }) => {
+    const info = await forgeInfo(input.cwd)
+    if (info.provider !== 'github' || !info.cliAvailable) return null
+    return prCommentsForBranch(input.cwd)
+  }),
 
   createPr: publicProcedure
     .input(

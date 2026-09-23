@@ -80,6 +80,74 @@ export async function prForBranch(
   })
 }
 
+/** A PR conversation entry (issue comment or review) for the details panel. */
+export interface PrComment {
+  author: string
+  body: string
+  /** ISO timestamp. */
+  createdAt: string
+  /** 'comment' for issue comments, review state (APPROVED/CHANGES_REQUESTED/…) for reviews. */
+  kind: string
+}
+
+export interface PrConversation {
+  number: number
+  title: string
+  url: string
+  comments: PrComment[]
+}
+
+/**
+ * PR conversation (issue comments + reviews, chronological) for the branch
+ * checked out at cwd, or null when the branch has no PR.
+ */
+export async function prCommentsForBranch(cwd: string): Promise<PrConversation | null> {
+  const gh = await ghPath()
+  if (!gh) throw new Error('GitHub CLI (gh) not found — install it from https://cli.github.com')
+  const args = ['pr', 'view', '--json', 'number,title,url,comments,reviews']
+  return new Promise((resolve, reject) => {
+    execFile(gh, args, { cwd, timeout: 30_000, env: cliEnv() }, (err, stdout, stderr) => {
+      if (err) {
+        // gh exits non-zero when the branch has no PR — that's a normal answer.
+        if (/no pull requests? found/i.test(stderr)) resolve(null)
+        else reject(new Error(stderr.trim() || err.message))
+        return
+      }
+      try {
+        const raw = JSON.parse(stdout) as {
+          number: number
+          title: string
+          url: string
+          comments?: Array<{ author?: { login?: string }; body?: string; createdAt?: string }>
+          reviews?: Array<{
+            author?: { login?: string }
+            body?: string
+            state?: string
+            submittedAt?: string
+          }>
+        }
+        const comments: PrComment[] = [
+          ...(raw.comments ?? []).map((c) => ({
+            author: c.author?.login ?? '',
+            body: c.body ?? '',
+            createdAt: c.createdAt ?? '',
+            kind: 'comment'
+          })),
+          ...(raw.reviews ?? []).map((r) => ({
+            author: r.author?.login ?? '',
+            body: r.body ?? '',
+            createdAt: r.submittedAt ?? '',
+            kind: r.state ?? 'COMMENTED'
+          }))
+        ].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+        resolve({ number: raw.number, title: raw.title, url: raw.url, comments })
+      } catch {
+        reject(new Error('Unexpected gh pr view output'))
+      }
+    })
+  })
+}
+
 export async function createPr(
   cwd: string,
   opts: { title: string; body: string; base?: string; draft?: boolean }

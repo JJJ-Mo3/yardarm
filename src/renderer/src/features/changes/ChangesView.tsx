@@ -226,6 +226,16 @@ export function ChangesView({
                   variant="ghost"
                   onClick={() => {
                     createPr.reset()
+                    // Prefill the title from the last commit subject (kept if edited).
+                    if (!prTitle.trim()) {
+                      utils.git.log
+                        .fetch({ cwd, limit: 1 })
+                        .then((rows) => {
+                          const subject = rows[0]?.message?.split('\n')[0] ?? ''
+                          if (subject) setPrTitle((cur) => (cur.trim() ? cur : subject))
+                        })
+                        .catch(() => {})
+                    }
                     setPrOpen(true)
                   }}
                 >
