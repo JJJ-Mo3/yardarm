@@ -112,6 +112,8 @@ export function ChangesView({
   const [commitMsg, setCommitMsg] = useState('')
   const [newBranchOpen, setNewBranchOpen] = useState(false)
   const [newBranchName, setNewBranchName] = useState('')
+  /** Branch selected while the tree is dirty — pending the stash/switch dialog. */
+  const [switchTarget, setSwitchTarget] = useState<string | null>(null)
   const [prOpen, setPrOpen] = useState(false)
   const [prTitle, setPrTitle] = useState('')
   const [prBody, setPrBody] = useState('')
@@ -184,6 +186,7 @@ export function ChangesView({
   const pullMut = trpc.git.pull.useMutation({ onSuccess: invalidate })
   const mergeMut = trpc.git.mergeIntoBase.useMutation({ onSuccess: invalidate })
   const checkout = trpc.git.checkout.useMutation({ onSuccess: invalidate })
+  const stash = trpc.git.stash.useMutation({ onSuccess: invalidate })
   const createBranch = trpc.git.createBranch.useMutation({
     onSuccess: () => {
       setNewBranchOpen(false)
@@ -367,7 +370,10 @@ export function ChangesView({
             <Select
               value={currentBranch}
               onValueChange={(branch) => {
-                if (branch !== currentBranch) checkout.mutate({ cwd, branch })
+                if (branch === currentBranch) return
+                // Dirty tree: confirm (stash / switch anyway) instead of switching blind.
+                if (files.length > 0) setSwitchTarget(branch)
+                else checkout.mutate({ cwd, branch })
               }}
             >
               <Tip content="Current git branch — select another to check it out">
@@ -714,6 +720,7 @@ export function ChangesView({
                 push.error ||
                 pullMut.error ||
                 checkout.error ||
+                stash.error ||
                 stage.error ||
                 unstage.error ||
                 discard.error ||
@@ -723,6 +730,7 @@ export function ChangesView({
                     push.error?.message ??
                     pullMut.error?.message ??
                     checkout.error?.message ??
+                    stash.error?.message ??
                     stage.error?.message ??
                     unstage.error?.message ??
                     discard.error?.message ??
@@ -814,6 +822,53 @@ export function ChangesView({
                 {createBranch.error.message}
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dirty-tree guard: confirm before switching branches with uncommitted changes */}
+      <Dialog open={switchTarget !== null} onOpenChange={(o) => !o && setSwitchTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogTitle>Uncommitted changes</DialogTitle>
+          <div className="space-y-3">
+            <div className="text-xs text-muted-foreground">
+              {files.length} changed {files.length === 1 ? 'file' : 'files'} in the working tree.
+              Stash them before switching to{' '}
+              <span className="font-mono text-foreground">{switchTarget}</span>, or carry them over
+              if they don&apos;t conflict.
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setSwitchTarget(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={checkout.isPending}
+                onClick={() => {
+                  const branch = switchTarget
+                  setSwitchTarget(null)
+                  if (branch) checkout.mutate({ cwd, branch })
+                }}
+              >
+                Switch anyway
+              </Button>
+              <Button
+                size="sm"
+                disabled={stash.isPending || checkout.isPending}
+                onClick={() => {
+                  const branch = switchTarget
+                  setSwitchTarget(null)
+                  if (!branch) return
+                  stash.mutate(
+                    { cwd, message: `yardarm: switch to ${branch}` },
+                    { onSuccess: () => checkout.mutate({ cwd, branch }) }
+                  )
+                }}
+              >
+                Stash &amp; switch
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

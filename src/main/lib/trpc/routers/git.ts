@@ -16,6 +16,7 @@ import {
   pull,
   push,
   stageFiles,
+  stashPush,
   unstageFiles
 } from '../../git/ops'
 import { forgeCreatePr, forgeInfo, forgeListPrs, forgePrForBranch } from '../../git/forge'
@@ -70,6 +71,13 @@ export const gitRouter = router({
     .input(cwdInput.extend({ branch: z.string().min(1) }))
     .mutation(async ({ input }) => {
       await checkoutBranch(input.cwd, input.branch)
+      return { ok: true }
+    }),
+
+  stash: publicProcedure
+    .input(cwdInput.extend({ message: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      await stashPush(input.cwd, input.message)
       return { ok: true }
     }),
 

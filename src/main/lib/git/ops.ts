@@ -116,6 +116,11 @@ export async function checkoutBranch(cwd: string, branch: string): Promise<void>
   await simpleGit(cwd).checkout(branch)
 }
 
+/** Stash all working-tree changes (including untracked files). */
+export async function stashPush(cwd: string, message: string): Promise<void> {
+  await simpleGit(cwd).raw(['stash', 'push', '-u', '-m', message])
+}
+
 /** Create a new branch from HEAD and switch to it. */
 export async function createBranch(cwd: string, branch: string): Promise<void> {
   await simpleGit(cwd).checkoutLocalBranch(branch)
