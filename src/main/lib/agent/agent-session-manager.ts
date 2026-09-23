@@ -522,6 +522,9 @@ export class AgentSessionManager {
     const proc = utilityProcess.fork(HOST_ENTRY, [], {
       serviceName: `yardarm-agent-${subchatId}`,
       stdio: 'pipe',
+      // Long agent sessions accumulate large in-memory histories; raise the
+      // default V8 old-space ceiling so hosts don't OOM mid-run.
+      execArgv: ['--max-old-space-size=8192'],
       env: {
         ...process.env,
         // Login-shell PATH so hosts can spawn user-installed tools (language

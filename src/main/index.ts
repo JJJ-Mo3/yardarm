@@ -12,6 +12,10 @@ import { getLspPackManager } from './lib/lsp-packs/pack-manager'
 import { warmLoginPath } from './lib/system/login-path'
 import icon from '../../build/icon.png?asset'
 
+// Long chat transcripts and Monaco buffers can outgrow the default renderer
+// heap; raise the V8 old-space ceiling (must be set before app ready).
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=8192')
+
 // Two OS-level instances would contend over the same SQLite database and
 // mastracode thread locks; a second launch focuses the existing instance
 // instead (multiple windows are available in-app).
