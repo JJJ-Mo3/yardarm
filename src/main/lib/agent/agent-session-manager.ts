@@ -1200,6 +1200,11 @@ export class AgentSessionManager {
     if (this.promptQueue.dismiss(subchatId, id)) this.emitQueuedPrompts(subchatId)
   }
 
+  /** Move a queued prompt before another (or to the end when beforeId is omitted). */
+  reorderQueuedPrompt(subchatId: string, id: string, beforeId?: string): void {
+    if (this.promptQueue.reorder(subchatId, id, beforeId)) this.emitQueuedPrompts(subchatId)
+  }
+
   /** Renderer-safe queue snapshot, for stream seeding. */
   queuedPrompts(subchatId: string): QueuedPromptInfo[] {
     return this.promptQueue.list(subchatId)

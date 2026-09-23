@@ -112,6 +112,7 @@ export function ChatView({
 
   const send = trpc.agent.send.useMutation()
   const dismissQueued = trpc.agent.dismissQueued.useMutation()
+  const reorderQueued = trpc.agent.reorderQueued.useMutation()
   const approve = trpc.agent.approve.useMutation()
   const respondSuspension = trpc.agent.respondSuspension.useMutation()
   const abort = trpc.agent.abort.useMutation()
@@ -341,6 +342,7 @@ export function ChatView({
     [
       ['send', send],
       ['dismiss', dismissQueued],
+      ['reorder', reorderQueued],
       ['approval', approve],
       ['response', respondSuspension],
       ['abort', abort],
@@ -1138,6 +1140,7 @@ export function ChatView({
         <QueuedPrompts
           items={state.queuedPrompts}
           onDismiss={(id) => dismissQueued.mutate({ subchatId, id })}
+          onReorder={(id, beforeId) => reorderQueued.mutate({ subchatId, id, beforeId })}
         />
 
         {goalOpen && (

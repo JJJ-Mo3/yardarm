@@ -33,6 +33,27 @@ describe('PromptQueue', () => {
     expect(q.list('a').map((i) => i.text)).toEqual(['one', 'two'])
   })
 
+  it('reorders items before a target or to the end', () => {
+    const q = new PromptQueue()
+    const one = q.enqueue('a', 'one')
+    q.enqueue('a', 'two')
+    const three = q.enqueue('a', 'three')
+    // Move three before one → three, one, two
+    expect(q.reorder('a', three.id, one.id)).toBe(true)
+    expect(q.list('a').map((i) => i.text)).toEqual(['three', 'one', 'two'])
+    // Move three to the end → one, two, three
+    expect(q.reorder('a', three.id)).toBe(true)
+    expect(q.list('a').map((i) => i.text)).toEqual(['one', 'two', 'three'])
+    // No-ops: same position, self target, unknown ids
+    expect(q.reorder('a', three.id)).toBe(false)
+    expect(q.reorder('a', one.id, one.id)).toBe(false)
+    expect(q.reorder('a', 'missing', one.id)).toBe(false)
+    expect(q.reorder('missing', one.id)).toBe(false)
+    // Unknown beforeId falls back to append
+    expect(q.reorder('a', one.id, 'missing')).toBe(true)
+    expect(q.list('a').map((i) => i.text)).toEqual(['two', 'three', 'one'])
+  })
+
   it('list exposes counts, never file payloads', () => {
     const q = new PromptQueue()
     q.enqueue('a', 'with files', [

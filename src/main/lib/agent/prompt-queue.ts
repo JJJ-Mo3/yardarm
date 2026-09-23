@@ -71,6 +71,22 @@ export class PromptQueue {
     this.itemsFor(subchatId).unshift(item)
   }
 
+  /**
+   * Move an item so it sits before `beforeId` (or at the end when omitted).
+   * Returns whether the queue actually changed.
+   */
+  reorder(subchatId: string, id: string, beforeId?: string): boolean {
+    const items = this.queues.get(subchatId)
+    if (!items) return false
+    const from = items.findIndex((i) => i.id === id)
+    if (from < 0 || id === beforeId) return false
+    const [item] = items.splice(from, 1)
+    const to = beforeId ? items.findIndex((i) => i.id === beforeId) : items.length
+    const insertAt = to < 0 ? items.length : to
+    items.splice(insertAt, 0, item)
+    return insertAt !== from
+  }
+
   size(subchatId: string): number {
     return this.queues.get(subchatId)?.length ?? 0
   }

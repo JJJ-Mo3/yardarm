@@ -110,6 +110,14 @@ export const agentRouter = router({
       return { ok: true }
     }),
 
+  /** Move a queued prompt before another queued prompt (or to the end). */
+  reorderQueued: publicProcedure
+    .input(z.object({ subchatId: z.string(), id: z.string(), beforeId: z.string().optional() }))
+    .mutation(({ input }) => {
+      agentSessionManager.reorderQueuedPrompt(input.subchatId, input.id, input.beforeId)
+      return { ok: true }
+    }),
+
   approve: publicProcedure
     .input(
       z.object({
