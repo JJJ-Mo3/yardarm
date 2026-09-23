@@ -68,6 +68,7 @@ import { TaskChecklist } from './TaskChecklist'
 import { GoalPanel } from './GoalPanel'
 import { OmStatusPopover } from './OmStatusPopover'
 import { ModeSelector } from './ModeSelector'
+import { ModelSelect } from '../../components/ModelSelect'
 import { ReviewPopover } from './ReviewPopover'
 import { ReviewFollowupBar } from './ReviewFollowupBar'
 import { paletteDispatchAtom, useSlashCommands, type SlashCommandEntry } from './slash-commands'
@@ -629,31 +630,16 @@ export function ChatView({
               meta.modelId && !usable.some((m) => m.id === meta.modelId) ? meta.modelId : null
             if (usable.length === 0 && !currentUnusable) return null
             return (
-              <Select
+              <ModelSelect
                 value={meta.modelId ?? ''}
-                onValueChange={(modelId) => setModel.mutate({ subchatId, modelId })}
-              >
-                <Tip
-                  content="Model used for this chat (configure more in Settings → Models)"
-                  side="bottom"
-                >
-                  <SelectTrigger className="max-w-56">
-                    <SelectValue placeholder="Model" />
-                  </SelectTrigger>
-                </Tip>
-                <SelectContent>
-                  {usable.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.id}
-                    </SelectItem>
-                  ))}
-                  {currentUnusable && (
-                    <SelectItem value={currentUnusable} disabled>
-                      {currentUnusable} (no key)
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+                onChange={(modelId) => {
+                  if (modelId) setModel.mutate({ subchatId, modelId })
+                }}
+                models={models.data ?? []}
+                placeholder="Model"
+                tip="Model used for this chat — type to filter (configure more in Settings → Models)"
+                className="w-auto max-w-56"
+              />
             )
           })()}
 
