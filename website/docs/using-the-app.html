@@ -98,7 +98,10 @@
             <span class="mode-chip plan">Plan</span> <span class="mode-chip build">Build</span>
             <span class="mode-chip fast">Fast</span>. See <a href="#modes">Modes</a>.
           </li>
-          <li><strong>Model selector</strong> — switch the active model for this chat.</li>
+          <li>
+            <strong>Model selector</strong> — switch the active model for this chat. It's
+            searchable: type to filter long model lists.
+          </li>
           <li>
             <strong>think</strong> — extended-thinking level (off / low / medium / high / xhigh /
             max). Higher levels are slower but better on hard problems; which levels apply depends
@@ -124,7 +127,8 @@
           </li>
           <li>
             <strong>details</strong> — toggle the <a href="#details-panel">details panel</a>: a
-            resizable side panel with the chat's changed files, live tasks, and latest plan.
+            resizable side panel with the chat's changed files, live tasks, latest plan, and the
+            branch's open-PR comments.
           </li>
           <li>
             <strong>The ⋯ menu</strong> — occasional tools live behind the ⋯ button:
@@ -169,7 +173,8 @@
           </li>
           <li>
             <strong>Copy a message</strong> — hover any message and click the copy button to grab
-            its text.
+            its text, or select any text in the transcript and use the floating Copy button that
+            appears next to the selection.
           </li>
           <li>
             <strong>Find in chat</strong> — <kbd>Cmd+F</kbd> opens a search overlay with a match
@@ -212,8 +217,9 @@
           <li>
             <strong>While the agent is running</strong>, the send button becomes
             <strong>Queue</strong>: messages you send are queued in a strip above the composer (each
-            with a dismiss button) and delivered in order when the current run finishes. The red
-            square button stops the current run.
+            with a dismiss button, and draggable to reorder) and delivered in order when the current
+            run finishes. The red square button stops the current run. Quitting the app while agents
+            are still running asks for confirmation first.
           </li>
           <li>
             <strong>Drafts are automatic</strong> — whatever you've typed is saved per chat, so
@@ -233,6 +239,11 @@
           </li>
           <li><strong>Tasks</strong> — the agent's current task checklist as it progresses.</li>
           <li><strong>Plan</strong> — the most recent plan the agent submitted.</li>
+          <li>
+            <strong>PR comments</strong> — when the chat's branch has an open pull request (GitHub,
+            via the <code>gh</code> CLI), its comments and reviews appear here and refresh
+            periodically.
+          </li>
         </ul>
 
         <h3 id="command-palette">The command palette</h3>
@@ -390,15 +401,22 @@
         <ul>
           <li><strong>Diffs</strong> — side-by-side Monaco diffs of every changed file.</li>
           <li>
-            <strong>Stage / unstage</strong> files and <strong>commit</strong> with a message.
+            <strong>Stage / unstage</strong> files and <strong>commit</strong> with a message. Drag
+            the file list's right edge to resize it.
           </li>
           <li><strong>Commit history</strong> for the worktree branch.</li>
           <li>
             <strong>Push</strong>, <strong>pull</strong>, and <strong>merge into base</strong> —
             merge the <code>yardarm/…</code> branch back into the branch you started from, or use
             the CLI integration for PR/MR flows: <code>gh</code> for GitHub repos,
-            <code>glab</code> for GitLab. The host is auto-detected from the origin remote; for
-            self-hosted instances set it explicitly in Project Settings → General → Repository host.
+            <code>glab</code> for GitLab (the PR title is prefilled from your last commit). The host
+            is auto-detected from the origin remote; for self-hosted instances set it explicitly in
+            Project Settings → General → Repository host.
+          </li>
+          <li>
+            <strong>Branch switching</strong> — the branch selector checks out another branch. If
+            the working tree has uncommitted changes, Yardarm asks first: stash them and switch,
+            carry them over, or cancel.
           </li>
           <li>
             <strong>Agent review</strong> — the magnifier button asks the chat's agent to review the
@@ -631,8 +649,9 @@
         <p>
           <strong>Split view.</strong> The columns button at the right of the tab bar opens a second
           chat pane beside the current one — pick any other chat in the project and both run side by
-          side (drag the divider to resize). Useful for watching one agent work while briefing
-          another. <kbd>Cmd+P</kbd> and other global shortcuts stay with the left (primary) pane.
+          side (drag the divider to resize, or drag a chat from the sidebar onto either pane to show
+          it there). Useful for watching one agent work while briefing another. <kbd>Cmd+P</kbd> and
+          other global shortcuts stay with the left (primary) pane.
         </p>
 
         <nav class="docs-footer-nav" aria-label="Docs pages">

@@ -41,7 +41,8 @@ A **project** is a local git repository (add a folder or clone a repository via 
 When you add one, Yardarm offers to write **agent instructions** (an \`AGENTS.md\`) so the
 agent knows your project's conventions from the first prompt — you can skip it or edit the
 file later in Project Settings. Inside a project you create **chats** — independent
-conversations with the agent.
+conversations with the agent. Drag chats in the sidebar to reorder them; chats you haven't
+ordered sort by recency.
 
 ### Worktrees
 
@@ -80,13 +81,16 @@ its reasoning, tool calls, and file edits into the transcript.
 - **Voice** — the microphone button dictates your prompt (needs a speech-to-text-capable API
   key, configured in Settings → Voice).
 - **Queueing** — you can keep typing while the agent runs; queued prompts are sent in order
-  when the current run finishes.
+  when the current run finishes, and you can drag queued prompts to reorder them (or edit /
+  remove them) while they wait. Quitting the app while agents are still running asks for
+  confirmation first.
 - **Drafts** — whatever you've typed is saved automatically per chat, so switching chats or
   restarting the app never loses an unfinished prompt.
 
 ### The transcript
 
-- **Copy a message** — hover any message and click the copy button to grab its text.
+- **Copy a message** — hover any message and click the copy button to grab its text, or just
+  select any text in the transcript — a floating Copy button appears next to the selection.
 - **Find in chat** — press ⌘F to search the transcript, with match count and next/previous
   navigation (Enter / Shift+Enter).
 - **Diagrams** — \`mermaid\` code blocks in agent replies render as diagrams (flowcharts,
@@ -95,7 +99,8 @@ its reasoning, tool calls, and file edits into the transcript.
 ### Header tools
 
 - **Details panel** — the details button opens a resizable side panel with the chat's
-  changed files (click to view), the live task checklist, and the latest plan.
+  changed files (click to view), the live task checklist, the latest plan, and — when the
+  branch has an open PR — the PR's comments and reviews.
 - **Checkpoints** — a quick view of the chat's rollback checkpoints (see Checkpoints below).
 - **The ⋯ menu** — occasional tools live under the ⋯ button: **Code review** (review local
   changes or an open PR/MR), **Observational memory** (\`/om\` status and tuning),
@@ -105,9 +110,10 @@ its reasoning, tool calls, and file edits into the transcript.
 
 ### Models
 
-The model selector in the chat header switches the model per chat. Models come from the
-providers you configured in Settings; local models (e.g. via Ollama) work too — models with
-at least a 64k context window are required, 128k+ recommended.
+The model selector in the chat header switches the model per chat — it's searchable, so just
+type to filter long model lists. Models come from the providers you configured in Settings;
+local models (e.g. via Ollama) work too — models with at least a 64k context window are
+required, 128k+ recommended.
 `
   },
   {
@@ -180,7 +186,8 @@ to jump between them, create new ones, or open a thread in a new tab.
 - **Fork from a message** — branch the conversation from any earlier message to explore an
   alternative approach without losing the original.
 - **Split view** — the split button in the tab bar shows a second chat of the same project
-  side by side, so two agents can work (and be watched) at once. Drag the divider to resize.
+  side by side, so two agents can work (and be watched) at once. Drag the divider to resize,
+  and drag a chat from the sidebar onto either pane to show it there.
 
 Threads **name themselves** after your first message — the agent generates a short title
 automatically, and you can rename it any time with \`/name\`.
@@ -204,7 +211,11 @@ The Changes tab shows diffs of everything that changed in the chat's worktree (o
 root).
 
 - **Stage, commit, push** — review per-file diffs, stage what you want, write a commit, and
-  push. A commit-history panel shows what's landed.
+  push. A commit-history panel shows what's landed. Drag the file list's right edge to
+  resize it.
+- **Branch switching** — the branch selector checks out another branch. If the working tree
+  has uncommitted changes, Yardarm asks first: stash them (\`git stash\`) and switch, carry
+  them over, or cancel.
 - **Branch compare** — switch the comparison base to see the full branch diff, not just the
   working tree.
 - **Merge & pull** — worktree chats can merge their branch back into the base branch from
@@ -212,8 +223,9 @@ root).
 - **Review** — the review action (in the chat header's ⋯ menu, also \`/review\`) has the
   agent review local changes or an open PR/MR and post findings back into the chat.
 - **Pull / merge requests** — with the GitHub CLI (\`gh\`) or GitLab CLI (\`glab\`) installed
-  and authenticated, you can open PRs/MRs from the app. The host is auto-detected from the
-  origin remote; for self-hosted instances, set it in Project Settings → General.
+  and authenticated, you can open PRs/MRs from the app; the title is prefilled from your last
+  commit. The host is auto-detected from the origin remote; for self-hosted instances, set it
+  in Project Settings → General.
 `
   },
   {
@@ -245,6 +257,8 @@ The IDE tab is a multi-tab code editor (Monaco) rooted at the chat's worktree.
 
 - **Edit alongside the agent** — your saves are delivered to the agent as notes, so it knows
   what you changed mid-conversation and won't clobber your edits.
+- **Add a file to the chat** — hover a file in the tree and click the **+** button to insert
+  it into the composer as an \`@\`-mention.
 - **Problems panel** — language-server diagnostics (errors and warnings) for the active file,
   refreshed as you type (shortly after edits pause), on open and on save — no chat needs to
   be selected. Click a problem to jump to it; markers also appear inline in the editor.

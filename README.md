@@ -230,6 +230,9 @@ Yardarm puts a desktop workspace around the agent:
   signals enabled, subscribe the current thread to pull requests so the
   agent follows new comments, reviews, and CI results (working mode) or
   just gets notified (review mode)
+- Details side panel (header button): the chat's changed files, live task
+  checklist, latest plan, and — when the branch has an open PR — its
+  comments and reviews
 - Multiple subchats per chat, each with its own agent process
 - Fork from any message: a fork pill on your messages clones the agent's
   memory (a Mastra thread clone) into a new subchat tab, truncated to just
@@ -237,9 +240,12 @@ Yardarm puts a desktop workspace around the agent:
   conversation continues unchanged
 - Split view: a toggle in the tab bar opens a second chat pane side by
   side with a draggable divider — watch one agent run while prompting
-  another
+  another; drag a chat from the sidebar onto either pane to show it there
 - Prompts sent while the agent is running are queued and delivered in order
-  when the run finishes
+  when the run finishes — drag queued prompts to reorder them, and quitting
+  the app while agents are running asks for confirmation
+- Select any text in the transcript and a floating Copy button appears; the
+  model selector is searchable (type to filter)
 - File attachments (picker, paste, or drag-and-drop) and `@` file mentions
   in the composer — images and PDFs are sent to the model directly, and
   text/code files (markdown, logs, CSV, source files, …) are inlined into
@@ -275,12 +281,14 @@ Yardarm puts a desktop workspace around the agent:
 
 **Workspace**
 
-- Projects sidebar with chats; each chat runs in an isolated git worktree by
+- Projects sidebar with chats (drag to reorder; unordered chats sort by
+  recency); each chat runs in an isolated git worktree by
   default (branch prefix `yardarm/`), with optional per-repo setup commands
   from `.yardarm/worktree.json`
-- Changes view with side-by-side Monaco diffs, staging, commit, and push,
-  plus a compare switcher to diff the worktree against any branch
-  (merge-base based, read-only)
+- Changes view with side-by-side Monaco diffs, staging, commit, and push
+  (the file list is drag-resizable), a compare switcher to diff the
+  worktree against any branch (merge-base based, read-only), and a branch
+  selector that offers to stash uncommitted changes before switching
 - Checkpoints: every user message pins a restorable snapshot
   (`refs/yardarm/checkpoints/*`); roll back the conversation and the tree
   together — plus a checkpoint manager in the Changes tab to create named
@@ -295,7 +303,8 @@ Yardarm puts a desktop workspace around the agent:
   ERB servers are optional one-time downloads from Settings → Languages or
   the problems panel itself, and Go/Rust/Ruby use
   gopls/rust-analyzer/ruby-lsp from your PATH or well-known install dirs
-  like ~/go/bin and ~/.cargo/bin), and an integrated
+  like ~/go/bin and ~/.cargo/bin), a hover "+" button on tree files to
+  insert them into the composer as `@`-mentions, and an integrated
   terminal (node-pty + xterm) that opens in the chat's worktree
 - CLI tab that runs the interactive Mastra Code TUI in the chat's worktree,
   sharing the chat's thread history
@@ -462,9 +471,12 @@ diff, and prunes stale automatic ones.
 push (uses the `gh` CLI for GitHub PR flows, or the
 [`glab` CLI](https://gitlab.com/gitlab-org/cli) for GitLab MRs — the host is
 auto-detected from the origin remote, with a per-project override in
-Project Settings for self-hosted instances). A compare switcher
+Project Settings for self-hosted instances; PR titles are prefilled from
+your last commit). A compare switcher
 diffs the worktree against any other branch (from their merge-base) for a
-read-only look at how far the work has drifted.
+read-only look at how far the work has drifted. Switching branches with
+uncommitted changes asks first — stash and switch, switch anyway, or
+cancel — and the file list column is drag-resizable.
 
 **Review.** The **review** button in the chat header (next to the goal chip)
 asks the agent for a thorough code review — of the chat's local changes
@@ -518,7 +530,8 @@ Analytics — token usage for the project by day, model, and chat, plus
 compression savings and CSV export.
 
 **Split view & forking.** The columns button in the tab bar opens a second
-chat pane beside the current one (drag the divider to resize) — useful for
+chat pane beside the current one (drag the divider to resize, or drag a
+chat from the sidebar onto a pane to show it there) — useful for
 watching one agent run while prompting another. To branch a single
 conversation instead, hover one of your messages and click the fork pill:
 the agent's memory is cloned as a new Mastra thread into a new subchat tab,
