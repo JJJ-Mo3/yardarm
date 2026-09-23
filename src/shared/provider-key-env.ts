@@ -50,7 +50,8 @@ export const SEED_PROVIDER_ENV_VARS: Record<string, string> = {
   togetherai: 'TOGETHER_API_KEY',
   cerebras: 'CEREBRAS_API_KEY',
   huggingface: 'HF_TOKEN',
-  'kimi-for-coding': 'KIMI_API_KEY',
+  'kimi-code-plan-global': 'KIMI_API_KEY',
+  'kimi-code-plan-cn': 'KIMI_API_KEY',
   deepgram: 'DEEPGRAM_API_KEY',
   tavily: 'TAVILY_API_KEY',
   parallel: 'PARALLEL_API_KEY'
