@@ -49,6 +49,8 @@ export const debugEventsAtom = atomWithStorage<boolean>('cz.debugEvents', false)
 export const detailsOpenAtom = atomWithStorage<boolean>('cz.detailsOpen', false)
 /** Details panel width in px (clamped 240–480 on use). */
 export const detailsWidthAtom = atomWithStorage<number>('cz.detailsWidth', 320)
+/** Changes tab file-list column width in px (clamped 220–480 on use). */
+export const changesListWidthAtom = atomWithStorage<number>('cz.changesListWidth', 288)
 /** Worktree-relative file the Files tab should open on next activation. */
 export const fileOpenRequestAtom = atom<string | null>(null)
 /** One-shot text inserted into the primary chat composer (e.g. "@path " from the Files tree). */

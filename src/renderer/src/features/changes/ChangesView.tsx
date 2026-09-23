@@ -7,7 +7,7 @@
  * diffs the working tree against the merge-base with another branch,
  * and a checkpoint manager pane (named + auto snapshots, A/B compare).
  */
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
 import {
   Download,
@@ -25,7 +25,7 @@ import {
   X
 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
-import { changesPaneRequestAtom, mainTabAtom } from '../../lib/atoms'
+import { changesListWidthAtom, changesPaneRequestAtom, mainTabAtom } from '../../lib/atoms'
 import { forgeCopy } from '../../lib/forge-copy'
 import { compareRefAtomFamily } from './compare-ref-atom'
 import { buildLocalReviewPrompt, buildReviewMarker } from '../agents/review-prompts'
@@ -205,10 +205,42 @@ export function ChangesView({
   const stagedCount = files.filter((f) => f.staged).length
   const behind = status.data?.behind ?? 0
 
+  // File-list column width: drag-resizable (right-edge handle) and persisted.
+  const LIST_MIN = 220
+  const LIST_MAX = 480
+  const [listWidth, setListWidth] = useAtom(changesListWidthAtom)
+  const listClamped = Math.min(LIST_MAX, Math.max(LIST_MIN, listWidth))
+  const listDrag = useRef<{ startX: number; startWidth: number } | null>(null)
+  const onListHandleDown = (e: React.PointerEvent): void => {
+    listDrag.current = { startX: e.clientX, startWidth: listClamped }
+    const move = (ev: PointerEvent): void => {
+      const drag = listDrag.current
+      if (!drag) return
+      setListWidth(
+        Math.min(LIST_MAX, Math.max(LIST_MIN, drag.startWidth + (ev.clientX - drag.startX)))
+      )
+    }
+    const up = (): void => {
+      listDrag.current = null
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
+
   return (
     <div className="flex h-full">
       {/* File list + commit box */}
-      <div className="flex w-72 shrink-0 flex-col border-r border-border">
+      <div
+        style={{ width: listClamped }}
+        className="relative flex shrink-0 flex-col border-r border-border"
+      >
+        {/* Drag handle on the column's right edge. */}
+        <div
+          onPointerDown={onListHandleDown}
+          className="absolute inset-y-0 -right-1 z-10 w-2 cursor-col-resize"
+        />
         <div className="border-b border-border px-2 py-1.5">
           {/* Action icons on their own row — they crowd the branch selector otherwise. */}
           <div className="flex items-center justify-evenly">
