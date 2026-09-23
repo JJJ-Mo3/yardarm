@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, dialog } from 'electron'
 import { createIPCHandler } from 'trpc-electron/main'
 import { initDb, closeDb, maintainDb } from './lib/db'
 import { appRouter } from './lib/trpc/routers'
@@ -78,7 +78,26 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
-app.on('before-quit', () => {
+// Quitting mid-run kills agent hosts and discards queued prompts, so confirm
+// first; "Quit anyway" re-enters this handler with the flag set.
+let quitConfirmed = false
+app.on('before-quit', (e) => {
+  if (!quitConfirmed && agentSessionManager.anyRunning()) {
+    e.preventDefault()
+    const choice = dialog.showMessageBoxSync({
+      type: 'warning',
+      buttons: ['Cancel', 'Quit anyway'],
+      defaultId: 0,
+      cancelId: 0,
+      message: 'An agent is still running',
+      detail: 'Quitting now stops the active run and discards any queued prompts.'
+    })
+    if (choice === 1) {
+      quitConfirmed = true
+      app.quit()
+    }
+    return
+  }
   agentSessionManager.shutdownAll()
   ptyManager.killAll()
   closeDb()

@@ -290,6 +290,14 @@ export class AgentSessionManager {
     return this.hosts.get(subchatId)?.translator.running ?? false
   }
 
+  /** Whether any subchat has an active agent run (app-quit confirmation). */
+  anyRunning(): boolean {
+    for (const host of this.hosts.values()) {
+      if (host.translator.running) return true
+    }
+    return false
+  }
+
   meta(subchatId: string): HostHandle['meta'] | null {
     return this.hosts.get(subchatId)?.meta ?? null
   }
