@@ -133,6 +133,16 @@
           <code>xattr -d com.apple.quarantine ~/Downloads/Yardarm-*.dmg</code>.
         </p>
 
+        <h3>Linux and Windows (beta)</h3>
+        <p>
+          Releases also carry <code>-linux-x64</code> (AppImage and deb) and
+          <code>-win-x64</code> (installer and zip) builds. They are new and lightly tested — expect
+          rough edges. Known limits: no OS-level sandbox mode on Windows (Linux needs
+          <a href="https://github.com/containers/bubblewrap">bubblewrap</a> installed), the CLI tab
+          does not live-sync with the chat screen on Windows, and in-app self-update is macOS-only
+          for now. The install script and the quarantine notes above are macOS-only.
+        </p>
+
         <h2 id="build-from-source">Build from source (all platforms)</h2>
         <p>
           Requirements: <a href="https://nodejs.org">Node</a> 22+,
@@ -146,9 +156,9 @@ pnpm dist        # installers into dist/ (dmg/zip, nsis, AppImage/deb)
 # or
 pnpm package     # unpacked app bundle, e.g. dist/mac-arm64/Yardarm.app</code></pre>
         <p>
-          Targets: macOS (arm64). Windows/Linux electron-builder config exists but is untested, and
-          the bundled agent runtime is staged for the build machine's platform — build on the
-          platform you're targeting. Apps you build yourself are not quarantined and open normally.
+          Targets: macOS (arm64), plus beta Linux and Windows (x64). The bundled agent runtime is
+          staged for the build machine's platform — build on the platform you're targeting (no
+          cross-building). Apps you build yourself are not quarantined and open normally.
         </p>
 
         <h2 id="setup-wizard">First launch: the setup wizard</h2>

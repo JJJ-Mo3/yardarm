@@ -45,6 +45,20 @@ then clear the quarantine flag before the first launch (see
 [Unsigned builds on macOS](#unsigned-builds-on-macos)). Release builds can
 update themselves from Settings → About.
 
+### Linux and Windows (beta)
+
+Releases also carry `-linux-x64` (AppImage and deb) and `-win-x64` (NSIS
+installer and zip) builds. They are new and lightly tested — expect rough
+edges. Known limits:
+
+- No OS-level sandbox mode on Windows; on Linux it requires
+  [bubblewrap](https://github.com/containers/bubblewrap) (`bwrap`) to be
+  installed.
+- The CLI tab does not live-sync with the chat screen on Windows.
+- In-app self-update is macOS-only for now — install new versions manually.
+
+The curl install script and the quarantine notes below are macOS-only.
+
 ### From source (all platforms)
 
 Requirements: [Node](https://nodejs.org) 22+, [pnpm](https://pnpm.io) 10,
@@ -59,9 +73,9 @@ pnpm dist        # installers into dist/ (dmg/zip, nsis, AppImage/deb)
 pnpm package     # unpacked app bundle, e.g. dist/mac-arm64/Yardarm.app
 ```
 
-Targets: macOS (arm64). Windows/Linux electron-builder config exists but is
-untested, and the bundled agent runtime is staged for the build machine's
-platform — build on the platform you're targeting.
+Targets: macOS (arm64), plus beta Linux and Windows (x64). The bundled
+agent runtime is staged for the build machine's platform — build on the
+platform you're targeting (no cross-building).
 
 On macOS, drag `Yardarm.app` into `/Applications` (or install the dmg).
 
