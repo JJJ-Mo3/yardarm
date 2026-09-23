@@ -79,6 +79,81 @@ function CopyMessageButton({ message }: { message: StoredMessage }): React.JSX.E
   )
 }
 
+/**
+ * Floating button shown near text selected in the transcript that copies the
+ * selection to the clipboard. Fixed-positioned at the selection's viewport
+ * rect and repositioned on scroll via a capturing listener; mousedown is
+ * prevented so clicking the button doesn't collapse the selection first.
+ */
+function SelectionCopyButton({
+  containerRef
+}: {
+  containerRef: React.RefObject<HTMLDivElement | null>
+}): React.JSX.Element | null {
+  const [state, setState] = useState<{ x: number; y: number; above: boolean; text: string } | null>(
+    null
+  )
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    const update = (): void => {
+      const sel = window.getSelection()
+      const container = containerRef.current
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0 || !container) {
+        setState(null)
+        return
+      }
+      const range = sel.getRangeAt(0)
+      if (!container.contains(range.commonAncestorContainer)) {
+        setState(null)
+        return
+      }
+      const text = sel.toString()
+      if (!text.trim()) {
+        setState(null)
+        return
+      }
+      const rect = range.getBoundingClientRect()
+      const above = rect.top > 44
+      setState({
+        x: rect.left + rect.width / 2,
+        y: above ? rect.top - 6 : rect.bottom + 6,
+        above,
+        text
+      })
+    }
+    document.addEventListener('selectionchange', update)
+    document.addEventListener('scroll', update, true)
+    return () => {
+      document.removeEventListener('selectionchange', update)
+      document.removeEventListener('scroll', update, true)
+    }
+  }, [containerRef])
+
+  if (!state) return null
+  return (
+    <div
+      className={cn('fixed z-50 -translate-x-1/2', state.above && '-translate-y-full')}
+      style={{ left: state.x, top: state.y }}
+    >
+      <Tip content="Copy the selected text">
+        <button
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            void navigator.clipboard.writeText(state.text)
+            setCopied(true)
+            setTimeout(() => setCopied(false), 1500)
+          }}
+          className="flex items-center gap-1 rounded-md border border-border bg-background px-1.5 py-1 text-[11px] text-muted-foreground shadow-md hover:text-foreground cursor-pointer"
+        >
+          {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+          Copy
+        </button>
+      </Tip>
+    </div>
+  )
+}
+
 function InteractiveToolPart({
   part,
   suspensions,
@@ -438,6 +513,7 @@ export function MessageList({
         </div>
       )}
       <div ref={bottomRef} />
+      <SelectionCopyButton containerRef={containerRef} />
     </div>
   )
 }
