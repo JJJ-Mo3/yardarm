@@ -184,7 +184,7 @@ jobs:
 
             ### Linux and Windows (beta)
 
-            The `-linux-x64` AppImage/deb and `-win-x64` installer/zip builds are
+            The `-linux-` AppImage/deb and `-win-x64` installer/zip builds are
             new and lightly tested. Known limits: no OS-level sandbox mode on
             Windows (Linux needs bubblewrap installed), and the CLI tab does not
             sync with the chat screen on Windows.

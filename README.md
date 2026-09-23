@@ -47,8 +47,8 @@ update themselves from Settings → About.
 
 ### Linux and Windows (beta)
 
-Releases also carry `-linux-x64` (AppImage and deb) and `-win-x64` (NSIS
-installer and zip) builds. They are new and lightly tested — expect rough
+Releases also carry Linux builds (`-linux-x86_64` AppImage and `-linux-amd64`
+deb) and `-win-x64` (NSIS installer and zip) builds. They are new and lightly tested — expect rough
 edges. Known limits:
 
 - No OS-level sandbox mode on Windows; on Linux it requires
