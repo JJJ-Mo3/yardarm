@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   ChartColumn,
@@ -31,9 +31,10 @@ import {
   type MainTab
 } from './lib/atoms'
 import { useAppShortcuts } from './lib/shortcuts'
+import { useSelectChat } from './lib/use-select-chat'
 import { Button } from './components/ui/button'
 import { Tip } from './components/ui/tooltip'
-import { Sidebar } from './features/sidebar/Sidebar'
+import { CHAT_DRAG_TYPE, Sidebar } from './features/sidebar/Sidebar'
 import { BootErrorScreen } from './features/boot/BootErrorScreen'
 import { OnboardingWizard } from './features/onboarding/OnboardingWizard'
 import { ChatView } from './features/agents/ChatView'
@@ -144,6 +145,9 @@ export default function App(): React.JSX.Element {
   const setSplitSubchatId = useSetAtom(splitSubchatIdAtom)
   const [splitRatio, setSplitRatio] = useAtom(splitRatioAtom)
   const splitContainerRef = useRef<HTMLDivElement>(null)
+  const selectChat = useSelectChat()
+  // Sidebar chat rows dropped on the primary pane open there.
+  const [primaryDragOver, setPrimaryDragOver] = useState(false)
   const closeSplit = (): void => {
     setSplitOpen(false)
     setSplitChatId(null)
@@ -298,8 +302,26 @@ export default function App(): React.JSX.Element {
                 className={cn('flex h-full', tab !== 'chat' && 'hidden')}
               >
                 <div
-                  className={cn('flex h-full min-w-0 flex-col', showSplit && 'shrink-0')}
+                  className={cn(
+                    'flex h-full min-w-0 flex-col',
+                    showSplit && 'shrink-0',
+                    primaryDragOver &&
+                      'outline-1 -outline-offset-1 outline-dashed outline-sky-500/50'
+                  )}
                   style={{ width: showSplit ? `${splitPct}%` : '100%' }}
+                  onDragOver={(e) => {
+                    if (!e.dataTransfer.types.includes(CHAT_DRAG_TYPE)) return
+                    e.preventDefault()
+                    setPrimaryDragOver(true)
+                  }}
+                  onDragLeave={() => setPrimaryDragOver(false)}
+                  onDrop={(e) => {
+                    const id = e.dataTransfer.getData(CHAT_DRAG_TYPE)
+                    setPrimaryDragOver(false)
+                    if (!id) return
+                    e.preventDefault()
+                    if (id !== chatId) selectChat(id)
+                  }}
                 >
                   {chatId && subchatId ? (
                     <>

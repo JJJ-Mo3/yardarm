@@ -4,11 +4,13 @@
  * lives in ephemeral atoms cleared when the split closes or the project
  * changes; only the divider ratio persists.
  */
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
 import { Columns2, X } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
+import { cn } from '../../lib/utils'
 import { splitChatIdAtom, splitSubchatIdAtom } from '../../lib/atoms'
+import { CHAT_DRAG_TYPE } from '../sidebar/Sidebar'
 import { Button } from '../../components/ui/button'
 import {
   Select,
@@ -34,6 +36,8 @@ export function SplitChatPane({
 }): React.JSX.Element {
   const [chatId, setChatId] = useAtom(splitChatIdAtom)
   const [subchatId, setSubchatId] = useAtom(splitSubchatIdAtom)
+  // Sidebar chat rows can be dropped anywhere on the pane to show them here.
+  const [dragOver, setDragOver] = useState(false)
 
   const chats = trpc.chats.list.useQuery({ projectId })
   const chat = trpc.chats.get.useQuery({ id: chatId ?? '' }, { enabled: !!chatId })
@@ -63,7 +67,28 @@ export function SplitChatPane({
   const subchats = chat.data?.subchats ?? []
 
   return (
-    <div className="flex h-full min-w-0 flex-1 flex-col">
+    <div
+      className={cn(
+        'flex h-full min-w-0 flex-1 flex-col',
+        dragOver && 'outline-1 -outline-offset-1 outline-dashed outline-sky-500/50'
+      )}
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes(CHAT_DRAG_TYPE)) return
+        e.preventDefault()
+        setDragOver(true)
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        const id = e.dataTransfer.getData(CHAT_DRAG_TYPE)
+        setDragOver(false)
+        if (!id || id === primaryChatId) return
+        e.preventDefault()
+        if (id !== chatId) {
+          setChatId(id)
+          setSubchatId(null)
+        }
+      }}
+    >
       <div className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1">
         <Select
           value={chatId ?? ''}
@@ -121,7 +146,7 @@ export function SplitChatPane({
             <Columns2 size={24} strokeWidth={1.5} />
             <div className="text-xs">
               {options.length > 0
-                ? 'Pick a chat above to show it side by side'
+                ? 'Pick a chat above (or drag one from the sidebar) to show it side by side'
                 : 'No other chats in this project yet'}
             </div>
           </div>
