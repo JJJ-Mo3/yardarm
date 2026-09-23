@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { and, asc, desc, eq, gte, inArray, isNotNull, lt } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, isNotNull, lt, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb, maintainDb, schema } from '../../db'
 import { agentSessionManager } from '../../agent/agent-session-manager'
@@ -12,13 +12,50 @@ import { publicProcedure, router } from '../trpc'
 
 export const chatsRouter = router({
   list: publicProcedure.input(z.object({ projectId: z.string() })).query(({ input }) => {
+    // Manually ordered chats first (drag-to-reorder), then the rest by recency.
     return getDb()
       .select()
       .from(schema.chats)
       .where(eq(schema.chats.projectId, input.projectId))
-      .orderBy(desc(schema.chats.updatedAt))
+      .orderBy(
+        sql`${schema.chats.sortOrder} IS NULL`,
+        asc(schema.chats.sortOrder),
+        desc(schema.chats.updatedAt)
+      )
       .all()
   }),
+
+  /**
+   * Move a chat to a new sidebar position: before the chat `beforeId`, or to
+   * the end of the manually-ordered block when omitted. Rewrites sort_order
+   * for the whole project (chats per project are few), which also assigns
+   * positions to never-dragged (NULL) rows so the visible order is preserved.
+   */
+  reorder: publicProcedure
+    .input(z.object({ projectId: z.string(), id: z.string(), beforeId: z.string().optional() }))
+    .mutation(({ input }) => {
+      const db = getDb()
+      const rows = db
+        .select({ id: schema.chats.id })
+        .from(schema.chats)
+        .where(eq(schema.chats.projectId, input.projectId))
+        .orderBy(
+          sql`${schema.chats.sortOrder} IS NULL`,
+          asc(schema.chats.sortOrder),
+          desc(schema.chats.updatedAt)
+        )
+        .all()
+      const ids = rows.map((r) => r.id).filter((id) => id !== input.id)
+      const at = input.beforeId ? ids.indexOf(input.beforeId) : -1
+      if (at >= 0) ids.splice(at, 0, input.id)
+      else ids.push(input.id)
+      db.transaction((tx) => {
+        ids.forEach((id, i) => {
+          tx.update(schema.chats).set({ sortOrder: i }).where(eq(schema.chats.id, id)).run()
+        })
+      })
+      return { ok: true }
+    }),
 
   get: publicProcedure.input(z.object({ id: z.string() })).query(({ input }) => {
     const db = getDb()

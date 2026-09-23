@@ -49,6 +49,9 @@ import { useConfirm } from '../../components/ConfirmDialog'
 import { AddProjectDialog } from './AddProjectDialog'
 import { Logo } from '../../components/Logo'
 
+/** dataTransfer type for dragging a sidebar chat row (reorder; split-pane drop). */
+export const CHAT_DRAG_TYPE = 'application/x-yardarm-chat'
+
 /**
  * Per-chat activity badge: amber dot = awaiting a user response, spinner =
  * agent working, blue dot = run finished but not yet viewed. Hidden on row
@@ -135,6 +138,26 @@ export function Sidebar(): React.JSX.Element {
       setRenameTarget(null)
     }
   })
+  const reorderChat = trpc.chats.reorder.useMutation({
+    onSuccess: () => utils.chats.list.invalidate()
+  })
+
+  // Drag-to-reorder for active chat rows (same pattern as QueuedPrompts):
+  // drop on a row inserts before it; drop on the list background appends.
+  const [chatDragOver, setChatDragOver] = useState<string | 'end' | null>(null)
+  const allowChatDrop = (e: React.DragEvent, over: string | 'end'): void => {
+    if (!e.dataTransfer.types.includes(CHAT_DRAG_TYPE)) return
+    e.preventDefault()
+    setChatDragOver(over)
+  }
+  const dropChat = (e: React.DragEvent, beforeId?: string): void => {
+    const id = e.dataTransfer.getData(CHAT_DRAG_TYPE)
+    setChatDragOver(null)
+    if (!id || id === beforeId || !projectId) return
+    e.preventDefault()
+    e.stopPropagation()
+    reorderChat.mutate({ projectId, id, beforeId })
+  }
 
   const selectChat = useSelectChat()
 
@@ -271,13 +294,34 @@ export function Sidebar(): React.JSX.Element {
           </span>
         </Tip>
       </div>
-      <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
+      <div
+        className={cn(
+          'flex-1 overflow-y-auto px-2 pb-2 space-y-0.5',
+          chatDragOver === 'end' && 'outline-1 -outline-offset-1 outline-dashed outline-sky-500/50'
+        )}
+        onDragOver={(e) => allowChatDrop(e, 'end')}
+        onDragLeave={() => setChatDragOver(null)}
+        onDrop={(e) => dropChat(e)}
+      >
         {activeChats.map((c) => (
           <div
             key={c.id}
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.setData(CHAT_DRAG_TYPE, c.id)
+              e.dataTransfer.effectAllowed = 'move'
+            }}
+            onDragOver={(e) => {
+              e.stopPropagation()
+              allowChatDrop(e, c.id)
+            }}
+            onDragLeave={() => setChatDragOver(null)}
+            onDrop={(e) => dropChat(e, c.id)}
             onClick={() => selectChat(c.id)}
             className={cn(
               'group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5',
+              'border-t-2 border-t-transparent',
+              chatDragOver === c.id && 'border-t-sky-500',
               chatId === c.id ? 'bg-accent' : 'hover:bg-accent/50'
             )}
           >
@@ -407,6 +451,11 @@ export function Sidebar(): React.JSX.Element {
         {setArchived.error && (
           <div className="px-2 py-1 text-[11px] text-destructive selectable">
             Archive failed: {setArchived.error.message}
+          </div>
+        )}
+        {reorderChat.error && (
+          <div className="px-2 py-1 text-[11px] text-destructive selectable">
+            Reorder failed: {reorderChat.error.message}
           </div>
         )}
       </div>

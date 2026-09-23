@@ -127,7 +127,9 @@ const MIGRATIONS: string[] = [
    );
    CREATE INDEX IF NOT EXISTS kanban_cards_project_idx ON kanban_cards(project_id);`,
   // v10 — per-subchat YOLO (auto-approve) flag, seeded from preferences.yolo
-  `ALTER TABLE subchats ADD COLUMN yolo INTEGER NOT NULL DEFAULT 0;`
+  `ALTER TABLE subchats ADD COLUMN yolo INTEGER NOT NULL DEFAULT 0;`,
+  // v11 — user-defined sidebar chat ordering (NULL = fall back to recency)
+  `ALTER TABLE chats ADD COLUMN sort_order REAL;`
 ]
 
 export function initDb(): DB {

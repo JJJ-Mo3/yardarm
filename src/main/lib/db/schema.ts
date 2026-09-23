@@ -28,6 +28,8 @@ export const chats = sqliteTable(
     baseBranch: text('base_branch'),
     status: text('status').notNull().default('idle'),
     archived: integer('archived', { mode: 'boolean' }).notNull().default(false),
+    /** User-defined sidebar position; NULL rows sort after, by recency. */
+    sortOrder: real('sort_order'),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull()
   },
