@@ -99,6 +99,11 @@ app.on('before-quit', (e) => {
     if (choice === 1) {
       quitConfirmed = true
       app.quit()
+    } else if (BrowserWindow.getAllWindows().length === 0) {
+      // Cancelled after the last window closed (Windows/Linux close-to-quit):
+      // reopen a window so the app isn't left running headless with no dock
+      // icon to bring it back.
+      createWindow()
     }
     return
   }
