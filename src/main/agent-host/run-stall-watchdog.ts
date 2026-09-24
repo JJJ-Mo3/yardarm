@@ -29,9 +29,11 @@ export const RUN_STALL_MS = 10 * 60_000
 /**
  * Max total event silence while a tool call is executing. Live tools emit
  * shell_output / tool_update events that reset the clock, so this only
- * catches tools that are wedged outright.
+ * catches tools that are wedged outright (e.g. a command waiting on stdin,
+ * or a lost tool_end) — and the session manager auto-continues the run once
+ * per prompt after the abort, so a rare false positive self-heals.
  */
-export const TOOL_STALL_MS = 30 * 60_000
+export const TOOL_STALL_MS = 15 * 60_000
 
 type Phase = 'idle' | 'starting' | 'running'
 

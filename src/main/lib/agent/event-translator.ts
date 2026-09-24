@@ -18,6 +18,7 @@ import type {
 import { describeAgentError } from './agent-error-text'
 import { withMaxOutputHint } from './max-output-hint'
 import { withPrefillHint } from './prefill-error'
+import { isStallError } from '../../../shared/stall-error'
 
 interface ToolMeta {
   status: ToolCallPart['status']
@@ -416,9 +417,10 @@ export class EventTranslator {
           this.cb.emit({
             type: 'info',
             level: 'info',
-            text:
-              'Provider rejected resuming an assistant reply (assistant prefill not supported) ' +
-              '— continuing automatically.'
+            text: isStallError(raw)
+              ? 'The run went silent for too long and was stopped — continuing automatically.'
+              : 'Provider rejected resuming an assistant reply (assistant prefill not ' +
+                'supported) — continuing automatically.'
           })
           break
         }

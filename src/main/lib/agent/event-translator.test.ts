@@ -675,6 +675,23 @@ describe('session meta and misc events', () => {
     expect(infos[0].type === 'info' && infos[0].text).not.toContain('prefill.')
   })
 
+  it('uses stall wording for the auto-recovery info line on watchdog errors', () => {
+    const h = makeTranslator(() => true)
+    h.t.handle({
+      type: 'error',
+      error: {
+        message:
+          'A tool call produced no output for ~15 minutes — the run looks stalled and was ' +
+          'stopped. Send a new message to retry.'
+      }
+    })
+    const infos = h.emitted.filter((e) => e.type === 'info')
+    expect(infos).toHaveLength(1)
+    expect(infos[0].type === 'info' && infos[0].level).toBe('info')
+    expect(infos[0].type === 'info' && infos[0].text).toContain('went silent')
+    expect(infos[0].type === 'info' && infos[0].text).toContain('continuing automatically')
+  })
+
   it('emits the original error when onAgentError declines to recover', () => {
     const h = makeTranslator(() => false)
     h.t.handle({ type: 'error', error: { message: 'rate limit exceeded' } })

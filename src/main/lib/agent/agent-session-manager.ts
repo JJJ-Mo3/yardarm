@@ -16,6 +16,7 @@ import { EventTranslator } from './event-translator'
 import { addIdeEditPath, parseIdeEditPaths, formatIdeEditNote } from './ide-edit-notes'
 import { clampMessageForStorage } from './message-clamp'
 import { isPrefillError } from './prefill-error'
+import { isStallError } from '../../../shared/stall-error'
 import { splitPlanRejectionFeedback } from './plan-rejection'
 import { PromptQueue } from './prompt-queue'
 import {
@@ -152,13 +153,19 @@ export class AgentSessionManager {
    * Doubles as the flush lock so duplicate agent_end events can't double-send.
    */
   private awaitingRunStart = new Set<string>()
-  /** Subchats whose current run errored with a provider prefill rejection. */
-  private prefillRetryPending = new Set<string>()
   /**
-   * One-shot auto-continue budget: set when a recovery is dispatched, cleared
-   * on the next real user send so each prompt re-arms exactly one retry.
+   * Subchats whose current run errored recoverably (provider prefill
+   * rejection, or a stall-watchdog abort) and the reason, so run end can
+   * dispatch the matching auto-continue.
+   */
+  private autoRetryPending = new Map<string, 'prefill' | 'stall'>()
+  /**
+   * One-shot auto-continue budgets per reason: set when a recovery is
+   * dispatched, cleared on the next real user send so each prompt re-arms
+   * exactly one retry of each kind.
    */
   private prefillRetried = new Set<string>()
+  private stallRetried = new Set<string>()
   /** Pending per-subchat debounce timers for mid-run IDE-note delivery. */
   private ideNoteTimers = new Map<string, NodeJS.Timeout>()
   /**
@@ -602,10 +609,15 @@ export class AgentSessionManager {
         }
       },
       onAgentError: (text) => {
-        if (!isPrefillError(text) || this.prefillRetried.has(subchatId)) return false
-        this.prefillRetryPending.add(subchatId)
+        const reason = isPrefillError(text) ? 'prefill' : isStallError(text) ? 'stall' : null
+        if (!reason) return false
+        const retried = reason === 'prefill' ? this.prefillRetried : this.stallRetried
+        if (retried.has(subchatId)) return false
+        this.autoRetryPending.set(subchatId, reason)
         // Errors emitted outside a run get no agent_end; recover directly,
-        // deferred so we never send from inside translator.handle.
+        // deferred so we never send from inside translator.handle. (Stall
+        // errors arrive mid-run — the host aborts right after — so their
+        // recovery dispatches from the run-end callback instead.)
         if (!this.isRunning(subchatId)) {
           queueMicrotask(() => this.maybeAutoContinue(subchatId))
         }
@@ -798,7 +810,7 @@ export class AgentSessionManager {
       // No auto-flush on host death (avoids crash-respawn loops); the queue
       // stays intact and resumes via the sendOrQueue idle kick.
       this.awaitingRunStart.delete(subchatId)
-      this.prefillRetryPending.delete(subchatId)
+      this.autoRetryPending.delete(subchatId)
       this.sentPromptEchoes.delete(subchatId)
       throttle.dispose()
       this.writeBuffer.flush(subchatId)
@@ -1128,7 +1140,9 @@ export class AgentSessionManager {
     const idePaths = this.drainIdeEdits(subchatId)
     const ideNote = formatIdeEditNote(idePaths)
     const ideSuffix = ideNote ? `\n\n<system-reminder>\n${ideNote}\n</system-reminder>` : ''
-    this.prefillRetried.delete(subchatId) // each real send re-arms one auto-recovery
+    // Each real send re-arms one auto-recovery of each kind.
+    this.prefillRetried.delete(subchatId)
+    this.stallRetried.delete(subchatId)
     this.recordUserMessage(
       subchatId,
       (displayText ?? content) + attachmentNote,
@@ -1261,31 +1275,39 @@ export class AgentSessionManager {
   }
 
   /**
-   * One-shot recovery from a provider "assistant message prefill" rejection:
-   * send a hidden continue message so the conversation ends with a user
-   * message, which is all the provider demands. The `<system-reminder>`
-   * prefix makes the SDK filter it from later recalls, so no fake user turn
-   * pollutes agent memory — and no user bubble is recorded; the translator's
-   * info line is the transcript record. Skipped when queued prompts exist
-   * (the queued user prompt fixes the trailing-assistant state by itself)
-   * and while suspensions are pending (same rule as the prompt queue).
+   * One-shot recovery from a recoverable run failure — a provider "assistant
+   * message prefill" rejection, or a stall-watchdog abort (a tool call or the
+   * model went completely silent and the host stopped the run): send a hidden
+   * continue message so the run resumes without waiting on the user. The
+   * `<system-reminder>` prefix makes the SDK filter it from later recalls, so
+   * no fake user turn pollutes agent memory — and no user bubble is recorded;
+   * the translator's info line is the transcript record. Skipped when queued
+   * prompts exist (the queued user prompt resumes the run by itself) and
+   * while suspensions are pending (same rule as the prompt queue).
    */
   private maybeAutoContinue(subchatId: string): void {
-    if (!this.prefillRetryPending.has(subchatId)) return
+    const reason = this.autoRetryPending.get(subchatId)
+    if (!reason) return
     if (this.isRunning(subchatId) || this.awaitingRunStart.has(subchatId)) return
-    this.prefillRetryPending.delete(subchatId)
+    this.autoRetryPending.delete(subchatId)
     if (this.promptQueue.size(subchatId) > 0) return
     const handle = this.hosts.get(subchatId)
     if (!handle || handle.killed) return
     if (handle.translator.pendingSuspensions.size > 0) return
-    this.prefillRetried.add(subchatId)
+    ;(reason === 'prefill' ? this.prefillRetried : this.stallRetried).add(subchatId)
     this.awaitingRunStart.add(subchatId)
     this.sendCommand(handle, {
       t: 'send',
       text:
-        '<system-reminder>\nThe previous model call failed because this provider cannot ' +
-        'resume an assistant reply (assistant message prefill). Continue from where you ' +
-        'left off.\n</system-reminder>'
+        reason === 'prefill'
+          ? '<system-reminder>\nThe previous model call failed because this provider cannot ' +
+            'resume an assistant reply (assistant message prefill). Continue from where you ' +
+            'left off.\n</system-reminder>'
+          : '<system-reminder>\nThe previous run was aborted because a tool call or model ' +
+            'response produced no output for a long time and looked stalled. Continue the ' +
+            'task from where it left off. If a command may run for a long time or could wait ' +
+            'for input, re-run it with a timeout or in the background instead of repeating ' +
+            'it as-is.\n</system-reminder>'
     })
   }
 

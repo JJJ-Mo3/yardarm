@@ -41,6 +41,7 @@ import { installNoTimeoutFetch } from './no-timeout-fetch'
 import { RETRIEVAL_TOOL_NAME } from './prompt-compression'
 import { createRetrievalStore } from './retrieval-store'
 import { RunStallTracker } from './run-stall-watchdog'
+import { STALL_ERROR_MARKER } from '../../shared/stall-error'
 import { SandboxIsolationManager, type WorkspaceLike } from './sandbox-isolation'
 import {
   buildSttRequest,
@@ -1241,7 +1242,10 @@ async function main(): Promise<void> {
   // gone completely silent for its whole budget (model budget while waiting
   // on output, a much larger one while a tool executes, never while a gate
   // waits on the user), abort it; if even the abort produces no agent_end,
-  // synthesize one so the UI and queue unblock.
+  // synthesize one so the UI and queue unblock. The session manager detects
+  // the STALL_ERROR_MARKER in the error and auto-continues the run once per
+  // user prompt, so the "send a new message" instruction only surfaces when
+  // that retry budget is already spent.
   const stallTracker = new RunStallTracker()
   const stallCheck = setInterval(() => {
     if (!stallTracker.check()) return
@@ -1249,7 +1253,7 @@ async function main(): Promise<void> {
     const what = stallTracker.stalledInTool
       ? `A tool call produced no output for ~${mins} minute${mins === 1 ? '' : 's'}`
       : `No response from the model provider for ~${mins} minute${mins === 1 ? '' : 's'}`
-    const msg = `${what} — the run looks stalled and was stopped. Send a new message to retry.`
+    const msg = `${what} — ${STALL_ERROR_MARKER}. Send a new message to retry.`
     post({ t: 'log', level: 'error', msg: `stall watchdog fired: ${msg}` })
     post({ t: 'event', ev: { type: 'error', error: { message: msg } } })
     try {
