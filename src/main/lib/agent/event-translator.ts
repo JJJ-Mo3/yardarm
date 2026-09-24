@@ -50,6 +50,18 @@ interface MastraMessageLike {
   createdAt?: number | string | Date
 }
 
+/**
+ * sdk 1.8.x delta payload carried by id-addressed `message_update` events.
+ * `message_start` still carries the initial full message; updates are
+ * text/reasoning deltas or full part snapshots, and `message_end` is id-only.
+ */
+interface MastraMessageDeltaLike {
+  type?: string
+  delta?: string
+  index?: number
+  part?: MastraContentItem
+}
+
 /** sdk 1.0.1 usage_update fields → UsageInfo keys (analytics/cost popover). */
 const USAGE_KEY_MAP: Record<string, string> = {
   promptTokens: 'inputTokens',
@@ -78,6 +90,7 @@ export function userSignalText(msg: MastraMessageLike): string | null {
   if (msg.role !== 'signal' && msg.role !== 'user') return null
   const texts: string[] = []
   for (const item of msg.content?.parts ?? []) {
+    if (!item) continue // hole left by an out-of-order 'part' delta
     if (msg.role === 'user' && item.type === 'text' && typeof item.text === 'string') {
       texts.push(item.text)
       continue
@@ -129,6 +142,12 @@ export interface TranslatorCallbacks {
 
 export class EventTranslator {
   private messages = new Map<string, StoredMessage>()
+  /**
+   * Full mastracode messages accumulated from sdk 1.8.x id-addressed deltas
+   * (message_start snapshot + message_update deltas), keyed by message id.
+   * Entries are dropped on message_end.
+   */
+  private mastraShadow = new Map<string, MastraMessageLike>()
   private toolMeta = new Map<string, ToolMeta>()
   private toolToMessage = new Map<string, string>()
   private currentAssistantId: string | null = null
@@ -170,25 +189,55 @@ export class EventTranslator {
       case 'message_start':
       case 'message_update':
       case 'message_end': {
-        const msg = ev.message as unknown as MastraMessageLike
-        if (!msg) break
-        if (msg.role !== 'assistant') {
-          // The SDK echoes user prompts as data-user-message signal messages
-          // (start + end back-to-back) — surface each once, on message_end.
-          if (ev.type === 'message_end') {
-            const text = userSignalText(msg)
-            if (text) {
-              this.cb.onUserMessage?.({
-                id: msg.id,
-                text,
-                createdAt: this.toMillis(msg.createdAt)
-              })
+        // Two protocols: pre-1.8 SDKs carry the full message on every event;
+        // sdk 1.8.x carries it only on message_start, then id-addressed
+        // deltas (message_update) and an id-only message_end. The shadow map
+        // accumulates the full mastracode message across deltas so the
+        // existing full-message upsert keeps working.
+        const msg = ev.message as unknown as MastraMessageLike | undefined
+        if (msg) {
+          this.mastraShadow.set(msg.id, msg)
+          if (msg.role !== 'assistant') {
+            // The SDK echoes user prompts as data-user-message signal
+            // messages — surface each once, on message_end (old shape).
+            if (ev.type === 'message_end') {
+              this.emitUserSignal(msg)
+              this.mastraShadow.delete(msg.id)
             }
+            break
           }
+          this.currentAssistantId = msg.id
+          this.upsertFromMastra(msg, ev.type === 'message_end')
+          if (ev.type === 'message_end') this.mastraShadow.delete(msg.id)
           break
         }
-        this.currentAssistantId = msg.id
-        this.upsertFromMastra(msg, ev.type === 'message_end')
+        const id = ev.id as string | undefined
+        if (!id) break
+        if (ev.type === 'message_update') {
+          let target = this.mastraShadow.get(id)
+          if (!target) {
+            // message_start was missed (host restart mid-message) — deltas
+            // only ever stream for assistant messages, so synthesize one.
+            target = { id, role: 'assistant', content: { parts: [] } }
+            this.mastraShadow.set(id, target)
+          }
+          this.applyMessageDelta(target, ev.event as MastraMessageDeltaLike | undefined)
+          if (target.role === 'assistant') {
+            this.currentAssistantId = id
+            this.upsertFromMastra(target, false)
+          }
+        } else if (ev.type === 'message_end') {
+          const target = this.mastraShadow.get(id)
+          if (target) {
+            if (target.role === 'assistant') this.upsertFromMastra(target, true)
+            else this.emitUserSignal(target)
+            this.mastraShadow.delete(id)
+          } else if (this.messages.get(id)?.role === 'assistant') {
+            // No shadow (seeded history / synthesized tool message) — still
+            // make the finished message durable.
+            this.cb.persistMessage(this.messages.get(id)!, true)
+          }
+        }
         break
       }
 
@@ -421,6 +470,51 @@ export class EventTranslator {
     }
   }
 
+  /** Surface a user-prompt echo (`data-user-message` signal) to the owner. */
+  private emitUserSignal(msg: MastraMessageLike): void {
+    const text = userSignalText(msg)
+    if (text) {
+      this.cb.onUserMessage?.({ id: msg.id, text, createdAt: this.toMillis(msg.createdAt) })
+    }
+  }
+
+  /**
+   * Apply one sdk 1.8.x message_update delta to a shadow message, mirroring
+   * the SDK's own DisplayState reducer: text-delta appends to the last text
+   * part (or opens one), reasoning-delta appends to the reasoning part at
+   * `index`, and 'part' replaces the snapshot at `index` (which may leave
+   * holes in the array — consumers must skip falsy entries).
+   */
+  private applyMessageDelta(
+    target: MastraMessageLike,
+    e: MastraMessageDeltaLike | undefined
+  ): void {
+    if (!e) return
+    target.content ??= { parts: [] }
+    const parts = (target.content.parts ??= [])
+    if (e.type === 'text-delta' && typeof e.delta === 'string') {
+      let last: MastraContentItem | undefined
+      for (let i = parts.length - 1; i >= 0; i--) {
+        if (parts[i]?.type === 'text') {
+          last = parts[i]
+          break
+        }
+      }
+      if (last) {
+        last.text = (typeof last.text === 'string' ? last.text : '') + e.delta
+      } else {
+        parts.push({ type: 'text', text: e.delta })
+      }
+    } else if (e.type === 'reasoning-delta' && typeof e.delta === 'string') {
+      const p = typeof e.index === 'number' ? parts[e.index] : undefined
+      if (p && p.type === 'reasoning') {
+        p.reasoning = (typeof p.reasoning === 'string' ? p.reasoning : '') + e.delta
+      }
+    } else if (e.type === 'part' && typeof e.index === 'number' && e.part) {
+      parts[e.index] = e.part
+    }
+  }
+
   /**
    * usage_update carries PER-STEP usage (promptTokens/completionTokens on
    * each step-finish, sdk 1.0.1) — normalize to UsageInfo keys, accumulate
@@ -488,6 +582,7 @@ export class EventTranslator {
     const parts: MessagePart[] = []
     const seenToolIds = new Set<string>()
     for (const item of msg.content?.parts ?? []) {
+      if (!item) continue // hole left by an out-of-order 'part' delta
       switch (item.type) {
         case 'text':
           if (typeof item.text === 'string' && item.text.length > 0) {

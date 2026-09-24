@@ -162,6 +162,112 @@ describe('message streaming', () => {
   })
 })
 
+describe('message streaming (sdk 1.8 delta protocol)', () => {
+  it('accumulates text-deltas and persists final on the id-only message_end', () => {
+    const h = makeTranslator()
+    h.t.handle({
+      type: 'message_start',
+      message: { id: 'm1', role: 'assistant', content: { format: 2, parts: [] } }
+    })
+    h.t.handle({ type: 'message_update', id: 'm1', event: { type: 'text-delta', delta: 'Hel' } })
+    h.t.handle({ type: 'message_update', id: 'm1', event: { type: 'text-delta', delta: 'lo!' } })
+    expect(h.persisted).toHaveLength(0)
+    expect(lastUpsert(h.emitted, 'm1')?.parts).toEqual([{ type: 'text', text: 'Hello!' }])
+    h.t.handle({ type: 'message_end', id: 'm1' })
+    expect(h.persisted).toHaveLength(1)
+    expect(h.persisted[0].final).toBe(true)
+    expect(h.persisted[0].message.parts).toEqual([{ type: 'text', text: 'Hello!' }])
+  })
+
+  it('appends reasoning-deltas to the indexed reasoning part', () => {
+    const h = makeTranslator()
+    h.t.handle({
+      type: 'message_start',
+      message: {
+        id: 'm1',
+        role: 'assistant',
+        content: { format: 2, parts: [{ type: 'reasoning', reasoning: 'hm' }] }
+      }
+    })
+    h.t.handle({
+      type: 'message_update',
+      id: 'm1',
+      event: { type: 'reasoning-delta', index: 0, delta: 'm…' }
+    })
+    h.t.handle({ type: 'message_update', id: 'm1', event: { type: 'text-delta', delta: 'done' } })
+    h.t.handle({ type: 'message_end', id: 'm1' })
+    expect(h.persisted.at(-1)?.message.parts).toEqual([
+      { type: 'reasoning', text: 'hmm…' },
+      { type: 'text', text: 'done' }
+    ])
+  })
+
+  it('applies part snapshots at their index and tolerates the holes they leave', () => {
+    const h = makeTranslator()
+    h.t.handle({
+      type: 'message_start',
+      message: { id: 'm1', role: 'assistant', content: { format: 2, parts: [] } }
+    })
+    // Snapshot lands at index 2 — indexes 0/1 are holes the upsert must skip.
+    h.t.handle({
+      type: 'message_update',
+      id: 'm1',
+      event: {
+        type: 'part',
+        index: 2,
+        part: invocation({ toolCallId: 't1', toolName: 'shell', state: 'result', result: 'ok' })
+      }
+    })
+    h.t.handle({ type: 'message_end', id: 'm1' })
+    const parts = h.persisted.at(-1)?.message.parts
+    expect(parts).toHaveLength(1)
+    expect(parts?.[0]).toMatchObject({
+      type: 'tool-call',
+      toolCallId: 't1',
+      toolName: 'shell',
+      result: 'ok',
+      status: 'success'
+    })
+  })
+
+  it('synthesizes an assistant message when message_start was missed', () => {
+    const h = makeTranslator()
+    // Host attached mid-message: deltas arrive with no prior snapshot.
+    h.t.handle({ type: 'message_update', id: 'm1', event: { type: 'text-delta', delta: 'hi' } })
+    h.t.handle({ type: 'message_end', id: 'm1' })
+    expect(h.persisted.at(-1)?.final).toBe(true)
+    expect(h.persisted.at(-1)?.message.parts).toEqual([{ type: 'text', text: 'hi' }])
+  })
+
+  it('fires onUserMessage for a signal echo ended by an id-only message_end', () => {
+    const h = makeTranslator()
+    h.t.handle({
+      type: 'message_start',
+      message: {
+        id: 's1',
+        role: 'signal',
+        content: {
+          format: 2,
+          parts: [{ type: 'data-user-message', data: { contents: 'from the CLI' } }]
+        },
+        createdAt: 1234
+      }
+    })
+    expect(h.userMessages).toHaveLength(0)
+    h.t.handle({ type: 'message_end', id: 's1' })
+    expect(h.userMessages).toEqual([{ id: 's1', text: 'from the CLI', createdAt: 1234 }])
+    expect(h.emitted).toHaveLength(0)
+    expect(h.persisted).toHaveLength(0)
+  })
+
+  it('ignores an id-only message_end with no shadow or stored message', () => {
+    const h = makeTranslator()
+    h.t.handle({ type: 'message_end', id: 'ghost' })
+    expect(h.emitted).toHaveLength(0)
+    expect(h.persisted).toHaveLength(0)
+  })
+})
+
 describe('user-prompt echoes', () => {
   /** Signal-role echo event as the SDK emits for every user prompt. */
   function signalEvent(
