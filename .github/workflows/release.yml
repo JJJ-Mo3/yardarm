@@ -99,10 +99,40 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=4096
 
-      - name: Package (unsigned)
-        run: pnpm exec electron-builder --${{ matrix.platform }} --publish never
+      # macOS/Linux builds are unsigned. The Windows build is signed via Azure
+      # Trusted Signing when the AZURE_* repo secrets below are configured —
+      # that is what stops SmartScreen's "Windows protected your PC" block.
+      # Without the secrets it stays unsigned exactly as before. Secrets:
+      #   AZURE_TENANT_ID / AZURE_CLIENT_ID / AZURE_CLIENT_SECRET
+      #     (Entra app registration with the Trusted Signing Certificate
+      #     Profile Signer role)
+      #   AZURE_SIGNING_ENDPOINT   e.g. https://eus.codesigning.azure.net
+      #   AZURE_SIGNING_ACCOUNT    Trusted Signing account name
+      #   AZURE_SIGNING_PROFILE    certificate profile name
+      #   AZURE_SIGNING_PUBLISHER  publisher CN exactly as on the certificate
+      - name: Package
+        shell: bash
+        run: |
+          args=()
+          if [ "${{ matrix.platform }}" = "win" ] && [ -n "$AZURE_SIGNING_ENDPOINT" ]; then
+            echo "Azure Trusted Signing secrets found — signing the Windows build"
+            args+=(
+              "-c.win.azureSignOptions.endpoint=$AZURE_SIGNING_ENDPOINT"
+              "-c.win.azureSignOptions.codeSigningAccountName=$AZURE_SIGNING_ACCOUNT"
+              "-c.win.azureSignOptions.certificateProfileName=$AZURE_SIGNING_PROFILE"
+              "-c.win.azureSignOptions.publisherName=$AZURE_SIGNING_PUBLISHER"
+            )
+          fi
+          pnpm exec electron-builder --${{ matrix.platform }} --publish never "${args[@]}"
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          AZURE_SIGNING_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          AZURE_SIGNING_PROFILE: ${{ secrets.AZURE_SIGNING_PROFILE }}
+          AZURE_SIGNING_PUBLISHER: ${{ secrets.AZURE_SIGNING_PUBLISHER }}
 
       # Best-effort boot smoke for the beta Linux build: launch the unpacked
       # binary under a virtual display and require it to stay alive ~10s.
@@ -188,6 +218,11 @@ jobs:
             new and lightly tested. Known limits: no OS-level sandbox mode on
             Windows (Linux needs bubblewrap installed), and the CLI tab does not
             sync with the chat screen on Windows.
+
+            If Windows SmartScreen blocks the installer with **"Windows
+            protected your PC"**, click **More info → Run anyway** — the
+            warning appears because the build has not yet earned SmartScreen
+            reputation.
 
           files: |
             dist/*.dmg
