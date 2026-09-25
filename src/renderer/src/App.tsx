@@ -37,6 +37,7 @@ import { BootErrorScreen } from './features/boot/BootErrorScreen'
 import { OnboardingWizard } from './features/onboarding/OnboardingWizard'
 import { ChatView } from './features/agents/ChatView'
 import { CommandPalette } from './features/agents/CommandPalette'
+import { subchatTabTip } from './features/agents/fork-tab'
 import { SplitChatPane } from './features/agents/SplitChatPane'
 import { useChatStatusTracker } from './features/agents/use-chat-status-tracker'
 import { useNotificationFocus } from './features/agents/use-notification-focus'
@@ -325,18 +326,19 @@ export default function App(): React.JSX.Element {
                           {chat.data!.subchats.map((sc, i) => (
                             <Tip
                               key={sc.id}
-                              content="Switch to this conversation tab (each tab has its own transcript)"
+                              content={subchatTabTip(chat.data!.subchats, i)}
                               side="bottom"
                             >
                               <button
                                 onClick={() => setSubchatId(sc.id)}
                                 className={cn(
-                                  'rounded px-2 py-0.5 text-[11px] cursor-pointer',
+                                  'flex items-center gap-1 rounded px-2 py-0.5 text-[11px] cursor-pointer',
                                   subchatId === sc.id
                                     ? 'bg-accent font-medium'
                                     : 'text-muted-foreground hover:text-foreground'
                                 )}
                               >
+                                {sc.forkedFromSubchatId && <GitFork size={10} />}
                                 Tab {i + 1}
                               </button>
                             </Tip>

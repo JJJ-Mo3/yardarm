@@ -279,6 +279,7 @@ export const chatsRouter = router({
         fullSandbox: subchat.fullSandbox,
         sandboxNetwork: subchat.sandboxNetwork,
         yolo: subchat.yolo,
+        forkedFromSubchatId: subchat.id,
         createdAt: now,
         updatedAt: now
       }

@@ -20,6 +20,7 @@ import {
 } from '../../components/ui/select'
 import { Tip } from '../../components/ui/tooltip'
 import { ChatView } from './ChatView'
+import { subchatTabLabel } from './fork-tab'
 
 export function SplitChatPane({
   pane,
@@ -123,7 +124,7 @@ export function SplitChatPane({
             <SelectContent>
               {subchats.map((sc, i) => (
                 <SelectItem key={sc.id} value={sc.id} className="text-[11px]">
-                  Tab {i + 1}
+                  {subchatTabLabel(subchats, i)}
                 </SelectItem>
               ))}
             </SelectContent>

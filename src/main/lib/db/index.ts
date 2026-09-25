@@ -129,7 +129,9 @@ const MIGRATIONS: string[] = [
   // v10 — per-subchat YOLO (auto-approve) flag, seeded from preferences.yolo
   `ALTER TABLE subchats ADD COLUMN yolo INTEGER NOT NULL DEFAULT 0;`,
   // v11 — user-defined sidebar chat ordering (NULL = fall back to recency)
-  `ALTER TABLE chats ADD COLUMN sort_order REAL;`
+  `ALTER TABLE chats ADD COLUMN sort_order REAL;`,
+  // v12 — fork parentage: which subchat a forked tab was branched from
+  `ALTER TABLE subchats ADD COLUMN forked_from_subchat_id TEXT;`
 ]
 
 export function initDb(): DB {
