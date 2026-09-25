@@ -59,6 +59,8 @@ export const composerInsertAtom = atom<string | null>(null)
 export const changesPaneRequestAtom = atom<'changes' | 'history' | 'checkpoints' | null>(null)
 /** Global Cmd+K command palette. */
 export const commandPaletteOpenAtom = atom(false)
+/** Cmd+O quick file open dialog (fuzzy search over the active worktree). */
+export const quickOpenAtom = atom(false)
 /** Re-open the first-run onboarding wizard (Settings → About → Run setup again). */
 export const onboardingForceOpenAtom = atom(false)
 

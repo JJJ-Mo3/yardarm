@@ -5,6 +5,7 @@
  *
  *   Cmd+N     new chat
  *   Cmd+K     command palette
+ *   Cmd+O     quick file open
  *   Cmd+P     thread switcher
  *   Cmd+J     toggle terminal tab
  *   Cmd+1–9   main tabs in visual order (chat / CLI / IDE / changes / terminal / kanban / analytics / preview / guide)
@@ -16,6 +17,7 @@ import {
   commandPaletteOpenAtom,
   mainTabAtom,
   newChatOpenAtom,
+  quickOpenAtom,
   settingsOpenAtom,
   threadsOpenAtom,
   type MainTab
@@ -48,6 +50,7 @@ export function useAppShortcuts(): void {
   const setNewChatOpen = useSetAtom(newChatOpenAtom)
   const setThreadsOpen = useSetAtom(threadsOpenAtom)
   const setPaletteOpen = useSetAtom(commandPaletteOpenAtom)
+  const setQuickOpen = useSetAtom(quickOpenAtom)
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent): void => {
@@ -63,6 +66,10 @@ export function useAppShortcuts(): void {
           if (e.defaultPrevented) break
           e.preventDefault()
           setPaletteOpen(true)
+          break
+        case 'o':
+          e.preventDefault()
+          setQuickOpen(true)
           break
         case 'p':
           e.preventDefault()
@@ -92,5 +99,5 @@ export function useAppShortcuts(): void {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [setTab, setSettingsOpen, setNewChatOpen, setThreadsOpen, setPaletteOpen])
+  }, [setTab, setSettingsOpen, setNewChatOpen, setThreadsOpen, setPaletteOpen, setQuickOpen])
 }

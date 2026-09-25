@@ -46,6 +46,7 @@ import { useNotificationFocus } from './features/agents/use-notification-focus'
 import { ChangesView } from './features/changes/ChangesView'
 import { TerminalView } from './features/terminal/TerminalView'
 import { FilesView } from './features/file-viewer/FilesView'
+import { QuickFileOpen } from './features/file-viewer/QuickFileOpen'
 import { KanbanView } from './features/kanban/KanbanView'
 import { AnalyticsView } from './features/analytics/AnalyticsView'
 import { PreviewView } from './features/preview/PreviewView'
@@ -466,6 +467,7 @@ export default function App(): React.JSX.Element {
         </div>
       </div>
       <CommandPalette />
+      <QuickFileOpen root={cwd} />
       <SettingsDialog />
       <ProjectSettingsDialog
         projectId={project?.id ?? null}

@@ -1,6 +1,7 @@
 import type { Dirent } from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { simpleGit } from 'simple-git'
 import { z } from 'zod'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import { publicProcedure, router } from '../trpc'
@@ -173,6 +174,27 @@ export const filesRouter = router({
       const abs = resolveWithin(input.root, input.path)
       return agentSessionManager.lspDiagnostics(input.subchatId, abs, input.root, input.content)
     }),
+
+  /**
+   * Flat file list for the quick-open dialog: git-tracked + untracked files
+   * (respecting .gitignore), falling back to the plain walker for non-repos.
+   * Capped at 5000 paths; the renderer fuzzy-filters client-side.
+   */
+  list: publicProcedure.input(z.object({ root: z.string() })).query(async ({ input }) => {
+    try {
+      const out = await simpleGit(input.root).raw([
+        'ls-files',
+        '--cached',
+        '--others',
+        '--exclude-standard'
+      ])
+      const files = out.split('\n').filter(Boolean)
+      if (files.length > 0) return files.slice(0, 5000)
+    } catch {
+      // not a git repo (or git unavailable) — use the walker below
+    }
+    return listAllFiles(input.root)
+  }),
 
   /** Substring/fuzzy filename search for @-mentions. */
   search: publicProcedure

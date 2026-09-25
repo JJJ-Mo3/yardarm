@@ -10,6 +10,7 @@ import {
   BookOpen,
   ChartColumn,
   FileCode2,
+  FileSearch,
   GitCompare,
   Globe,
   MessageSquare,
@@ -24,6 +25,7 @@ import { trpc } from '../../lib/trpc'
 import {
   commandPaletteOpenAtom,
   mainTabAtom,
+  quickOpenAtom,
   selectedChatIdAtom,
   selectedProjectIdAtom,
   selectedSubchatIdAtom,
@@ -72,6 +74,7 @@ export function CommandPalette(): React.JSX.Element {
   const chatId = useAtomValue(selectedChatIdAtom)
   const projectId = useAtomValue(selectedProjectIdAtom)
   const setTab = useSetAtom(mainTabAtom)
+  const setQuickOpen = useSetAtom(quickOpenAtom)
   const setSettingsOpen = useSetAtom(settingsOpenAtom)
   const setSettingsTab = useSetAtom(settingsTabAtom)
   const selectChat = useSelectChat()
@@ -113,6 +116,14 @@ export function CommandPalette(): React.JSX.Element {
         onSelect: () => setTab(t.id)
       })
     })
+    list.push({
+      id: 'open-file',
+      group: 'Go to',
+      label: 'Open file…',
+      icon: <FileSearch size={13} />,
+      detail: modLabel('O'),
+      onSelect: () => setQuickOpen(true)
+    })
     for (const s of SETTINGS_SECTIONS) {
       list.push({
         id: `settings:${s.id}`,
@@ -146,6 +157,7 @@ export function CommandPalette(): React.JSX.Element {
     chats.data,
     chatId,
     setTab,
+    setQuickOpen,
     setSettingsTab,
     setSettingsOpen,
     selectChat
