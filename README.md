@@ -251,10 +251,14 @@ Yardarm puts a desktop workspace around the agent:
 - Fork from any message: a fork pill on your messages clones the agent's
   memory (a Mastra thread clone) into a new subchat tab, truncated to just
   before that point — explore an alternative direction while the original
-  conversation continues unchanged
-- Split view: a toggle in the tab bar opens a second chat pane side by
-  side with a draggable divider — watch one agent run while prompting
-  another; drag a chat from the sidebar onto either pane to show it there
+  conversation continues unchanged; forked tabs carry a fork icon and
+  their tooltip names the tab they came from
+- Split view: the columns button in the tab bar adds extra chat panes
+  side by side — up to six columns (`Cmd+\` adds a pane, `Cmd+Shift+\`
+  closes the last one) — watch several agents run while prompting
+  another; drag a chat from the sidebar onto any pane to show it there
+- Git activity badges: when a turn commits, pushes, merges, or switches
+  branches, compact badges under the reply summarize it at a glance
 - Prompts sent while the agent is running are queued and delivered in order
   when the run finishes — drag queued prompts to reorder them, and quitting
   the app while agents are running asks for confirmation
@@ -318,8 +322,11 @@ Yardarm puts a desktop workspace around the agent:
   the problems panel itself, and Go/Rust/Ruby use
   gopls/rust-analyzer/ruby-lsp from your PATH or well-known install dirs
   like ~/go/bin and ~/.cargo/bin), a hover "+" button on tree files to
-  insert them into the composer as `@`-mentions, and an integrated
-  terminal (node-pty + xterm) that opens in the chat's worktree
+  insert them into the composer as `@`-mentions, a `Cmd+O` quick-open
+  dialog that fuzzy-searches every file in the worktree, and an integrated
+  terminal (node-pty + xterm) that opens in the chat's worktree — with a
+  "+" tab strip to open extra sessions in the project root or another
+  chat's worktree
 - CLI tab that runs the interactive Mastra Code TUI in the chat's worktree,
   sharing the chat's thread history
 - Preview tab: an in-app browser for localhost dev servers — URLs are
@@ -373,7 +380,11 @@ Yardarm puts a desktop workspace around the agent:
   `ANTHROPIC_API_KEY` are detected automatically — values are read from
   your login shell at launch and never stored by Yardarm
 - Model defaults per mode, subagent, goal judge, and OM roles in
-  Settings → Models — written to the shared `settings.json`
+  Settings → Models — written to the shared `settings.json` — plus a
+  default thinking level per mode and, when a model pack is active, pack
+  tuning: per-mode model overrides, a fallback pack used when the pack's
+  provider is exhausted or down, and (with multiple logins for a
+  provider) a preferred account per model
 - Custom subagents editor (Settings → Agents, `/subagents`): create and
   edit the `.md` agent definitions (frontmatter
   `name`/`description`/`model`/`tools` + an instructions body) that the
@@ -393,7 +404,9 @@ Yardarm puts a desktop workspace around the agent:
   needed) — the Project scope adds per-server Enabled / Disabled / Inherit
   overrides on top of the global default, and a global kill switch is
   surfaced when active; the Global scope adds opt-in switches to also
-  discover MCP servers configured for Claude Code or Codex
+  discover MCP servers configured for Claude Code or Codex. The chat
+  header's ⋯ menu has a quick-access popover too: live per-server status
+  for the current chat with the same enable/disable switch
 
 **Per-project configuration**
 
@@ -516,7 +529,8 @@ worktrees are kept. Projects can be archived or removed (optionally
 deleting the folder) from Project Settings → General.
 
 **Terminal & IDE.** The Terminal tab is a real shell in the chat's
-worktree; the IDE tab is a file tree + Monaco editor over the same
+worktree, with a "+" tab strip to open extra sessions in the project root
+or another chat's worktree; the IDE tab is a file tree + Monaco editor over the same
 (multiple tabs, ⌘S to save — the agent hears about your edits immediately
 while it's working, or with your next message, and clean buffers refresh
 when the agent changes files), with a problems panel showing
@@ -543,24 +557,29 @@ with the agent's live status. The chart icon in the tab bar opens
 Analytics — token usage for the project by day, model, and chat, plus
 compression savings and CSV export.
 
-**Split view & forking.** The columns button in the tab bar opens a second
-chat pane beside the current one (drag the divider to resize, or drag a
-chat from the sidebar onto a pane to show it there) — useful for
-watching one agent run while prompting another. To branch a single
+**Split view & forking.** The columns button in the tab bar adds extra
+chat panes beside the current one — up to six columns (`Cmd+\` adds a
+pane, `Cmd+Shift+\` closes the last one; drag a chat from the sidebar
+onto a pane to show it there) — useful for watching several agents run
+while prompting another. To branch a single
 conversation instead, hover one of your messages and click the fork pill:
 the agent's memory is cloned as a new Mastra thread into a new subchat tab,
 truncated to just before that message, while the original continues
-unchanged.
+unchanged — forked tabs are marked with a fork icon.
 
 **Keyboard shortcuts** (Cmd on macOS, Ctrl elsewhere):
 
-| Shortcut  | Action                                                                    |
-| --------- | ------------------------------------------------------------------------- |
-| `Cmd+N`   | New chat                                                                  |
-| `Cmd+P`   | Thread switcher                                                           |
-| `Cmd+1–9` | Switch tab (chat/CLI/IDE/changes/terminal/kanban/analytics/preview/guide) |
-| `Cmd+J`   | Toggle terminal tab                                                       |
-| `Cmd+,`   | Settings                                                                  |
+| Shortcut      | Action                                                                    |
+| ------------- | ------------------------------------------------------------------------- |
+| `Cmd+K`       | Command palette                                                           |
+| `Cmd+N`       | New chat                                                                  |
+| `Cmd+O`       | Quick file open (into the IDE tab)                                        |
+| `Cmd+P`       | Thread switcher                                                           |
+| `Cmd+\`       | Add a split chat pane                                                     |
+| `Cmd+Shift+\` | Close the last split pane                                                 |
+| `Cmd+1–9`     | Switch tab (chat/CLI/IDE/changes/terminal/kanban/analytics/preview/guide) |
+| `Cmd+J`       | Toggle terminal tab                                                       |
+| `Cmd+,`       | Settings                                                                  |
 
 ## Configuration paths (shared with the mastracode CLI)
 

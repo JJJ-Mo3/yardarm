@@ -190,7 +190,9 @@ A few notes on worktrees:
 - **Model selector** — switch the active model for this chat.
 - **think** — extended-thinking level (off / low / medium / high / xhigh /
   max). Higher levels are slower but better on hard problems; which levels
-  apply depends on the selected model.
+  apply depends on the selected model. You can also set a default thinking
+  level per mode in Settings → Models — chats without an explicit choice
+  pick up the mode's default.
 - **auto-approve** — the "yolo" switch. On, the agent runs tools and edits
   files without asking; off, you approve each sensitive action.
 - **sandbox** — run this chat's shell commands inside an OS-level sandbox.
@@ -223,6 +225,9 @@ A few notes on worktrees:
   post a user bubble; the transcript shows a compact muted one-liner
   (e.g. "Review: PR #42 — fix auth") instead. Hover it to roll back, like
   any message.
+- **Git activity badges** — when the agent commits, pushes, merges, or
+  switches branches during a turn, small badges under the reply summarize
+  it at a glance (e.g. "2 commits", "pushed", "→ branch-name").
 
 ### The composer
 
@@ -497,11 +502,14 @@ cloned as a new Mastra thread — truncated to just before that message — and
 opens as a new subchat tab over the same worktree. The original
 conversation continues unchanged, so you can explore an alternative
 direction without losing anything. (Rollback pills in the forked transcript
-only cover messages sent after the fork.)
+only cover messages sent after the fork.) Forked tabs carry a small fork
+icon, and their tooltip names the tab they were forked from.
 
-**Split view.** The columns button at the right of the tab bar opens a
-second chat pane beside the current one — pick any other chat in the
-project and both run side by side (drag the divider to resize). Useful for
+**Split view.** The columns button at the right of the tab bar adds extra
+chat panes beside the current one — pick any other chat in the project (or
+drag one from the sidebar onto a pane) and they run side by side, up to six
+columns. `Cmd+\` adds a pane and `Cmd+Shift+\` closes the last one; each
+pane also has its own add/close buttons and chat picker. Useful for
 watching one agent work while briefing another. `Cmd+P` and other global
 shortcuts stay with the left (primary) pane.
 
@@ -509,8 +517,13 @@ shortcuts stay with the left (primary) pane.
 
 - **Terminal** (`Cmd+5`, or toggle with `Cmd+J`) — a real shell that opens in
   the chat's worktree. Build, test, poke around; you and the agent are
-  looking at the same files.
+  looking at the same files. The **+** button in the tab strip opens extra
+  sessions in other locations — the project root or another chat's
+  worktree — shown as tabs beside the default one. Sessions keep running
+  while you switch tabs; closing a tab ends its shell.
 - **IDE** (`Cmd+3`) — a file tree + Monaco editor scoped to the worktree.
+  Press `Cmd+O` anywhere in the app to fuzzy-search every file in the
+  worktree and open it straight in the IDE.
   Open multiple files as tabs and save with `⌘S`. Every save is tracked per
   project/worktree and survives app restarts: each chat working on that
   root is told about your edit immediately — pushed into the run while its
@@ -694,10 +707,10 @@ Open with `Cmd+,` (`Ctrl+,`).
 | **Appearance**  | light / dark / system theme (also togglable from the sidebar footer)                                                                                                                                      |
 | **Preferences** | default auto-approve (yolo), CLI theme, default thinking level, tool-output previews, new-chat sandbox defaults, token compression + verbosity steering, per-tool toggles to disable built-in agent tools |
 | **API Keys**    | provider API keys (stored in mastracode's `auth.json`) or environment-variable references (never stored)                                                                                                  |
-| **Models**      | default model per mode, subagent, goal judge, and memory role; model packs                                                                                                                                |
+| **Models**      | default model per mode, subagent, goal judge, and memory role; default thinking level per mode; model packs with pack tuning (per-mode overrides, fallback pack, preferred account per model)             |
 | **Providers**   | OAuth logins (Claude / Codex / Copilot), Ollama detection, custom local providers                                                                                                                         |
 | **Voice**       | dictation engine, STT provider and model                                                                                                                                                                  |
-| **Browser**     | browser-automation settings for web tools, including the viewport size                                                                                                                                    |
+| **Browser**     | browser-automation settings for web tools: viewport size and, for the Stagehand provider, the model that drives page interactions                                                                         |
 | **Connectors**  | one-click OAuth sign-ins for GitHub, GitLab, Supabase, Netlify, Vercel, and Sentry (see [Connectors](#connectors)), plus GitHub signals (`/github`) and Observability (`/observability`)                  |
 | **MCP Servers** | Model Context Protocol servers — global by default, or project-specific via the scope toggle + project picker, with live status (see below)                                                               |
 | **Agents**      | custom subagents — global by default, or project-specific via the scope toggle + project picker (see below)                                                                                               |
@@ -727,6 +740,11 @@ completes. A **Reconnect** button revives servers that dropped.
 Each server row also has an **enable/disable switch** — turn a server off
 without touching the JSON (persisted in mastracode's state and shared with
 the CLI); flipping it back on reconnects the server immediately.
+
+The chat header's **⋯ menu** has a quick-access **MCP servers** popover
+too: live per-server status for the current chat with the same
+enable/disable switch, plus a shortcut to this editor — no trip to Settings
+needed.
 
 The Global scope adds two **server discovery** switches: opt in to also load
 the MCP servers you've already configured for **Claude Code** or **Codex**,
@@ -812,9 +830,13 @@ providers you configured.
 | Shortcut      | Action                                                                                    |
 | ------------- | ----------------------------------------------------------------------------------------- |
 | `Cmd+N`       | new chat                                                                                  |
+| `Cmd+K`       | command palette                                                                           |
 | `Cmd+P`       | thread switcher                                                                           |
+| `Cmd+O`       | quick file open (into the IDE tab)                                                        |
 | `Cmd+1`–`9`   | switch tab (Chat / CLI / IDE / Changes / Terminal / Kanban / Analytics / Preview / Guide) |
 | `Cmd+J`       | toggle the Terminal tab                                                                   |
+| `Cmd+\`       | add a split chat pane                                                                     |
+| `Cmd+Shift+\` | close the last split pane                                                                 |
 | `Cmd+,`       | settings                                                                                  |
 | `Enter`       | send (in composer)                                                                        |
 | `Shift+Enter` | newline (in composer)                                                                     |

@@ -232,7 +232,11 @@
             </tr>
             <tr>
               <td><strong>Models</strong></td>
-              <td>default model per mode, subagent, goal judge, and memory role; model packs</td>
+              <td>
+                default model per mode, subagent, goal judge, and memory role; default thinking
+                level per mode; model packs with pack tuning (per-mode overrides, fallback pack,
+                preferred account per model)
+              </td>
             </tr>
             <tr>
               <td><strong>Providers</strong></td>
@@ -246,7 +250,10 @@
             </tr>
             <tr>
               <td><strong>Browser</strong></td>
-              <td>browser-automation settings for web tools, including the viewport size</td>
+              <td>
+                browser-automation settings for web tools: viewport size and, for the Stagehand
+                provider, the model that drives page interactions
+              </td>
             </tr>
             <tr>
               <td><strong>Connectors</strong></td>
@@ -310,6 +317,11 @@
           Each server row also has an <strong>enable/disable switch</strong> — turn a server off
           without touching the JSON (persisted in mastracode's state and shared with the CLI);
           flipping it back on reconnects the server immediately.
+        </p>
+        <p>
+          The chat header's <strong>⋯ menu</strong> has a quick-access <strong>MCP servers</strong>
+          popover too: live per-server status for the current chat with the same enable/disable
+          switch, plus a shortcut to this editor — no trip to Settings needed.
         </p>
         <p>
           The Global scope adds two <strong>server discovery</strong> switches: opt in to also load

@@ -96,6 +96,9 @@ its reasoning, tool calls, and file edits into the transcript.
   navigation (Enter / Shift+Enter).
 - **Diagrams** — \`mermaid\` code blocks in agent replies render as diagrams (flowcharts,
   sequence diagrams, …), following the app theme.
+- **Git activity badges** — when the agent commits, pushes, merges, or switches branches
+  during a turn, small badges under the reply summarize it at a glance (e.g. "2 commits",
+  "pushed", "→ branch-name").
 
 ### Header tools
 
@@ -105,7 +108,9 @@ its reasoning, tool calls, and file edits into the transcript.
 - **Checkpoints** — a quick view of the chat's rollback checkpoints (see Checkpoints below).
 - **The ⋯ menu** — occasional tools live under the ⋯ button: **Code review** (review local
   changes or an open PR/MR), **Observational memory** (\`/om\` status and tuning),
-  **PR subscriptions** (\`/github\`), **Open folder in…** (reveal the chat's folder in your
+  **PR subscriptions** (\`/github\`), **MCP servers** (live status of this chat's MCP servers
+  with a quick per-server enable/disable switch — no trip to Settings needed),
+  **Open folder in…** (reveal the chat's folder in your
   file manager, or open it in a detected editor or terminal — e.g. VS Code, Cursor, Zed),
   **Export transcript** (download the thread as Markdown), and
   **Context audit** (\`/context\`).
@@ -138,6 +143,9 @@ The thinking selector next to the model (also \`/think\`) controls how much reas
 the model spends before answering: **off**, **low**, **medium**, **high**, **xhigh**, or
 **max**. Higher levels help on hard problems at the cost of speed and tokens; which levels
 apply depends on the selected model.
+
+You can also set a **default thinking level per mode** in Settings → Models — e.g. high for
+Plan, off for Fast. Chats without an explicit thinking choice pick up the mode's default.
 `
   },
   {
@@ -186,10 +194,12 @@ Each chat can hold multiple **threads** (conversation tabs). Open the thread swi
 to jump between them, create new ones, or open a thread in a new tab.
 
 - **Fork from a message** — branch the conversation from any earlier message to explore an
-  alternative approach without losing the original.
-- **Split view** — the split button in the tab bar shows a second chat of the same project
-  side by side, so two agents can work (and be watched) at once. Drag the divider to resize,
-  and drag a chat from the sidebar onto either pane to show it there.
+  alternative approach without losing the original. Forked tabs carry a small fork icon, and
+  their tooltip names the tab they were forked from.
+- **Split view** — the split button in the tab bar adds extra chat panes of the same project
+  side by side (up to six columns), so several agents can work — and be watched — at once.
+  **⌘\\** adds a pane and **⌘⇧\\** closes the last one; each pane also has its own add/close
+  buttons and chat picker. Drag a chat from the sidebar onto any pane to show it there.
 
 Threads **name themselves** after your first message — the agent generates a short title
 automatically, and you can rename it any time with \`/name\`.
@@ -261,6 +271,8 @@ The IDE tab is a multi-tab code editor (Monaco) rooted at the chat's worktree.
   what you changed mid-conversation and won't clobber your edits.
 - **Add a file to the chat** — hover a file in the tree and click the **+** button to insert
   it into the composer as an \`@\`-mention.
+- **Quick open** — press **⌘O** anywhere in the app to fuzzy-search every file in the chat's
+  worktree and open it straight in the IDE.
 - **Problems panel** — language-server diagnostics (errors and warnings) for the active file,
   refreshed as you type (shortly after edits pause), on open and on save — no chat needs to
   be selected. Click a problem to jump to it; markers also appear inline in the editor.
@@ -284,7 +296,10 @@ Language servers come in three tiers:
     title: 'Terminal & the Mastra Code CLI',
     body: `
 - **Terminal tab** (⌘J) — a real shell in the chat's worktree (or project root). Use it for
-  anything: running dev servers, git, tests. Each chat gets its own terminal. Press ⌘F while
+  anything: running dev servers, git, tests. Each chat gets its own terminal, and the **+**
+  button in the tab strip opens extra sessions in other locations — the project root or
+  another chat's worktree — shown as tabs beside the default one (sessions keep running
+  while you switch tabs; closing a tab ends its shell). Press ⌘F while
   the terminal is focused to search its scrollback (Enter / Shift+Enter to step through
   matches, Esc to close).
 - **CLI tab** — an interactive \`mastracode\` CLI session in the same worktree. Because the
@@ -435,11 +450,15 @@ App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
   automatically; a stored key takes precedence, so saving one mode clears the other. Export
   new variables in your shell profile and relaunch the app to pick them up. Like with the
   CLI, referenced variables are visible to shell commands the agent runs.
-- **Models** — pick default models and manage the model list.
+- **Models** — pick default models per mode, subagent, goal judge, and memory role, set a
+  **default thinking level per mode**, and — when a model pack is active — tune the pack:
+  per-mode model overrides, a **fallback pack** used when the pack's provider is exhausted
+  or down, and (with multiple logins for a provider) a preferred account per model.
 - **Providers** — provider OAuth logins and local providers (e.g. Ollama), including
   installing and pulling local models.
 - **Voice** — speech-to-text for the composer microphone.
-- **Browser** — the agent's built-in browser tool, including viewport size.
+- **Browser** — the agent's built-in browser tool: viewport size and, for the Stagehand
+  provider, the model that drives page interactions.
 - **Connectors** — one-click service sign-ins (see the Connectors section), plus
   **GitHub signals** (experimental PR awareness via the \`gh\` CLI — enables per-thread PR
   subscriptions, see Threads) and **Observability** (local tracing / Mastra Cloud).
@@ -474,9 +493,12 @@ the Workflows tab (\`/workflows\`) runs and manages the agent's stored workflows
 | --- | --- |
 | ⌘K | Command palette |
 | ⌘N | New chat |
+| ⌘O | Quick file open (into the IDE tab) |
 | ⌘P | Thread switcher |
 | ⌘F | Find in chat (Chat tab) / find in terminal (Terminal tab) |
 | ⌘J | Toggle the Terminal tab |
+| ⌘\\ | Add a split chat pane |
+| ⌘⇧\\ | Close the last split pane |
 | ⌘, | Settings |
 | ⌘1 | Chat |
 | ⌘2 | CLI |

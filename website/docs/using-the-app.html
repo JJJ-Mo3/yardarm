@@ -137,6 +137,8 @@
             <a href="#agent-code-review">Agent code review</a>),
             <strong>Observational memory</strong> (<code>/om</code> status and tuning),
             <strong>PR subscriptions</strong> (<code>/github</code>),
+            <strong>MCP servers</strong> (live status of this chat's MCP servers with a quick
+            per-server enable/disable switch — no trip to Settings needed),
             <strong>Open folder in…</strong> (reveal the chat's folder in your file manager —
             Finder, File Explorer, Files — or open it in a detected editor or terminal such as VS
             Code, Cursor, Zed, Terminal, iTerm, Warp, or Ghostty),
@@ -172,6 +174,11 @@
             <strong>Marker lines</strong> — actions triggered from buttons (like reviews) don't post
             a user bubble; the transcript shows a compact muted one-liner (e.g. "Review: PR #42 —
             fix auth") instead. Hover it to roll back, like any message.
+          </li>
+          <li>
+            <strong>Git activity badges</strong> — when the agent commits, pushes, merges, or
+            switches branches during a turn, small badges under the reply summarize it at a glance
+            (e.g. "2 commits", "pushed", "→ branch-name").
           </li>
           <li>
             <strong>Copy a message</strong> — hover any message and click the copy button to grab
@@ -646,14 +653,17 @@
           as a new Mastra thread — truncated to just before that message — and opens as a new
           subchat tab over the same worktree. The original conversation continues unchanged, so you
           can explore an alternative direction without losing anything. (Rollback pills in the
-          forked transcript only cover messages sent after the fork.)
+          forked transcript only cover messages sent after the fork.) Forked tabs carry a small fork
+          icon, and their tooltip names the tab they were forked from.
         </p>
         <p>
-          <strong>Split view.</strong> The columns button at the right of the tab bar opens a second
-          chat pane beside the current one — pick any other chat in the project and both run side by
-          side (drag the divider to resize, or drag a chat from the sidebar onto either pane to show
-          it there). Useful for watching one agent work while briefing another. <kbd>Cmd+P</kbd> and
-          other global shortcuts stay with the left (primary) pane.
+          <strong>Split view.</strong> The columns button at the right of the tab bar adds extra
+          chat panes beside the current one — pick any other chat in the project (or drag one from
+          the sidebar onto a pane) and they run side by side, up to six columns.
+          <kbd>Cmd+\</kbd> adds a pane and <kbd>Cmd+Shift+\</kbd> closes the last one; each pane
+          also has its own add/close buttons and chat picker. Useful for watching one agent work
+          while briefing another. <kbd>Cmd+P</kbd> and other global shortcuts stay with the left
+          (primary) pane.
         </p>
 
         <nav class="docs-footer-nav" aria-label="Docs pages">

@@ -92,6 +92,11 @@
           are looking at the same files.
         </p>
         <p>
+          The <strong>+</strong> button in the tab strip opens extra sessions in other locations —
+          the project root or another chat's worktree — shown as tabs beside the default one.
+          Sessions keep running while you switch tabs; closing a tab ends its shell.
+        </p>
+        <p>
           Press <kbd>Cmd+F</kbd> while the terminal is focused to search its scrollback: a small
           overlay shows a match counter, <kbd>Enter</kbd> / <kbd>Shift+Enter</kbd> step through
           matches (highlighted in place), and <kbd>Esc</kbd> closes the search and returns focus to
@@ -104,6 +109,10 @@
           the worktree. Open multiple files as tabs and save with <kbd>Cmd+S</kbd>.
         </p>
         <ul>
+          <li>
+            <strong>Quick open</strong> — press <kbd>Cmd+O</kbd> anywhere in the app to fuzzy-search
+            every file in the worktree and open it straight in the IDE.
+          </li>
           <li>
             Every save is tracked per project/worktree and survives app restarts: each chat working
             on that root is told about your edit immediately — pushed into the run while its agent
