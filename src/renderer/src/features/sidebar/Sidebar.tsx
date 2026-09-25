@@ -117,13 +117,48 @@ export function Sidebar(): React.JSX.Element {
   const chats = trpc.chats.list.useQuery({ projectId: projectId ?? '' }, { enabled: !!projectId })
 
   const createChat = trpc.chats.create.useMutation({
-    onSuccess: (chat) => {
-      utils.chats.list.invalidate()
+    // Optimistic sidebar row: chat creation can take a moment (worktree
+    // setup), so a "creating…" placeholder appears immediately.
+    onMutate: async (vars) => {
+      await utils.chats.list.cancel({ projectId: vars.projectId })
+      const now = Date.now()
+      const tempId = `creating-${now}`
+      utils.chats.list.setData({ projectId: vars.projectId }, (old) => [
+        {
+          id: tempId,
+          projectId: vars.projectId,
+          title: vars.title,
+          worktreePath: null,
+          branch: null,
+          baseBranch: null,
+          status: 'creating',
+          archived: false,
+          sortOrder: null,
+          createdAt: now,
+          updatedAt: now
+        },
+        ...(old ?? [])
+      ])
+      return { tempId }
+    },
+    onError: (_err, vars, ctx) => {
+      // Roll back the placeholder; the dialog stays open showing the error.
+      utils.chats.list.setData({ projectId: vars.projectId }, (old) =>
+        old?.filter((c) => c.id !== ctx?.tempId)
+      )
+    },
+    onSuccess: (chat, vars, ctx) => {
+      // Swap the placeholder for the real row before the refetch lands
+      // (create's return has no sortOrder — new chats are never hand-ordered).
+      utils.chats.list.setData({ projectId: vars.projectId }, (old) =>
+        (old ?? []).map((c) => (c.id === ctx?.tempId ? { ...chat, sortOrder: null } : c))
+      )
       setChatId(chat.id)
       setSubchatId(chat.subchats[0]?.id ?? null)
       setNewChatOpen(false)
       setNewChatTitle('')
-    }
+    },
+    onSettled: () => utils.chats.list.invalidate()
   })
   const deleteChat = trpc.chats.delete.useMutation({
     onSuccess: () => utils.chats.list.invalidate()
@@ -306,7 +341,9 @@ export function Sidebar(): React.JSX.Element {
         {activeChats.map((c) => (
           <div
             key={c.id}
-            draggable
+            // The optimistic "creating…" placeholder (status 'creating') is
+            // inert: not selectable or draggable, no row actions.
+            draggable={c.status !== 'creating'}
             onDragStart={(e) => {
               e.dataTransfer.setData(CHAT_DRAG_TYPE, c.id)
               e.dataTransfer.effectAllowed = 'move'
@@ -317,7 +354,7 @@ export function Sidebar(): React.JSX.Element {
             }}
             onDragLeave={() => setChatDragOver(null)}
             onDrop={(e) => dropChat(e, c.id)}
-            onClick={() => selectChat(c.id)}
+            onClick={() => c.status !== 'creating' && selectChat(c.id)}
             className={cn(
               'group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5',
               'border-t-2 border-t-transparent',
@@ -328,53 +365,63 @@ export function Sidebar(): React.JSX.Element {
             <div className="min-w-0 flex-1">
               <div className="truncate text-[13px]">{c.title}</div>
               <div className="truncate text-[10px] text-muted-foreground font-mono">
-                {c.branch ?? 'no worktree'} · {timeAgo(c.updatedAt)}
+                {c.status === 'creating'
+                  ? 'creating…'
+                  : `${c.branch ?? 'no worktree'} · ${timeAgo(c.updatedAt)}`}
               </div>
             </div>
-            <ChatStatusIndicator
-              running={chatStatuses.get(c.id)?.running ?? false}
-              awaiting={chatStatuses.get(c.id)?.awaiting ?? false}
-              unseen={unseenChats.has(c.id)}
-            />
-            <Tip content="Rename this chat">
-              <button
-                className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  renameChat.reset() // don't show a stale error from a previous attempt
-                  setRenameTitle(c.title)
-                  setRenameTarget({ id: c.id, title: c.title })
-                }}
-              >
-                <Pencil size={12} />
-              </button>
-            </Tip>
-            <Tip content="Archive this chat — hides it from the list and board without deleting anything">
-              <button
-                className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (chatId === c.id) {
-                    setChatId(null)
-                    setSubchatId(null)
-                  }
-                  setArchived.mutate({ id: c.id, archived: true })
-                }}
-              >
-                <Archive size={12} />
-              </button>
-            </Tip>
-            <Tip content="Delete this chat and its worktree">
-              <button
-                className="hidden group-hover:block text-muted-foreground hover:text-destructive cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  confirmDeleteChat(c)
-                }}
-              >
-                <Trash2 size={12} />
-              </button>
-            </Tip>
+            {c.status === 'creating' ? (
+              <Loader2 size={12} className="shrink-0 animate-spin text-muted-foreground" />
+            ) : (
+              <ChatStatusIndicator
+                running={chatStatuses.get(c.id)?.running ?? false}
+                awaiting={chatStatuses.get(c.id)?.awaiting ?? false}
+                unseen={unseenChats.has(c.id)}
+              />
+            )}
+            {c.status !== 'creating' && (
+              <>
+                <Tip content="Rename this chat">
+                  <button
+                    className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      renameChat.reset() // don't show a stale error from a previous attempt
+                      setRenameTitle(c.title)
+                      setRenameTarget({ id: c.id, title: c.title })
+                    }}
+                  >
+                    <Pencil size={12} />
+                  </button>
+                </Tip>
+                <Tip content="Archive this chat — hides it from the list and board without deleting anything">
+                  <button
+                    className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (chatId === c.id) {
+                        setChatId(null)
+                        setSubchatId(null)
+                      }
+                      setArchived.mutate({ id: c.id, archived: true })
+                    }}
+                  >
+                    <Archive size={12} />
+                  </button>
+                </Tip>
+                <Tip content="Delete this chat and its worktree">
+                  <button
+                    className="hidden group-hover:block text-muted-foreground hover:text-destructive cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      confirmDeleteChat(c)
+                    }}
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </Tip>
+              </>
+            )}
           </div>
         ))}
         {projectId && activeChats.length === 0 && (
@@ -510,7 +557,13 @@ export function Sidebar(): React.JSX.Element {
               value={newChatTitle}
               onChange={(e) => setNewChatTitle(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && newChatTitle.trim() && projectId) {
+                // isPending guard: a rapid double-Enter must not create two chats.
+                if (
+                  e.key === 'Enter' &&
+                  newChatTitle.trim() &&
+                  projectId &&
+                  !createChat.isPending
+                ) {
                   createChat.mutate({
                     projectId,
                     title: newChatTitle.trim(),
