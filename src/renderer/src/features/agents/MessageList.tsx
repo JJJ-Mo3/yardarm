@@ -17,6 +17,8 @@ import { AskUserCard, AskUserAnswered } from './AskUserCard'
 import { PlanApprovalCard, PlanApprovalAnswered } from './PlanApprovalCard'
 import { SandboxAccessCard, SandboxAccessAnswered } from './SandboxAccessCard'
 import { computeForkEligible, computeRollbackEligible } from './rollback-eligibility'
+import { detectGitActivity } from './git-activity'
+import { GitActivityBadges } from './GitActivityBadges'
 import type {
   MessagePart,
   PendingSuspension,
@@ -273,6 +275,8 @@ const MessageItem = React.memo(function MessageItem({
   showFork?: boolean
   hiddenParts?: Set<string>
 } & SuspensionProps): React.JSX.Element {
+  // Hook must run before the user-branch early returns (cheap null for users).
+  const gitActivity = useMemo(() => detectGitActivity(message), [message])
   if (message.role === 'user') {
     const text = message.parts.map((p) => (p.type === 'text' ? p.text : '')).join('')
     // Marker sends (e.g. reviews) render as a compact muted line, not a bubble.
@@ -369,6 +373,7 @@ const MessageItem = React.memo(function MessageItem({
         <CopyMessageButton message={message} />
       </div>
       {blocks}
+      {gitActivity && <GitActivityBadges activity={gitActivity} />}
     </div>
   )
 })
