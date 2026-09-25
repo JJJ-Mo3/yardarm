@@ -59,6 +59,7 @@ import type {
   LspDiagnosticsResult,
   McpServerStatusInfo,
   ModelInfo,
+  OAuthAccountInfo,
   OAuthProviderInfo,
   OAuthStatusEvent,
   OmRuntimeInfo,
@@ -2128,6 +2129,16 @@ export class AgentSessionManager {
   async authList(): Promise<AuthEntry[]> {
     const handle = await this.ensureUtilityHost()
     return this.request<AuthEntry[]>(handle, { t: 'authList', reqId: randomUUID() })
+  }
+
+  /** OAuth accounts stored per provider (multi-account rotation / pack account preferences). */
+  async authAccounts(providers: string[]): Promise<Record<string, OAuthAccountInfo[]>> {
+    const handle = await this.ensureUtilityHost()
+    return this.request<Record<string, OAuthAccountInfo[]>>(handle, {
+      t: 'authAccounts',
+      reqId: randomUUID(),
+      providers
+    })
   }
 
   async authSet(provider: string, apiKey: string): Promise<void> {

@@ -121,6 +121,68 @@ export function setModeThinkingDefault(
   })
 }
 
+/**
+ * Set/clear a per-mode model override for a built-in pack
+ * (models.modePackOverrides[packId][mode]). The SDK layers these over the
+ * pack's defaults at pack-resolution time, so a restart is needed.
+ */
+export function setModePackOverride(
+  packId: string,
+  mode: string,
+  modelId: string | null
+): Promise<MastraSettings> {
+  return updateSettings((s) => {
+    const m = models(s)
+    const all = { ...(m.modePackOverrides ?? {}) }
+    const forPack = { ...(all[packId] ?? {}) }
+    if (modelId) forPack[mode] = modelId
+    else delete forPack[mode]
+    if (Object.keys(forPack).length > 0) all[packId] = forPack
+    else delete all[packId]
+    m.modePackOverrides = all
+  })
+}
+
+/**
+ * Set/clear a fallback pack (models.packFallbacks[packId]). The SDK reads it
+ * fresh on every request when the pack's provider is exhausted or down, so no
+ * restart is needed.
+ */
+export function setPackFallback(
+  packId: string,
+  fallbackPackId: string | null
+): Promise<MastraSettings> {
+  return updateSettings((s) => {
+    const m = models(s)
+    const map = { ...(m.packFallbacks ?? {}) }
+    if (fallbackPackId) map[packId] = fallbackPackId
+    else delete map[packId]
+    m.packFallbacks = map
+  })
+}
+
+/**
+ * Set/clear the preferred OAuth account for a pack + resolved model
+ * (models.packAccountPreferences[packId][modelId]). Read fresh per request by
+ * the SDK's account rotation, so no restart is needed.
+ */
+export function setPackAccountPreference(
+  packId: string,
+  modelId: string,
+  accountId: string | null
+): Promise<MastraSettings> {
+  return updateSettings((s) => {
+    const m = models(s)
+    const all = { ...(m.packAccountPreferences ?? {}) }
+    const forPack = { ...(all[packId] ?? {}) }
+    if (accountId) forPack[modelId] = accountId
+    else delete forPack[modelId]
+    if (Object.keys(forPack).length > 0) all[packId] = forPack
+    else delete all[packId]
+    m.packAccountPreferences = all
+  })
+}
+
 export function setSubagentModel(
   agentType: string,
   modelId: string | null

@@ -45,6 +45,16 @@ export type OllamaInstallStatus = 'running' | 'installed' | 'not-installed'
 export interface MastraModelsSettings {
   /** Active model pack id; cleared when a mode default is set manually. */
   activeModelPackId?: string | null
+  /** Per-mode model overrides layered over a built-in pack's defaults, keyed by pack id. */
+  modePackOverrides?: Record<string, Record<string, string>>
+  /**
+   * Fallback pack per pack id (built-in ids and "custom:<name>" allowed).
+   * When every account for a pack's provider is exhausted or the provider is
+   * persistently down, the turn hops to the fallback pack's model.
+   */
+  packFallbacks?: Record<string, string>
+  /** Preferred OAuth account by pack id and resolved model id. */
+  packAccountPreferences?: Record<string, Record<string, string>>
   /** Explicit per-mode model overrides, e.g. { build: 'anthropic/claude-...' } */
   modeDefaults?: Record<string, string>
   /** Per-mode thinking-level defaults, e.g. { plan: 'high' }; session /think overrides win. */

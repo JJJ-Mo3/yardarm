@@ -63,6 +63,17 @@ export function ModelsTab(): React.JSX.Element {
   const setModeThinking = trpc.mastraSettings.setModeThinkingDefault.useMutation({
     onSuccess: () => utils.mastraSettings.get.invalidate()
   })
+  // Pack overrides feed boot-time pack resolution — restart needed.
+  const setModePackOverride = trpc.mastraSettings.setModePackOverride.useMutation({
+    onSuccess: onSaved
+  })
+  // Fallbacks and account preferences are read fresh per request — no restart.
+  const setPackFallback = trpc.mastraSettings.setPackFallback.useMutation({
+    onSuccess: () => utils.mastraSettings.get.invalidate()
+  })
+  const setPackAccountPreference = trpc.mastraSettings.setPackAccountPreference.useMutation({
+    onSuccess: () => utils.mastraSettings.get.invalidate()
+  })
   const setSubagentModel = trpc.mastraSettings.setSubagentModel.useMutation({ onSuccess: onSaved })
   const setGoalDefaults = trpc.mastraSettings.setGoalDefaults.useMutation({ onSuccess: onSaved })
   const setOmDefaults = trpc.mastraSettings.setOmDefaults.useMutation({ onSuccess: onSaved })
@@ -99,10 +110,33 @@ export function ModelsTab(): React.JSX.Element {
   const activeOmPack = omPacks.find((p) => p.id === m.activeOmPackId)
   const omDefault = activeOmPack?.modelId ?? m.omModelOverride ?? null
 
+  // Pack tuning: the SDK layers modePackOverrides over BUILT-IN packs only —
+  // custom packs resolve their saved models directly.
+  const activePackId = m.activeModelPackId ?? null
+  const isBuiltinPack = !!activePackId && !activePackId.startsWith('custom')
+  const resolvedPackModels: Record<string, string> = activePack
+    ? isBuiltinPack && activePackId
+      ? { ...activePack.models, ...(m.modePackOverrides?.[activePackId] ?? {}) }
+      : activePack.models
+    : {}
+  const packModelIds = [...new Set(Object.values(resolvedPackModels))]
+  const packProviders = [...new Set(packModelIds.map((id) => id.split('/')[0]))]
+  const oauthAccounts = trpc.mastraSettings.oauthAccounts.useQuery(
+    { providers: packProviders },
+    { enabled: packProviders.length > 0, staleTime: 60_000 }
+  )
+  // Account preferences only matter when a provider has 2+ stored OAuth accounts.
+  const multiAccountModelIds = packModelIds.filter(
+    (id) => (oauthAccounts.data?.[id.split('/')[0]]?.length ?? 0) > 1
+  )
+
   const error =
     settings.error ??
     setModeDefault.error ??
     setModeThinking.error ??
+    setModePackOverride.error ??
+    setPackFallback.error ??
+    setPackAccountPreference.error ??
     setSubagentModel.error ??
     setGoalDefaults.error ??
     setOmDefaults.error ??
@@ -224,6 +258,110 @@ export function ModelsTab(): React.JSX.Element {
           ))}
         </div>
       </div>
+
+      {/* Pack tuning: per-mode overrides, fallback pack, account preferences */}
+      {activePackId && activePack && (
+        <div>
+          <div className="mb-1.5 text-xs font-medium">Pack tuning</div>
+          <div className="space-y-3">
+            {isBuiltinPack && (
+              <div>
+                <div className="mb-1.5 text-[11px] text-muted-foreground">
+                  Per-mode overrides layered over this pack&apos;s defaults (applied when agents
+                  restart).
+                </div>
+                <div className="space-y-1.5">
+                  {MODES.map((mode) => (
+                    <div key={mode} className="flex items-center gap-2">
+                      <span className="w-16 text-[11px] capitalize text-muted-foreground">
+                        {mode}
+                      </span>
+                      <ModelSelect
+                        value={m.modePackOverrides?.[activePackId]?.[mode] ?? ''}
+                        onChange={(v) =>
+                          setModePackOverride.mutate({
+                            packId: activePackId,
+                            mode,
+                            modelId: v || null
+                          })
+                        }
+                        models={modelList}
+                        placeholder={`(pack: ${activePack.models[mode] ?? 'unset'})`}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <span className="w-16 text-[11px] text-muted-foreground">Fallback</span>
+              <Tip content="Pack to hop to when this pack's provider is exhausted or down — applies to new requests immediately (no restart)">
+                <select
+                  value={m.packFallbacks?.[activePackId] ?? ''}
+                  onChange={(e) =>
+                    setPackFallback.mutate({
+                      packId: activePackId,
+                      fallbackPackId: e.target.value || null
+                    })
+                  }
+                  className="h-7 w-full min-w-0 rounded-md border border-border bg-background px-2 text-[11px]"
+                >
+                  <option value="">(none)</option>
+                  {modePacks
+                    .filter((p) => p.id !== activePackId)
+                    .map((p) => (
+                      <option key={p.id} value={p.id} title={p.description}>
+                        {p.name}
+                      </option>
+                    ))}
+                </select>
+              </Tip>
+            </div>
+            {multiAccountModelIds.length > 0 && (
+              <div>
+                <div className="mb-1.5 text-[11px] text-muted-foreground">
+                  Preferred account per model — shown because a provider has multiple logins.
+                  Applies to new requests immediately (no restart).
+                </div>
+                <div className="space-y-1.5">
+                  {multiAccountModelIds.map((modelId) => (
+                    <div key={modelId} className="flex items-center gap-2">
+                      <span
+                        className="w-40 shrink-0 truncate text-[11px] text-muted-foreground"
+                        title={modelId}
+                      >
+                        {modelId}
+                      </span>
+                      <Tip
+                        content={`Preferred OAuth account when this pack resolves to ${modelId}`}
+                      >
+                        <select
+                          value={m.packAccountPreferences?.[activePackId]?.[modelId] ?? ''}
+                          onChange={(e) =>
+                            setPackAccountPreference.mutate({
+                              packId: activePackId,
+                              modelId,
+                              accountId: e.target.value || null
+                            })
+                          }
+                          className="h-7 w-full min-w-0 rounded-md border border-border bg-background px-2 text-[11px]"
+                        >
+                          <option value="">(active account)</option>
+                          {(oauthAccounts.data?.[modelId.split('/')[0]] ?? []).map((a) => (
+                            <option key={a.id} value={a.id}>
+                              {a.label}
+                            </option>
+                          ))}
+                        </select>
+                      </Tip>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Per-mode defaults */}
       <div>

@@ -19,10 +19,13 @@ import {
   setLocalTracing,
   setMcpDiscovery,
   setModeDefault,
+  setModePackOverride,
   setModeThinkingDefault,
   setObservabilityResource,
   setOmDefaults,
   setOmPack,
+  setPackAccountPreference,
+  setPackFallback,
   setPreferences,
   setSubagentModel,
   setVoiceSettings,
@@ -56,6 +59,47 @@ export const mastraSettingsRouter = router({
       await setModeThinkingDefault(input.mode, input.level)
       return { needsRestart: false as const }
     }),
+
+  /** Per-mode model override layered over a built-in pack's defaults (pack-resolution time). */
+  setModePackOverride: publicProcedure
+    .input(
+      z.object({
+        packId: z.string().min(1),
+        mode: z.string().min(1),
+        modelId: z.string().nullable()
+      })
+    )
+    .mutation(async ({ input }) => {
+      await setModePackOverride(input.packId, input.mode, input.modelId)
+      return NEEDS_RESTART
+    }),
+
+  /** Fallback pack when a pack's provider is exhausted/down; read fresh per request. */
+  setPackFallback: publicProcedure
+    .input(z.object({ packId: z.string().min(1), fallbackPackId: z.string().nullable() }))
+    .mutation(async ({ input }) => {
+      await setPackFallback(input.packId, input.fallbackPackId)
+      return { needsRestart: false as const }
+    }),
+
+  /** Preferred OAuth account per pack + resolved model; read fresh per request. */
+  setPackAccountPreference: publicProcedure
+    .input(
+      z.object({
+        packId: z.string().min(1),
+        modelId: z.string().min(1),
+        accountId: z.string().nullable()
+      })
+    )
+    .mutation(async ({ input }) => {
+      await setPackAccountPreference(input.packId, input.modelId, input.accountId)
+      return { needsRestart: false as const }
+    }),
+
+  /** OAuth accounts stored per provider (only meaningful with multiple accounts). */
+  oauthAccounts: publicProcedure
+    .input(z.object({ providers: z.array(z.string().min(1)) }))
+    .query(({ input }) => agentSessionManager.authAccounts(input.providers)),
 
   setSubagentModel: publicProcedure
     .input(z.object({ agentType: z.string().min(1), modelId: z.string().nullable() }))

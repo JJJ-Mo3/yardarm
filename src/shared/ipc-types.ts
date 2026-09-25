@@ -159,6 +159,8 @@ export type HostCommand =
       model?: string
     }
   | { t: 'authList'; reqId: string }
+  /** OAuth accounts stored for each given provider (multi-account rotation). */
+  | { t: 'authAccounts'; reqId: string; providers: string[] }
   | { t: 'authSet'; reqId: string; provider: string; key: string }
   | { t: 'authRemove'; reqId: string; provider: string }
   /** Credentials changed elsewhere — re-read auth.json and drop model caches. */
@@ -279,6 +281,13 @@ export interface ModelInfo {
 export interface AuthEntry {
   provider: string
   hasKey: boolean
+}
+
+/** One stored OAuth account for a provider (SDK auth.json multi-account registry). */
+export interface OAuthAccountInfo {
+  id: string
+  label: string
+  active: boolean
 }
 
 /**

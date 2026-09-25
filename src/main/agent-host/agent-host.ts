@@ -2334,6 +2334,23 @@ async function main(): Promise<void> {
               }))
             })
             break
+          case 'authAccounts':
+            await respond(cmd.reqId, async () => {
+              // Pick up accounts added by other hosts / the mastracode CLI.
+              authStorage.reload()
+              const out: Record<string, { id: string; label: string; active: boolean }[]> = {}
+              for (const provider of cmd.providers) {
+                // Optional call: the multi-account registry is a soft SDK surface.
+                const accounts = authStorage.listAccounts?.(provider) ?? []
+                out[provider] = accounts.map((a) => ({
+                  id: a.id,
+                  label: a.label,
+                  active: a.active
+                }))
+              }
+              return out
+            })
+            break
           case 'authSet':
             await respond(cmd.reqId, async () => {
               authStorage.reload()
