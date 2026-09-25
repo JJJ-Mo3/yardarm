@@ -33,13 +33,12 @@ export const newChatOpenAtom = atom(false)
 export const addProjectOpenAtom = atom<false | 'local' | 'clone'>(false)
 /** Threads popover in the active ChatView (also opened by Cmd+P). */
 export const threadsOpenAtom = atom(false)
-/** Split view: a second, independent chat pane on the right of the Chat tab. */
-export const splitOpenAtom = atom(false)
-/** Chat/subchat shown in the split pane (ephemeral — cleared on project switch). */
-export const splitChatIdAtom = atom<string | null>(null)
-export const splitSubchatIdAtom = atom<string | null>(null)
-/** Split divider position: the primary pane's width fraction (clamped 0.25–0.75 on use). */
-export const splitRatioAtom = atomWithStorage<number>('cz.splitRatio', 0.5)
+/** One extra split chat pane's selection (ephemeral — cleared on project switch). */
+export type SplitPaneSel = { key: string; chatId: string | null; subchatId: string | null }
+/** Extra panes beyond the primary one — 6 side-by-side chats max. */
+export const MAX_SPLIT_PANES = 5
+/** Split view: extra, independent chat panes to the right of the primary Chat pane. */
+export const splitPanesAtom = atom<SplitPaneSel[]>([])
 export type ProjectSettingsTab =
   'general' | 'hooks' | 'commands' | 'instructions' | 'resource' | 'plugins' | 'workflows'
 export const projectSettingsOpenAtom = atom(false)

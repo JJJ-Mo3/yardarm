@@ -8,6 +8,8 @@
  *   Cmd+O     quick file open
  *   Cmd+P     thread switcher
  *   Cmd+J     toggle terminal tab
+ *   Cmd+\     add a split chat pane
+ *   Cmd+Shift+\  close the last split chat pane
  *   Cmd+1–9   main tabs in visual order (chat / CLI / IDE / changes / terminal / kanban / analytics / preview / guide)
  *   Cmd+,     settings
  */
@@ -16,9 +18,11 @@ import { useSetAtom } from 'jotai'
 import {
   commandPaletteOpenAtom,
   mainTabAtom,
+  MAX_SPLIT_PANES,
   newChatOpenAtom,
   quickOpenAtom,
   settingsOpenAtom,
+  splitPanesAtom,
   threadsOpenAtom,
   type MainTab
 } from './atoms'
@@ -51,11 +55,28 @@ export function useAppShortcuts(): void {
   const setThreadsOpen = useSetAtom(threadsOpenAtom)
   const setPaletteOpen = useSetAtom(commandPaletteOpenAtom)
   const setQuickOpen = useSetAtom(quickOpenAtom)
+  const setSplitPanes = useSetAtom(splitPanesAtom)
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent): void => {
       const mod = e.metaKey || e.ctrlKey
-      if (!mod || e.altKey || e.shiftKey) return
+      if (!mod || e.altKey) return
+      // Backslash first: with Shift held, e.key may report '|' on US layouts.
+      if (e.key === '\\' || e.key === '|' || e.code === 'Backslash') {
+        e.preventDefault()
+        if (e.shiftKey) {
+          setSplitPanes((panes) => panes.slice(0, -1))
+        } else {
+          setSplitPanes((panes) =>
+            panes.length >= MAX_SPLIT_PANES
+              ? panes
+              : [...panes, { key: crypto.randomUUID(), chatId: null, subchatId: null }]
+          )
+          setTab('chat')
+        }
+        return
+      }
+      if (e.shiftKey) return
       switch (e.key) {
         case 'n':
           e.preventDefault()
@@ -99,5 +120,13 @@ export function useAppShortcuts(): void {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [setTab, setSettingsOpen, setNewChatOpen, setThreadsOpen, setPaletteOpen, setQuickOpen])
+  }, [
+    setTab,
+    setSettingsOpen,
+    setNewChatOpen,
+    setThreadsOpen,
+    setPaletteOpen,
+    setQuickOpen,
+    setSplitPanes
+  ])
 }

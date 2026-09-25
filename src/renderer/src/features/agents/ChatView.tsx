@@ -26,7 +26,6 @@ import {
   selectedSubchatIdAtom,
   settingsOpenAtom,
   settingsTabAtom,
-  splitSubchatIdAtom,
   threadsOpenAtom,
   type ProjectSettingsTab,
   type SettingsTab
@@ -95,18 +94,21 @@ export function ChatView({
   subchatId,
   projectRoot,
   baseBranch,
-  primary = true
+  primary = true,
+  onForkSubchat
 }: {
   subchatId: string
   projectRoot: string | null
   /** The chat worktree's base branch, if known (feeds the review picker). */
   baseBranch: string | null
   /**
-   * False for the right-hand split pane: global-overlay UI (threads popover,
+   * False for the right-hand split panes: global-overlay UI (threads popover,
    * help dialog — driven by app-wide atoms and Cmd+P) stays with the primary
-   * pane so the split pane never hijacks those shortcuts.
+   * pane so split panes never hijack those shortcuts.
    */
   primary?: boolean
+  /** Non-primary panes: switch this pane's selection to a forked subchat. */
+  onForkSubchat?: (subchatId: string) => void
 }): React.JSX.Element {
   const state = useAgentStream(subchatId)
   const debug = useAtomValue(debugEventsAtom)
@@ -174,14 +176,13 @@ export function ChatView({
   // Fork-from-message: the mutation clones the Mastra thread into a new
   // subchat of the same chat; switch this pane's selection to the fork.
   const setSelectedSubchatId = useSetAtom(selectedSubchatIdAtom)
-  const setSplitSubchatId = useSetAtom(splitSubchatIdAtom)
   const fork = trpc.chats.fork.useMutation({
     onSuccess: async (res) => {
       // Refetch before switching panes: the split pane resets selections it
       // can't find in chat.data, so the fork must be in the lists first.
       await utils.invalidate()
       if (primary) setSelectedSubchatId(res.subchatId)
-      else setSplitSubchatId(res.subchatId)
+      else onForkSubchat?.(res.subchatId)
     }
   })
 

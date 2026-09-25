@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   ChartColumn,
@@ -19,14 +19,12 @@ import { cn } from './lib/utils'
 import {
   addProjectOpenAtom,
   mainTabAtom,
+  MAX_SPLIT_PANES,
   onboardingForceOpenAtom,
   selectedChatIdAtom,
   selectedProjectIdAtom,
   selectedSubchatIdAtom,
-  splitChatIdAtom,
-  splitOpenAtom,
-  splitRatioAtom,
-  splitSubchatIdAtom,
+  splitPanesAtom,
   themeAtom,
   type MainTab
 } from './lib/atoms'
@@ -40,7 +38,6 @@ import { OnboardingWizard } from './features/onboarding/OnboardingWizard'
 import { ChatView } from './features/agents/ChatView'
 import { CommandPalette } from './features/agents/CommandPalette'
 import { SplitChatPane } from './features/agents/SplitChatPane'
-import { SplitDivider } from './components/SplitDivider'
 import { useChatStatusTracker } from './features/agents/use-chat-status-tracker'
 import { useNotificationFocus } from './features/agents/use-notification-focus'
 import { ChangesView } from './features/changes/ChangesView'
@@ -142,25 +139,21 @@ export default function App(): React.JSX.Element {
   const setSubchatId = useSetAtom(selectedSubchatIdAtom)
   const [tab, setTab] = useAtom(mainTabAtom)
   const [forceOnboarding, setForceOnboarding] = useAtom(onboardingForceOpenAtom)
-  const [splitOpen, setSplitOpen] = useAtom(splitOpenAtom)
-  const setSplitChatId = useSetAtom(splitChatIdAtom)
-  const setSplitSubchatId = useSetAtom(splitSubchatIdAtom)
-  const [splitRatio, setSplitRatio] = useAtom(splitRatioAtom)
-  const splitContainerRef = useRef<HTMLDivElement>(null)
+  const [splitPanes, setSplitPanes] = useAtom(splitPanesAtom)
   const selectChat = useSelectChat()
   // Sidebar chat rows dropped on the primary pane open there.
   const [primaryDragOver, setPrimaryDragOver] = useState(false)
-  const closeSplit = (): void => {
-    setSplitOpen(false)
-    setSplitChatId(null)
-    setSplitSubchatId(null)
+  const addSplitPane = (): void => {
+    setSplitPanes((panes) =>
+      panes.length >= MAX_SPLIT_PANES
+        ? panes
+        : [...panes, { key: crypto.randomUUID(), chatId: null, subchatId: null }]
+    )
   }
-  // The split selection is project-scoped — clear it when the project changes.
+  // Split selections are project-scoped — clear them when the project changes.
   useEffect(() => {
-    setSplitOpen(false)
-    setSplitChatId(null)
-    setSplitSubchatId(null)
-  }, [projectId, setSplitOpen, setSplitChatId, setSplitSubchatId])
+    setSplitPanes([])
+  }, [projectId, setSplitPanes])
 
   const projects = trpc.projects.list.useQuery()
   const chat = trpc.chats.get.useQuery({ id: chatId ?? '' }, { enabled: !!chatId })
@@ -175,8 +168,7 @@ export default function App(): React.JSX.Element {
 
   const project = (projects.data ?? []).find((p) => p.id === projectId) ?? null
   const cwd = chat.data?.worktreePath ?? project?.path ?? null
-  const showSplit = splitOpen && !!projectId && !!chatId && !!subchatId
-  const splitPct = Math.min(0.75, Math.max(0.25, splitRatio)) * 100
+  const showSplit = splitPanes.length > 0 && !!projectId && !!chatId && !!subchatId
 
   // Hard gate: the app is useless if the bundled runtime can't boot. Covers
   // both a failed preflight result and the query itself erroring.
@@ -227,23 +219,28 @@ export default function App(): React.JSX.Element {
             {tab === 'chat' && chatId && (
               <Tip
                 content={
-                  splitOpen
-                    ? 'Close the split pane'
-                    : 'Split the chat view — show a second chat of this project side by side'
+                  splitPanes.length >= MAX_SPLIT_PANES
+                    ? 'Pane limit reached (6 side by side)'
+                    : `Add a split chat pane — show more chats of this project side by side (${modLabel('\\')})`
                 }
                 side="bottom"
               >
-                <button
-                  onClick={() => (splitOpen ? closeSplit() : setSplitOpen(true))}
-                  className={cn(
-                    'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs cursor-pointer',
-                    splitOpen
-                      ? 'bg-accent font-medium'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  <Columns2 size={13} />
-                </button>
+                <span className="inline-flex">
+                  <button
+                    onClick={addSplitPane}
+                    disabled={splitPanes.length >= MAX_SPLIT_PANES}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs',
+                      splitPanes.length >= MAX_SPLIT_PANES
+                        ? 'text-muted-foreground opacity-50'
+                        : splitPanes.length > 0
+                          ? 'bg-accent font-medium cursor-pointer'
+                          : 'text-muted-foreground hover:text-foreground cursor-pointer'
+                    )}
+                  >
+                    <Columns2 size={13} />
+                  </button>
+                </span>
               </Tip>
             )}
             <Tip
@@ -299,18 +296,13 @@ export default function App(): React.JSX.Element {
               {/* Chat tab — kept mounted (hidden) so the stream state survives
                   tab switches; both split panes live inside so their streams
                   survive too. */}
-              <div
-                ref={splitContainerRef}
-                className={cn('flex h-full', tab !== 'chat' && 'hidden')}
-              >
+              <div className={cn('flex h-full divide-x divide-border', tab !== 'chat' && 'hidden')}>
                 <div
                   className={cn(
-                    'flex h-full min-w-0 flex-col',
-                    showSplit && 'shrink-0',
+                    'flex h-full min-w-0 flex-1 flex-col',
                     primaryDragOver &&
                       'outline-1 -outline-offset-1 outline-dashed outline-sky-500/50'
                   )}
-                  style={{ width: showSplit ? `${splitPct}%` : '100%' }}
                   onDragOver={(e) => {
                     if (!e.dataTransfer.types.includes(CHAT_DRAG_TYPE)) return
                     e.preventDefault()
@@ -370,17 +362,27 @@ export default function App(): React.JSX.Element {
                     </div>
                   )}
                 </div>
-                {showSplit && projectId && (
-                  <>
-                    <SplitDivider containerRef={splitContainerRef} onRatio={setSplitRatio} />
+                {showSplit &&
+                  projectId &&
+                  splitPanes.map((pane) => (
                     <SplitChatPane
+                      key={pane.key}
+                      pane={pane}
                       projectId={projectId}
                       projectPath={project?.path ?? null}
-                      primaryChatId={chatId}
-                      onClose={closeSplit}
+                      excludeChatIds={[
+                        chatId,
+                        ...splitPanes.filter((p) => p.key !== pane.key).map((p) => p.chatId)
+                      ].filter((id): id is string => !!id)}
+                      onChange={(next) =>
+                        setSplitPanes((panes) => panes.map((p) => (p.key === pane.key ? next : p)))
+                      }
+                      onClose={() =>
+                        setSplitPanes((panes) => panes.filter((p) => p.key !== pane.key))
+                      }
+                      onAdd={splitPanes.length < MAX_SPLIT_PANES ? addSplitPane : null}
                     />
-                  </>
-                )}
+                  ))}
               </div>
               {/* Changes / Terminal / Files work at the project level too: they
                   use the chat's worktree when one is open, else the project root. */}

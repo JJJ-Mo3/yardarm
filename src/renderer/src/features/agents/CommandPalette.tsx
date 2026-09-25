@@ -9,6 +9,7 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   BookOpen,
   ChartColumn,
+  Columns2,
   FileCode2,
   FileSearch,
   GitCompare,
@@ -25,16 +26,18 @@ import { trpc } from '../../lib/trpc'
 import {
   commandPaletteOpenAtom,
   mainTabAtom,
+  MAX_SPLIT_PANES,
   quickOpenAtom,
   selectedChatIdAtom,
   selectedProjectIdAtom,
   selectedSubchatIdAtom,
   settingsOpenAtom,
   settingsTabAtom,
+  splitPanesAtom,
   type MainTab,
   type SettingsTab
 } from '../../lib/atoms'
-import { modLabel } from '../../lib/shortcuts'
+import { isMac, modLabel } from '../../lib/shortcuts'
 import { useSelectChat } from '../../lib/use-select-chat'
 import { CommandDialog, type CommandAction } from '../../components/ui/command'
 import { paletteDispatchAtom, useSlashCommands } from './slash-commands'
@@ -75,6 +78,7 @@ export function CommandPalette(): React.JSX.Element {
   const projectId = useAtomValue(selectedProjectIdAtom)
   const setTab = useSetAtom(mainTabAtom)
   const setQuickOpen = useSetAtom(quickOpenAtom)
+  const setSplitPanes = useSetAtom(splitPanesAtom)
   const setSettingsOpen = useSetAtom(settingsOpenAtom)
   const setSettingsTab = useSetAtom(settingsTabAtom)
   const selectChat = useSelectChat()
@@ -124,6 +128,29 @@ export function CommandPalette(): React.JSX.Element {
       detail: modLabel('O'),
       onSelect: () => setQuickOpen(true)
     })
+    list.push({
+      id: 'split-add',
+      group: 'Go to',
+      label: 'Add split chat pane',
+      icon: <Columns2 size={13} />,
+      detail: modLabel('\\'),
+      onSelect: () => {
+        setSplitPanes((panes) =>
+          panes.length >= MAX_SPLIT_PANES
+            ? panes
+            : [...panes, { key: crypto.randomUUID(), chatId: null, subchatId: null }]
+        )
+        setTab('chat')
+      }
+    })
+    list.push({
+      id: 'split-close',
+      group: 'Go to',
+      label: 'Close last split pane',
+      icon: <Columns2 size={13} />,
+      detail: isMac ? '⇧⌘\\' : 'Ctrl+Shift+\\',
+      onSelect: () => setSplitPanes((panes) => panes.slice(0, -1))
+    })
     for (const s of SETTINGS_SECTIONS) {
       list.push({
         id: `settings:${s.id}`,
@@ -158,6 +185,7 @@ export function CommandPalette(): React.JSX.Element {
     chatId,
     setTab,
     setQuickOpen,
+    setSplitPanes,
     setSettingsTab,
     setSettingsOpen,
     selectChat
