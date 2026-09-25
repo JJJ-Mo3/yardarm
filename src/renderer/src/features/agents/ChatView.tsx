@@ -54,6 +54,7 @@ import { QueuedPrompts } from './QueuedPrompts'
 import { HelpDialog } from './HelpDialog'
 import { CostPopover } from './CostPopover'
 import { ContextPopover } from './ContextPopover'
+import { McpQuickPopover } from './McpQuickPopover'
 import { GithubPrPopover } from './GithubPrPopover'
 import { CheckpointsPopover } from './CheckpointsPopover'
 import { OpenLocallyMenu } from './OpenLocallyMenu'
@@ -256,6 +257,7 @@ export function ChatView({
   const updatesCheck = trpc.updates.check.useMutation()
   const [costOpen, setCostOpen] = useState(false)
   const [contextOpen, setContextOpen] = useState(false)
+  const [mcpQuickOpen, setMcpQuickOpen] = useState(false)
   const [githubPrOpen, setGithubPrOpen] = useState(false)
   const [checkpointsOpen, setCheckpointsOpen] = useState(false)
   const [threadsOpen, setThreadsOpen] = useAtom(threadsOpenAtom)
@@ -817,7 +819,7 @@ export function ChatView({
               button so they also open here via slash commands. */}
           <Popover open={moreOpen} onOpenChange={setMoreOpen}>
             <Tip
-              content="More tools — code review, memory, PR subscriptions, open folder, export, context audit"
+              content="More tools — code review, memory, PR subscriptions, MCP servers, open folder, export, context audit"
               side="bottom"
             >
               <PopoverTrigger asChild>
@@ -870,6 +872,18 @@ export function ChatView({
                 >
                   <GitPullRequest size={12} className="shrink-0 text-muted-foreground" />
                   PR subscriptions
+                </button>
+              </Tip>
+              <Tip
+                content="This chat's MCP servers — live status and quick enable/disable per server"
+                side="left"
+              >
+                <button
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] hover:bg-secondary cursor-pointer"
+                  onClick={() => openFromMore(() => setMcpQuickOpen(true))}
+                >
+                  <Server size={12} className="shrink-0 text-muted-foreground" />
+                  MCP servers
                 </button>
               </Tip>
               {canOpenLocally && (
@@ -947,6 +961,12 @@ export function ChatView({
             subchatId={subchatId}
             open={contextOpen}
             onOpenChange={setContextOpen}
+            anchorRef={moreBtnRef}
+          />
+          <McpQuickPopover
+            subchatId={subchatId}
+            open={mcpQuickOpen}
+            onOpenChange={setMcpQuickOpen}
             anchorRef={moreBtnRef}
           />
           <Badge>{state.status}</Badge>
