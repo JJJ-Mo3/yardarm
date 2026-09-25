@@ -19,6 +19,7 @@ import {
   setLocalTracing,
   setMcpDiscovery,
   setModeDefault,
+  setModeThinkingDefault,
   setObservabilityResource,
   setOmDefaults,
   setOmPack,
@@ -28,6 +29,7 @@ import {
   skipOnboarding,
   upsertCustomProvider
 } from '../../mastra-config/settings-json'
+import { THINKING_LEVELS } from '../../../../shared/mastra-settings'
 import { ollamaInstallStatus, startOllama } from '../../mastra-config/local-server'
 import { cancelPull, getPull, startPull } from '../../mastra-config/ollama-pull'
 import { probeOpenAiCompatible } from '../../mastra-config/probe-provider'
@@ -45,6 +47,14 @@ export const mastraSettingsRouter = router({
     .mutation(async ({ input }) => {
       await setModeDefault(input.mode, input.modelId)
       return NEEDS_RESTART
+    }),
+
+  /** Per-mode thinking default; the SDK reads it fresh each request, so no restart needed. */
+  setModeThinkingDefault: publicProcedure
+    .input(z.object({ mode: z.string().min(1), level: z.enum(THINKING_LEVELS).nullable() }))
+    .mutation(async ({ input }) => {
+      await setModeThinkingDefault(input.mode, input.level)
+      return { needsRestart: false as const }
     }),
 
   setSubagentModel: publicProcedure

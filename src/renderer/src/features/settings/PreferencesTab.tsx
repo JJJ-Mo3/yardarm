@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import { THINKING_LEVELS } from '../../../../shared/mastra-settings'
 import { trpc } from '../../lib/trpc'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -9,7 +10,6 @@ import { PruneStorageDialog } from './PruneStorageDialog'
 import { useRestartBanner } from './restart-banner'
 
 const THEMES = ['auto', 'dark', 'light'] as const
-const THINKING_LEVELS = ['off', 'low', 'medium', 'high', 'xhigh', 'max'] as const
 const WEB_SEARCH_PROVIDERS = ['auto', 'tavily', 'parallel'] as const
 
 /**

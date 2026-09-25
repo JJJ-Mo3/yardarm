@@ -4,6 +4,10 @@
  * written by the CLI are preserved on read-modify-write.
  */
 
+/** The SDK's ThinkingLevelSetting values (dist/thinking.d.ts), lowest to highest. */
+export const THINKING_LEVELS = ['off', 'low', 'medium', 'high', 'xhigh', 'max'] as const
+export type ThinkingLevel = (typeof THINKING_LEVELS)[number]
+
 export interface CustomProviderSetting {
   name: string
   url: string

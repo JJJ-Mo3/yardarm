@@ -102,6 +102,25 @@ export function setModeDefault(mode: string, modelId: string | null): Promise<Ma
   })
 }
 
+/**
+ * Set a per-mode thinking-level default (models.modeThinkingDefaults). Unlike
+ * setModeDefault this does NOT clear the active pack — thinking level is
+ * orthogonal to model choice. The SDK resolves it fresh on every request
+ * (session override → mode default → global preference), so no restart.
+ */
+export function setModeThinkingDefault(
+  mode: string,
+  level: string | null
+): Promise<MastraSettings> {
+  return updateSettings((s) => {
+    const m = models(s)
+    const defaults = { ...(m.modeThinkingDefaults ?? {}) }
+    if (level) defaults[mode] = level
+    else delete defaults[mode]
+    m.modeThinkingDefaults = defaults
+  })
+}
+
 export function setSubagentModel(
   agentType: string,
   modelId: string | null

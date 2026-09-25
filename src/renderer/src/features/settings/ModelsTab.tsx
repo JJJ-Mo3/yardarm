@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useSetAtom } from 'jotai'
 import { KeyRound, Trash2 } from 'lucide-react'
+import { THINKING_LEVELS, type ThinkingLevel } from '../../../../shared/mastra-settings'
 import { trpc } from '../../lib/trpc'
 import { settingsTabAtom } from '../../lib/atoms'
 import { Button } from '../../components/ui/button'
@@ -58,6 +59,10 @@ export function ModelsTab(): React.JSX.Element {
     utils.mastraSettings.listPacks.invalidate()
   }
   const setModeDefault = trpc.mastraSettings.setModeDefault.useMutation({ onSuccess: onSaved })
+  // Thinking defaults are resolved fresh by the SDK on every request — no restart needed.
+  const setModeThinking = trpc.mastraSettings.setModeThinkingDefault.useMutation({
+    onSuccess: () => utils.mastraSettings.get.invalidate()
+  })
   const setSubagentModel = trpc.mastraSettings.setSubagentModel.useMutation({ onSuccess: onSaved })
   const setGoalDefaults = trpc.mastraSettings.setGoalDefaults.useMutation({ onSuccess: onSaved })
   const setOmDefaults = trpc.mastraSettings.setOmDefaults.useMutation({ onSuccess: onSaved })
@@ -97,6 +102,7 @@ export function ModelsTab(): React.JSX.Element {
   const error =
     settings.error ??
     setModeDefault.error ??
+    setModeThinking.error ??
     setSubagentModel.error ??
     setGoalDefaults.error ??
     setOmDefaults.error ??
@@ -238,6 +244,43 @@ export function ModelsTab(): React.JSX.Element {
                 models={modelList}
                 placeholder={`(default: ${modeDefaultFor(mode)})`}
               />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Per-mode thinking defaults */}
+      <div>
+        <div className="mb-1.5 text-xs font-medium">Default thinking per mode</div>
+        <div className="mb-1.5 text-[11px] text-muted-foreground">
+          Applies to new requests immediately (no restart). A chat&apos;s own thinking selection
+          always wins.
+        </div>
+        <div className="space-y-1.5">
+          {MODES.map((mode) => (
+            <div key={mode} className="flex items-center gap-2">
+              <span className="w-16 text-[11px] capitalize text-muted-foreground">{mode}</span>
+              <Tip
+                content={`Default thinking level for ${mode} mode (empty = global preference from Preferences)`}
+              >
+                <select
+                  value={m.modeThinkingDefaults?.[mode] ?? ''}
+                  onChange={(e) =>
+                    setModeThinking.mutate({
+                      mode,
+                      level: (e.target.value || null) as ThinkingLevel | null
+                    })
+                  }
+                  className="h-7 w-full min-w-0 rounded-md border border-border bg-background px-2 text-[11px]"
+                >
+                  <option value="">(global: {s.preferences?.thinkingLevel ?? 'off'})</option>
+                  {THINKING_LEVELS.map((l) => (
+                    <option key={l} value={l}>
+                      {l}
+                    </option>
+                  ))}
+                </select>
+              </Tip>
             </div>
           ))}
         </div>
