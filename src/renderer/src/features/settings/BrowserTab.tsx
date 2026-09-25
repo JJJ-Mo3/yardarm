@@ -196,6 +196,14 @@ export function BrowserTab(): React.JSX.Element {
               </div>
             </>
           )}
+          <div className="flex items-center gap-2">
+            <span className="w-28 shrink-0 text-[11px] text-muted-foreground">Model</span>
+            <BlurInput
+              value={sh.model ?? ''}
+              placeholder="provider/model (empty = chat model, then Codex login, then default)"
+              onSave={(v) => setBrowser.mutate({ stagehand: { model: v } })}
+            />
+          </div>
           <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
             <Switch
               checked={sh.preserveUserDataDir ?? false}

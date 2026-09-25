@@ -137,6 +137,7 @@ export const mastraSettingsRouter = router({
             env: z.enum(['LOCAL', 'BROWSERBASE']).optional(),
             apiKey: z.string().nullable().optional(),
             projectId: z.string().nullable().optional(),
+            model: z.string().nullable().optional(),
             preserveUserDataDir: z.boolean().optional()
           })
           .optional(),

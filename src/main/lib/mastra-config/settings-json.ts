@@ -212,6 +212,7 @@ export function setBrowserSettings(patch: BrowserSettingsPatch): Promise<MastraS
         b.stagehand.preserveUserDataDir = patch.stagehand.preserveUserDataDir
       setOrDelete(b.stagehand, 'apiKey', patch.stagehand.apiKey)
       setOrDelete(b.stagehand, 'projectId', patch.stagehand.projectId)
+      setOrDelete(b.stagehand, 'model', patch.stagehand.model)
     }
     if (patch.agentBrowser) {
       if (!b.agentBrowser) b.agentBrowser = {}

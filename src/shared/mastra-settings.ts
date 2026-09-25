@@ -86,6 +86,12 @@ export interface MastraStagehandSettings {
   env?: 'LOCAL' | 'BROWSERBASE'
   apiKey?: string
   projectId?: string
+  /**
+   * Model Stagehand uses for its own AI operations, as `provider/model`.
+   * When unset the SDK falls back to the launch-time chat model, then the
+   * Codex login's default model, then Stagehand's own default.
+   */
+  model?: string
   preserveUserDataDir?: boolean
   [key: string]: unknown
 }
@@ -213,6 +219,7 @@ export interface BrowserSettingsPatch {
     env?: 'LOCAL' | 'BROWSERBASE'
     apiKey?: string | null
     projectId?: string | null
+    model?: string | null
     preserveUserDataDir?: boolean
   }
   agentBrowser?: { storageState?: string | null }
