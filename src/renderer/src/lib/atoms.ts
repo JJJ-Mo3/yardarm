@@ -63,6 +63,11 @@ export const commandPaletteOpenAtom = atom(false)
 export const quickOpenAtom = atom(false)
 /** Re-open the first-run onboarding wizard (Settings → About → Run setup again). */
 export const onboardingForceOpenAtom = atom(false)
+/** Extra Terminal-tab sessions keyed by projectId (ptys live in the main process). */
+export type ExtraTerminal = { id: string; cwd: string; label: string }
+export const extraTerminalsAtom = atom<Record<string, ExtraTerminal[]>>({})
+/** Active Terminal-tab session id (null = the default chat/project session). */
+export const activeTerminalIdAtom = atom<string | null>(null)
 
 /** Live per-subchat agent status keyed by subchatId (fed by useChatStatusTracker). */
 export const subchatStatusesAtom = atom<Map<string, SubchatStatusInfo>>(new Map())

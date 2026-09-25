@@ -44,6 +44,7 @@ import { SplitDivider } from './components/SplitDivider'
 import { useChatStatusTracker } from './features/agents/use-chat-status-tracker'
 import { useNotificationFocus } from './features/agents/use-notification-focus'
 import { ChangesView } from './features/changes/ChangesView'
+import { TerminalTabs } from './features/terminal/TerminalTabs'
 import { TerminalView } from './features/terminal/TerminalView'
 import { FilesView } from './features/file-viewer/FilesView'
 import { QuickFileOpen } from './features/file-viewer/QuickFileOpen'
@@ -414,8 +415,14 @@ export default function App(): React.JSX.Element {
                   <SelectProjectPane />
                 ))}
               {tab === 'terminal' &&
-                (cwd ? (
-                  <TerminalView id={chatId ? `chat-${chatId}` : `project-${projectId}`} cwd={cwd} />
+                (cwd && projectId ? (
+                  <TerminalTabs
+                    projectId={projectId}
+                    projectPath={project?.path ?? null}
+                    chatId={chatId}
+                    chatWorktreePath={chat.data?.worktreePath ?? null}
+                    cwd={cwd}
+                  />
                 ) : (
                   <SelectProjectPane />
                 ))}
