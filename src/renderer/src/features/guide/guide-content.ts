@@ -354,14 +354,15 @@ header any time).
 
 1. **Setup** — scaffold a new checkout (\`npm create factory@latest\`, fully interactive in the
    embedded terminal — platform mode prints a browser sign-in link) or point Yardarm at an
-   existing folder. Install dependencies from here if needed.
+   existing folder. Install dependencies from here if needed. Every step streams into its own
+   log terminal, which notes when a command has already finished.
 2. **Environment** — a guided \`.env\` editor: generate the credential encryption key, seed the
    model-provider API keys Yardarm already knows, set the port and database URL, and (local
    mode) start/stop the Docker database. Required keys are flagged until set; comments and
-   unknown keys in the file are preserved.
+   unknown keys in the file are preserved, including dotenv-style names with dots or dashes.
 3. **Server** — start/stop \`npm run dev\`; the dashboard URL is auto-detected from the logs
-   and loads in an embedded view with back/forward, reload, DevTools, and open-in-browser.
-   The dashboard session persists across app restarts.
+   (the URL chips clear when the server stops) and loads in an embedded view with back/forward,
+   reload, DevTools, and open-in-browser. The dashboard session persists across app restarts.
 
 The server stops when Yardarm quits — for long-lived hosting, run \`npm run dev\` in a
 standalone terminal instead. The Factory tab is unnumbered; reach it from the tab bar or ⌘K.

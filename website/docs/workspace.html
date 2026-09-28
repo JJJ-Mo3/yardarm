@@ -205,7 +205,8 @@
           <li>
             <strong>Setup</strong> — scaffold a new checkout with
             <code>npm create factory@latest</code> in an interactive terminal, or point Yardarm at
-            an existing one (its mode is auto-detected). Two setups are supported:
+            an existing one (its mode is auto-detected). Every step streams into its own embedded
+            log terminal, which notes when a command has already finished. Two setups are supported:
             <strong>Mastra platform</strong> (sign in during setup; hosted Postgres and cloud
             sandboxes are provisioned for you) and <strong>local self-hosted</strong>
             (<code>--no-platform</code>: Docker Postgres, local sandboxes, manual
@@ -214,8 +215,10 @@
           <li>
             <strong>Environment</strong> — a guided <code>.env</code> editor that flags missing
             required keys, generates the credential encryption key, and can seed your model-provider
-            API keys from the ones Yardarm already knows. Local mode adds a Docker database card
-            (<code>npm run db:up</code> / <code>db:down</code>) with its own log terminal.
+            API keys from the ones Yardarm already knows. Comments, quoting, and unknown keys in the
+            file are preserved — including dotenv-style names with dots or dashes. Local mode adds a
+            Docker database card (<code>npm run db:up</code> / <code>db:down</code>) with its own
+            log terminal.
           </li>
           <li>
             <strong>Server</strong> — start/stop <code>npm run dev</code>, watch its logs, and use
