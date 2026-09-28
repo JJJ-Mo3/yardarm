@@ -35,7 +35,8 @@ export function modLabel(key: string): string {
   return isMac ? `⌘${key}` : `Ctrl+${key}`
 }
 
-// Must match the visual TABS order in App.tsx.
+// Must match the visual TABS order in App.tsx. All 9 digit slots are taken —
+// the Factory tab is deliberately unnumbered (tab bar / ⌘K only).
 const TAB_ORDER: MainTab[] = [
   'chat',
   'cli',

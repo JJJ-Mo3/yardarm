@@ -335,6 +335,13 @@ Yardarm puts a desktop workspace around the agent:
   terminal, a wrench button docks full Chrome DevTools for the previewed
   page beside it, navigation is locked to localhost, and external links
   open in your system browser
+- Factory tab: a harness for [Mastra Factory](https://mastra.ai/factory),
+  Mastra's open-source agent-powered software factory — scaffold a Factory
+  server checkout (`npm create factory@latest`, platform sign-in or local
+  self-hosted with `--no-platform`), edit its `.env` in a guided editor
+  (generate the encryption key, seed your model-provider API keys, flag
+  missing required keys), start/stop the Docker database (local mode),
+  and run `npm run dev` with the Factory dashboard embedded in-app
 - Kanban task board: author cards (title + prompt) in Backlog / To do,
   then drag one to In progress (or press play) to dispatch an agent —
   Yardarm creates the chat (worktree optional) and sends the prompt.
@@ -549,6 +556,22 @@ share ports, so starting one stops a server still running in another chat
 Chrome DevTools for the previewed page beside it — elements, console, and
 network. Navigation is locked to localhost; links to anywhere else open in
 your system browser.
+
+**Factory.** The Factory tab is a harness for
+[Mastra Factory](https://mastra.ai/factory) — Mastra's open-source
+agent-powered software factory (kanban pipeline with approval gates, agent
+sessions per work item, PRs against a connected repo). The Factory server
+lives in its own checkout, separate from your Yardarm projects: scaffold
+one in-app (`npm create factory@latest`, choosing Mastra-platform sign-in
+or local self-hosted) or adopt an existing folder (the mode is
+auto-detected). A guided `.env` editor generates the credential encryption
+key, seeds the model-provider API keys Yardarm already knows, and flags
+missing required keys; local mode gets a Docker database card
+(`npm run db:up`/`db:down`). Start `npm run dev` from the Server section
+and the dashboard URL is auto-detected from the logs and loads in an
+embedded view with DevTools — the dashboard session persists across app
+restarts. The server stops when Yardarm quits; run `npm run dev` in a
+standalone terminal for long-lived hosting.
 
 **Kanban & Analytics.** The Kanban tab is a task board that dispatches
 agents: write cards (title + prompt) into Backlog / To do, drag one to In

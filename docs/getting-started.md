@@ -24,7 +24,7 @@ button beside the theme toggle (or `Cmd+9`) opens a built-in guide + FAQ.
 - [Goals: let the agent run to completion](#goals-let-the-agent-run-to-completion)
 - [Workflows: save and re-run multi-step processes](#workflows-save-and-re-run-multi-step-processes)
 - [Threads, subchats, forking, and split view](#threads-subchats-forking-and-split-view)
-- [Terminal, IDE, CLI, and Preview tabs](#terminal-ide-cli-and-preview-tabs)
+- [Terminal, IDE, CLI, Preview, and Factory tabs](#terminal-ide-cli-preview-and-factory-tabs)
 - [The Kanban board and sidebar indicators](#the-kanban-board-and-sidebar-indicators)
 - [Analytics](#analytics)
 - [Connectors](#connectors)
@@ -513,7 +513,7 @@ pane also has its own add/close buttons and chat picker. Useful for
 watching one agent work while briefing another. `Cmd+P` and other global
 shortcuts stay with the left (primary) pane.
 
-## Terminal, IDE, CLI, and Preview tabs
+## Terminal, IDE, CLI, Preview, and Factory tabs
 
 - **Terminal** (`Cmd+5`, or toggle with `Cmd+J`) — a real shell that opens in
   the chat's worktree. Build, test, poke around; you and the agent are
@@ -565,6 +565,27 @@ shortcuts stay with the left (primary) pane.
   DevTools pane beside the page (elements, console, network) inspecting the
   previewed app. Navigation is locked to localhost — links to anywhere else
   open in your system browser — and the page survives switching tabs.
+- **Factory** (unnumbered — tab bar or `Cmd+K`) — a harness for
+  [Mastra Factory](https://mastra.ai/factory), Mastra's open-source
+  agent-powered software factory: a server that connects a GitHub repo,
+  runs work items through a kanban pipeline with approval gates, and opens
+  PRs. The Factory server lives in its **own checkout**, separate from your
+  Yardarm projects — keep it in a standalone folder. **Setup** scaffolds one
+  (`npm create factory@latest`, fully interactive in an embedded terminal)
+  in one of two modes — **Mastra platform** (browser sign-in; hosted
+  Postgres and cloud sandboxes are provisioned and written to `.env` for
+  you) or **local self-hosted** (Docker Postgres/Redis, local sandboxes, no
+  account) — or adopts an existing folder with the mode auto-detected.
+  **Environment** is a guided `.env` editor: generate the credential
+  encryption key, seed the model-provider API keys Yardarm already knows,
+  set `PORT` and `DATABASE_URL`, and (local mode) start/stop the Docker
+  database; required keys are flagged until set and the file's comments are
+  preserved. **Server** starts/stops `npm run dev`, auto-detects the
+  dashboard URL from the logs, and loads the Factory dashboard in an
+  embedded view (back/forward, reload, DevTools, open-in-browser); the
+  dashboard session persists across app restarts. The server stops when
+  Yardarm quits — run `npm run dev` in a standalone terminal for long-lived
+  hosting.
 
 ## The Kanban board and sidebar indicators
 
@@ -827,20 +848,20 @@ providers you configured.
 
 `Cmd` on macOS, `Ctrl` on Windows/Linux.
 
-| Shortcut      | Action                                                                                    |
-| ------------- | ----------------------------------------------------------------------------------------- |
-| `Cmd+N`       | new chat                                                                                  |
-| `Cmd+K`       | command palette                                                                           |
-| `Cmd+P`       | thread switcher                                                                           |
-| `Cmd+O`       | quick file open (into the IDE tab)                                                        |
-| `Cmd+1`–`9`   | switch tab (Chat / CLI / IDE / Changes / Terminal / Kanban / Analytics / Preview / Guide) |
-| `Cmd+J`       | toggle the Terminal tab                                                                   |
-| `Cmd+\`       | add a split chat pane                                                                     |
-| `Cmd+Shift+\` | close the last split pane                                                                 |
-| `Cmd+,`       | settings                                                                                  |
-| `Enter`       | send (in composer)                                                                        |
-| `Shift+Enter` | newline (in composer)                                                                     |
-| `Escape`      | cancel voice recording / close autocomplete popups                                        |
+| Shortcut      | Action                                                                                                                                |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `Cmd+N`       | new chat                                                                                                                              |
+| `Cmd+K`       | command palette                                                                                                                       |
+| `Cmd+P`       | thread switcher                                                                                                                       |
+| `Cmd+O`       | quick file open (into the IDE tab)                                                                                                    |
+| `Cmd+1`–`9`   | switch tab (Chat / CLI / IDE / Changes / Terminal / Kanban / Analytics / Preview / Guide; Factory is unnumbered — tab bar or `Cmd+K`) |
+| `Cmd+J`       | toggle the Terminal tab                                                                                                               |
+| `Cmd+\`       | add a split chat pane                                                                                                                 |
+| `Cmd+Shift+\` | close the last split pane                                                                                                             |
+| `Cmd+,`       | settings                                                                                                                              |
+| `Enter`       | send (in composer)                                                                                                                    |
+| `Shift+Enter` | newline (in composer)                                                                                                                 |
+| `Escape`      | cancel voice recording / close autocomplete popups                                                                                    |
 
 ## Tips
 

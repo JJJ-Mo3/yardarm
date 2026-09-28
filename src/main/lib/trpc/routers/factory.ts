@@ -1,0 +1,263 @@
+/**
+ * Factory harness router — scaffold, configure, and run a Mastra Factory
+ * server checkout (mastra.ai/factory) from the Factory tab.
+ *
+ * All process work runs in app-level singleton ptys (`factory-*` ids) so the
+ * renderer can attach interactive terminals via the generic terminal router;
+ * commands are always built server-side (the renderer never passes command
+ * strings). `ptyManager.exists` doubles as the running-state check because a
+ * command pty ends when its command exits (same pattern as Preview's dev
+ * servers). The .env file is edited through the lossless queued-atomic
+ * helpers in lib/factory.
+ */
+import crypto from 'node:crypto'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { eq } from 'drizzle-orm'
+import { z } from 'zod'
+import type { FactoryConfig, FactoryMode } from '../../../../shared/ipc-types'
+import { ENV_VAR_NAME_RE } from '../../../../shared/provider-key-env'
+import { findExecutable } from '../../../agent-host/lsp-diagnostics'
+import { agentSessionManager } from '../../agent/agent-session-manager'
+import { getDb, schema } from '../../db'
+import { getEnv, listEnv, upsertEnv } from '../../factory/env-file'
+import {
+  inspectFactoryDir,
+  missingRequiredKeys,
+  readEnvLines,
+  readExampleKeys,
+  updateEnvFile
+} from '../../factory/factory-dir'
+import { getLoginPath } from '../../system/login-path'
+import { ptyManager, shellQuote } from '../../terminal/pty-manager'
+import { publicProcedure, router } from '../trpc'
+
+const SERVER_ID = 'factory-server'
+const SCAFFOLD_ID = 'factory-scaffold'
+const DB_ID = 'factory-db'
+const INSTALL_ID = 'factory-install'
+
+const CONFIG_KEY = 'factory'
+const modeSchema = z.enum(['platform', 'local'])
+
+function readConfig(): FactoryConfig {
+  const row = getDb()
+    .select()
+    .from(schema.appSettings)
+    .where(eq(schema.appSettings.key, CONFIG_KEY))
+    .get()
+  let parsed: unknown = null
+  try {
+    parsed = row ? (JSON.parse(row.value) as unknown) : null
+  } catch {}
+  const obj = (parsed && typeof parsed === 'object' ? parsed : {}) as {
+    dir?: unknown
+    mode?: unknown
+  }
+  return {
+    dir: typeof obj.dir === 'string' && obj.dir ? obj.dir : null,
+    mode: obj.mode === 'local' ? 'local' : 'platform'
+  }
+}
+
+function writeConfig(config: FactoryConfig): void {
+  const db = getDb()
+  const value = JSON.stringify(config)
+  const existing = db
+    .select()
+    .from(schema.appSettings)
+    .where(eq(schema.appSettings.key, CONFIG_KEY))
+    .get()
+  if (existing) {
+    db.update(schema.appSettings).set({ value }).where(eq(schema.appSettings.key, CONFIG_KEY)).run()
+  } else {
+    db.insert(schema.appSettings).values({ key: CONFIG_KEY, value }).run()
+  }
+}
+
+/** Mode-aware inspection + required-key gaps for one Factory dir. */
+async function inspectWithEnv(
+  dir: string,
+  mode?: FactoryMode
+): Promise<{
+  dirExists: boolean
+  scaffolded: boolean
+  hasEnv: boolean
+  hasEnvExample: boolean
+  hasNodeModules: boolean
+  hasDockerCompose: boolean
+  hasDbScript: boolean
+  detectedMode: 'platform' | 'local' | 'unknown'
+  missingRequired: string[]
+}> {
+  const inspection = await inspectFactoryDir(dir)
+  const effectiveMode: FactoryMode =
+    mode ?? (inspection.detectedMode === 'unknown' ? 'platform' : inspection.detectedMode)
+  const { lines } = await readEnvLines(dir)
+  return { ...inspection, missingRequired: missingRequiredKeys(listEnv(lines), effectiveMode) }
+}
+
+export const factoryRouter = router({
+  getConfig: publicProcedure.query(() => readConfig()),
+
+  setConfig: publicProcedure
+    .input(z.object({ dir: z.string().nullable().optional(), mode: modeSchema.optional() }))
+    .mutation(({ input }) => {
+      const config = readConfig()
+      if (input.dir !== undefined) config.dir = input.dir
+      if (input.mode !== undefined) config.mode = input.mode
+      writeConfig(config)
+      return config
+    }),
+
+  inspect: publicProcedure
+    .input(z.object({ dir: z.string().min(1), mode: modeSchema.optional() }))
+    .query(({ input }) => inspectWithEnv(input.dir, input.mode)),
+
+  /**
+   * Run `npm create factory@latest` in the target's parent directory, in an
+   * interactive pty (the installer prompts; platform mode runs a browser
+   * sign-in flow). Completion = pty exit + re-inspect, not output parsing.
+   */
+  scaffold: publicProcedure
+    .input(z.object({ dir: z.string().min(1), mode: modeSchema }))
+    .mutation(async ({ input }) => {
+      if (ptyManager.exists(SERVER_ID)) throw new Error('Stop the Factory server first')
+      if (ptyManager.exists(SCAFFOLD_ID)) throw new Error('A scaffold is already running')
+      const dir = path.resolve(input.dir)
+      const parent = path.dirname(dir)
+      const name = path.basename(dir)
+      if (!name || parent === dir) throw new Error('Choose a folder inside an existing directory')
+      const parentStat = await fs.stat(parent).catch(() => null)
+      if (!parentStat?.isDirectory()) throw new Error(`Parent folder does not exist: ${parent}`)
+      const existing = await fs.stat(dir).catch(() => null)
+      if (existing) {
+        if (!existing.isDirectory()) throw new Error(`${dir} exists and is not a directory`)
+        const entries = (await fs.readdir(dir)).filter((e) => e !== '.DS_Store')
+        if (entries.length > 0) throw new Error(`${dir} is not empty`)
+      }
+      const flags = input.mode === 'local' ? ' -- --no-platform' : ''
+      ptyManager.create(
+        SCAFFOLD_ID,
+        parent,
+        80,
+        24,
+        `npm create factory@latest ${shellQuote(name)}${flags}`
+      )
+      return { ok: true }
+    }),
+
+  install: publicProcedure.input(z.object({ dir: z.string().min(1) })).mutation(({ input }) => {
+    if (ptyManager.exists(INSTALL_ID)) throw new Error('An install is already running')
+    ptyManager.create(INSTALL_ID, input.dir, 80, 24, 'npm install')
+    return { ok: true }
+  }),
+
+  envRead: publicProcedure
+    .input(z.object({ dir: z.string().min(1), mode: modeSchema.optional() }))
+    .query(async ({ input }) => {
+      const { exists, lines } = await readEnvLines(input.dir)
+      const entries: { key: string; value: string }[] = []
+      for (const line of lines) {
+        if (line.kind === 'pair') entries.push({ key: line.key, value: line.value })
+      }
+      const inspection = await inspectFactoryDir(input.dir)
+      const mode: FactoryMode =
+        input.mode ?? (inspection.detectedMode === 'unknown' ? 'platform' : inspection.detectedMode)
+      return {
+        exists,
+        entries,
+        exampleKeys: await readExampleKeys(input.dir),
+        missingRequired: missingRequiredKeys(listEnv(lines), mode)
+      }
+    }),
+
+  envWrite: publicProcedure
+    .input(
+      z.object({
+        dir: z.string().min(1),
+        updates: z.record(z.string().regex(ENV_VAR_NAME_RE), z.string())
+      })
+    )
+    .mutation(async ({ input }) => {
+      await updateEnvFile(input.dir, (lines) => upsertEnv(lines, input.updates))
+      return { ok: true }
+    }),
+
+  /** Generate FACTORY_CREDENTIAL_ENCRYPTION_KEY (32 random bytes, base64); no-op if set. */
+  envGenerateEncryptionKey: publicProcedure
+    .input(z.object({ dir: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      let generated = false
+      await updateEnvFile(input.dir, (lines) => {
+        if (getEnv(lines, 'FACTORY_CREDENTIAL_ENCRYPTION_KEY')?.trim()) return lines
+        generated = true
+        return upsertEnv(lines, {
+          FACTORY_CREDENTIAL_ENCRYPTION_KEY: crypto.randomBytes(32).toString('base64')
+        })
+      })
+      return { generated }
+    }),
+
+  /**
+   * Copy the model-provider API keys Yardarm already injects into agent hosts
+   * (env-var mappings + login-shell auto-detect) into Factory's .env. Only
+   * absent/empty keys are written — user values are never overwritten.
+   */
+  envSeedProviderKeys: publicProcedure
+    .input(z.object({ dir: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      const available = agentSessionManager.buildProviderKeyEnv()
+      const seeded: string[] = []
+      await updateEnvFile(input.dir, (lines) => {
+        const updates: Record<string, string> = {}
+        for (const [name, value] of Object.entries(available)) {
+          if (!getEnv(lines, name)?.trim()) {
+            updates[name] = value
+            seeded.push(name)
+          }
+        }
+        return upsertEnv(lines, updates)
+      })
+      return { seeded }
+    }),
+
+  dockerStatus: publicProcedure.query(() => {
+    const dockerPath = findExecutable('docker', getLoginPath(), [
+      '/usr/local/bin',
+      '/opt/homebrew/bin',
+      '/Applications/Docker.app/Contents/Resources/bin'
+    ])
+    return { dockerPath }
+  }),
+
+  dbUp: publicProcedure.input(z.object({ dir: z.string().min(1) })).mutation(({ input }) => {
+    if (ptyManager.exists(DB_ID)) throw new Error('A database command is already running')
+    ptyManager.create(DB_ID, input.dir, 80, 24, 'npm run db:up')
+    return { ok: true }
+  }),
+
+  dbDown: publicProcedure.input(z.object({ dir: z.string().min(1) })).mutation(({ input }) => {
+    if (ptyManager.exists(DB_ID)) throw new Error('A database command is already running')
+    ptyManager.create(DB_ID, input.dir, 80, 24, 'npm run db:down')
+    return { ok: true }
+  }),
+
+  serverStart: publicProcedure.input(z.object({ dir: z.string().min(1) })).mutation(({ input }) => {
+    if (ptyManager.exists(SERVER_ID)) throw new Error('The Factory server is already running')
+    ptyManager.create(SERVER_ID, input.dir, 80, 24, 'npm run dev')
+    return { ok: true }
+  }),
+
+  serverStop: publicProcedure.mutation(() => {
+    ptyManager.kill(SERVER_ID)
+    return { ok: true }
+  }),
+
+  status: publicProcedure.query(() => ({
+    serverRunning: ptyManager.exists(SERVER_ID),
+    scaffoldRunning: ptyManager.exists(SCAFFOLD_ID),
+    dbRunning: ptyManager.exists(DB_ID),
+    installRunning: ptyManager.exists(INSTALL_ID)
+  }))
+})

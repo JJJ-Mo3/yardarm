@@ -10,6 +10,7 @@ import {
   BookOpen,
   ChartColumn,
   Columns2,
+  Factory,
   FileCode2,
   FileSearch,
   GitCompare,
@@ -42,17 +43,18 @@ import { useSelectChat } from '../../lib/use-select-chat'
 import { CommandDialog, type CommandAction } from '../../components/ui/command'
 import { paletteDispatchAtom, useSlashCommands } from './slash-commands'
 
-/** Must match the visual TABS order in App.tsx (⌘1–9 hints). */
-const TABS: Array<{ id: MainTab; label: string; icon: React.ReactNode }> = [
-  { id: 'chat', label: 'Chat', icon: <MessageSquare size={13} /> },
-  { id: 'cli', label: 'CLI', icon: <SquareChevronRight size={13} /> },
-  { id: 'files', label: 'IDE', icon: <FileCode2 size={13} /> },
-  { id: 'changes', label: 'Changes', icon: <GitCompare size={13} /> },
-  { id: 'terminal', label: 'Terminal', icon: <TerminalSquare size={13} /> },
-  { id: 'kanban', label: 'Kanban', icon: <SquareKanban size={13} /> },
-  { id: 'analytics', label: 'Analytics', icon: <ChartColumn size={13} /> },
-  { id: 'preview', label: 'Preview', icon: <Globe size={13} /> },
-  { id: 'guide', label: 'Guide', icon: <BookOpen size={13} /> }
+/** Shortcut hints must match TAB_ORDER in shortcuts.ts (⌘1–9); Factory is unnumbered. */
+const TABS: Array<{ id: MainTab; label: string; icon: React.ReactNode; shortcut?: string }> = [
+  { id: 'chat', label: 'Chat', icon: <MessageSquare size={13} />, shortcut: '1' },
+  { id: 'cli', label: 'CLI', icon: <SquareChevronRight size={13} />, shortcut: '2' },
+  { id: 'files', label: 'IDE', icon: <FileCode2 size={13} />, shortcut: '3' },
+  { id: 'changes', label: 'Changes', icon: <GitCompare size={13} />, shortcut: '4' },
+  { id: 'terminal', label: 'Terminal', icon: <TerminalSquare size={13} />, shortcut: '5' },
+  { id: 'kanban', label: 'Kanban', icon: <SquareKanban size={13} />, shortcut: '6' },
+  { id: 'analytics', label: 'Analytics', icon: <ChartColumn size={13} />, shortcut: '7' },
+  { id: 'preview', label: 'Preview', icon: <Globe size={13} />, shortcut: '8' },
+  { id: 'factory', label: 'Factory', icon: <Factory size={13} /> },
+  { id: 'guide', label: 'Guide', icon: <BookOpen size={13} />, shortcut: '9' }
 ]
 
 const SETTINGS_SECTIONS: Array<{ id: SettingsTab; label: string }> = [
@@ -110,16 +112,16 @@ export function CommandPalette(): React.JSX.Element {
         })
       }
     }
-    TABS.forEach((t, i) => {
+    for (const t of TABS) {
       list.push({
         id: `tab:${t.id}`,
         group: 'Go to',
         label: t.label,
         icon: t.icon,
-        detail: modLabel(String(i + 1)),
+        detail: t.shortcut ? modLabel(t.shortcut) : undefined,
         onSelect: () => setTab(t.id)
       })
-    })
+    }
     list.push({
       id: 'open-file',
       group: 'Go to',

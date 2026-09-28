@@ -3,6 +3,7 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   ChartColumn,
   Columns2,
+  Factory,
   FileCode2,
   FolderGit2,
   GitCompare,
@@ -49,6 +50,7 @@ import { QuickFileOpen } from './features/file-viewer/QuickFileOpen'
 import { KanbanView } from './features/kanban/KanbanView'
 import { AnalyticsView } from './features/analytics/AnalyticsView'
 import { PreviewView } from './features/preview/PreviewView'
+import { FactoryView } from './features/factory/FactoryView'
 import { GuideView } from './features/guide/GuideView'
 import { SettingsDialog } from './features/settings/SettingsDialog'
 import { UpdateRestartBanner } from './features/settings/UpdateRestartBanner'
@@ -96,6 +98,12 @@ const TABS: Array<{ id: MainTab; label: string; icon: React.ReactNode; tip: stri
     label: 'Preview',
     icon: <Globe size={13} />,
     tip: 'Preview localhost dev servers in-app — URLs are auto-detected from the terminals'
+  },
+  {
+    id: 'factory',
+    label: 'Factory',
+    icon: <Factory size={13} />,
+    tip: 'Run a local Mastra Factory server — scaffold, configure, and use its dashboard in-app'
   }
 ]
 
@@ -266,7 +274,7 @@ export default function App(): React.JSX.Element {
         <UpdateRestartBanner />
 
         <div className="min-h-0 flex-1">
-          {projects.data && projects.data.length === 0 && tab !== 'guide' ? (
+          {projects.data && projects.data.length === 0 && tab !== 'guide' && tab !== 'factory' ? (
             // Onboarding: no projects yet.
             <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
               <FolderGit2 size={40} strokeWidth={1.25} className="text-muted-foreground" />
@@ -471,6 +479,12 @@ export default function App(): React.JSX.Element {
                 ) : (
                   <SelectProjectPane />
                 )}
+              </div>
+              {/* Factory tab — kept mounted (hidden) so the dashboard webview
+                  and harness terminals survive tab switches. App-level, not
+                  project-scoped: the Factory server is its own checkout. */}
+              <div className={cn('h-full', tab !== 'factory' && 'hidden')}>
+                <FactoryView active={tab === 'factory'} />
               </div>
               {tab === 'guide' && <GuideView />}
             </>

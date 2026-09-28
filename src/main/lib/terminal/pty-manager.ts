@@ -28,7 +28,7 @@ function defaultShell(): string {
  * this form for paths without embedded apostrophes; the `'\''` escape covers
  * zsh/bash (fish differs there — acceptably rare for filesystem paths).
  */
-function shellQuote(s: string): string {
+export function shellQuote(s: string): string {
   return `'${s.replace(/'/g, `'\\''`)}'`
 }
 

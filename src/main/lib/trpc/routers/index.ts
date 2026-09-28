@@ -4,6 +4,7 @@ import { analyticsRouter } from './analytics'
 import { chatsRouter } from './chats'
 import { checkpointsRouter } from './checkpoints'
 import { externalRouter } from './external'
+import { factoryRouter } from './factory'
 import { filesRouter } from './files'
 import { gitRouter } from './git'
 import { goalsRouter } from './goals'
@@ -27,6 +28,7 @@ export const appRouter = router({
   analytics: analyticsRouter,
   checkpoints: checkpointsRouter,
   external: externalRouter,
+  factory: factoryRouter,
   git: gitRouter,
   goals: goalsRouter,
   kanban: kanbanRouter,

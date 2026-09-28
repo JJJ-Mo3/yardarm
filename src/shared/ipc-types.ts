@@ -746,6 +746,20 @@ export interface ScaffoldPluginResult {
   path: string
 }
 
+/**
+ * Factory harness setup mode: `platform` scaffolds sign into the Mastra
+ * platform (hosted Postgres/sandboxes), `local` scaffolds self-host with
+ * `--no-platform` (docker Postgres, local sandboxes).
+ */
+export type FactoryMode = 'platform' | 'local'
+
+/** Factory harness config persisted in app_settings under the `factory` key. */
+export interface FactoryConfig {
+  /** Absolute path of the Factory server checkout, or null before setup. */
+  dir: string | null
+  mode: FactoryMode
+}
+
 /** Passed to the host via the YARDARM_BOOT env var (JSON). */
 export interface HostBootConfig {
   cwd: string

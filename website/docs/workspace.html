@@ -6,7 +6,7 @@
     <title>Workspace — Yardarm documentation</title>
     <meta
       name="description"
-      content="The Yardarm workspace tabs: Terminal, IDE with language-server diagnostics, the embedded Mastra Code CLI, localhost Preview, the Kanban board that dispatches agents, Analytics, Connectors, and voice dictation."
+      content="The Yardarm workspace tabs: Terminal, IDE with language-server diagnostics, the embedded Mastra Code CLI, localhost Preview, the Mastra Factory harness, the Kanban board that dispatches agents, Analytics, Connectors, and voice dictation."
     />
     <link rel="canonical" href="https://yardarmdev.com/docs/workspace.html" />
     <meta property="og:type" content="article" />
@@ -14,7 +14,7 @@
     <meta property="og:title" content="Workspace — Yardarm documentation" />
     <meta
       property="og:description"
-      content="Terminal, IDE, CLI, and Preview tabs, the Kanban board, Analytics, Connectors, and voice dictation."
+      content="Terminal, IDE, CLI, Preview, and Factory tabs, the Kanban board, Analytics, Connectors, and voice dictation."
     />
     <meta property="og:url" content="https://yardarmdev.com/docs/workspace.html" />
     <meta property="og:image" content="https://yardarmdev.com/assets/img/og-image.png?v=2" />
@@ -69,6 +69,7 @@
             <li><a href="#ide">IDE</a></li>
             <li><a href="#cli">CLI</a></li>
             <li><a href="#preview">Preview</a></li>
+            <li><a href="#factory">Factory</a></li>
             <li><a href="#kanban">Kanban board</a></li>
             <li><a href="#analytics">Analytics</a></li>
             <li><a href="#connectors">Connectors</a></li>
@@ -82,7 +83,8 @@
         <p class="lead">
           Beyond the chat, each conversation carries a full workspace scoped to its worktree: a real
           terminal, a light IDE, the embedded Mastra Code CLI, a localhost preview browser, a Kanban
-          board that dispatches agents, and usage analytics.
+          board that dispatches agents, and usage analytics — plus an app-level harness for Mastra
+          Factory.
         </p>
 
         <h2 id="terminal">Terminal</h2>
@@ -187,6 +189,39 @@
           <li>
             Navigation is locked to localhost — links to anywhere else open in your system browser —
             and the page survives switching tabs.
+          </li>
+        </ul>
+
+        <h2 id="factory">Factory</h2>
+        <p>
+          The <strong>Factory</strong> tab (unnumbered — reach it from the tab bar or
+          <kbd>Cmd+K</kbd>) is a harness for <a href="https://mastra.ai/factory">Mastra Factory</a>,
+          Mastra's open-source agent-powered software factory: a server that connects to your GitHub
+          org, runs work items through a kanban pipeline with human approval gates, and opens pull
+          requests. The Factory server lives in its own checkout, separate from the repos its agents
+          work on.
+        </p>
+        <ul>
+          <li>
+            <strong>Setup</strong> — scaffold a new checkout with
+            <code>npm create factory@latest</code> in an interactive terminal, or point Yardarm at
+            an existing one (its mode is auto-detected). Two setups are supported:
+            <strong>Mastra platform</strong> (sign in during setup; hosted Postgres and cloud
+            sandboxes are provisioned for you) and <strong>local self-hosted</strong>
+            (<code>--no-platform</code>: Docker Postgres, local sandboxes, manual
+            <code>.env</code>).
+          </li>
+          <li>
+            <strong>Environment</strong> — a guided <code>.env</code> editor that flags missing
+            required keys, generates the credential encryption key, and can seed your model-provider
+            API keys from the ones Yardarm already knows. Local mode adds a Docker database card
+            (<code>npm run db:up</code> / <code>db:down</code>) with its own log terminal.
+          </li>
+          <li>
+            <strong>Server</strong> — start/stop <code>npm run dev</code>, watch its logs, and use
+            the Factory dashboard embedded in-app (persistent session, DevTools, open-in-browser).
+            The server stops when Yardarm quits — run <code>npm run dev</code> in a standalone
+            terminal for long-lived hosting.
           </li>
         </ul>
 

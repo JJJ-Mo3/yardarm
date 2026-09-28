@@ -26,9 +26,9 @@ model providers you configure, and it shares its configuration with the \`mastra
 the two stay in sync.
 
 The main window has a project sidebar on the left and a set of tabs across the top: **Chat**,
-**CLI**, **IDE**, **Changes**, **Terminal**, **Kanban**, and **Preview**, plus icon buttons for
-**Analytics** and this **Guide**. Switch tabs with ⌘1–⌘9 (⌘ on macOS; use Ctrl on
-Windows/Linux throughout this guide).
+**CLI**, **IDE**, **Changes**, **Terminal**, **Kanban**, **Preview**, and **Factory**, plus icon
+buttons for **Analytics** and this **Guide**. Switch tabs with ⌘1–⌘9 (⌘ on macOS; use Ctrl on
+Windows/Linux throughout this guide); Factory is unnumbered — reach it from the tab bar or ⌘K.
 
 Press **⌘K** anywhere for the **command palette**: run slash commands, jump to any tab or
 settings section, or switch to another chat — all from the keyboard.
@@ -326,6 +326,45 @@ The Preview tab shows localhost dev servers in-app.
 - **Open externally** — the browser button opens the current URL in your default browser.
 
 The previewed page keeps running when you switch tabs.
+`
+  },
+  {
+    id: 'factory',
+    title: 'Mastra Factory',
+    body: `
+The Factory tab is a harness for **Mastra Factory** (mastra.ai/factory) — Mastra's open-source
+agent-powered software factory. A Factory server connects to a GitHub repo, runs work items
+through a kanban pipeline (intake → triage → planning → build → review) with human approval
+gates, runs agent sessions per item, and opens PRs. The server lives in its **own checkout**,
+separate from the repos its agents work on — keep it outside your Yardarm projects.
+
+### Two setups
+
+- **Mastra platform** — the installer signs into the Mastra platform in your browser and
+  provisions hosted Postgres and cloud sandboxes for you; credentials are written to \`.env\`
+  automatically. The easiest way to start.
+- **Local self-hosted** — no account needed: Postgres (with pgvector) and Redis run in Docker
+  via the checkout's compose file, agents run in local sandboxes, and you manage \`.env\`
+  yourself. Requires Docker.
+
+Pick the mode when scaffolding; adopting an existing checkout auto-detects it (override in the
+header any time).
+
+### Setup → Environment → Server
+
+1. **Setup** — scaffold a new checkout (\`npm create factory@latest\`, fully interactive in the
+   embedded terminal — platform mode prints a browser sign-in link) or point Yardarm at an
+   existing folder. Install dependencies from here if needed.
+2. **Environment** — a guided \`.env\` editor: generate the credential encryption key, seed the
+   model-provider API keys Yardarm already knows, set the port and database URL, and (local
+   mode) start/stop the Docker database. Required keys are flagged until set; comments and
+   unknown keys in the file are preserved.
+3. **Server** — start/stop \`npm run dev\`; the dashboard URL is auto-detected from the logs
+   and loads in an embedded view with back/forward, reload, DevTools, and open-in-browser.
+   The dashboard session persists across app restarts.
+
+The server stops when Yardarm quits — for long-lived hosting, run \`npm run dev\` in a
+standalone terminal instead. The Factory tab is unnumbered; reach it from the tab bar or ⌘K.
 `
   },
   {
