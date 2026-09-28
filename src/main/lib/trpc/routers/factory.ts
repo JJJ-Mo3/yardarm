@@ -21,6 +21,7 @@ import { agentSessionManager } from '../../agent/agent-session-manager'
 import { getDb, schema } from '../../db'
 import { getEnv, listEnv, upsertEnv } from '../../factory/env-file'
 import {
+  deriveComposeDatabaseUrl,
   inspectFactoryDir,
   missingRequiredKeys,
   readEnvLines,
@@ -77,6 +78,20 @@ function writeConfig(config: FactoryConfig): void {
   } else {
     db.insert(schema.appSettings).values({ key: CONFIG_KEY, value }).run()
   }
+}
+
+/**
+ * .env.example defaults augmented with the compose-derived local DATABASE_URL
+ * — the template ships DATABASE_URL commented out, so the only machine-readable
+ * default for it lives in docker-compose.yml.
+ */
+async function exampleDefaults(dir: string): Promise<Record<string, string>> {
+  const example = await readExampleEnv(dir)
+  if (!example.DATABASE_URL?.trim()) {
+    const composeUrl = await deriveComposeDatabaseUrl(dir)
+    if (composeUrl) example.DATABASE_URL = composeUrl
+  }
+  return example
 }
 
 /** Mode-aware inspection + required-key gaps for one Factory dir. */
@@ -168,12 +183,12 @@ export const factoryRouter = router({
       const inspection = await inspectFactoryDir(input.dir)
       const mode: FactoryMode =
         input.mode ?? (inspection.detectedMode === 'unknown' ? 'platform' : inspection.detectedMode)
-      const example = await readExampleEnv(input.dir)
+      const example = await exampleDefaults(input.dir)
       return {
         exists,
         entries,
         exampleKeys: Object.keys(example),
-        /** Template defaults from .env.example — shown as suggestions in the editor. */
+        /** Template defaults (.env.example + compose-derived DATABASE_URL). */
         exampleValues: example,
         missingRequired: missingRequiredKeys(listEnv(lines), mode)
       }
@@ -230,13 +245,13 @@ export const factoryRouter = router({
     }),
 
   /**
-   * Copy .env.example's non-empty default values (e.g. the docker-compose
+   * Copy .env.example's non-empty default values (plus the compose-derived
    * DATABASE_URL) into absent/empty .env keys. Never overwrites user values.
    */
   envSeedExampleDefaults: publicProcedure
     .input(z.object({ dir: z.string().min(1) }))
     .mutation(async ({ input }) => {
-      const example = await readExampleEnv(input.dir)
+      const example = await exampleDefaults(input.dir)
       const seeded: string[] = []
       await updateEnvFile(input.dir, (lines) => {
         const updates: Record<string, string> = {}

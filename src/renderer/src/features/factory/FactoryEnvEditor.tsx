@@ -68,6 +68,10 @@ export function FactoryEnvEditor({
     }
     for (const e of envRead.data?.entries ?? []) push(e.key)
     for (const k of envRead.data?.exampleKeys ?? []) push(k)
+    // Required keys always get a row — the template ships them commented out
+    // in .env.example, so they would otherwise never appear (hiding the
+    // encryption-key Generate button entirely).
+    for (const k of envRead.data?.missingRequired ?? []) push(k)
     for (const k of Object.keys(edits)) push(k)
     return keys
   }, [envRead.data, edits])

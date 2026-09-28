@@ -140,6 +140,39 @@ export async function readExampleEnv(dir: string): Promise<Record<string, string
   }
 }
 
+/**
+ * Best-effort local DATABASE_URL derived from the checkout's docker-compose
+ * file. The Factory template ships `DATABASE_URL` commented out in
+ * .env.example — the real connection string lives in the compose file, either
+ * verbatim in its usage comment (`export DATABASE_URL=postgres://...`) or
+ * reconstructible from the postgres service's port mapping + POSTGRES_*
+ * defaults. Returns null when neither is found.
+ */
+export async function deriveComposeDatabaseUrl(dir: string): Promise<string | null> {
+  for (const f of COMPOSE_FILES) {
+    let text: string
+    try {
+      text = await fs.readFile(path.join(dir, f), 'utf8')
+    } catch {
+      continue
+    }
+    const documented = text.match(/DATABASE_URL=(postgres(?:ql)?:\/\/\S+)/)
+    if (documented) return documented[1]
+    const port = text.match(/['"]?(\d+):5432['"]?/)
+    if (!port) continue
+    const setting = (name: string, fallback: string): string => {
+      // Matches `NAME: ${NAME:-default}` (compose var with default) or `NAME: literal`.
+      const m = text.match(new RegExp(`${name}:\\s*(?:\\$\\{${name}:-([^}]+)\\}|([^\\s'"]+))`))
+      return m ? (m[1] ?? m[2]) : fallback
+    }
+    const user = setting('POSTGRES_USER', 'postgres')
+    const pass = setting('POSTGRES_PASSWORD', 'postgres')
+    const db = setting('POSTGRES_DB', user)
+    return `postgres://${user}:${pass}@localhost:${port[1]}/${db}`
+  }
+  return null
+}
+
 const envWriteQueues = new Map<string, Promise<unknown>>()
 
 /**
