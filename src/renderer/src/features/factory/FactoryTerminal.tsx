@@ -3,7 +3,8 @@
  *
  * TerminalView calls terminal.create on mount, which would spawn a stray bare
  * shell if the command pty doesn't exist yet — so this mounts the terminal
- * only once the pty is observed running (create then no-ops into an attach),
+ * only once the pty is observed running, with attachOnly so create no-ops
+ * into an attach and never spawns (even if the command exits mid-mount),
  * keeps it mounted after exit so the tail output stays readable, and remounts
  * (via key) on each false→true running transition so a fresh run gets a fresh
  * stream subscription (the old one is bound to the dead pty's emitter).
@@ -31,7 +32,7 @@ export function FactoryTerminal({
   if (gen === 0) return null
   return (
     <div className={className}>
-      <TerminalView key={gen} id={id} cwd={cwd} />
+      <TerminalView key={gen} id={id} cwd={cwd} attachOnly />
     </div>
   )
 }

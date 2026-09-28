@@ -16,7 +16,6 @@ import path from 'node:path'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import type { FactoryConfig, FactoryMode } from '../../../../shared/ipc-types'
-import { ENV_VAR_NAME_RE } from '../../../../shared/provider-key-env'
 import { findExecutable } from '../../../agent-host/lsp-diagnostics'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import { getDb, schema } from '../../db'
@@ -39,6 +38,11 @@ const INSTALL_ID = 'factory-install'
 
 const CONFIG_KEY = 'factory'
 const modeSchema = z.enum(['platform', 'local'])
+/**
+ * Same key charset as env-file's PAIR_RE (dotenv-style names allow `.`/`-`)
+ * — stricter would reject edits to keys already present in a real .env.
+ */
+const ENV_KEY_RE = /^[A-Za-z_][A-Za-z0-9_.-]*$/
 
 function readConfig(): FactoryConfig {
   const row = getDb()
@@ -176,7 +180,7 @@ export const factoryRouter = router({
     .input(
       z.object({
         dir: z.string().min(1),
-        updates: z.record(z.string().regex(ENV_VAR_NAME_RE), z.string())
+        updates: z.record(z.string().regex(ENV_KEY_RE), z.string())
       })
     )
     .mutation(async ({ input }) => {

@@ -23,11 +23,14 @@ const SEARCH_DECORATIONS = {
 export function TerminalView({
   id,
   cwd,
-  kind = 'shell'
+  kind = 'shell',
+  attachOnly = false
 }: {
   id: string
   cwd: string
   kind?: 'shell' | 'mastracode'
+  /** Attach to an existing pty only — never spawn (router-created command ptys). */
+  attachOnly?: boolean
 }): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
@@ -43,7 +46,10 @@ export function TerminalView({
   // pty-manager's onData/onExit are no-ops for ids that don't exist yet.
   const [attachedId, setAttachedId] = useState<string | null>(null)
   const create = trpc.terminal.create.useMutation({
-    onSuccess: (_data, vars) => setAttachedId(vars.id),
+    onSuccess: (data, vars) => {
+      if (data.attached) setAttachedId(vars.id)
+      else termRef.current?.write('[process already exited]\r\n')
+    },
     onError: (e) => termRef.current?.write(`\r\n[failed to start: ${e.message}]\r\n`)
   })
   const write = trpc.terminal.write.useMutation()
@@ -84,7 +90,7 @@ export function TerminalView({
       return true
     })
 
-    create.mutate({ id, cwd, cols: term.cols, rows: term.rows, kind })
+    create.mutate({ id, cwd, cols: term.cols, rows: term.rows, kind, attachOnly })
 
     const onDataDisposable = term.onData((data) => write.mutate({ id, data }))
 

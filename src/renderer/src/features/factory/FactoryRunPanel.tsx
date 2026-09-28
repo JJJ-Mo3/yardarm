@@ -64,7 +64,9 @@ export function FactoryRunPanel({
     { ids: ['factory-server'] },
     { enabled: active && serverRunning, refetchInterval: 3000 }
   )
-  const urls = detected.data ?? []
+  // Gate on serverRunning: the disabled query retains its last data after a
+  // stop, which would leave stale URL chips for a dead server.
+  const urls = serverRunning ? (detected.data ?? []) : []
 
   const navigate = (raw: string): void => {
     if (!isLocalhostHttpUrl(raw)) return
@@ -194,15 +196,17 @@ export function FactoryRunPanel({
       <div className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1">
         {serverRunning ? (
           <Tip content="Stop the Factory server (kills the npm run dev pty)">
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={stop.isPending}
-              onClick={() => stop.mutate()}
-            >
-              <Square size={12} />
-              Stop
-            </Button>
+            <span className="inline-flex">
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={stop.isPending}
+                onClick={() => stop.mutate()}
+              >
+                <Square size={12} />
+                Stop
+              </Button>
+            </span>
           </Tip>
         ) : (
           <Tip

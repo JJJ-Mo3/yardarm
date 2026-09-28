@@ -42,10 +42,18 @@ export const terminalRouter = router({
         cwd: z.string(),
         cols: z.number().int().positive().default(80),
         rows: z.number().int().positive().default(24),
-        kind: z.enum(['shell', 'mastracode']).default('shell')
+        kind: z.enum(['shell', 'mastracode']).default('shell'),
+        /**
+         * Attach to an existing pty only — never spawn. Used for the
+         * router-created command ptys (factory-*): if the command already
+         * exited, creating here would register a stray interactive shell
+         * under the command's id, making `exists` report it running forever.
+         */
+        attachOnly: z.boolean().default(false)
       })
     )
     .mutation(({ input }) => {
+      if (input.attachOnly && !ptyManager.exists(input.id)) return { ok: true, attached: false }
       let command: string | undefined
       if (input.kind === 'mastracode') {
         // Interactive TUI in the given cwd. It resolves the same cwd-derived
@@ -58,7 +66,7 @@ export const terminalRouter = router({
         command = buildMastracodeCommand(process.execPath, cliPath)
       }
       ptyManager.create(input.id, input.cwd, input.cols, input.rows, command)
-      return { ok: true }
+      return { ok: true, attached: true }
     }),
 
   /** Streams output; replays buffered scrollback first for reattach. */

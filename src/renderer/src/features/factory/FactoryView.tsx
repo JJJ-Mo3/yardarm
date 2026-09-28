@@ -9,7 +9,7 @@
  * Sections are kept mounted (hidden) so the webview and terminals survive
  * section/tab switches — the component itself is kept mounted by App.
  */
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Factory } from 'lucide-react'
 import type { FactoryMode } from '@shared/ipc-types'
 import { trpc } from '../../lib/trpc'
@@ -63,6 +63,18 @@ export function FactoryView({ active }: { active: boolean }): React.JSX.Element 
     }
   })
   const [section, setSection] = useState<Section | null>(null)
+
+  // Scaffold/install completion: the busy-gated inspect poll stops as soon as
+  // status flips, possibly holding pre-completion data — force a final refetch
+  // so the checklist, missing-keys badge, and .env rows reflect the result.
+  const prevBusy = useRef(false)
+  useEffect(() => {
+    if (prevBusy.current && !busy) {
+      utils.factory.inspect.invalidate()
+      utils.factory.envRead.invalidate()
+    }
+    prevBusy.current = busy
+  }, [busy, utils])
 
   const inspection = dir ? (inspect.data ?? null) : null
   const scaffolded = !!inspection?.scaffolded
