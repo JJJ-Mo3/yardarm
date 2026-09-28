@@ -6,7 +6,7 @@
  * local shows a sandbox-provider switch and database guidance.
  */
 import React, { useMemo, useState } from 'react'
-import { Eye, EyeOff, KeyRound, Plus, Save } from 'lucide-react'
+import { Eye, EyeOff, KeyRound, ListPlus, Plus, Save } from 'lucide-react'
 import type { FactoryMode } from '@shared/ipc-types'
 import { ENV_VAR_NAME_RE } from '@shared/provider-key-env'
 import { trpc } from '../../lib/trpc'
@@ -48,6 +48,7 @@ export function FactoryEnvEditor({
   })
   const genKey = trpc.factory.envGenerateEncryptionKey.useMutation({ onSuccess: invalidate })
   const seedKeys = trpc.factory.envSeedProviderKeys.useMutation({ onSuccess: invalidate })
+  const seedDefaults = trpc.factory.envSeedExampleDefaults.useMutation({ onSuccess: invalidate })
 
   // Last occurrence wins, matching dotenv semantics (and the router's listEnv).
   const fileValues = useMemo(() => {
@@ -100,6 +101,19 @@ export function FactoryEnvEditor({
           </span>
         )}
         <div className="ml-auto flex items-center gap-1.5">
+          <Tip content="Copy .env.example's default values (e.g. the docker database's DATABASE_URL) into every key that is still unset — existing values are never overwritten">
+            <span className="inline-flex">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={seedDefaults.isPending || (envRead.data?.exampleKeys.length ?? 0) === 0}
+                onClick={() => seedDefaults.mutate({ dir })}
+              >
+                <ListPlus size={12} />
+                Use example defaults
+              </Button>
+            </span>
+          </Tip>
           <Tip content="Copy the model-provider API keys Yardarm already uses (Settings → API Keys + login-shell auto-detect) into this .env — existing values are never overwritten">
             <span className="inline-flex">
               <Button
@@ -141,6 +155,14 @@ export function FactoryEnvEditor({
           {seedKeys.data.seeded.length > 0
             ? `Seeded: ${seedKeys.data.seeded.join(', ')}`
             : 'No new keys to seed — every detected provider key is already set in .env.'}
+        </div>
+      )}
+
+      {seedDefaults.data && (
+        <div className="mt-3 rounded-md bg-accent px-3 py-2 text-[11px] text-muted-foreground">
+          {seedDefaults.data.seeded.length > 0
+            ? `Filled from .env.example: ${seedDefaults.data.seeded.join(', ')}`
+            : 'Nothing to fill — every .env.example default is already set in .env.'}
         </div>
       )}
 

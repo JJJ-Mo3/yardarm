@@ -130,12 +130,13 @@ export async function readEnvLines(dir: string): Promise<{ exists: boolean; line
   }
 }
 
-export async function readExampleKeys(dir: string): Promise<string[]> {
+/** Key → value map from `.env.example` (values are the template's defaults). */
+export async function readExampleEnv(dir: string): Promise<Record<string, string>> {
   try {
     const text = await fs.readFile(path.join(dir, '.env.example'), 'utf8')
-    return Object.keys(listEnv(parseEnvFile(text)))
+    return listEnv(parseEnvFile(text))
   } catch {
-    return []
+    return {}
   }
 }
 

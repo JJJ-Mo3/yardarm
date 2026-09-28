@@ -53,7 +53,11 @@ export const terminalRouter = router({
       })
     )
     .mutation(({ input }) => {
-      if (input.attachOnly && !ptyManager.exists(input.id)) return { ok: true, attached: false }
+      if (input.attachOnly && !ptyManager.exists(input.id)) {
+        // Attaching to retained output of an already-exited command still
+        // counts: the stream subscription replays it plus the exit line.
+        return { ok: true, attached: ptyManager.finishedOutput(input.id) !== null }
+      }
       let command: string | undefined
       if (input.kind === 'mastracode') {
         // Interactive TUI in the given cwd. It resolves the same cwd-derived
@@ -69,9 +73,21 @@ export const terminalRouter = router({
       return { ok: true, attached: true }
     }),
 
-  /** Streams output; replays buffered scrollback first for reattach. */
+  /**
+   * Streams output; replays buffered scrollback first for reattach. For an
+   * already-exited session with retained output, replays that output plus the
+   * exit event (covers commands that finish before the terminal attaches).
+   */
   stream: publicProcedure.input(z.object({ id: z.string() })).subscription(({ input }) => {
     return observable<TerminalStreamEvent>((emit) => {
+      if (!ptyManager.exists(input.id)) {
+        const done = ptyManager.finishedOutput(input.id)
+        if (done) {
+          emit.next({ type: 'data', data: done.buffer })
+          emit.next({ type: 'exit', code: done.code })
+        }
+        return () => {}
+      }
       const buffered = ptyManager.buffer(input.id)
       if (buffered) emit.next({ type: 'data', data: buffered })
       const offData = ptyManager.onData(input.id, (data) => emit.next({ type: 'data', data }))
@@ -110,6 +126,11 @@ export const terminalRouter = router({
 
   exists: publicProcedure.input(z.object({ id: z.string() })).query(({ input }) => {
     return ptyManager.exists(input.id)
+  }),
+
+  /** Whether the pty is live OR has retained output from a finished run. */
+  hasOutput: publicProcedure.input(z.object({ id: z.string() })).query(({ input }) => {
+    return ptyManager.exists(input.id) || ptyManager.finishedOutput(input.id) !== null
   }),
 
   /** The project's detected dev-server command, if any (Preview tab start chip). */

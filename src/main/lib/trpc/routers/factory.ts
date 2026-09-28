@@ -24,7 +24,7 @@ import {
   inspectFactoryDir,
   missingRequiredKeys,
   readEnvLines,
-  readExampleKeys,
+  readExampleEnv,
   updateEnvFile
 } from '../../factory/factory-dir'
 import { getLoginPath } from '../../system/login-path'
@@ -168,10 +168,13 @@ export const factoryRouter = router({
       const inspection = await inspectFactoryDir(input.dir)
       const mode: FactoryMode =
         input.mode ?? (inspection.detectedMode === 'unknown' ? 'platform' : inspection.detectedMode)
+      const example = await readExampleEnv(input.dir)
       return {
         exists,
         entries,
-        exampleKeys: await readExampleKeys(input.dir),
+        exampleKeys: Object.keys(example),
+        /** Template defaults from .env.example — shown as suggestions in the editor. */
+        exampleValues: example,
         missingRequired: missingRequiredKeys(listEnv(lines), mode)
       }
     }),
@@ -217,6 +220,28 @@ export const factoryRouter = router({
         const updates: Record<string, string> = {}
         for (const [name, value] of Object.entries(available)) {
           if (!getEnv(lines, name)?.trim()) {
+            updates[name] = value
+            seeded.push(name)
+          }
+        }
+        return upsertEnv(lines, updates)
+      })
+      return { seeded }
+    }),
+
+  /**
+   * Copy .env.example's non-empty default values (e.g. the docker-compose
+   * DATABASE_URL) into absent/empty .env keys. Never overwrites user values.
+   */
+  envSeedExampleDefaults: publicProcedure
+    .input(z.object({ dir: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      const example = await readExampleEnv(input.dir)
+      const seeded: string[] = []
+      await updateEnvFile(input.dir, (lines) => {
+        const updates: Record<string, string> = {}
+        for (const [name, value] of Object.entries(example)) {
+          if (value.trim() && !getEnv(lines, name)?.trim()) {
             updates[name] = value
             seeded.push(name)
           }

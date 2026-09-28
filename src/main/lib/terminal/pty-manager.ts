@@ -17,6 +17,8 @@ interface PtySession {
 }
 
 const MAX_BUFFER = 200_000
+/** Finished-output entries kept for exited sessions (bounded FIFO). */
+const MAX_FINISHED = 16
 
 function defaultShell(): string {
   if (process.platform === 'win32') return process.env.COMSPEC ?? 'powershell.exe'
@@ -50,9 +52,17 @@ export function buildMastracodeCommand(execPath: string, cliJsPath: string): str
 
 export class PtyManager {
   private sessions = new Map<string, PtySession>()
+  /**
+   * Scrollback + exit code of exited sessions, so short-lived commands (e.g.
+   * the Factory harness's `npm run db:up`, which exits in ~1s on failure)
+   * stay inspectable after the fact — without this their output would vanish
+   * before any terminal could attach. Bounded; cleared when the id is reused.
+   */
+  private finished = new Map<string, { buffer: string; code: number }>()
 
   create(id: string, cwd: string, cols = 80, rows = 24, command?: string): void {
     if (this.sessions.has(id)) return
+    this.finished.delete(id)
     // Login shell: GUI apps get a bare PATH on macOS, and homebrew / node
     // version managers only add themselves in login shells (~/.zprofile,
     // /etc/zprofile path_helper) — without -l, npm/node are often missing.
@@ -81,6 +91,14 @@ export class PtyManager {
       session.emitter.emit('data', data)
     })
     proc.onExit(({ exitCode }) => {
+      if (session.buffer) {
+        this.finished.set(id, { buffer: session.buffer, code: exitCode })
+        while (this.finished.size > MAX_FINISHED) {
+          const oldest = this.finished.keys().next().value
+          if (oldest === undefined) break
+          this.finished.delete(oldest)
+        }
+      }
       session.emitter.emit('exit', exitCode)
       this.sessions.delete(id)
     })
@@ -97,6 +115,11 @@ export class PtyManager {
 
   buffer(id: string): string {
     return this.sessions.get(id)?.buffer ?? ''
+  }
+
+  /** Retained output of an exited session, if any (see `finished`). */
+  finishedOutput(id: string): { buffer: string; code: number } | null {
+    return this.finished.get(id) ?? null
   }
 
   write(id: string, data: string): void {
