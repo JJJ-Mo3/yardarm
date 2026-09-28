@@ -203,6 +203,7 @@ export function FactoryEnvEditor({
           const secret = SECRET_RE.test(k)
           const present = fileValues.has(k) || k in edits
           const isMissing = missing.includes(k)
+          const example = envRead.data?.exampleValues?.[k] ?? ''
           return (
             <div key={k}>
               <div className="flex items-center gap-2">
@@ -220,7 +221,7 @@ export function FactoryEnvEditor({
                   type={secret && !revealed[k] ? 'password' : 'text'}
                   value={val(k)}
                   onChange={(e) => setEdit(k, e.target.value)}
-                  placeholder={present ? '' : 'not set'}
+                  placeholder={present ? '' : example ? `example: ${example}` : 'not set'}
                   spellCheck={false}
                   className="h-6 min-w-0 flex-1 font-mono text-[11px]"
                 />
@@ -294,9 +295,12 @@ export function FactoryEnvEditor({
         </Tip>
       </div>
 
-      {(envWrite.error || genKey.error || seedKeys.error) && (
+      {(envWrite.error || genKey.error || seedKeys.error || seedDefaults.error) && (
         <div className="mt-2 text-[11px] text-destructive">
-          {envWrite.error?.message ?? genKey.error?.message ?? seedKeys.error?.message}
+          {envWrite.error?.message ??
+            genKey.error?.message ??
+            seedKeys.error?.message ??
+            seedDefaults.error?.message}
         </div>
       )}
     </div>
