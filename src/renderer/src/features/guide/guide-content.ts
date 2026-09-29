@@ -350,7 +350,7 @@ separate from the repos its agents work on — keep it outside your Yardarm proj
 Pick the mode when scaffolding; adopting an existing checkout auto-detects it (override in the
 header any time).
 
-### Setup → Environment → Server
+### Setup → Environment → Server → Work
 
 1. **Setup** — scaffold a new checkout (\`npm create factory@latest\`, fully interactive in the
    embedded terminal — platform mode prints a browser sign-in link) or point Yardarm at an
@@ -363,6 +363,24 @@ header any time).
 3. **Server** — start/stop \`npm run dev\`; the dashboard URL is auto-detected from the logs
    (the URL chips clear when the server stops) and loads in an embedded view with back/forward,
    reload, DevTools, and open-in-browser. The dashboard session persists across app restarts.
+4. **Work** — a native client for the running server's board APIs. Pick (or create) a Factory
+   project, then work the sub-tabs:
+   - **Board** — kanban over the server's phase pipeline. Drag cards along their legal
+     transitions (illegal targets are inert; a gated edge points you to Decisions), add cards
+     to the initial phase, and press ▶ on a card to start an agent run with that phase's role.
+   - **Decisions** — the human approval gates: approve, dismiss, or retry automation proposals,
+     with status filters and per-decision error details.
+   - **Attention** — the notification inbox: mentions, automation failures/proposals, waiting
+     agents, and supervisor findings. Mark items read or archive them; unread items show as a
+     count badge on the Factory tab itself.
+   - **Intake** — bind external sources (GitHub, Linear, Slack) to a Factory project so new
+     issues land on its board, and pull individual incoming items onto the board by hand.
+
+Sign in **once** via the Server section's embedded dashboard — the Work section reuses that
+session (signing out there signs it out too), and Yardarm never stores Factory tokens itself.
+The board APIs are organization-scoped, so an account without an organization — or a purely
+local no-auth server — can't serve them. Everything long-tail (settings, integrations, session
+transcripts) stays in the embedded dashboard.
 
 The server stops when Yardarm quits — for long-lived hosting, run \`npm run dev\` in a
 standalone terminal instead. The Factory tab is unnumbered; reach it from the tab bar or ⌘K.

@@ -226,6 +226,20 @@
             The server stops when Yardarm quits — run <code>npm run dev</code> in a standalone
             terminal for long-lived hosting.
           </li>
+          <li>
+            <strong>Work</strong> — a native client for the running server's board APIs. Pick or
+            create a Factory project, then use the sub-tabs: <strong>Board</strong> (kanban over the
+            server's phase pipeline — drag cards along their legal transitions, add cards, and start
+            an agent run with a phase's role), <strong>Decisions</strong> (approve, dismiss, or
+            retry automation proposals — the human approval gates),
+            <strong>Attention</strong> (mentions, failures, and waiting agents; unread items badge
+            the Factory tab), and <strong>Intake</strong> (bind GitHub/Linear/Slack sources to a
+            project and pull incoming issues onto the board). Sign in once via the Server section's
+            embedded dashboard — the Work section reuses that session, and Yardarm never stores
+            Factory tokens itself. The board APIs are organization-scoped, so a purely local no-auth
+            server can't serve them; settings, integrations, and session transcripts stay in the
+            dashboard.
+          </li>
         </ul>
 
         <h2 id="kanban">The Kanban board and sidebar indicators</h2>
