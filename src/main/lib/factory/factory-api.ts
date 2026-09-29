@@ -9,11 +9,7 @@
  * factory-client.ts.
  */
 import { randomUUID } from 'node:crypto'
-import type {
-  FactoryAttentionItem,
-  FactoryBoard,
-  FactoryWorkItem
-} from '../../../shared/factory-work-types'
+import type { FactoryBoard, FactoryWorkItem } from '../../../shared/factory-work-types'
 import { getEnv, type EnvLine } from './env-file'
 
 export const DEFAULT_FACTORY_PORT = 4111
@@ -143,28 +139,5 @@ export function buildStartRunBody(item: FactoryWorkItem, role: string): StartRun
         ...(item.metadata ? { metadata: item.metadata } : {})
       }
     }
-  }
-}
-
-/**
- * The per-kind source id for attention receipt actions
- * (`POST .../attention/:kind/:sourceId/:occurrence/...`). Echo the item's own
- * field verbatim — the identity scheme is the server's, not ours.
- */
-export function attentionSourceId(item: FactoryAttentionItem): string | null {
-  switch (item.kind) {
-    case 'automation-failed':
-    case 'automation-proposed':
-      return item.decisionId ?? null
-    case 'mention':
-      return item.commentId ?? null
-    case 'activity':
-      return item.workItemId ?? null
-    case 'supervisor-finding':
-      return item.findingKey ?? null
-    case 'agent-waiting':
-      return item.sessionId ?? null
-    default:
-      return null
   }
 }

@@ -174,6 +174,14 @@ export default function App(): React.JSX.Element {
   const mastraSettings = trpc.mastraSettings.get.useQuery(undefined, {
     refetchOnWindowFocus: false
   })
+  // Factory attention badge: main short-circuits without network when the
+  // Factory server pty is down, so this idle poll costs nothing.
+  const factoryConfig = trpc.factory.getConfig.useQuery()
+  const factoryAttention = trpc.factoryWork.attentionSummary.useQuery(
+    { dir: factoryConfig.data?.dir ?? '' },
+    { enabled: !!factoryConfig.data?.dir, refetchInterval: 15_000, retry: false }
+  )
+  const factoryUnread = factoryAttention.data?.unread ?? 0
 
   const project = (projects.data ?? []).find((p) => p.id === projectId) ?? null
   const cwd = chat.data?.worktreePath ?? project?.path ?? null
@@ -221,6 +229,11 @@ export default function App(): React.JSX.Element {
               >
                 {t.icon}
                 {t.label}
+                {t.id === 'factory' && factoryUnread > 0 && (
+                  <span className="rounded-full bg-sky-500/20 px-1.5 text-[10px] font-medium text-sky-500">
+                    {factoryUnread > 99 ? '99+' : factoryUnread}
+                  </span>
+                )}
               </button>
             </Tip>
           ))}

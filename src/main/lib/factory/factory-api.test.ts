@@ -3,15 +3,15 @@
  * failure classification, board-graph queries, and idempotent body builders.
  */
 import { describe, expect, it } from 'vitest'
-import type {
-  FactoryAttentionItem,
-  FactoryBoard,
-  FactoryWorkItem
+import {
+  attentionSourceId,
+  type FactoryAttentionItem,
+  type FactoryBoard,
+  type FactoryWorkItem
 } from '../../../shared/factory-work-types'
 import { parseEnvFile } from './env-file'
 import {
   allowedTransitionTargets,
-  attentionSourceId,
   baseUrlFromEnv,
   buildStartRunBody,
   buildTransitionBody,
