@@ -19,6 +19,7 @@ import {
   SelectValue
 } from '../../components/ui/select'
 import { Tip } from '../../components/ui/tooltip'
+import { FactoryDecisions } from './FactoryDecisions'
 import { FactoryWorkBoard } from './FactoryWorkBoard'
 
 const PROJECT_STORAGE_KEY = 'factory-work-project'
@@ -295,7 +296,10 @@ export function FactoryWorkPanel({
         {projectId && subTab === 'board' && (
           <FactoryWorkBoard dir={dir} projectId={projectId} active={active} />
         )}
-        {subTab !== 'board' && (
+        {projectId && subTab === 'decisions' && (
+          <FactoryDecisions dir={dir} projectId={projectId} active={active} />
+        )}
+        {(subTab === 'attention' || subTab === 'intake') && (
           <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
             Coming soon
           </div>
