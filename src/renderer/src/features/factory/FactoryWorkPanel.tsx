@@ -62,12 +62,14 @@ export function FactoryWorkPanel({
   dir,
   active,
   serverRunning,
-  onShowServer
+  onShowServer,
+  onShowChecklist
 }: {
   dir: string
   active: boolean
   serverRunning: boolean
   onShowServer: () => void
+  onShowChecklist: () => void
 }): React.JSX.Element {
   const utils = trpc.useUtils()
   const me = trpc.factoryWork.me.useQuery(
@@ -79,6 +81,12 @@ export function FactoryWorkPanel({
     }
   )
   const meCode = factoryErrorCode(me.error?.message)
+  // When the API errors, check whether the server is even serving its web app
+  // (the SPA-not-mounted failure mode answers `/` with the bare Hono default).
+  const probe = trpc.factory.dashboardProbe.useQuery(
+    { dir },
+    { enabled: active && serverRunning && !!me.error, retry: false }
+  )
   const authed = !!me.data?.authenticated
   const hasOrg = !!me.data?.user?.organizationId
   const ready = serverRunning && authed && hasOrg && meCode === null
@@ -148,7 +156,31 @@ export function FactoryWorkPanel({
       <Gate
         icon={<LogIn size={20} />}
         title="Organization required"
-        body="Factory's board APIs are organization-scoped. This account has no organization yet — create or join one from the Factory dashboard. A purely local no-auth server can't serve the board."
+        body="Factory's board APIs are organization-scoped. This account has no organization yet — create or join one from the Factory dashboard, or self-host auth with WorkOS (see the checklist's sign-in step). A purely local no-auth server can't serve the board."
+        action={
+          <Tip content="Open the guided setup checklist — its sign-in step covers both auth paths">
+            <Button size="sm" variant="outline" onClick={onShowChecklist}>
+              Open checklist
+            </Button>
+          </Tip>
+        }
+      />
+    )
+  }
+
+  if (me.error && (meCode === 'http_404' || probe.data?.state === 'bare_api')) {
+    return (
+      <Gate
+        icon={<ServerOff size={20} />}
+        title="Factory server isn't serving its web app"
+        body="The server is running but its dashboard/API routes aren't mounted — usually the dashboard UI bundle wasn't found at startup. The checklist's 'Dashboard UI configured' step can fix .env and restart the server."
+        action={
+          <Tip content="Open the guided setup checklist to fix the dashboard UI configuration">
+            <Button size="sm" variant="outline" onClick={onShowChecklist}>
+              Open checklist
+            </Button>
+          </Tip>
+        }
       />
     )
   }
@@ -159,6 +191,13 @@ export function FactoryWorkPanel({
         icon={<ServerOff size={20} />}
         title="Can't reach the Factory server"
         body={me.error.message}
+        action={
+          <Tip content="Open the guided setup checklist — it diagnoses each step from scaffold to a working board">
+            <Button size="sm" variant="outline" onClick={onShowChecklist}>
+              Open checklist
+            </Button>
+          </Tip>
+        }
       />
     )
   }

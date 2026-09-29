@@ -26,6 +26,7 @@ import type {
   FactoryWorkItemsResponse
 } from '../../../shared/factory-work-types'
 import { ptyManager } from '../terminal/pty-manager'
+import { classifyDashboardResponse, type DashboardProbeState } from './dashboard-health'
 import {
   baseUrlFromEnv,
   FactoryApiError,
@@ -104,6 +105,35 @@ export async function factoryFetch<T>(dir: string, path: string, init?: RequestI
   }
   if (!res.ok) throw failureFromResponse(res.status, await parseJson(res))
   return (await parseJson(res)) as T
+}
+
+export interface DashboardProbeResult {
+  state: 'stopped' | 'unreachable' | DashboardProbeState
+}
+
+/**
+ * Status probe of GET <base>/ — is the server serving the dashboard SPA, or
+ * only its bare API ("Welcome to the Mastra API")? Unlike factoryFetch this
+ * never throws (it powers passive health UI, not API calls) and follows
+ * redirects: the auth gate may bounce `/` to a sign-in route that is still
+ * served by the SPA middleware, and "is HTML served at all" is the question.
+ */
+export async function probeDashboard(dir: string): Promise<DashboardProbeResult> {
+  if (!ptyManager.exists(SERVER_PTY_ID)) return { state: 'stopped' }
+  const ses = session.fromPartition(PARTITION)
+  const base = await resolveFactoryBaseUrl(dir)
+  try {
+    const res = await ses.fetch(`${base}/`, {
+      headers: { Accept: 'text/html' },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(TIMEOUT_MS)
+    })
+    const body = (await res.text()).slice(0, 64_000)
+    const contentType = res.headers.get('content-type') ?? ''
+    return { state: classifyDashboardResponse({ contentType, body }) }
+  } catch {
+    return { state: 'unreachable' }
+  }
 }
 
 function post(body: unknown): RequestInit {

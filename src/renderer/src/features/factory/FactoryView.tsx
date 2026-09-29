@@ -23,6 +23,7 @@ import {
   SelectValue
 } from '../../components/ui/select'
 import { FactorySetup } from './FactorySetup'
+import { FactoryChecklist } from './FactoryChecklist'
 import { FactoryEnvEditor } from './FactoryEnvEditor'
 import { FactoryDbCard } from './FactoryDbCard'
 import { FactoryRunPanel } from './FactoryRunPanel'
@@ -41,7 +42,7 @@ export interface FactoryInspection {
   missingRequired: string[]
 }
 
-type Section = 'setup' | 'env' | 'run' | 'work'
+type Section = 'checklist' | 'setup' | 'env' | 'run' | 'work'
 
 export function FactoryView({ active }: { active: boolean }): React.JSX.Element {
   const utils = trpc.useUtils()
@@ -80,9 +81,8 @@ export function FactoryView({ active }: { active: boolean }): React.JSX.Element 
   const inspection = dir ? (inspect.data ?? null) : null
   const scaffolded = !!inspection?.scaffolded
   const missing = inspection?.missingRequired ?? []
-  const effective: Section = !dir
-    ? 'setup'
-    : (section ?? (!scaffolded ? 'setup' : missing.length > 0 ? 'env' : 'run'))
+  const setupIncomplete = !scaffolded || missing.length > 0 || !inspection?.hasNodeModules
+  const effective: Section = !dir ? 'setup' : (section ?? (setupIncomplete ? 'checklist' : 'run'))
 
   const navBtn = (id: Section, label: string, tip: string, badge?: React.ReactNode) => (
     <Tip key={id} content={tip} side="bottom">
@@ -129,6 +129,15 @@ export function FactoryView({ active }: { active: boolean }): React.JSX.Element 
           </Select>
         )}
         <div className="ml-auto flex items-center gap-1">
+          {dir &&
+            navBtn(
+              'checklist',
+              'Checklist',
+              'Guided setup checklist — every step from scaffold to a working board, with one-click fixes',
+              setupIncomplete ? (
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+              ) : undefined
+            )}
           {navBtn(
             'setup',
             'Setup',
@@ -164,6 +173,20 @@ export function FactoryView({ active }: { active: boolean }): React.JSX.Element 
       </div>
 
       <div className="min-h-0 flex-1">
+        {dir && (
+          <div className={cn('h-full overflow-y-auto', effective !== 'checklist' && 'hidden')}>
+            <FactoryChecklist
+              dir={dir}
+              mode={mode}
+              active={active && effective === 'checklist'}
+              inspection={inspection}
+              serverRunning={!!status.data?.serverRunning}
+              installRunning={!!status.data?.installRunning}
+              dbRunning={!!status.data?.dbRunning}
+              onGoTo={(s) => setSection(s)}
+            />
+          </div>
+        )}
         <div className={cn('h-full overflow-y-auto', effective !== 'setup' && 'hidden')}>
           <FactorySetup
             dir={dir}
@@ -196,6 +219,7 @@ export function FactoryView({ active }: { active: boolean }): React.JSX.Element 
               serverRunning={!!status.data?.serverRunning}
               scaffolded={scaffolded}
               missingRequired={missing}
+              onShowChecklist={() => setSection('checklist')}
             />
           </div>
         )}
@@ -206,6 +230,7 @@ export function FactoryView({ active }: { active: boolean }): React.JSX.Element 
               active={active && effective === 'work'}
               serverRunning={!!status.data?.serverRunning}
               onShowServer={() => setSection('run')}
+              onShowChecklist={() => setSection('checklist')}
             />
           </div>
         )}

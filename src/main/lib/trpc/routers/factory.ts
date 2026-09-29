@@ -18,8 +18,10 @@ import { z } from 'zod'
 import type { FactoryConfig, FactoryMode } from '../../../../shared/ipc-types'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import { getDb, schema } from '../../db'
+import { inspectUiDist } from '../../factory/dashboard-health'
 import { probeDockerStatus, probeTcp, runtimeStartCommand } from '../../factory/docker-status'
 import { getEnv, listEnv, upsertEnv } from '../../factory/env-file'
+import { probeDashboard } from '../../factory/factory-client'
 import {
   deriveComposeDatabaseUrl,
   inspectFactoryDir,
@@ -328,6 +330,54 @@ export const factoryRouter = router({
     ptyManager.kill(SERVER_ID)
     return { ok: true }
   }),
+
+  /**
+   * Stop + start the server pty. Needed because .env is only read at boot —
+   * fixUiDist (and any other env change) takes effect on the next start.
+   */
+  serverRestart: publicProcedure
+    .input(z.object({ dir: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      ptyManager.kill(SERVER_ID)
+      // Give the killed process a moment to release its port before `npm run
+      // dev` rebinds it — an immediate restart can crash with EADDRINUSE.
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+      ptyManager.create(SERVER_ID, input.dir, 80, 24, 'npm run dev')
+      return { ok: true }
+    }),
+
+  /** Where a servable dashboard UI dist lives for this checkout, if anywhere. */
+  uiDist: publicProcedure
+    .input(z.object({ dir: z.string().min(1) }))
+    .query(({ input }) => inspectUiDist(input.dir)),
+
+  /** Is the running server serving the dashboard SPA, or only its bare API? */
+  dashboardProbe: publicProcedure
+    .input(z.object({ dir: z.string().min(1) }))
+    .query(({ input }) => probeDashboard(input.dir)),
+
+  /**
+   * One-click fix for the "Welcome to the Mastra API" failure mode: point
+   * MASTRACODE_UI_DIST at the dashboard SPA bundled with the checkout's
+   * mastra CLI (node_modules/mastra/dist/factory). No-op when .env already
+   * points at an existing UI dist; never overwrites a valid user value.
+   */
+  fixUiDist: publicProcedure
+    .input(z.object({ dir: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      const status = await inspectUiDist(input.dir)
+      if (status.envValid) {
+        return { written: false, value: status.envValue, needsRestart: false }
+      }
+      const value = status.bundledDir
+      if (!value) {
+        throw new Error(
+          'The dashboard bundle is missing (node_modules/mastra/dist/factory) — install dependencies first'
+        )
+      }
+      await updateEnvFile(input.dir, (lines) => upsertEnv(lines, { MASTRACODE_UI_DIST: value }))
+      return { written: true, value, needsRestart: ptyManager.exists(SERVER_ID) }
+    }),
 
   status: publicProcedure.query(() => ({
     serverRunning: ptyManager.exists(SERVER_ID),

@@ -203,6 +203,13 @@
         </p>
         <ul>
           <li>
+            <strong>Checklist</strong> — a guided setup checklist covering every step from scaffold
+            to a working board: checkout, dependencies, database, required <code>.env</code> keys,
+            dashboard UI, server, dashboard-serving health, and sign-in. Each step shows live
+            pass/fail state with a one-click fix or a jump to the right section; it opens
+            automatically while setup is incomplete.
+          </li>
+          <li>
             <strong>Setup</strong> — scaffold a new checkout with
             <code>npm create factory@latest</code> in an interactive terminal, or point Yardarm at
             an existing one (its mode is auto-detected). Every step streams into its own embedded
@@ -227,8 +234,11 @@
             the Factory dashboard embedded in-app (persistent session, DevTools, open-in-browser).
             If <code>DATABASE_URL</code> points at a localhost port nobody is listening on, a
             warning appears before you start (the server would otherwise crash with a bare
-            ECONNREFUSED). The server stops when Yardarm quits — run <code>npm run dev</code> in a
-            standalone terminal for long-lived hosting.
+            ECONNREFUSED). If the running server answers with only "Welcome to the Mastra API", its
+            dashboard UI wasn't found at startup — a banner offers <strong>Fix .env</strong> (points
+            <code>MASTRACODE_UI_DIST</code> at the prebuilt dashboard bundled with the checkout's
+            mastra CLI) followed by a server restart. The server stops when Yardarm quits — run
+            <code>npm run dev</code> in a standalone terminal for long-lived hosting.
           </li>
           <li>
             <strong>Work</strong> — a native client for the running server's board APIs. Pick or
@@ -241,8 +251,12 @@
             project and pull incoming issues onto the board). Sign in once via the Server section's
             embedded dashboard — the Work section reuses that session, and Yardarm never stores
             Factory tokens itself. The board APIs are organization-scoped, so a purely local no-auth
-            server can't serve them; settings, integrations, and session transcripts stay in the
-            dashboard.
+            server can't serve them — sign in via the Mastra platform (the default) or self-host
+            auth with WorkOS (<code>WORKOS_API_KEY</code> + <code>WORKOS_CLIENT_ID</code> in
+            <code>.env</code>, which bootstraps a personal organization automatically). Setting
+            <code>MASTRACODE_AUTH_DISABLED</code> never enables the board — it only removes the
+            sign-in screen while the org-scoped APIs keep rejecting requests. Settings,
+            integrations, and session transcripts stay in the dashboard.
           </li>
         </ul>
 

@@ -350,8 +350,13 @@ separate from the repos its agents work on — keep it outside your Yardarm proj
 Pick the mode when scaffolding; adopting an existing checkout auto-detects it (override in the
 header any time).
 
-### Setup → Environment → Server → Work
+### Checklist → Setup → Environment → Server → Work
 
+0. **Checklist** — a guided setup checklist covering every step from scaffold to a working
+   board: checkout, dependencies, database, required \`.env\` keys, dashboard UI, server,
+   dashboard-serving health, and sign-in. Each step shows live pass/fail state with a
+   one-click fix or a jump to the right section; it opens automatically while setup is
+   incomplete.
 1. **Setup** — scaffold a new checkout (\`npm create factory@latest\`, fully interactive in the
    embedded terminal — platform mode prints a browser sign-in link) or point Yardarm at an
    existing folder. Install dependencies from here if needed. Every step streams into its own
@@ -368,6 +373,9 @@ header any time).
    reload, DevTools, and open-in-browser. The dashboard session persists across app restarts.
    If the \`.env\` DATABASE_URL points at a localhost port nobody is listening on, a warning
    appears before you start — the server would otherwise crash with a bare ECONNREFUSED.
+   If the running server answers with only **"Welcome to the Mastra API"**, its dashboard UI
+   wasn't found at startup — a banner offers **Fix .env** (points \`MASTRACODE_UI_DIST\` at the
+   prebuilt dashboard bundled with the checkout's mastra CLI) followed by a server restart.
 4. **Work** — a native client for the running server's board APIs. Pick (or create) a Factory
    project, then work the sub-tabs:
    - **Board** — kanban over the server's phase pipeline. Drag cards along their legal
@@ -384,8 +392,12 @@ header any time).
 Sign in **once** via the Server section's embedded dashboard — the Work section reuses that
 session (signing out there signs it out too), and Yardarm never stores Factory tokens itself.
 The board APIs are organization-scoped, so an account without an organization — or a purely
-local no-auth server — can't serve them. Everything long-tail (settings, integrations, session
-transcripts) stays in the embedded dashboard.
+local no-auth server — can't serve them. Two auth paths exist: the default Mastra-platform
+sign-in inside the dashboard, or self-hosted auth via WorkOS (\`WORKOS_API_KEY\` +
+\`WORKOS_CLIENT_ID\` in \`.env\`, which bootstraps a personal organization automatically).
+Setting \`MASTRACODE_AUTH_DISABLED\` never enables the board — it only removes the sign-in
+screen while the org-scoped APIs keep rejecting requests. Everything long-tail (settings,
+integrations, session transcripts) stays in the embedded dashboard.
 
 The server stops when Yardarm quits — for long-lived hosting, run \`npm run dev\` in a
 standalone terminal instead. The Factory tab is unnumbered; reach it from the tab bar or ⌘K.

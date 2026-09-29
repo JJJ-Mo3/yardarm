@@ -31,13 +31,15 @@ export function FactoryRunPanel({
   active,
   serverRunning,
   scaffolded,
-  missingRequired
+  missingRequired,
+  onShowChecklist
 }: {
   dir: string
   active: boolean
   serverRunning: boolean
   scaffolded: boolean
   missingRequired: string[]
+  onShowChecklist: () => void
 }): React.JSX.Element {
   const utils = trpc.useUtils()
   const webviewRef = useRef<WebviewElement | null>(null)
@@ -76,6 +78,27 @@ export function FactoryRunPanel({
     !serverRunning && scaffolded && dbCheck.data?.checked && !dbCheck.data.reachable
       ? `Nothing is listening on ${dbCheck.data.host}:${dbCheck.data.port} (this checkout's DATABASE_URL) — the server will crash on startup with ECONNREFUSED. Start the local database first (Environment section), or fix DATABASE_URL.`
       : null
+
+  // Dashboard-serving probe: a server whose SPA middleware failed to mount
+  // answers `/` with the bare Hono default ("Welcome to the Mastra API").
+  const probe = trpc.factory.dashboardProbe.useQuery(
+    { dir },
+    { enabled: active && serverRunning, refetchInterval: 5000 }
+  )
+  const bareApi = serverRunning && probe.data?.state === 'bare_api'
+  const uiDist = trpc.factory.uiDist.useQuery({ dir }, { enabled: active && bareApi })
+  const fixUiDist = trpc.factory.fixUiDist.useMutation({
+    onSuccess: () => {
+      utils.factory.uiDist.invalidate()
+      utils.factory.envRead.invalidate()
+    }
+  })
+  const restart = trpc.factory.serverRestart.useMutation({
+    onSuccess: () => {
+      utils.factory.status.invalidate()
+      utils.factory.dashboardProbe.invalidate()
+    }
+  })
   // Gate on serverRunning: the disabled query retains its last data after a
   // stop, which would leave stale URL chips for a dead server.
   const urls = serverRunning ? (detected.data ?? []) : []
@@ -346,10 +369,11 @@ export function FactoryRunPanel({
         </Tip>
       </div>
 
-      {(start.error || stop.error || devTools.error || openExternal.error) && (
+      {(start.error || stop.error || restart.error || devTools.error || openExternal.error) && (
         <div className="shrink-0 border-b border-border bg-destructive/10 px-3 py-1.5 text-[11px] text-destructive">
           {start.error?.message ??
             stop.error?.message ??
+            restart.error?.message ??
             (devTools.error ? `DevTools failed: ${devTools.error.message}` : undefined) ??
             `Open in browser failed: ${openExternal.error?.message}`}
         </div>
@@ -358,6 +382,56 @@ export function FactoryRunPanel({
       {dbWarning && (
         <div className="shrink-0 border-b border-border bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-500">
           {dbWarning}
+        </div>
+      )}
+
+      {bareApi && (
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-500">
+          <span>
+            The server is running but only serving its bare API (&ldquo;Welcome to the Mastra
+            API&rdquo;) — the dashboard UI isn&rsquo;t mounted.
+            {fixUiDist.error ? ` ${fixUiDist.error.message}` : ''}
+          </span>
+          {uiDist.data?.fixAvailable && (
+            <Tip content="Write MASTRACODE_UI_DIST=<checkout>/node_modules/mastra/dist/factory into .env so the server can find the prebuilt dashboard">
+              <span className="inline-flex">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 px-2 text-[11px]"
+                  disabled={fixUiDist.isPending}
+                  onClick={() => fixUiDist.mutate({ dir })}
+                >
+                  Fix .env
+                </Button>
+              </span>
+            </Tip>
+          )}
+          {uiDist.data?.envValid && (
+            <Tip content=".env now points at the dashboard bundle, but the server only reads .env at boot — restart it to mount the dashboard">
+              <span className="inline-flex">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 px-2 text-[11px]"
+                  disabled={restart.isPending}
+                  onClick={() => restart.mutate({ dir })}
+                >
+                  Restart server
+                </Button>
+              </span>
+            </Tip>
+          )}
+          <Tip content="Open the guided setup checklist — it walks every step from scaffold to a working board">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 px-2 text-[11px]"
+              onClick={onShowChecklist}
+            >
+              Open checklist
+            </Button>
+          </Tip>
         </div>
       )}
 
