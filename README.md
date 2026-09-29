@@ -335,13 +335,17 @@ Yardarm puts a desktop workspace around the agent:
   terminal, a wrench button docks full Chrome DevTools for the previewed
   page beside it, navigation is locked to localhost, and external links
   open in your system browser
-- Factory tab: a harness for [Mastra Factory](https://mastra.ai/factory),
-  Mastra's open-source agent-powered software factory — scaffold a Factory
-  server checkout (`npm create factory@latest`, platform sign-in or local
-  self-hosted with `--no-platform`), edit its `.env` in a guided editor
-  (generate the encryption key, seed your model-provider API keys, flag
-  missing required keys), start/stop the Docker database (local mode),
-  and run `npm run dev` with the Factory dashboard embedded in-app
+- Factory tab: a harness and native work client for
+  [Mastra Factory](https://mastra.ai/factory), Mastra's open-source
+  agent-powered software factory — scaffold a Factory server checkout
+  (`npm create factory@latest`, platform sign-in or local self-hosted with
+  `--no-platform`), edit its `.env` in a guided editor (generate the
+  encryption key, seed your model-provider API keys, flag missing required
+  keys), start/stop the Docker database (local mode), run `npm run dev`
+  with the Factory dashboard embedded in-app, and work the server's board
+  natively: kanban with legal-transition drag and agent-run starts, a
+  decisions inbox (approve/dismiss/retry), an attention inbox that badges
+  the Factory tab, and intake source bindings with pull-onto-board
 - Kanban task board: author cards (title + prompt) in Backlog / To do,
   then drag one to In progress (or press play) to dispatch an agent —
   Yardarm creates the chat (worktree optional) and sends the prompt.
@@ -570,8 +574,17 @@ missing required keys; local mode gets a Docker database card
 (`npm run db:up`/`db:down`). Start `npm run dev` from the Server section
 and the dashboard URL is auto-detected from the logs and loads in an
 embedded view with DevTools — the dashboard session persists across app
-restarts. The server stops when Yardarm quits; run `npm run dev` in a
-standalone terminal for long-lived hosting.
+restarts. The Work section is a native client for the running server's
+board APIs: pick or create a Factory project, drag cards along their
+legal transitions on the board (illegal targets are inert), start agent
+runs with a phase's role, approve/dismiss/retry automation decisions,
+work the attention inbox (unread items badge the Factory tab), and bind
+GitHub/Linear/Slack intake sources or pull incoming items onto the
+board. Sign in once via the embedded dashboard — the Work section reuses
+that session and Yardarm never stores Factory tokens; the board APIs are
+organization-scoped, so a purely local no-auth server can't serve them.
+The server stops when Yardarm quits; run `npm run dev` in a standalone
+terminal for long-lived hosting.
 
 **Kanban & Analytics.** The Kanban tab is a task board that dispatches
 agents: write cards (title + prompt) into Backlog / To do, drag one to In

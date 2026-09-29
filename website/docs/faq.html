@@ -76,6 +76,7 @@
             <li><a href="#timeouts">Will slow models time out?</a></li>
             <li><a href="#context-window">What context window?</a></li>
             <li><a href="#worktrees">Why worktrees?</a></li>
+            <li><a href="#factory">Factory tab requirements?</a></li>
             <li><a href="#uninstall">How do I uninstall?</a></li>
             <li><a href="#official">Official Mastra product?</a></li>
             <li><a href="#name">Why "Yardarm"?</a></li>
@@ -191,6 +192,18 @@
           Isolation: the agent can edit, build, and commit without touching your checked-out branch,
           and parallel chats can't conflict. You can merge or PR the
           <code>yardarm/…</code> branch from the Changes tab, or create chats without a worktree.
+        </p>
+
+        <h2 id="factory">What does the Factory tab's Work section need?</h2>
+        <p>
+          The <a href="workspace.html#factory">Factory tab</a> scaffolds, configures, and runs a
+          <a href="https://mastra.ai/factory">Mastra Factory</a> server — that part works with any
+          setup. The <strong>Work</strong> section (board, decisions, attention, intake) talks to
+          the server's organization-scoped APIs, so it additionally needs you signed in with an
+          account that belongs to an organization: sign in once via the Server section's embedded
+          dashboard and the Work section reuses that browser session — Yardarm never stores Factory
+          tokens itself. A purely local no-auth server can run, but it cannot serve the Work
+          section; use its dashboard directly instead.
         </p>
 
         <h2 id="uninstall">How do I uninstall completely?</h2>

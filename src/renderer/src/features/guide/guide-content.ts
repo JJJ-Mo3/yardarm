@@ -621,6 +621,14 @@ network connection.
 Yes. Each chat (and each thread) runs independently — use split view, multiple chats, or the
 Kanban board to parallelize.
 
+### Why does the Factory Work section ask me to sign in — or say I need an organization?
+
+The Board, Decisions, Attention, and Intake sub-tabs talk to the Factory server's
+**organization-scoped** APIs. Sign in once via the Server section's embedded dashboard with an
+account that belongs to an organization; the Work section reuses that session, and Yardarm
+never stores Factory tokens itself. A purely local no-auth server can run, but it can't serve
+the Work section — use its dashboard directly instead.
+
 ### Why does the agent keep asking for approval?
 
 That's the default safety posture. Add permission rules (\`/permissions\`) for routine
