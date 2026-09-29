@@ -21,6 +21,7 @@ import {
 import { Tip } from '../../components/ui/tooltip'
 import { FactoryAttention } from './FactoryAttention'
 import { FactoryDecisions } from './FactoryDecisions'
+import { FactoryIntake } from './FactoryIntake'
 import { FactoryWorkBoard } from './FactoryWorkBoard'
 
 const PROJECT_STORAGE_KEY = 'factory-work-project'
@@ -303,10 +304,8 @@ export function FactoryWorkPanel({
         {projectId && subTab === 'attention' && (
           <FactoryAttention dir={dir} projectId={projectId} active={active} />
         )}
-        {subTab === 'intake' && (
-          <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-            Coming soon
-          </div>
+        {projectId && subTab === 'intake' && (
+          <FactoryIntake dir={dir} projectId={projectId} active={active} />
         )}
       </div>
     </div>
