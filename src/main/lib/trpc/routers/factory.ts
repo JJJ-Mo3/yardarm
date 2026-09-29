@@ -16,19 +16,19 @@ import path from 'node:path'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import type { FactoryConfig, FactoryMode } from '../../../../shared/ipc-types'
-import { findExecutable } from '../../../agent-host/lsp-diagnostics'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import { getDb, schema } from '../../db'
+import { probeDockerStatus, probeTcp, runtimeStartCommand } from '../../factory/docker-status'
 import { getEnv, listEnv, upsertEnv } from '../../factory/env-file'
 import {
   deriveComposeDatabaseUrl,
   inspectFactoryDir,
   missingRequiredKeys,
+  parseDatabaseUrlTarget,
   readEnvLines,
   readExampleEnv,
   updateEnvFile
 } from '../../factory/factory-dir'
-import { getLoginPath } from '../../system/login-path'
 import { ptyManager, shellQuote } from '../../terminal/pty-manager'
 import { publicProcedure, router } from '../trpc'
 
@@ -266,14 +266,45 @@ export const factoryRouter = router({
       return { seeded }
     }),
 
-  dockerStatus: publicProcedure.query(() => {
-    const dockerPath = findExecutable('docker', getLoginPath(), [
-      '/usr/local/bin',
-      '/opt/homebrew/bin',
-      '/Applications/Docker.app/Contents/Resources/bin'
-    ])
-    return { dockerPath }
-  }),
+  /** CLI presence + daemon reachability + compose plugin + startable runtime. */
+  dockerStatus: publicProcedure.query(() => probeDockerStatus()),
+
+  /**
+   * Bring the detected Docker runtime's daemon up (open Docker Desktop /
+   * OrbStack, or `colima start`) in the database pty so its output is
+   * visible in the card's terminal. The renderer polls dockerStatus while
+   * unhealthy, so the banner clears once the daemon answers.
+   */
+  dockerStartRuntime: publicProcedure
+    .input(z.object({ dir: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      if (ptyManager.exists(DB_ID)) throw new Error('A database command is already running')
+      const status = await probeDockerStatus()
+      if (status.daemonRunning) return { ok: true }
+      if (!status.runtime) throw new Error('No startable Docker runtime found')
+      ptyManager.create(DB_ID, input.dir, 80, 24, runtimeStartCommand(status.runtime.id))
+      return { ok: true }
+    }),
+
+  /**
+   * Is anything listening on the .env DATABASE_URL's host:port? Localhost
+   * targets only (remote databases are never probed) — powers the
+   * "database unreachable" warning shown before starting the server, which
+   * otherwise crashes with a bare ECONNREFUSED.
+   */
+  dbReachable: publicProcedure
+    .input(z.object({ dir: z.string().min(1) }))
+    .query(async ({ input }) => {
+      const { lines } = await readEnvLines(input.dir)
+      const url = getEnv(lines, 'DATABASE_URL')?.trim()
+      const target = url ? parseDatabaseUrlTarget(url) : null
+      if (!target?.local) {
+        return { checked: false, reachable: true, host: null, port: null }
+      }
+      const host = target.host === '0.0.0.0' ? '127.0.0.1' : target.host
+      const reachable = await probeTcp(host, target.port)
+      return { checked: true, reachable, host: target.host, port: target.port }
+    }),
 
   dbUp: publicProcedure.input(z.object({ dir: z.string().min(1) })).mutation(({ input }) => {
     if (ptyManager.exists(DB_ID)) throw new Error('A database command is already running')

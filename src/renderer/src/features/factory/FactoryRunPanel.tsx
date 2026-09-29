@@ -64,6 +64,18 @@ export function FactoryRunPanel({
     { ids: ['factory-server'] },
     { enabled: active && serverRunning, refetchInterval: 3000 }
   )
+
+  // Pre-start guard for the crash the raw server gives no help with: a
+  // localhost DATABASE_URL nobody is listening on (ECONNREFUSED on boot).
+  // Localhost targets only — remote databases are never probed.
+  const dbCheck = trpc.factory.dbReachable.useQuery(
+    { dir },
+    { enabled: active && !serverRunning && scaffolded, refetchInterval: 5000 }
+  )
+  const dbWarning =
+    !serverRunning && scaffolded && dbCheck.data?.checked && !dbCheck.data.reachable
+      ? `Nothing is listening on ${dbCheck.data.host}:${dbCheck.data.port} (this checkout's DATABASE_URL) — the server will crash on startup with ECONNREFUSED. Start the local database first (Environment section), or fix DATABASE_URL.`
+      : null
   // Gate on serverRunning: the disabled query retains its last data after a
   // stop, which would leave stale URL chips for a dead server.
   const urls = serverRunning ? (detected.data ?? []) : []
@@ -340,6 +352,12 @@ export function FactoryRunPanel({
             stop.error?.message ??
             (devTools.error ? `DevTools failed: ${devTools.error.message}` : undefined) ??
             `Open in browser failed: ${openExternal.error?.message}`}
+        </div>
+      )}
+
+      {dbWarning && (
+        <div className="shrink-0 border-b border-border bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-500">
+          {dbWarning}
         </div>
       )}
 

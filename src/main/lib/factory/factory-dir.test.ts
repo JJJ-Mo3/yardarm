@@ -6,7 +6,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { deriveComposeDatabaseUrl } from './factory-dir'
+import { deriveComposeDatabaseUrl, parseDatabaseUrlTarget } from './factory-dir'
 
 const tmpDirs: string[] = []
 
@@ -89,5 +89,50 @@ describe('deriveComposeDatabaseUrl', () => {
       )
     })
     expect(await deriveComposeDatabaseUrl(noPg)).toBeNull()
+  })
+})
+
+describe('parseDatabaseUrlTarget', () => {
+  it('parses the standard local template URL', () => {
+    expect(parseDatabaseUrlTarget('postgres://user:pass@localhost:54329/mastracode_web')).toEqual({
+      host: 'localhost',
+      port: 54329,
+      local: true
+    })
+  })
+
+  it('defaults the port to 5432 and accepts the postgresql scheme', () => {
+    expect(parseDatabaseUrlTarget('postgresql://u:p@127.0.0.1/db')).toEqual({
+      host: '127.0.0.1',
+      port: 5432,
+      local: true
+    })
+  })
+
+  it('marks remote hosts non-local', () => {
+    expect(parseDatabaseUrlTarget('postgres://u:p@db.example.com:5432/app')).toEqual({
+      host: 'db.example.com',
+      port: 5432,
+      local: false
+    })
+  })
+
+  it('strips IPv6 brackets', () => {
+    expect(parseDatabaseUrlTarget('postgres://u:p@[::1]:5433/db')).toEqual({
+      host: '::1',
+      port: 5433,
+      local: true
+    })
+  })
+
+  it('tolerates unencoded userinfo via the last-@ fallback', () => {
+    const parsed = parseDatabaseUrlTarget('postgres://user:p@ss w@localhost:54329/db')
+    expect(parsed).toEqual({ host: 'localhost', port: 54329, local: true })
+  })
+
+  it('rejects other schemes and unparseable values', () => {
+    expect(parseDatabaseUrlTarget('mysql://u:p@localhost:3306/db')).toBeNull()
+    expect(parseDatabaseUrlTarget('not a url')).toBeNull()
+    expect(parseDatabaseUrlTarget('postgres://u:p@localhost:999999/db')).toBeNull()
   })
 })

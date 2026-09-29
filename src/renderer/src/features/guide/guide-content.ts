@@ -360,9 +360,14 @@ header any time).
    model-provider API keys Yardarm already knows, set the port and database URL, and (local
    mode) start/stop the Docker database. Required keys are flagged until set; comments and
    unknown keys in the file are preserved, including dotenv-style names with dots or dashes.
+   The database card checks Docker health before letting you start: a missing CLI, a stopped
+   daemon, or a missing \`docker compose\` plugin each show targeted guidance — and when Docker
+   Desktop, OrbStack, or colima is installed but not running, a one-click button starts it.
 3. **Server** — start/stop \`npm run dev\`; the dashboard URL is auto-detected from the logs
    (the URL chips clear when the server stops) and loads in an embedded view with back/forward,
    reload, DevTools, and open-in-browser. The dashboard session persists across app restarts.
+   If the \`.env\` DATABASE_URL points at a localhost port nobody is listening on, a warning
+   appears before you start — the server would otherwise crash with a bare ECONNREFUSED.
 4. **Work** — a native client for the running server's board APIs. Pick (or create) a Factory
    project, then work the sub-tabs:
    - **Board** — kanban over the server's phase pipeline. Drag cards along their legal

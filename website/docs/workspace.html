@@ -218,13 +218,17 @@
             API keys from the ones Yardarm already knows. Comments, quoting, and unknown keys in the
             file are preserved — including dotenv-style names with dots or dashes. Local mode adds a
             Docker database card (<code>npm run db:up</code> / <code>db:down</code>) with its own
-            log terminal.
+            log terminal; the card checks Docker health first and explains exactly what is missing —
+            no CLI, a stopped daemon (with a one-click start when Docker Desktop, OrbStack, or
+            colima is installed), or a missing <code>docker compose</code> plugin.
           </li>
           <li>
             <strong>Server</strong> — start/stop <code>npm run dev</code>, watch its logs, and use
             the Factory dashboard embedded in-app (persistent session, DevTools, open-in-browser).
-            The server stops when Yardarm quits — run <code>npm run dev</code> in a standalone
-            terminal for long-lived hosting.
+            If <code>DATABASE_URL</code> points at a localhost port nobody is listening on, a
+            warning appears before you start (the server would otherwise crash with a bare
+            ECONNREFUSED). The server stops when Yardarm quits — run <code>npm run dev</code> in a
+            standalone terminal for long-lived hosting.
           </li>
           <li>
             <strong>Work</strong> — a native client for the running server's board APIs. Pick or

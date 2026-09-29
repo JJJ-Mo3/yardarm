@@ -173,6 +173,44 @@ export async function deriveComposeDatabaseUrl(dir: string): Promise<string | nu
   return null
 }
 
+/** Hosts eligible for the pre-start TCP reachability probe (never probe remote DBs). */
+const LOCAL_DB_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0'])
+
+export interface DatabaseUrlTarget {
+  host: string
+  port: number
+  /** True when the host is a localhost alias — the only case worth probing. */
+  local: boolean
+}
+
+/**
+ * Host/port of a postgres:// or postgresql:// DATABASE_URL. Tolerates
+ * unencoded userinfo (WHATWG URL first, a last-@ fallback for strings it
+ * rejects). Returns null for other schemes or unparseable values.
+ */
+export function parseDatabaseUrlTarget(url: string): DatabaseUrlTarget | null {
+  const trimmed = url.trim()
+  if (!/^postgres(ql)?:\/\//i.test(trimmed)) return null
+  let host = ''
+  let port = ''
+  try {
+    const u = new URL(trimmed)
+    host = u.hostname
+    port = u.port
+  } catch {
+    const afterAt = trimmed.slice(trimmed.lastIndexOf('@') + 1)
+    const m = afterAt.match(/^\[?([^[\]/:?\s]+)\]?(?::(\d+))?(?:[/?]|$)/)
+    if (!m) return null
+    host = m[1]
+    port = m[2] ?? ''
+  }
+  const bare = host.replace(/^\[|\]$/g, '')
+  if (!bare) return null
+  const portNum = port ? Number(port) : 5432
+  if (!Number.isInteger(portNum) || portNum <= 0 || portNum > 65535) return null
+  return { host: bare, port: portNum, local: LOCAL_DB_HOSTS.has(bare.toLowerCase()) }
+}
+
 const envWriteQueues = new Map<string, Promise<unknown>>()
 
 /**
