@@ -26,6 +26,7 @@ import { FactorySetup } from './FactorySetup'
 import { FactoryEnvEditor } from './FactoryEnvEditor'
 import { FactoryDbCard } from './FactoryDbCard'
 import { FactoryRunPanel } from './FactoryRunPanel'
+import { FactoryWorkPanel } from './FactoryWorkPanel'
 
 /** factory.inspect output shape (structural — keep in sync with the router). */
 export interface FactoryInspection {
@@ -40,7 +41,7 @@ export interface FactoryInspection {
   missingRequired: string[]
 }
 
-type Section = 'setup' | 'env' | 'run'
+type Section = 'setup' | 'env' | 'run' | 'work'
 
 export function FactoryView({ active }: { active: boolean }): React.JSX.Element {
   const utils = trpc.useUtils()
@@ -153,6 +154,12 @@ export function FactoryView({ active }: { active: boolean }): React.JSX.Element 
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
               ) : undefined
             )}
+          {dir &&
+            navBtn(
+              'work',
+              'Work',
+              'Native Factory client: work board, agent runs, decisions, attention, intake'
+            )}
         </div>
       </div>
 
@@ -189,6 +196,16 @@ export function FactoryView({ active }: { active: boolean }): React.JSX.Element 
               serverRunning={!!status.data?.serverRunning}
               scaffolded={scaffolded}
               missingRequired={missing}
+            />
+          </div>
+        )}
+        {dir && (
+          <div className={cn('h-full', effective !== 'work' && 'hidden')}>
+            <FactoryWorkPanel
+              dir={dir}
+              active={active && effective === 'work'}
+              serverRunning={!!status.data?.serverRunning}
+              onShowServer={() => setSection('run')}
             />
           </div>
         )}
