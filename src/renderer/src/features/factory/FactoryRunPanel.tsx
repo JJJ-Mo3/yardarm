@@ -12,6 +12,7 @@ import {
   ArrowRight,
   ExternalLink,
   Factory,
+  Loader2,
   Play,
   RotateCw,
   ScrollText,
@@ -93,12 +94,36 @@ export function FactoryRunPanel({
       utils.factory.envRead.invalidate()
     }
   })
+  const reloadOnSpaRef = useRef(false)
   const restart = trpc.factory.serverRestart.useMutation({
     onSuccess: () => {
+      reloadOnSpaRef.current = true
       utils.factory.status.invalidate()
       utils.factory.dashboardProbe.invalidate()
+      utils.factory.uiDist.invalidate()
     }
   })
+  // The combined remediation for the bare-API state: install/point at the
+  // dashboard bundle, then restart (the server only reads .env at boot, and
+  // the restart verifies the old process actually released its port).
+  const fixing = fixUiDist.isPending || restart.isPending
+  const fixAndRestart = async (): Promise<void> => {
+    try {
+      await fixUiDist.mutateAsync({ dir })
+      await restart.mutateAsync({ dir })
+    } catch {
+      // Surfaced via fixUiDist.error / restart.error below.
+    }
+  }
+  // Post-restart verification: once the probe confirms the SPA is served,
+  // reload the webview so the stale bare-API page is replaced.
+  useEffect(() => {
+    if (!reloadOnSpaRef.current || probe.data?.state !== 'spa') return
+    reloadOnSpaRef.current = false
+    try {
+      webviewRef.current?.reload()
+    } catch {}
+  }, [probe.data?.state])
   // Gate on serverRunning: the disabled query retains its last data after a
   // stop, which would leave stale URL chips for a dead server.
   const urls = serverRunning ? (detected.data ?? []) : []
@@ -230,15 +255,19 @@ export function FactoryRunPanel({
       {/* Toolbar */}
       <div className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1">
         {serverRunning ? (
-          <Tip content="Stop the Factory server (kills the npm run dev pty)">
+          <Tip content="Stop the Factory server and verify its port is actually released (leaked server processes are cleaned up)">
             <span className="inline-flex">
               <Button
                 size="sm"
                 variant="ghost"
                 disabled={stop.isPending}
-                onClick={() => stop.mutate()}
+                onClick={() => stop.mutate({ dir })}
               >
-                <Square size={12} />
+                {stop.isPending ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Square size={12} />
+                )}
                 Stop
               </Button>
             </span>
@@ -385,53 +414,59 @@ export function FactoryRunPanel({
         </div>
       )}
 
-      {bareApi && (
+      {(bareApi || fixing) && (
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-500">
-          <span>
-            The server is running but only serving its bare API (&ldquo;Welcome to the Mastra
-            API&rdquo;) — the dashboard UI isn&rsquo;t mounted.
-            {fixUiDist.error ? ` ${fixUiDist.error.message}` : ''}
-          </span>
-          {uiDist.data?.fixAvailable && (
-            <Tip content="Write MASTRACODE_UI_DIST=<checkout>/node_modules/mastra/dist/factory into .env so the server can find the prebuilt dashboard">
-              <span className="inline-flex">
+          {fixing ? (
+            <span className="flex items-center gap-2">
+              <Loader2 size={12} className="animate-spin" />
+              Fixing and restarting the server — verifying the dashboard…
+            </span>
+          ) : (
+            <>
+              <span>
+                The server is running but only serving its bare API (&ldquo;Welcome to the Mastra
+                API&rdquo;) — the dashboard UI isn&rsquo;t mounted.
+                {fixUiDist.error ? ` ${fixUiDist.error.message}` : ''}
+              </span>
+              {uiDist.data?.fixAvailable ? (
+                <Tip content="Point .env at the bundled dashboard, copy it into src/mastra/public/factory, then restart the server (verifying its port is actually released)">
+                  <span className="inline-flex">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-6 px-2 text-[11px]"
+                      onClick={() => void fixAndRestart()}
+                    >
+                      Fix dashboard &amp; restart
+                    </Button>
+                  </span>
+                </Tip>
+              ) : uiDist.data?.servable ? (
+                <Tip content="The dashboard bundle is in place, but the server only picks it up at boot — restart it (leaked server processes holding the port are cleaned up)">
+                  <span className="inline-flex">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-6 px-2 text-[11px]"
+                      onClick={() => restart.mutate({ dir })}
+                    >
+                      Restart server
+                    </Button>
+                  </span>
+                </Tip>
+              ) : null}
+              <Tip content="Open the guided setup checklist — it walks every step from scaffold to a working board">
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant="ghost"
                   className="h-6 px-2 text-[11px]"
-                  disabled={fixUiDist.isPending}
-                  onClick={() => fixUiDist.mutate({ dir })}
+                  onClick={onShowChecklist}
                 >
-                  Fix .env
+                  Open checklist
                 </Button>
-              </span>
-            </Tip>
+              </Tip>
+            </>
           )}
-          {uiDist.data?.envValid && (
-            <Tip content=".env now points at the dashboard bundle, but the server only reads .env at boot — restart it to mount the dashboard">
-              <span className="inline-flex">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-6 px-2 text-[11px]"
-                  disabled={restart.isPending}
-                  onClick={() => restart.mutate({ dir })}
-                >
-                  Restart server
-                </Button>
-              </span>
-            </Tip>
-          )}
-          <Tip content="Open the guided setup checklist — it walks every step from scaffold to a working board">
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-6 px-2 text-[11px]"
-              onClick={onShowChecklist}
-            >
-              Open checklist
-            </Button>
-          </Tip>
         </div>
       )}
 

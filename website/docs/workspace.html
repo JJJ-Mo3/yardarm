@@ -235,9 +235,14 @@
             If <code>DATABASE_URL</code> points at a localhost port nobody is listening on, a
             warning appears before you start (the server would otherwise crash with a bare
             ECONNREFUSED). If the running server answers with only "Welcome to the Mastra API", its
-            dashboard UI wasn't found at startup — a banner offers <strong>Fix .env</strong> (points
+            dashboard UI wasn't found at startup — a banner offers
+            <strong>Fix dashboard &amp; restart</strong>, which points
             <code>MASTRACODE_UI_DIST</code> at the prebuilt dashboard bundled with the checkout's
-            mastra CLI) followed by a server restart. The server stops when Yardarm quits — run
+            mastra CLI, installs a copy at <code>src/mastra/public/factory</code> (where the server
+            and <code>mastra build</code> look by default), and restarts the server. Stop and
+            restart also verify the old server process actually released its port — leaked server
+            processes are cleaned up, so a fix can never be defeated by a stale server still
+            answering with its old environment. The server stops when Yardarm quits — run
             <code>npm run dev</code> in a standalone terminal for long-lived hosting.
           </li>
           <li>

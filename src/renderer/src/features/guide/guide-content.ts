@@ -374,8 +374,12 @@ header any time).
    If the \`.env\` DATABASE_URL points at a localhost port nobody is listening on, a warning
    appears before you start — the server would otherwise crash with a bare ECONNREFUSED.
    If the running server answers with only **"Welcome to the Mastra API"**, its dashboard UI
-   wasn't found at startup — a banner offers **Fix .env** (points \`MASTRACODE_UI_DIST\` at the
-   prebuilt dashboard bundled with the checkout's mastra CLI) followed by a server restart.
+   wasn't found at startup — a banner offers **Fix dashboard & restart**, which points
+   \`MASTRACODE_UI_DIST\` at the prebuilt dashboard bundled with the checkout's mastra CLI,
+   installs a copy at \`src/mastra/public/factory\` (where the server and \`mastra build\` look
+   by default), and restarts the server. Stop and restart also verify the old server process
+   actually released its port — leaked server processes are cleaned up, so a fix can never be
+   defeated by a stale server still answering with its old environment.
 4. **Work** — a native client for the running server's board APIs. Pick (or create) a Factory
    project, then work the sub-tabs:
    - **Board** — kanban over the server's phase pipeline. Drag cards along their legal

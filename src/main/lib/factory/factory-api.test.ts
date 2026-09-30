@@ -16,10 +16,32 @@ import {
   buildStartRunBody,
   buildTransitionBody,
   currentBoardStage,
-  failureFromResponse
+  failureFromResponse,
+  portFromEnv
 } from './factory-api'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+
+describe('portFromEnv', () => {
+  it('parses PORT from the env lines', () => {
+    expect(portFromEnv(parseEnvFile('PORT=5200\n'))).toBe(5200)
+  })
+
+  it('defaults to 4111 when PORT is absent', () => {
+    expect(portFromEnv(parseEnvFile('DATABASE_URL=x\n'))).toBe(4111)
+    expect(portFromEnv([])).toBe(4111)
+  })
+
+  it('last PORT wins on duplicates', () => {
+    expect(portFromEnv(parseEnvFile('PORT=4111\nPORT=9000\n'))).toBe(9000)
+  })
+
+  it('falls back on invalid or out-of-range values', () => {
+    expect(portFromEnv(parseEnvFile('PORT=abc\n'))).toBe(4111)
+    expect(portFromEnv(parseEnvFile('PORT=0\n'))).toBe(4111)
+    expect(portFromEnv(parseEnvFile('PORT=70000\n'))).toBe(4111)
+  })
+})
 
 describe('baseUrlFromEnv', () => {
   it('uses PORT from the env lines', () => {

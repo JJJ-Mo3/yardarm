@@ -44,7 +44,7 @@ export function classifyDashboardResponse(args: {
 /** Where the prebuilt dashboard ships inside the checkout's mastra CLI. */
 export const BUNDLED_UI_SUBPATH = path.join('node_modules', 'mastra', 'dist', 'factory')
 /** Where `mastra build` copies the dashboard (a server-side fallback path). */
-const BUILT_UI_SUBPATH = path.join('src', 'mastra', 'public', 'factory')
+export const BUILT_UI_SUBPATH = path.join('src', 'mastra', 'public', 'factory')
 
 export interface UiDistStatus {
   /** Uncommented MASTRACODE_UI_DIST value in .env (last-wins), or null. */
@@ -57,6 +57,8 @@ export interface UiDistStatus {
   builtDir: string | null
   /** A one-click fix is possible: env not valid and the bundled SPA exists. */
   fixAvailable: boolean
+  /** Some candidate the server will find on next boot exists (env or built). */
+  servable: boolean
 }
 
 /** Pure derivation from pre-checked filesystem facts. */
@@ -74,7 +76,8 @@ export function deriveUiDistStatus(args: {
     envValid,
     bundledDir: args.bundledIndexExists ? path.join(args.dir, BUNDLED_UI_SUBPATH) : null,
     builtDir: args.builtIndexExists ? path.join(args.dir, BUILT_UI_SUBPATH) : null,
-    fixAvailable: !envValid && args.bundledIndexExists
+    fixAvailable: !envValid && args.bundledIndexExists,
+    servable: envValid || args.builtIndexExists
   }
 }
 
@@ -84,6 +87,23 @@ async function indexExists(dir: string | null): Promise<boolean> {
     .access(path.join(dir, 'index.html'))
     .then(() => true)
     .catch(() => false)
+}
+
+/**
+ * Copy the CLI-bundled dashboard into the checkout's src/mastra/public/factory
+ * so the server's zero-config fallback (resolve(cwd, 'factory') with
+ * cwd = src/mastra/public) finds it with no env dependence, and `mastra build`
+ * stages it into production output. Idempotent overwrite; `copied: false`
+ * (no throw) when the bundle is missing — the .env fix path already surfaces
+ * that as a targeted error.
+ */
+export async function installBuiltUi(dir: string): Promise<{ copied: boolean }> {
+  const src = path.join(dir, BUNDLED_UI_SUBPATH)
+  if (!(await indexExists(src))) return { copied: false }
+  const dest = path.join(dir, BUILT_UI_SUBPATH)
+  await fs.mkdir(path.dirname(dest), { recursive: true })
+  await fs.cp(src, dest, { recursive: true, force: true })
+  return { copied: true }
 }
 
 /** Read .env + stat the UI-dist candidates for one checkout. Never throws. */

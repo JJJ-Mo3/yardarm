@@ -7,7 +7,12 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { classifyDashboardResponse, deriveUiDistStatus, inspectUiDist } from './dashboard-health'
+import {
+  classifyDashboardResponse,
+  deriveUiDistStatus,
+  inspectUiDist,
+  installBuiltUi
+} from './dashboard-health'
 import { parseEnvFile, serializeEnvFile, upsertEnv } from './env-file'
 import { updateEnvFile } from './factory-dir'
 
@@ -97,6 +102,7 @@ describe('deriveUiDistStatus', () => {
     })
     expect(s.envValid).toBe(true)
     expect(s.fixAvailable).toBe(false)
+    expect(s.servable).toBe(true)
   })
 
   it('offers the fix when the env value is stale but the bundle exists', () => {
@@ -110,6 +116,7 @@ describe('deriveUiDistStatus', () => {
     expect(s.envValid).toBe(false)
     expect(s.fixAvailable).toBe(true)
     expect(s.bundledDir).toBe(bundled)
+    expect(s.servable).toBe(false)
   })
 
   it('offers the fix when the key is unset and the bundle exists', () => {
@@ -147,6 +154,19 @@ describe('deriveUiDistStatus', () => {
     expect(s.fixAvailable).toBe(false)
     expect(s.bundledDir).toBeNull()
     expect(s.builtDir).toBe(built)
+    expect(s.servable).toBe(true)
+  })
+
+  it('is servable when both the env value and the built copy exist', () => {
+    const s = deriveUiDistStatus({
+      dir,
+      envValue: bundled,
+      envIndexExists: true,
+      bundledIndexExists: true,
+      builtIndexExists: true
+    })
+    expect(s.servable).toBe(true)
+    expect(s.fixAvailable).toBe(false)
   })
 
   it('reports nothing when no candidate exists', () => {
@@ -162,7 +182,8 @@ describe('deriveUiDistStatus', () => {
       envValid: false,
       bundledDir: null,
       builtDir: null,
-      fixAvailable: false
+      fixAvailable: false,
+      servable: false
     })
   })
 })
@@ -187,6 +208,36 @@ describe('inspectUiDist', () => {
     const s = await inspectUiDist(dir)
     expect(s.envValid).toBe(true)
     expect(s.fixAvailable).toBe(false)
+  })
+})
+
+describe('installBuiltUi', () => {
+  it('copies the bundled SPA (nested files included) into src/mastra/public/factory', async () => {
+    const dir = await makeDir({
+      'node_modules/mastra/dist/factory/index.html': '<!doctype html>',
+      'node_modules/mastra/dist/factory/assets/app.js': 'console.log(1)'
+    })
+    expect(await installBuiltUi(dir)).toEqual({ copied: true })
+    const dest = path.join(dir, 'src', 'mastra', 'public', 'factory')
+    expect(await fs.readFile(path.join(dest, 'index.html'), 'utf8')).toBe('<!doctype html>')
+    expect(await fs.readFile(path.join(dest, 'assets', 'app.js'), 'utf8')).toBe('console.log(1)')
+  })
+
+  it('overwrites a stale copy idempotently', async () => {
+    const dir = await makeDir({
+      'node_modules/mastra/dist/factory/index.html': '<!doctype html><title>new</title>',
+      'src/mastra/public/factory/index.html': '<!doctype html><title>old</title>'
+    })
+    expect(await installBuiltUi(dir)).toEqual({ copied: true })
+    expect(await installBuiltUi(dir)).toEqual({ copied: true })
+    const index = path.join(dir, 'src', 'mastra', 'public', 'factory', 'index.html')
+    expect(await fs.readFile(index, 'utf8')).toBe('<!doctype html><title>new</title>')
+  })
+
+  it('reports copied: false without creating anything when the bundle is missing', async () => {
+    const dir = await makeDir({ '.env': 'PORT=4111\n' })
+    expect(await installBuiltUi(dir)).toEqual({ copied: false })
+    await expect(fs.access(path.join(dir, 'src', 'mastra', 'public', 'factory'))).rejects.toThrow()
   })
 })
 

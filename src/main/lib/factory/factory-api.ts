@@ -32,11 +32,16 @@ export class FactoryApiError extends Error {
   }
 }
 
-/** `http://localhost:<PORT>` from the checkout's .env (last-wins), default 4111. */
-export function baseUrlFromEnv(lines: EnvLine[]): string {
+/** Parsed PORT from the checkout's .env (last-wins), default 4111. */
+export function portFromEnv(lines: EnvLine[]): number {
   const raw = getEnv(lines, 'PORT')?.trim() ?? ''
   const port = Number.parseInt(raw, 10)
-  return `http://localhost:${Number.isInteger(port) && port > 0 && port < 65536 ? port : DEFAULT_FACTORY_PORT}`
+  return Number.isInteger(port) && port > 0 && port < 65536 ? port : DEFAULT_FACTORY_PORT
+}
+
+/** `http://localhost:<PORT>` from the checkout's .env (last-wins), default 4111. */
+export function baseUrlFromEnv(lines: EnvLine[]): string {
+  return `http://localhost:${portFromEnv(lines)}`
 }
 
 /**

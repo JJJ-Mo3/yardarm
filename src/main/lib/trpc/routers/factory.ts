@@ -18,10 +18,11 @@ import { z } from 'zod'
 import type { FactoryConfig, FactoryMode } from '../../../../shared/ipc-types'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import { getDb, schema } from '../../db'
-import { inspectUiDist } from '../../factory/dashboard-health'
+import { inspectUiDist, installBuiltUi } from '../../factory/dashboard-health'
 import { probeDockerStatus, probeTcp, runtimeStartCommand } from '../../factory/docker-status'
 import { getEnv, listEnv, upsertEnv } from '../../factory/env-file'
 import { probeDashboard } from '../../factory/factory-client'
+import { factoryPortFromDir, reclaimPort } from '../../factory/port-reclaim'
 import {
   deriveComposeDatabaseUrl,
   inspectFactoryDir,
@@ -38,6 +39,23 @@ const SERVER_ID = 'factory-server'
 const SCAFFOLD_ID = 'factory-scaffold'
 const DB_ID = 'factory-db'
 const INSTALL_ID = 'factory-install'
+
+/**
+ * Port the .env designated when the server pty was last started. The running
+ * server holds its boot-time port even if PORT changes afterwards, so stop /
+ * restart reclaim this in addition to the current .env port.
+ */
+let lastServerPort: number | null = null
+
+/** Kill the server pty and make sure its port(s) are actually released. */
+async function stopServerAndReclaim(dir: string): Promise<void> {
+  ptyManager.kill(SERVER_ID)
+  const ports = new Set<number>()
+  if (lastServerPort !== null) ports.add(lastServerPort)
+  ports.add(await factoryPortFromDir(dir))
+  for (const port of ports) await reclaimPort(port)
+  lastServerPort = null
+}
 
 const CONFIG_KEY = 'factory'
 const modeSchema = z.enum(['platform', 'local'])
@@ -320,29 +338,43 @@ export const factoryRouter = router({
     return { ok: true }
   }),
 
-  serverStart: publicProcedure.input(z.object({ dir: z.string().min(1) })).mutation(({ input }) => {
-    if (ptyManager.exists(SERVER_ID)) throw new Error('The Factory server is already running')
-    ptyManager.create(SERVER_ID, input.dir, 80, 24, 'npm run dev')
-    return { ok: true }
-  }),
+  /**
+   * Start the server pty after reclaiming its port: `mastra factory dev`
+   * spawns the real server as a grandchild, and a stale one leaked from an
+   * earlier session would otherwise silently front the new start.
+   */
+  serverStart: publicProcedure
+    .input(z.object({ dir: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      if (ptyManager.exists(SERVER_ID)) throw new Error('The Factory server is already running')
+      const port = await factoryPortFromDir(input.dir)
+      await reclaimPort(port)
+      ptyManager.create(SERVER_ID, input.dir, 80, 24, 'npm run dev')
+      lastServerPort = port
+      return { ok: true }
+    }),
 
-  serverStop: publicProcedure.mutation(() => {
-    ptyManager.kill(SERVER_ID)
-    return { ok: true }
-  }),
+  serverStop: publicProcedure
+    .input(z.object({ dir: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      await stopServerAndReclaim(input.dir)
+      return { ok: true }
+    }),
 
   /**
    * Stop + start the server pty. Needed because .env is only read at boot —
    * fixUiDist (and any other env change) takes effect on the next start.
+   * The stop side verifies the port is actually released (killing leaked
+   * node/mastra grandchildren if needed): killing only the pty shell can
+   * orphan the real server, which then keeps serving with the stale env.
    */
   serverRestart: publicProcedure
     .input(z.object({ dir: z.string().min(1) }))
     .mutation(async ({ input }) => {
-      ptyManager.kill(SERVER_ID)
-      // Give the killed process a moment to release its port before `npm run
-      // dev` rebinds it — an immediate restart can crash with EADDRINUSE.
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      await stopServerAndReclaim(input.dir)
+      const port = await factoryPortFromDir(input.dir)
       ptyManager.create(SERVER_ID, input.dir, 80, 24, 'npm run dev')
+      lastServerPort = port
       return { ok: true }
     }),
 
@@ -359,15 +391,26 @@ export const factoryRouter = router({
   /**
    * One-click fix for the "Welcome to the Mastra API" failure mode: point
    * MASTRACODE_UI_DIST at the dashboard SPA bundled with the checkout's
-   * mastra CLI (node_modules/mastra/dist/factory). No-op when .env already
-   * points at an existing UI dist; never overwrites a valid user value.
+   * mastra CLI (node_modules/mastra/dist/factory), and belt-and-braces copy
+   * that SPA into src/mastra/public/factory — the server's zero-config
+   * fallback path, which `mastra build` also stages for production. Never
+   * overwrites a valid user env value; the copy is best-effort.
    */
   fixUiDist: publicProcedure
     .input(z.object({ dir: z.string().min(1) }))
     .mutation(async ({ input }) => {
       const status = await inspectUiDist(input.dir)
+      let builtUiInstalled = false
+      try {
+        builtUiInstalled = (await installBuiltUi(input.dir)).copied
+      } catch {}
       if (status.envValid) {
-        return { written: false, value: status.envValue, needsRestart: false }
+        return {
+          written: false,
+          value: status.envValue,
+          builtUiInstalled,
+          needsRestart: builtUiInstalled && ptyManager.exists(SERVER_ID)
+        }
       }
       const value = status.bundledDir
       if (!value) {
@@ -376,7 +419,7 @@ export const factoryRouter = router({
         )
       }
       await updateEnvFile(input.dir, (lines) => upsertEnv(lines, { MASTRACODE_UI_DIST: value }))
-      return { written: true, value, needsRestart: ptyManager.exists(SERVER_ID) }
+      return { written: true, value, builtUiInstalled, needsRestart: ptyManager.exists(SERVER_ID) }
     }),
 
   status: publicProcedure.query(() => ({

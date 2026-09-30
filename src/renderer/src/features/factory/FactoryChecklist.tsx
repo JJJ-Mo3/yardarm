@@ -174,8 +174,20 @@ export function FactoryChecklist({
     onSuccess: () => {
       utils.factory.status.invalidate()
       utils.factory.dashboardProbe.invalidate()
+      utils.factory.uiDist.invalidate()
     }
   })
+  // Combined bare-API remediation: install/point at the dashboard bundle,
+  // then restart (env is boot-only, and the restart verifies the old process
+  // actually released its port instead of lingering with the stale env).
+  const fixAndRestart = async (): Promise<void> => {
+    try {
+      await fixUiDist.mutateAsync({ dir })
+      await serverRestart.mutateAsync({ dir })
+    } catch {
+      // Surfaced via fixUiDist.error / serverRestart.error on the steps.
+    }
+  }
 
   const env: Record<string, string> = {}
   for (const e of envRead.data?.entries ?? []) env[e.key] = e.value
@@ -235,7 +247,7 @@ export function FactoryChecklist({
     ? 'blocked'
     : uiDist.isLoading
       ? 'checking'
-      : uiDist.data?.envValid
+      : uiDist.data?.servable
         ? 'done'
         : uiDist.data?.fixAvailable
           ? 'todo'
@@ -270,11 +282,12 @@ export function FactoryChecklist({
             ? 'checking'
             : 'todo'
 
-  // Restart applies a fixed .env to a still-running server (env is boot-only).
-  const restartAction = serverRunning && uiDist.data?.envValid && probeState === 'bare_api' && (
+  // Restart applies an already-in-place dashboard to a still-running server
+  // (env and the public/factory copy are only picked up at boot).
+  const restartAction = serverRunning && uiDist.data?.servable && probeState === 'bare_api' && (
     <ActionButton
       label="Restart server"
-      tip="Restart the Factory server so it picks up the fixed MASTRACODE_UI_DIST (.env is only read at startup)"
+      tip="Restart the Factory server so it picks up the dashboard bundle — the restart verifies the old process actually released its port"
       pending={serverRestart.isPending}
       onClick={() => serverRestart.mutate({ dir })}
       variant="default"
@@ -282,10 +295,13 @@ export function FactoryChecklist({
   )
   const fixAction = uiDist.data?.fixAvailable && (
     <ActionButton
-      label="Fix .env"
-      tip="Write MASTRACODE_UI_DIST=<checkout>/node_modules/mastra/dist/factory into .env so the server serves the dashboard bundled with the mastra CLI"
-      pending={fixUiDist.isPending}
-      onClick={() => fixUiDist.mutate({ dir })}
+      label={serverRunning ? 'Fix dashboard & restart' : 'Fix dashboard'}
+      tip="Point .env at the bundled dashboard (node_modules/mastra/dist/factory), copy it into src/mastra/public/factory, and restart the server if it is running"
+      pending={fixUiDist.isPending || serverRestart.isPending}
+      onClick={() => {
+        if (serverRunning) void fixAndRestart()
+        else fixUiDist.mutate({ dir })
+      }}
       variant="default"
     />
   )
@@ -427,10 +443,10 @@ export function FactoryChecklist({
         status={uiDistStatus}
         title="Dashboard UI configured"
         detail={
-          uiDist.data?.envValid
-            ? 'MASTRACODE_UI_DIST points at an existing dashboard build — the server will serve it.'
+          uiDist.data?.servable
+            ? 'A dashboard build is in place — MASTRACODE_UI_DIST points at one and/or a copy lives at src/mastra/public/factory, where the server finds it with no configuration.'
             : uiDist.data?.fixAvailable
-              ? "Without MASTRACODE_UI_DIST the server can fall back to its bare API and the dashboard never loads ('Welcome to the Mastra API'). Yardarm can point it at the dashboard bundled with the mastra CLI."
+              ? "Without a dashboard build in a known place the server falls back to its bare API and the dashboard never loads ('Welcome to the Mastra API'). Yardarm can point .env at the bundle inside the mastra CLI and copy it to src/mastra/public/factory."
               : checkoutDone && uiDist.data && !uiDist.data.fixAvailable
                 ? 'No dashboard build found — install dependencies first (the bundle ships inside node_modules/mastra).'
                 : 'Checks that the server has a dashboard build to serve at its root URL.'
@@ -478,18 +494,11 @@ export function FactoryChecklist({
             : probeState === 'spa'
               ? 'The server answers with the Factory dashboard.'
               : probeState === 'bare_api'
-                ? "The server is only serving its bare API ('Welcome to the Mastra API') — the dashboard isn't mounted. Fix .env, then restart the server."
+                ? "The server is only serving its bare API ('Welcome to the Mastra API') — the dashboard isn't mounted. Fix the dashboard, then restart: the restart also cleans up leaked server processes still holding the port with the old environment."
                 : 'Probing the server root — still starting, or serving something unexpected.'
         }
         error={serverRestart.error?.message}
-        actions={
-          dashboardStatus === 'fail' && (
-            <>
-              {fixAction}
-              {restartAction}
-            </>
-          )
-        }
+        actions={dashboardStatus === 'fail' && (fixAction || restartAction)}
       />
 
       <Step
