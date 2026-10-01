@@ -244,6 +244,11 @@ export function FactoryRunPanel({
     } catch {}
   }
 
+  // The auth gate bounced the dashboard to its sign-in page. The sign-in is
+  // identity-only (the server and its data stay on this machine), which is
+  // not obvious for a "local" setup — explain it instead of looking broken.
+  const onSigninPage = serverRunning && (currentUrl?.includes('/signin') ?? false)
+
   const startBlocked = !scaffolded
     ? 'Scaffold the checkout first (Setup section)'
     : missingRequired.length > 0
@@ -467,6 +472,15 @@ export function FactoryRunPanel({
               </Tip>
             </>
           )}
+        </div>
+      )}
+
+      {onSigninPage && (
+        <div className="shrink-0 border-b border-border bg-sky-500/10 px-3 py-1.5 text-[11px] text-sky-500">
+          This sign-in is identity-only — the Factory server and its data stay on this machine. Use
+          the same Mastra account mastracode uses; Yardarm reuses the session for the Work tab. For
+          self-managed identity instead, set WORKOS_API_KEY and WORKOS_CLIENT_ID in .env
+          (Environment section).
         </div>
       )}
 

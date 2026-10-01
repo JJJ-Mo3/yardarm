@@ -18,7 +18,8 @@ import { z } from 'zod'
 import type { FactoryConfig, FactoryMode } from '../../../../shared/ipc-types'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import { getDb, schema } from '../../db'
-import { inspectUiDist, installBuiltUi } from '../../factory/dashboard-health'
+import { deriveAuthPlan } from '../../factory/auth-plan'
+import { ensureUiDist, inspectUiDist } from '../../factory/dashboard-health'
 import { probeDockerStatus, probeTcp, runtimeStartCommand } from '../../factory/docker-status'
 import { getEnv, listEnv, upsertEnv } from '../../factory/env-file'
 import { probeDashboard } from '../../factory/factory-client'
@@ -210,7 +211,9 @@ export const factoryRouter = router({
         exampleKeys: Object.keys(example),
         /** Template defaults (.env.example + compose-derived DATABASE_URL). */
         exampleValues: example,
-        missingRequired: missingRequiredKeys(listEnv(lines), mode)
+        missingRequired: missingRequiredKeys(listEnv(lines), mode),
+        /** Which sign-in method the scaffold's auth ladder will pick. */
+        authPlan: deriveAuthPlan(listEnv(lines))
       }
     }),
 
@@ -341,7 +344,9 @@ export const factoryRouter = router({
   /**
    * Start the server pty after reclaiming its port: `mastra factory dev`
    * spawns the real server as a grandchild, and a stale one leaked from an
-   * earlier session would otherwise silently front the new start.
+   * earlier session would otherwise silently front the new start. The
+   * UI-dist preflight runs before the boot that reads .env so a fresh start
+   * can never land on the bare "Welcome to the Mastra API" screen.
    */
   serverStart: publicProcedure
     .input(z.object({ dir: z.string().min(1) }))
@@ -349,6 +354,7 @@ export const factoryRouter = router({
       if (ptyManager.exists(SERVER_ID)) throw new Error('The Factory server is already running')
       const port = await factoryPortFromDir(input.dir)
       await reclaimPort(port)
+      await ensureUiDist(input.dir)
       ptyManager.create(SERVER_ID, input.dir, 80, 24, 'npm run dev')
       lastServerPort = port
       return { ok: true }
@@ -373,6 +379,7 @@ export const factoryRouter = router({
     .mutation(async ({ input }) => {
       await stopServerAndReclaim(input.dir)
       const port = await factoryPortFromDir(input.dir)
+      await ensureUiDist(input.dir)
       ptyManager.create(SERVER_ID, input.dir, 80, 24, 'npm run dev')
       lastServerPort = port
       return { ok: true }
@@ -400,26 +407,18 @@ export const factoryRouter = router({
     .input(z.object({ dir: z.string().min(1) }))
     .mutation(async ({ input }) => {
       const status = await inspectUiDist(input.dir)
-      let builtUiInstalled = false
-      try {
-        builtUiInstalled = (await installBuiltUi(input.dir)).copied
-      } catch {}
-      if (status.envValid) {
-        return {
-          written: false,
-          value: status.envValue,
-          builtUiInstalled,
-          needsRestart: builtUiInstalled && ptyManager.exists(SERVER_ID)
-        }
-      }
-      const value = status.bundledDir
-      if (!value) {
+      if (!status.envValid && !status.bundledDir) {
         throw new Error(
           'The dashboard bundle is missing (node_modules/mastra/dist/factory) — install dependencies first'
         )
       }
-      await updateEnvFile(input.dir, (lines) => upsertEnv(lines, { MASTRACODE_UI_DIST: value }))
-      return { written: true, value, builtUiInstalled, needsRestart: ptyManager.exists(SERVER_ID) }
+      const { written, builtUiInstalled } = await ensureUiDist(input.dir)
+      return {
+        written,
+        value: written ? status.bundledDir : status.envValue,
+        builtUiInstalled,
+        needsRestart: (written || builtUiInstalled) && ptyManager.exists(SERVER_ID)
+      }
     }),
 
   status: publicProcedure.query(() => ({

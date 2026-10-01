@@ -195,9 +195,10 @@ export function FactoryChecklist({
   const hasProviderKey = Object.entries(env).some(
     ([key, value]) => PROVIDER_KEY_VARS.has(key) && value.trim() !== ''
   )
-  const authDisabledValue = (env.MASTRACODE_AUTH_DISABLED ?? '').trim()
-  const authDisabled =
-    authDisabledValue !== '' && authDisabledValue !== '0' && authDisabledValue !== 'false'
+  // Which sign-in method the scaffold's auth ladder will pick for this .env
+  // (derived server-side so the ladder lives in one place).
+  const authPlan = envRead.data?.authPlan ?? 'platform-default'
+  const authDisabled = authPlan === 'disabled'
 
   // ---- step statuses ----
 
@@ -504,7 +505,15 @@ export function FactoryChecklist({
       <Step
         status={signinStatus}
         title="Signed in with an organization"
-        detail="Default servers use Mastra platform sign-in inside the dashboard itself (Server section) — Yardarm reuses that session for the work board. Self-hosters can switch to WorkOS by setting WORKOS_API_KEY and WORKOS_CLIENT_ID in .env (a personal organization is bootstrapped automatically). MASTRACODE_AUTH_DISABLED can never enable the board — its APIs are organization-scoped and reject anonymous access."
+        detail={
+          authPlan === 'workos'
+            ? 'Self-managed WorkOS sign-in is configured (WORKOS_API_KEY / WORKOS_CLIENT_ID in .env) — sign in inside the dashboard (Server section); a personal organization is bootstrapped automatically and Yardarm reuses that session for the work board.'
+            : authPlan === 'platform-deferred'
+              ? 'Identity defers to the platform API set in MASTRA_SHARED_API_URL — sign in inside the dashboard (Server section); Yardarm reuses that session for the work board.'
+              : authPlan === 'disabled'
+                ? 'MASTRACODE_AUTH_DISABLED=1 removes the sign-in gate, but the work board APIs are organization-scoped and reject anonymous access — the board can never load this way. Remove the key to get the sign-in (and the board) back.'
+                : 'This checkout uses Mastra platform sign-in inside the dashboard itself (Server section) — identity-only: the server and its data stay on this machine, and it is the same account mastracode uses. Yardarm reuses that session for the work board. Self-hosters can switch to WorkOS by setting WORKOS_API_KEY and WORKOS_CLIENT_ID in .env (a personal organization is bootstrapped automatically).'
+        }
         warning={
           authDisabled
             ? 'MASTRACODE_AUTH_DISABLED is set in .env — remove it (Environment section) or the work board can never load.'

@@ -373,13 +373,15 @@ header any time).
    reload, DevTools, and open-in-browser. The dashboard session persists across app restarts.
    If the \`.env\` DATABASE_URL points at a localhost port nobody is listening on, a warning
    appears before you start — the server would otherwise crash with a bare ECONNREFUSED.
-   If the running server answers with only **"Welcome to the Mastra API"**, its dashboard UI
-   wasn't found at startup — a banner offers **Fix dashboard & restart**, which points
-   \`MASTRACODE_UI_DIST\` at the prebuilt dashboard bundled with the checkout's mastra CLI,
-   installs a copy at \`src/mastra/public/factory\` (where the server and \`mastra build\` look
-   by default), and restarts the server. Stop and restart also verify the old server process
-   actually released its port — leaked server processes are cleaned up, so a fix can never be
-   defeated by a stale server still answering with its old environment.
+   Every start and restart first makes sure the server has a dashboard to serve: Yardarm
+   points \`MASTRACODE_UI_DIST\` at the prebuilt dashboard bundled with the checkout's mastra
+   CLI and installs a copy at \`src/mastra/public/factory\` (where the server and
+   \`mastra build\` look by default) before booting it. If an externally started server still
+   answers with only **"Welcome to the Mastra API"**, a banner offers
+   **Fix dashboard & restart**, which applies the same fix and restarts. Stop and restart also
+   verify the old server process actually released its port — leaked server processes are
+   cleaned up, so a fix can never be defeated by a stale server still answering with its old
+   environment.
 4. **Work** — a native client for the running server's board APIs. Pick (or create) a Factory
    project, then work the sub-tabs:
    - **Board** — kanban over the server's phase pipeline. Drag cards along their legal
@@ -395,13 +397,17 @@ header any time).
 
 Sign in **once** via the Server section's embedded dashboard — the Work section reuses that
 session (signing out there signs it out too), and Yardarm never stores Factory tokens itself.
-The board APIs are organization-scoped, so an account without an organization — or a purely
-local no-auth server — can't serve them. Two auth paths exist: the default Mastra-platform
-sign-in inside the dashboard, or self-hosted auth via WorkOS (\`WORKOS_API_KEY\` +
-\`WORKOS_CLIENT_ID\` in \`.env\`, which bootstraps a personal organization automatically).
-Setting \`MASTRACODE_AUTH_DISABLED\` never enables the board — it only removes the sign-in
-screen while the org-scoped APIs keep rejecting requests. Everything long-tail (settings,
-integrations, session transcripts) stays in the embedded dashboard.
+A local server still asks for a sign-in, and that is by design: the sign-in is
+**identity-only** — the server and all of its data stay on your machine; the account (the same
+Mastra account mastracode uses) only says *who* you are, because the board APIs are
+organization-scoped. An account without an organization — or a purely local no-auth server —
+can't serve them. Two auth paths exist: the default Mastra-platform sign-in inside the
+dashboard, or self-managed auth via WorkOS (\`WORKOS_API_KEY\` + \`WORKOS_CLIENT_ID\` in
+\`.env\`, which bootstraps a personal organization automatically). Setting
+\`MASTRACODE_AUTH_DISABLED=1\` never enables the board — it only removes the sign-in screen
+while the org-scoped APIs keep rejecting requests, so the dashboard becomes browsing-only.
+Everything long-tail (settings, integrations, session transcripts) stays in the embedded
+dashboard.
 
 The server stops when Yardarm quits — for long-lived hosting, run \`npm run dev\` in a
 standalone terminal instead. The Factory tab is unnumbered; reach it from the tab bar or ⌘K.
@@ -645,10 +651,14 @@ Kanban board to parallelize.
 ### Why does the Factory Work section ask me to sign in — or say I need an organization?
 
 The Board, Decisions, Attention, and Intake sub-tabs talk to the Factory server's
-**organization-scoped** APIs. Sign in once via the Server section's embedded dashboard with an
-account that belongs to an organization; the Work section reuses that session, and Yardarm
-never stores Factory tokens itself. A purely local no-auth server can run, but it can't serve
-the Work section — use its dashboard directly instead.
+**organization-scoped** APIs. Even a fully local server asks for a sign-in — it's
+identity-only (the server and its data stay on your machine; it's the same Mastra account
+mastracode uses). Sign in once via the Server section's embedded dashboard with an account
+that belongs to an organization; the Work section reuses that session, and Yardarm never
+stores Factory tokens itself. Self-managed alternative: WorkOS via \`WORKOS_API_KEY\` +
+\`WORKOS_CLIENT_ID\` in \`.env\`. \`MASTRACODE_AUTH_DISABLED=1\` only removes the sign-in
+screen — the org-scoped APIs keep rejecting anonymous requests, so the board can never load
+that way.
 
 ### Why does the agent keep asking for approval?
 

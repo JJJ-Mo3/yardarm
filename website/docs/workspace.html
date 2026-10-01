@@ -234,16 +234,19 @@
             the Factory dashboard embedded in-app (persistent session, DevTools, open-in-browser).
             If <code>DATABASE_URL</code> points at a localhost port nobody is listening on, a
             warning appears before you start (the server would otherwise crash with a bare
-            ECONNREFUSED). If the running server answers with only "Welcome to the Mastra API", its
-            dashboard UI wasn't found at startup — a banner offers
-            <strong>Fix dashboard &amp; restart</strong>, which points
-            <code>MASTRACODE_UI_DIST</code> at the prebuilt dashboard bundled with the checkout's
-            mastra CLI, installs a copy at <code>src/mastra/public/factory</code> (where the server
-            and <code>mastra build</code> look by default), and restarts the server. Stop and
-            restart also verify the old server process actually released its port — leaked server
-            processes are cleaned up, so a fix can never be defeated by a stale server still
-            answering with its old environment. The server stops when Yardarm quits — run
-            <code>npm run dev</code> in a standalone terminal for long-lived hosting.
+            ECONNREFUSED). Every start and restart first makes sure the server has a dashboard to
+            serve: Yardarm points <code>MASTRACODE_UI_DIST</code> at the prebuilt dashboard bundled
+            with the checkout's mastra CLI and installs a copy at
+            <code>src/mastra/public/factory</code> (where the server and <code>mastra build</code>
+            look by default) before booting. If an externally started server still answers with only
+            "Welcome to the Mastra API", a banner offers
+            <strong>Fix dashboard &amp; restart</strong>, which applies the same fix and restarts.
+            Stop and restart also verify the old server process actually released its port — leaked
+            server processes are cleaned up, so a fix can never be defeated by a stale server still
+            answering with its old environment. When the dashboard shows its sign-in page, an info
+            banner explains that the sign-in is identity-only — the server and its data stay on your
+            machine. The server stops when Yardarm quits — run <code>npm run dev</code> in a
+            standalone terminal for long-lived hosting.
           </li>
           <li>
             <strong>Work</strong> — a native client for the running server's board APIs. Pick or
@@ -255,13 +258,16 @@
             the Factory tab), and <strong>Intake</strong> (bind GitHub/Linear/Slack sources to a
             project and pull incoming issues onto the board). Sign in once via the Server section's
             embedded dashboard — the Work section reuses that session, and Yardarm never stores
-            Factory tokens itself. The board APIs are organization-scoped, so a purely local no-auth
-            server can't serve them — sign in via the Mastra platform (the default) or self-host
-            auth with WorkOS (<code>WORKOS_API_KEY</code> + <code>WORKOS_CLIENT_ID</code> in
-            <code>.env</code>, which bootstraps a personal organization automatically). Setting
-            <code>MASTRACODE_AUTH_DISABLED</code> never enables the board — it only removes the
-            sign-in screen while the org-scoped APIs keep rejecting requests. Settings,
-            integrations, and session transcripts stay in the dashboard.
+            Factory tokens itself. A local server still asks for a sign-in by design: it is
+            identity-only — the server and all of its data stay on your machine, and the account
+            (the same Mastra account mastracode uses) only establishes who you are, because the
+            board APIs are organization-scoped. A purely local no-auth server can't serve them —
+            sign in via the Mastra platform (the default) or use self-managed auth with WorkOS
+            (<code>WORKOS_API_KEY</code> + <code>WORKOS_CLIENT_ID</code> in <code>.env</code>, which
+            bootstraps a personal organization automatically). Setting
+            <code>MASTRACODE_AUTH_DISABLED=1</code> never enables the board — it only removes the
+            sign-in screen while the org-scoped APIs keep rejecting requests, leaving the dashboard
+            browsing-only. Settings, integrations, and session transcripts stay in the dashboard.
           </li>
         </ul>
 

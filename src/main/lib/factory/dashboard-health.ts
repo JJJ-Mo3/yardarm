@@ -13,8 +13,8 @@
  */
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { getEnv } from './env-file'
-import { readEnvLines } from './factory-dir'
+import { getEnv, upsertEnv } from './env-file'
+import { readEnvLines, updateEnvFile } from './factory-dir'
 
 export type DashboardProbeState = 'spa' | 'bare_api' | 'unknown'
 
@@ -104,6 +104,32 @@ export async function installBuiltUi(dir: string): Promise<{ copied: boolean }> 
   await fs.mkdir(path.dirname(dest), { recursive: true })
   await fs.cp(src, dest, { recursive: true, force: true })
   return { copied: true }
+}
+
+/**
+ * Server-start preflight: make the dashboard servable before the boot that
+ * reads .env. Best-effort copies the bundled SPA into the zero-config
+ * fallback path and, when MASTRACODE_UI_DIST is absent/broken and the bundle
+ * exists, points it at the bundle. Never throws — a failed preflight must
+ * not block a start (the bare-API banner still offers the explicit fix).
+ */
+export async function ensureUiDist(
+  dir: string
+): Promise<{ written: boolean; builtUiInstalled: boolean }> {
+  let builtUiInstalled = false
+  let written = false
+  try {
+    builtUiInstalled = (await installBuiltUi(dir)).copied
+  } catch {}
+  try {
+    const status = await inspectUiDist(dir)
+    if (!status.envValid && status.bundledDir) {
+      const value = status.bundledDir
+      await updateEnvFile(dir, (lines) => upsertEnv(lines, { MASTRACODE_UI_DIST: value }))
+      written = true
+    }
+  } catch {}
+  return { written, builtUiInstalled }
 }
 
 /** Read .env + stat the UI-dist candidates for one checkout. Never throws. */

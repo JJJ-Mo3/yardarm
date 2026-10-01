@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   classifyDashboardResponse,
   deriveUiDistStatus,
+  ensureUiDist,
   inspectUiDist,
   installBuiltUi
 } from './dashboard-health'
@@ -238,6 +239,51 @@ describe('installBuiltUi', () => {
     const dir = await makeDir({ '.env': 'PORT=4111\n' })
     expect(await installBuiltUi(dir)).toEqual({ copied: false })
     await expect(fs.access(path.join(dir, 'src', 'mastra', 'public', 'factory'))).rejects.toThrow()
+  })
+})
+
+describe('ensureUiDist', () => {
+  it('writes MASTRACODE_UI_DIST and installs the built copy when env is unset', async () => {
+    const dir = await makeDir({
+      '.env': '# MASTRACODE_UI_DIST=\nPORT=4111\n',
+      'node_modules/mastra/dist/factory/index.html': '<!doctype html>'
+    })
+    expect(await ensureUiDist(dir)).toEqual({ written: true, builtUiInstalled: true })
+    const env = await fs.readFile(path.join(dir, '.env'), 'utf8')
+    const bundled = path.join(dir, 'node_modules', 'mastra', 'dist', 'factory')
+    expect(env).toContain(`MASTRACODE_UI_DIST=${bundled}\n`)
+    const dest = path.join(dir, 'src', 'mastra', 'public', 'factory', 'index.html')
+    expect(await fs.readFile(dest, 'utf8')).toBe('<!doctype html>')
+  })
+
+  it('leaves a valid env value untouched', async () => {
+    const original = 'MASTRACODE_UI_DIST=custom-ui\nPORT=4111\n'
+    const dir = await makeDir({
+      '.env': original,
+      'custom-ui/index.html': '<!doctype html>',
+      'node_modules/mastra/dist/factory/index.html': '<!doctype html>'
+    })
+    expect(await ensureUiDist(dir)).toEqual({ written: false, builtUiInstalled: true })
+    expect(await fs.readFile(path.join(dir, '.env'), 'utf8')).toBe(original)
+  })
+
+  it('does nothing (and does not throw) when the bundle is missing', async () => {
+    const original = 'PORT=4111\n'
+    const dir = await makeDir({ '.env': original })
+    expect(await ensureUiDist(dir)).toEqual({ written: false, builtUiInstalled: false })
+    expect(await fs.readFile(path.join(dir, '.env'), 'utf8')).toBe(original)
+  })
+
+  it('still writes the env fix when the built-copy install fails', async () => {
+    const dir = await makeDir({
+      '.env': 'PORT=4111\n',
+      'node_modules/mastra/dist/factory/index.html': '<!doctype html>',
+      // A file where the copy destination's parent dir must go → fs.cp fails.
+      'src/mastra/public': 'not a directory'
+    })
+    expect(await ensureUiDist(dir)).toEqual({ written: true, builtUiInstalled: false })
+    const env = await fs.readFile(path.join(dir, '.env'), 'utf8')
+    expect(env).toContain('MASTRACODE_UI_DIST=')
   })
 })
 
