@@ -81,6 +81,27 @@ export function createWindow(): BrowserWindow {
 
   ipcHandler?.attachWindow(win)
 
+  // Renderer crash recovery: after long sessions the renderer process can die
+  // (V8 OOM from a huge transcript, macOS memory pressure while idle), which
+  // otherwise leaves a permanently blank window until the app is restarted.
+  // Reload instead — the tRPC stream re-seeds the transcript from SQLite.
+  // Capped at 3 reloads/minute so a deterministic crash can't loop forever.
+  const crashReloads: number[] = []
+  win.webContents.on('render-process-gone', (_event, details) => {
+    if (details.reason === 'clean-exit' || win.isDestroyed()) return
+    console.error(
+      `[window] renderer gone (reason=${details.reason}, exitCode=${details.exitCode}) — reloading`
+    )
+    const now = Date.now()
+    while (crashReloads.length > 0 && now - crashReloads[0] > 60_000) crashReloads.shift()
+    if (crashReloads.length >= 3) {
+      console.error('[window] renderer crashed 3+ times in a minute — giving up on auto-reload')
+      return
+    }
+    crashReloads.push(now)
+    win.webContents.reload()
+  })
+
   win.on('ready-to-show', () => win.show())
   win.on('closed', () => {
     // trpc-electron detaches destroyed windows automatically; nothing to do.

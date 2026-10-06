@@ -34,6 +34,15 @@ export interface AgentStreamState {
   rawEvents: unknown[]
 }
 
+/**
+ * Hard cap on messages held in renderer memory, matching the seed limit in
+ * agentSessionManager.loadMessages. The seed is capped, but a long-running
+ * open chat appends live messages indefinitely — without this the renderer
+ * eventually OOMs and the window goes blank. Oldest messages are dropped;
+ * they remain in SQLite and within reach of the seed on reload.
+ */
+const MAX_MESSAGES = 500
+
 const initialState: AgentStreamState = {
   messages: [],
   status: 'stopped',
@@ -60,14 +69,14 @@ function reducer(state: AgentStreamState, ev: AgentUIEvent): AgentStreamState {
         status: state.status,
         meta: state.meta,
         queuedPrompts: state.queuedPrompts,
-        messages: ev.messages
+        messages: ev.messages.slice(-MAX_MESSAGES)
       }
     case 'message-upsert': {
       const idx = state.messages.findIndex((m) => m.id === ev.message.id)
       const messages =
         idx >= 0
           ? state.messages.map((m, i) => (i === idx ? ev.message : m))
-          : [...state.messages, ev.message]
+          : [...state.messages.slice(-(MAX_MESSAGES - 1)), ev.message]
       return { ...state, messages }
     }
     case 'status':
