@@ -14,6 +14,7 @@ import {
   setActiveModelPack,
   setBrowserSettings,
   setCrossAgentSignals,
+  setExperimentalAgent,
   setGithubSignals,
   setGoalDefaults,
   setLocalTracing,
@@ -27,6 +28,7 @@ import {
   setPackAccountPreference,
   setPackFallback,
   setPreferences,
+  setScheduleTools,
   setSubagentModel,
   setVoiceSettings,
   skipOnboarding,
@@ -216,6 +218,22 @@ export const mastraSettingsRouter = router({
     .input(z.object({ enabled: z.boolean() }))
     .mutation(async ({ input }) => {
       await setCrossAgentSignals(input.enabled)
+      return NEEDS_RESTART
+    }),
+
+  /** Toggle experimental agent schedule tools (schedule_create/list/update/resume/run). */
+  setScheduleTools: publicProcedure
+    .input(z.object({ enabled: z.boolean() }))
+    .mutation(async ({ input }) => {
+      await setScheduleTools(input.enabled)
+      return NEEDS_RESTART
+    }),
+
+  /** Set the experimental agent runtime (durable/evented); null restores the default. */
+  setExperimentalAgent: publicProcedure
+    .input(z.object({ value: z.enum(['durable', 'evented']).nullable() }))
+    .mutation(async ({ input }) => {
+      await setExperimentalAgent(input.value)
       return NEEDS_RESTART
     }),
 

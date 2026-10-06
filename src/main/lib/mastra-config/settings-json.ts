@@ -322,6 +322,30 @@ export function setCrossAgentSignals(enabled: boolean): Promise<MastraSettings> 
 }
 
 /**
+ * Toggle the SDK's experimental agent schedule tools (schedule_create /
+ * schedule_list / schedule_update / schedule_resume / schedule_run). Hosts
+ * read it at boot via createMastraCode's scheduleTools default.
+ */
+export function setScheduleTools(enabled: boolean): Promise<MastraSettings> {
+  return updateSettings((s) => {
+    if (!s.signals) s.signals = {}
+    s.signals.experimentalScheduleTools = enabled
+  })
+}
+
+/**
+ * Set the experimental agent runtime (settings.json top-level
+ * `experimentalAgent`, resolved inside createMastraCode at host boot).
+ * null removes the key (default runtime).
+ */
+export function setExperimentalAgent(value: 'durable' | 'evented' | null): Promise<MastraSettings> {
+  return updateSettings((s) => {
+    if (value === null) delete s.experimentalAgent
+    else s.experimentalAgent = value
+  })
+}
+
+/**
  * Toggle Claude Code / Codex global MCP-server discovery (settings.json
  * `mcp` section, read by the SDK's MCP config loader at host boot).
  */

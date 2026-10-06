@@ -1472,7 +1472,7 @@ async function main(): Promise<void> {
               // The active path declines a parked tool approval ("interrupted
               // by user message") — hold the note back and let the manager
               // retry once the approval resolves.
-              if (ds.pendingApproval !== null) return { delivered: false, reason: 'approval' }
+              if (ds.pendingApprovals.size > 0) return { delivered: false, reason: 'approval' }
               // A signal queued onto a suspended run can drain into a paid
               // follow-up run — hold back here too.
               if (ds.pendingSuspensions.size > 0) return { delivered: false, reason: 'suspension' }
@@ -2638,6 +2638,12 @@ async function main(): Promise<void> {
                 ),
                 new Promise((r) => setTimeout(r, 1500))
               ])
+            } catch {}
+            // Stop any in-process prompt schedules (experimental schedule
+            // tools, mastracode 0.44) so their timers can't fire mid-exit.
+            try {
+              const scheduler = mc.threadScheduler as { stop?: () => void } | undefined
+              scheduler?.stop?.()
             } catch {}
             // Leave the cross-process pubsub politely (broker election
             // tolerates unclean exits, but this avoids stale-socket churn).

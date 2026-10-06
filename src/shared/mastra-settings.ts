@@ -163,8 +163,18 @@ export interface MastraSignalsSettings {
   experimentalGithubSignals?: boolean
   /** Enables cross-agent communication tools (peer discovery + agent signals, experimental). */
   experimentalCrossAgentSignals?: boolean
+  /**
+   * Gives the agent tools to manage recurring prompt schedules on its thread
+   * (schedule_create/list/update/resume/run, experimental since mastracode
+   * 0.44). Schedules live in the agent process and end with it.
+   */
+  experimentalScheduleTools?: boolean
   [key: string]: unknown
 }
+
+/** Values accepted by the SDK's experimental agent runtime setting. */
+export const EXPERIMENTAL_AGENT_VALUES = ['durable', 'evented'] as const
+export type ExperimentalAgentValue = (typeof EXPERIMENTAL_AGENT_VALUES)[number]
 
 /** A Mastra Cloud observability connection keyed by resource id. */
 export interface MastraObservabilityResource {
@@ -188,6 +198,13 @@ export interface MastraSettings {
    * the key is missing (see seedLspEnabled) so agents keep their LSP tools.
    */
   lsp?: boolean | Record<string, unknown>
+  /**
+   * Experimental agent runtime ('durable' | 'evented', since mastracode 0.44).
+   * Resolved inside createMastraCode, so it applies to new agent hosts; the
+   * MASTRACODE_EXPERIMENTAL_AGENT env var overrides it. Typed unknown because
+   * the SDK validates the raw value itself (invalid values fail host boot).
+   */
+  experimentalAgent?: unknown
   models?: MastraModelsSettings
   preferences?: MastraPreferencesSettings
   customProviders?: CustomProviderSetting[]

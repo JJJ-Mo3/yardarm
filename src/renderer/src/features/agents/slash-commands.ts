@@ -116,6 +116,12 @@ export const CLI_ONLY_COMMANDS: SlashCommandEntry[] = [
     hint: 'Process memory profiling only exists in the mastracode CLI (`/profile` in a terminal).'
   },
   {
+    name: 'schedules',
+    description: 'Manage recurring prompt schedules (experimental)',
+    kind: 'cli-only',
+    hint: 'Enable "Schedule tools" in Settings → Preferences → Experimental to let the agent manage schedules with schedule_create/list/update/resume/run; the /schedules browser only exists in the mastracode CLI.'
+  },
+  {
     name: 'voice',
     description: 'Voice input',
     kind: 'cli-only',

@@ -515,7 +515,11 @@ App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
   verbosity steering, the **web-search provider** the agent's search tool uses (Tavily or
   Parallel), **commit attribution** (the co-author trailer on agent-made commits — customize
   or disable it), experimental **cross-agent communication** (lets running agents discover
-  and signal each other), and per-tool toggles to disable built-in agent tools you never
+  and signal each other), experimental **schedule tools** (gives the agent
+  \`schedule_create/list/update/resume/run\` to manage recurring prompts on its own thread —
+  schedules live inside the agent process and end with it), an experimental **agent runtime**
+  selector (durable/evented — leave on default unless you know you need it; invalid setups
+  fail at agent start), and per-tool toggles to disable built-in agent tools you never
   want used. A **Notifications** card controls desktop notifications (a system notification
   when a run finishes or the agent needs input while the app is in the background — clicking
   one opens the chat), and a **Storage** card shows how much space mastracode storage and the

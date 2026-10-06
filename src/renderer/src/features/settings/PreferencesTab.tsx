@@ -214,6 +214,25 @@ export function PreferencesTab(): React.JSX.Element {
     }
   })
 
+  const setScheduleTools = trpc.mastraSettings.setScheduleTools.useMutation({
+    onSuccess: () => {
+      markDirty()
+      utils.mastraSettings.get.invalidate()
+    }
+  })
+
+  const setExperimentalAgent = trpc.mastraSettings.setExperimentalAgent.useMutation({
+    onSuccess: () => {
+      markDirty()
+      utils.mastraSettings.get.invalidate()
+    }
+  })
+  const rawExperimentalAgent = settings.data?.experimentalAgent
+  const experimentalAgent =
+    rawExperimentalAgent === 'durable' || rawExperimentalAgent === 'evented'
+      ? rawExperimentalAgent
+      : 'off'
+
   // Desktop notifications for background agent activity (app_settings KV,
   // read by the main process at notify time; absent means enabled).
   const desktopNotif = trpc.settings.get.useQuery({ key: 'desktopNotifications' })
@@ -244,6 +263,8 @@ export function PreferencesTab(): React.JSX.Element {
     setSetting.error ??
     setTokenCompression.error ??
     setCrossAgent.error ??
+    setScheduleTools.error ??
+    setExperimentalAgent.error ??
     setDesktopNotif.error ??
     setCoAuthor.error
 
@@ -501,6 +522,36 @@ export function PreferencesTab(): React.JSX.Element {
             Cross-agent communication (peer discovery + signal tools)
           </label>
         </Tip>
+        <Tip content="Gives agents tools to manage recurring prompt schedules on their own thread (schedule_create/list/update/resume/run). Schedules live inside the agent process and end with it. Restart running agents to apply">
+          <label className="flex w-fit items-center gap-2 text-xs">
+            <Switch
+              checked={settings.data?.signals?.experimentalScheduleTools === true}
+              disabled={setScheduleTools.isPending}
+              onCheckedChange={(v) => setScheduleTools.mutate({ enabled: v })}
+            />
+            Schedule tools (recurring prompts on the agent&apos;s thread)
+          </label>
+        </Tip>
+        <div className="flex items-center gap-2">
+          <span className="w-28 text-[11px] text-muted-foreground">Agent runtime</span>
+          <Tip content="Experimental agent execution runtime (settings.json experimentalAgent). Applies to new or restarted agents; invalid setups fail at agent start — switch back to default if agents stop booting">
+            <select
+              value={experimentalAgent}
+              disabled={setExperimentalAgent.isPending}
+              onChange={(e) => {
+                const v = e.target.value
+                setExperimentalAgent.mutate({
+                  value: v === 'durable' || v === 'evented' ? v : null
+                })
+              }}
+              className="h-7 rounded-md border border-border bg-background px-2 text-[11px]"
+            >
+              <option value="off">default</option>
+              <option value="durable">durable</option>
+              <option value="evented">evented</option>
+            </select>
+          </Tip>
+        </div>
       </div>
 
       <ToolsSection />

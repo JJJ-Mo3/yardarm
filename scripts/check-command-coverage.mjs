@@ -10,9 +10,11 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// Canonical command list from code.mastra.ai (TUI slash commands, v0.40).
+// Canonical command list from the mastracode TUI registry (v0.44).
 // `/commands` was removed upstream but stays a Yardarm builtin (custom .md
 // command management); `plan`/`build`/`fast`/`skill` are Yardarm conveniences.
+// `/memory`, `/knowledge`, `/context`, `/ctx`, `/prune` were dropped from the
+// code.mastra.ai docs table but remain in the CLI registry and have Yardarm UI.
 // prettier-ignore
 const CANONICAL = [
   // modes & models
@@ -25,6 +27,8 @@ const CANONICAL = [
   'new', 'threads', 'thread', 'name', 'clone', 'thread:tag-dir',
   // usage & git
   'cost', 'context', 'ctx', 'diff', 'prune', 'profile',
+  // schedules (experimental, v0.44)
+  'schedules',
   // config & extensions
   'settings', 'theme', 'mcp', 'hooks', 'commands', 'skills', 'skill',
   'subagents', 'plugins', 'workflows', 'custom-providers',
