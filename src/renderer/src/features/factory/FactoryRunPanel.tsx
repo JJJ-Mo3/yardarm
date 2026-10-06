@@ -478,9 +478,9 @@ export function FactoryRunPanel({
       {onSigninPage && (
         <div className="shrink-0 border-b border-border bg-sky-500/10 px-3 py-1.5 text-[11px] text-sky-500">
           This sign-in is identity-only — the Factory server and its data stay on this machine. Use
-          the same Mastra account mastracode uses; Yardarm reuses the session for the Work tab. For
-          self-managed identity instead, set WORKOS_API_KEY and WORKOS_CLIENT_ID in .env
-          (Environment section).
+          the same Mastra account mastracode uses — signing in here keeps the session inside
+          Yardarm, and the Work tab reuses it. For self-managed identity instead, set WORKOS_API_KEY
+          and WORKOS_CLIENT_ID in .env (Environment section).
         </div>
       )}
 

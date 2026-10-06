@@ -1,8 +1,9 @@
 import path from 'node:path'
-import { BrowserWindow, shell } from 'electron'
+import { BrowserWindow, session, shell } from 'electron'
 import type { createIPCHandler } from 'trpc-electron/main'
 import { isLocalhostHttpUrl } from '../../shared/localhost-url'
 import { registerPreviewGuest, unregisterPreviewGuest } from './preview-guests'
+import { webviewNavAction } from './webview-nav-policy'
 import icon from '../../../build/icon.png?asset'
 
 type IPCHandler = ReturnType<typeof createIPCHandler>
@@ -31,15 +32,19 @@ export function createWindow(): BrowserWindow {
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
-      // Only the Preview tab renders a <webview>; the will/did-attach-webview
-      // handlers below are the enforcement point for what it may load.
+      // The Preview and Factory tabs render <webview>s; the
+      // will/did-attach-webview handlers below are the enforcement point for
+      // what they may load.
       webviewTag: true
     }
   })
 
-  // <webview> hardening (Preview tab): strip any preload, force isolation,
-  // and only let localhost documents attach or navigate. This lives in the
-  // main process because the renderer-side webview events are not cancelable.
+  // <webview> hardening (Preview + Factory tabs): strip any preload, force
+  // isolation, and only let localhost documents attach. Navigation policy is
+  // per-kind (webview-nav-policy.ts): Preview stays localhost-only; the
+  // Factory dashboard may also follow its https sign-in redirect chain
+  // in-place. This lives in the main process because the renderer-side
+  // webview events are not cancelable.
   win.webContents.on('will-attach-webview', (event, webPreferences, params) => {
     delete webPreferences.preload
     webPreferences.nodeIntegration = false
@@ -53,28 +58,25 @@ export function createWindow(): BrowserWindow {
     const guestId = guest.id
     registerPreviewGuest(guestId)
     guest.on('destroyed', () => unregisterPreviewGuest(guestId))
+    // The Factory dashboard is the only guest on the persist:factory
+    // partition (FactoryRunPanel); its sign-in needs https in-webview.
+    const kind = guest.session === session.fromPartition('persist:factory') ? 'factory' : 'preview'
     guest.setWindowOpenHandler(({ url }) => {
       if (url.startsWith('http://') || url.startsWith('https://')) {
         shell.openExternal(url).catch(() => {})
       }
       return { action: 'deny' }
     })
-    guest.on('will-navigate', (ev, url) => {
-      if (isLocalhostHttpUrl(url)) return
+    const applyNavPolicy = (ev: { preventDefault: () => void }, url: string): void => {
+      const action = webviewNavAction(url, kind)
+      if (action === 'allow') return
       ev.preventDefault()
-      if (url.startsWith('http://') || url.startsWith('https://')) {
-        shell.openExternal(url).catch(() => {})
-      }
-    })
+      if (action === 'external') shell.openExternal(url).catch(() => {})
+    }
+    guest.on('will-navigate', applyNavPolicy)
     // Server-side redirects (301/302) fire will-redirect, not will-navigate —
-    // without this a localhost page could redirect the webview off localhost.
-    guest.on('will-redirect', (ev, url) => {
-      if (isLocalhostHttpUrl(url)) return
-      ev.preventDefault()
-      if (url.startsWith('http://') || url.startsWith('https://')) {
-        shell.openExternal(url).catch(() => {})
-      }
-    })
+    // without this a localhost page could redirect the webview anywhere.
+    guest.on('will-redirect', applyNavPolicy)
   })
 
   ipcHandler?.attachWindow(win)
