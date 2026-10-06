@@ -346,16 +346,12 @@ Yardarm puts a desktop workspace around the agent:
   natively: kanban with legal-transition drag and agent-run starts, a
   decisions inbox (approve/dismiss/retry), an attention inbox that badges
   the Factory tab, and intake source bindings with pull-onto-board
-- Kanban task board: author cards (title + prompt) in Backlog / To do,
-  then drag one to In progress (or press play) to dispatch an agent —
-  Yardarm creates the chat (worktree optional) and sends the prompt.
-  Dispatched cards follow the agent's live status (needs input / in
-  progress / ready to review) and can be marked done; sidebar chat rows
-  show matching activity dots
+- Live sidebar activity dots on chat rows: amber = waiting for your
+  input, spinner = working, blue = finished and unseen
 - Analytics (chart icon in the tab bar): per-project token usage by day,
   model, and chat, token-compression savings, and CSV export — token
   counts only, no price guessing
-- In-app guide & FAQ: the help button beside the theme toggle (or ⌘9)
+- In-app guide & FAQ: the help button beside the theme toggle (or ⌘8)
   opens a built-in guide covering every part of the app
 - Archive chats and projects to declutter the sidebar without deleting
   history or worktrees — archived items collapse into an "Archived" group
@@ -481,7 +477,7 @@ No API key, no network egress — prompts go to `localhost` only.
 This is the short version — the
 [Getting Started guide](docs/getting-started.md) covers every screen and
 workflow in detail, and the app has a built-in guide + FAQ (help button
-beside the theme toggle, or ⌘9).
+beside the theme toggle, or ⌘8).
 
 **Modes.** Plan mode explores and proposes before touching files; Build mode
 edits; Fast mode is a lighter model for quick tasks. Switch with the
@@ -586,12 +582,9 @@ organization-scoped, so a purely local no-auth server can't serve them.
 The server stops when Yardarm quits; run `npm run dev` in a standalone
 terminal for long-lived hosting.
 
-**Kanban & Analytics.** The Kanban tab is a task board that dispatches
-agents: write cards (title + prompt) into Backlog / To do, drag one to In
-progress to create a chat and set the agent working, and watch cards move
-with the agent's live status. The chart icon in the tab bar opens
-Analytics — token usage for the project by day, model, and chat, plus
-compression savings and CSV export.
+**Analytics.** The chart icon in the tab bar opens Analytics — token
+usage for the project by day, model, and chat, plus compression savings
+and CSV export.
 
 **Split view & forking.** The columns button in the tab bar adds extra
 chat panes beside the current one — up to six columns (`Cmd+\` adds a
@@ -605,17 +598,17 @@ unchanged — forked tabs are marked with a fork icon.
 
 **Keyboard shortcuts** (Cmd on macOS, Ctrl elsewhere):
 
-| Shortcut      | Action                                                                    |
-| ------------- | ------------------------------------------------------------------------- |
-| `Cmd+K`       | Command palette                                                           |
-| `Cmd+N`       | New chat                                                                  |
-| `Cmd+O`       | Quick file open (into the IDE tab)                                        |
-| `Cmd+P`       | Thread switcher                                                           |
-| `Cmd+\`       | Add a split chat pane                                                     |
-| `Cmd+Shift+\` | Close the last split pane                                                 |
-| `Cmd+1–9`     | Switch tab (chat/CLI/IDE/changes/terminal/kanban/analytics/preview/guide) |
-| `Cmd+J`       | Toggle terminal tab                                                       |
-| `Cmd+,`       | Settings                                                                  |
+| Shortcut      | Action                                                             |
+| ------------- | ------------------------------------------------------------------ |
+| `Cmd+K`       | Command palette                                                    |
+| `Cmd+N`       | New chat                                                           |
+| `Cmd+O`       | Quick file open (into the IDE tab)                                 |
+| `Cmd+P`       | Thread switcher                                                    |
+| `Cmd+\`       | Add a split chat pane                                              |
+| `Cmd+Shift+\` | Close the last split pane                                          |
+| `Cmd+1–8`     | Switch tab (chat/CLI/IDE/changes/terminal/analytics/preview/guide) |
+| `Cmd+J`       | Toggle terminal tab                                                |
+| `Cmd+,`       | Settings                                                           |
 
 ## Configuration paths (shared with the mastracode CLI)
 

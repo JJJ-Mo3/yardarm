@@ -26,8 +26,8 @@ model providers you configure, and it shares its configuration with the \`mastra
 the two stay in sync.
 
 The main window has a project sidebar on the left and a set of tabs across the top: **Chat**,
-**CLI**, **IDE**, **Changes**, **Terminal**, **Kanban**, **Preview**, and **Factory**, plus icon
-buttons for **Analytics** and this **Guide**. Switch tabs with ⌘1–⌘9 (⌘ on macOS; use Ctrl on
+**CLI**, **IDE**, **Changes**, **Terminal**, **Preview**, and **Factory**, plus icon
+buttons for **Analytics** and this **Guide**. Switch tabs with ⌘1–⌘8 (⌘ on macOS; use Ctrl on
 Windows/Linux throughout this guide); Factory is unnumbered — reach it from the tab bar or ⌘K.
 
 Press **⌘K** anywhere for the **command palette**: run slash commands, jump to any tab or
@@ -419,24 +419,6 @@ standalone terminal instead. The Factory tab is unnumbered; reach it from the ta
 `
   },
   {
-    id: 'kanban',
-    title: 'Kanban task board',
-    body: `
-The Kanban tab is a task board that can **dispatch agents**.
-
-- **Author cards** — write cards (title + prompt) into **Backlog** and **To do**, and drag to
-  reorder or move between them.
-- **Dispatch** — drag a card to **In progress** (or press its play button) and Yardarm
-  creates a chat — with a worktree if you choose — and sends the card's prompt to the agent.
-- **Live status** — dispatched cards move through the board based on the agent's real state:
-  working, awaiting your input, or finished. Click a card to open its chat.
-- **Done** — finished, reviewed cards can be marked done.
-
-This makes it easy to queue up a batch of independent tasks and let several agents run in
-parallel, each in its own worktree.
-`
-  },
-  {
     id: 'workflows',
     title: 'Workflows',
     body: `
@@ -595,10 +577,9 @@ the Workflows tab (\`/workflows\`) runs and manages the agent's stored workflows
 | ⌘3 | IDE |
 | ⌘4 | Changes |
 | ⌘5 | Terminal |
-| ⌘6 | Kanban |
-| ⌘7 | Analytics |
-| ⌘8 | Preview |
-| ⌘9 | This guide |
+| ⌘6 | Analytics |
+| ⌘7 | Preview |
+| ⌘8 | This guide |
 `
   },
   {
@@ -650,8 +631,8 @@ network connection.
 
 ### Can several agents run at once?
 
-Yes. Each chat (and each thread) runs independently — use split view, multiple chats, or the
-Kanban board to parallelize.
+Yes. Each chat (and each thread) runs independently — use split view or multiple chats to
+parallelize.
 
 ### Why does the Factory Work tab ask me to sign in — or say I need an organization?
 

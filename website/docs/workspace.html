@@ -6,7 +6,7 @@
     <title>Workspace — Yardarm documentation</title>
     <meta
       name="description"
-      content="The Yardarm workspace tabs: Terminal, IDE with language-server diagnostics, the embedded Mastra Code CLI, localhost Preview, the Mastra Factory harness, the Kanban board that dispatches agents, Analytics, Connectors, and voice dictation."
+      content="The Yardarm workspace tabs: Terminal, IDE with language-server diagnostics, the embedded Mastra Code CLI, localhost Preview, the Mastra Factory harness, sidebar activity indicators, Analytics, Connectors, and voice dictation."
     />
     <link rel="canonical" href="https://yardarmdev.com/docs/workspace.html" />
     <meta property="og:type" content="article" />
@@ -14,7 +14,7 @@
     <meta property="og:title" content="Workspace — Yardarm documentation" />
     <meta
       property="og:description"
-      content="Terminal, IDE, CLI, Preview, and Factory tabs, the Kanban board, Analytics, Connectors, and voice dictation."
+      content="Terminal, IDE, CLI, Preview, and Factory tabs, sidebar activity indicators, Analytics, Connectors, and voice dictation."
     />
     <meta property="og:url" content="https://yardarmdev.com/docs/workspace.html" />
     <meta property="og:image" content="https://yardarmdev.com/assets/img/og-image.png?v=2" />
@@ -70,7 +70,7 @@
             <li><a href="#cli">CLI</a></li>
             <li><a href="#preview">Preview</a></li>
             <li><a href="#factory">Factory</a></li>
-            <li><a href="#kanban">Kanban board</a></li>
+            <li><a href="#sidebar-indicators">Sidebar indicators</a></li>
             <li><a href="#analytics">Analytics</a></li>
             <li><a href="#connectors">Connectors</a></li>
             <li><a href="#voice-dictation">Voice dictation</a></li>
@@ -82,9 +82,8 @@
         <h1>Workspace</h1>
         <p class="lead">
           Beyond the chat, each conversation carries a full workspace scoped to its worktree: a real
-          terminal, a light IDE, the embedded Mastra Code CLI, a localhost preview browser, a Kanban
-          board that dispatches agents, and usage analytics — plus an app-level harness and native
-          work client for Mastra Factory.
+          terminal, a light IDE, the embedded Mastra Code CLI, a localhost preview browser, and
+          usage analytics — plus an app-level harness and native work client for Mastra Factory.
         </p>
 
         <h2 id="terminal">Terminal</h2>
@@ -162,7 +161,7 @@
 
         <h2 id="preview">Preview</h2>
         <p>
-          The <strong>Preview</strong> tab (<kbd>Cmd+8</kbd>) is an in-app browser for localhost dev
+          The <strong>Preview</strong> tab (<kbd>Cmd+7</kbd>) is an in-app browser for localhost dev
           servers.
         </p>
         <ul>
@@ -273,60 +272,13 @@
           </li>
         </ul>
 
-        <h2 id="kanban">The Kanban board and sidebar indicators</h2>
+        <h2 id="sidebar-indicators">Sidebar activity indicators</h2>
         <p>
-          The <strong>Kanban</strong> tab (<kbd>Cmd+6</kbd>) is a task board that can dispatch
-          agents, plus a live overview of everything already running.
-        </p>
-        <p>
-          <strong>Author tasks.</strong> Write cards — a title and the prompt to send — into the
-          <strong>Backlog</strong> and <strong>To do</strong> columns. Drag cards to reorder them or
-          move them between the two, edit or delete them anytime.
-        </p>
-        <p>
-          <strong>Dispatch.</strong> Drag a card to <strong>In progress</strong> (or press its play
-          button) and Yardarm creates a chat — in its own worktree if you choose — and sends the
-          card's prompt to a fresh agent. From then on the card is linked to that chat: click it to
-          open the conversation.
-        </p>
-        <p>
-          <strong>Live columns.</strong> Dispatched cards (and every other chat in the project) move
-          through the board based on the agent's real state:
-        </p>
-        <table>
-          <thead>
-            <tr>
-              <th>Column</th>
-              <th>Meaning</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Needs input</strong></td>
-              <td>the agent asked you something</td>
-            </tr>
-            <tr>
-              <td><strong>In progress</strong></td>
-              <td>the agent is working right now</td>
-            </tr>
-            <tr>
-              <td><strong>Ready to review</strong></td>
-              <td>a run finished you haven't seen yet</td>
-            </tr>
-            <tr>
-              <td><strong>Idle</strong></td>
-              <td>nothing happening</td>
-            </tr>
-          </tbody>
-        </table>
-        <p>
-          Finished, reviewed cards can be marked <strong>Done</strong>. Because each dispatched task
-          runs in its own worktree, it's practical to queue up a batch of independent tasks and let
-          several agents work in parallel.
-        </p>
-        <p>
-          The same states appear as dots on chat rows in the sidebar: amber = waiting for you,
-          spinner = working, blue = finished and unseen. Drag chat rows to reorder them; chats you
+          Every chat row in the sidebar carries a live activity dot that reflects the agent's real
+          state: amber = waiting for your input, spinner = working right now, blue = a run finished
+          that you haven't seen yet. Because each chat can run in its own worktree, it's practical
+          to queue up a batch of independent tasks and let several agents work in parallel — the
+          dots tell you at a glance which chats need you. Drag chat rows to reorder them; chats you
           haven't ordered sort by recency.
         </p>
         <p>
@@ -336,15 +288,14 @@
         </p>
         <p>
           When a chat is finished but you want to keep it around, hover its sidebar row and click
-          the <strong>archive</strong> icon: the chat disappears from the list and the board without
-          deleting its worktree or history. Archived chats collapse into an
-          <strong>Archived</strong> section at the bottom of the sidebar, where they can be restored
-          or deleted.
+          the <strong>archive</strong> icon: the chat disappears from the list without deleting its
+          worktree or history. Archived chats collapse into an <strong>Archived</strong> section at
+          the bottom of the sidebar, where they can be restored or deleted.
         </p>
 
         <h2 id="analytics">Analytics</h2>
         <p>
-          The chart icon at the right of the tab bar (<kbd>Cmd+7</kbd>) opens
+          The chart icon at the right of the tab bar (<kbd>Cmd+6</kbd>) opens
           <strong>Analytics</strong>: token usage for the current project.
         </p>
         <ul>

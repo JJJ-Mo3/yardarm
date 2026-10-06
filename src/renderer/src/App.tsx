@@ -12,7 +12,6 @@ import {
   MessageSquare,
   Plus,
   SquareChevronRight,
-  SquareKanban,
   TerminalSquare
 } from 'lucide-react'
 import { trpc } from './lib/trpc'
@@ -47,7 +46,6 @@ import { TerminalTabs } from './features/terminal/TerminalTabs'
 import { TerminalView } from './features/terminal/TerminalView'
 import { FilesView } from './features/file-viewer/FilesView'
 import { QuickFileOpen } from './features/file-viewer/QuickFileOpen'
-import { KanbanView } from './features/kanban/KanbanView'
 import { AnalyticsView } from './features/analytics/AnalyticsView'
 import { PreviewView } from './features/preview/PreviewView'
 import { FactoryView } from './features/factory/FactoryView'
@@ -86,12 +84,6 @@ const TABS: Array<{ id: MainTab; label: string; icon: React.ReactNode; tip: stri
     label: 'Terminal',
     icon: <TerminalSquare size={13} />,
     tip: `Shell in the chat worktree (or project root) — ${modLabel('J')} toggles it`
-  },
-  {
-    id: 'kanban',
-    label: 'Kanban',
-    icon: <SquareKanban size={13} />,
-    tip: 'Board of this project’s chats grouped by live agent status — click a card to open it'
   },
   {
     id: 'preview',
@@ -466,8 +458,6 @@ export default function App(): React.JSX.Element {
                 ) : (
                   <SelectProjectPane />
                 ))}
-              {tab === 'kanban' &&
-                (projectId ? <KanbanView projectId={projectId} /> : <SelectProjectPane />)}
               {tab === 'analytics' &&
                 (projectId ? <AnalyticsView projectId={projectId} /> : <SelectProjectPane />)}
               {/* Preview tab — kept mounted (hidden) so the previewed page

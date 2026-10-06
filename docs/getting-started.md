@@ -8,7 +8,7 @@ with the app: there is no separate install, no account, and no telemetry.
 
 This guide walks through everything from installation to daily use. For a
 shorter overview, see the [README](../README.md); inside the app, the help
-button beside the theme toggle (or `Cmd+9`) opens a built-in guide + FAQ.
+button beside the theme toggle (or `Cmd+8`) opens a built-in guide + FAQ.
 
 ## Contents
 
@@ -25,7 +25,7 @@ button beside the theme toggle (or `Cmd+9`) opens a built-in guide + FAQ.
 - [Workflows: save and re-run multi-step processes](#workflows-save-and-re-run-multi-step-processes)
 - [Threads, subchats, forking, and split view](#threads-subchats-forking-and-split-view)
 - [Terminal, IDE, CLI, Preview, and Factory tabs](#terminal-ide-cli-preview-and-factory-tabs)
-- [The Kanban board and sidebar indicators](#the-kanban-board-and-sidebar-indicators)
+- [Sidebar activity indicators](#sidebar-activity-indicators)
 - [Analytics](#analytics)
 - [Connectors](#connectors)
 - [Voice dictation](#voice-dictation)
@@ -551,7 +551,7 @@ shortcuts stay with the left (primary) pane.
   running in the same worktree and seeing the same threads as the chat.
   Handy for CLI-only commands (terminal voice mode, …). Avoid
   driving the same thread from the chat and the CLI at the same time.
-- **Preview** (`Cmd+8`) — an in-app browser for localhost dev servers.
+- **Preview** (`Cmd+7`) — an in-app browser for localhost dev servers.
   Start your server in the Terminal or CLI tab and its URL appears as a
   chip within a few seconds (the first detection loads automatically); or
   type a `localhost` / `127.0.0.1` URL into the address bar. If nothing is
@@ -587,46 +587,24 @@ shortcuts stay with the left (primary) pane.
   Yardarm quits — run `npm run dev` in a standalone terminal for long-lived
   hosting.
 
-## The Kanban board and sidebar indicators
+## Sidebar activity indicators
 
-The **Kanban** tab (`Cmd+6`) is a task board that can dispatch agents, plus
-a live overview of everything already running.
-
-**Author tasks.** Write cards — a title and the prompt to send — into the
-**Backlog** and **To do** columns. Drag cards to reorder them or move them
-between the two, edit or delete them anytime.
-
-**Dispatch.** Drag a card to **In progress** (or press its play button) and
-Yardarm creates a chat — in its own worktree if you choose — and sends the
-card's prompt to a fresh agent. From then on the card is linked to that
-chat: click it to open the conversation.
-
-**Live columns.** Dispatched cards (and every other chat in the project)
-move through the board based on the agent's real state:
-
-| Column              | Meaning                             |
-| ------------------- | ----------------------------------- |
-| **Needs input**     | the agent asked you something       |
-| **In progress**     | the agent is working right now      |
-| **Ready to review** | a run finished you haven't seen yet |
-| **Idle**            | nothing happening                   |
-
-Finished, reviewed cards can be marked **Done**. Because each dispatched
-task runs in its own worktree, it's practical to queue up a batch of
-independent tasks and let several agents work in parallel.
-
-The same states appear as dots on chat rows in the sidebar: amber = waiting
-for you, spinner = working, blue = finished and unseen.
+Every chat row in the sidebar carries a live activity dot that reflects the
+agent's real state: amber = waiting for your input, spinner = working right
+now, blue = a run finished that you haven't seen yet. Because each chat can
+run in its own worktree, it's practical to queue up a batch of independent
+tasks and let several agents work in parallel — the dots tell you at a
+glance which chats need you.
 
 When a chat is finished but you want to keep it around, hover its sidebar
-row and click the **archive** icon: the chat disappears from the list and
-the board without deleting its worktree or history. Archived chats collapse
-into an **Archived** section at the bottom of the sidebar, where they can be
+row and click the **archive** icon: the chat disappears from the list
+without deleting its worktree or history. Archived chats collapse into an
+**Archived** section at the bottom of the sidebar, where they can be
 restored or deleted.
 
 ## Analytics
 
-The chart icon at the right of the tab bar (`Cmd+7`) opens **Analytics**:
+The chart icon at the right of the tab bar (`Cmd+6`) opens **Analytics**:
 token usage for the current project.
 
 - **By day** — input/output tokens over time.
@@ -848,27 +826,27 @@ providers you configured.
 
 `Cmd` on macOS, `Ctrl` on Windows/Linux.
 
-| Shortcut      | Action                                                                                                                                |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `Cmd+N`       | new chat                                                                                                                              |
-| `Cmd+K`       | command palette                                                                                                                       |
-| `Cmd+P`       | thread switcher                                                                                                                       |
-| `Cmd+O`       | quick file open (into the IDE tab)                                                                                                    |
-| `Cmd+1`–`9`   | switch tab (Chat / CLI / IDE / Changes / Terminal / Kanban / Analytics / Preview / Guide; Factory is unnumbered — tab bar or `Cmd+K`) |
-| `Cmd+J`       | toggle the Terminal tab                                                                                                               |
-| `Cmd+\`       | add a split chat pane                                                                                                                 |
-| `Cmd+Shift+\` | close the last split pane                                                                                                             |
-| `Cmd+,`       | settings                                                                                                                              |
-| `Enter`       | send (in composer)                                                                                                                    |
-| `Shift+Enter` | newline (in composer)                                                                                                                 |
-| `Escape`      | cancel voice recording / close autocomplete popups                                                                                    |
+| Shortcut      | Action                                                                                                                       |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `Cmd+N`       | new chat                                                                                                                     |
+| `Cmd+K`       | command palette                                                                                                              |
+| `Cmd+P`       | thread switcher                                                                                                              |
+| `Cmd+O`       | quick file open (into the IDE tab)                                                                                           |
+| `Cmd+1`–`8`   | switch tab (Chat / CLI / IDE / Changes / Terminal / Analytics / Preview / Guide; Factory is unnumbered — tab bar or `Cmd+K`) |
+| `Cmd+J`       | toggle the Terminal tab                                                                                                      |
+| `Cmd+\`       | add a split chat pane                                                                                                        |
+| `Cmd+Shift+\` | close the last split pane                                                                                                    |
+| `Cmd+,`       | settings                                                                                                                     |
+| `Enter`       | send (in composer)                                                                                                           |
+| `Shift+Enter` | newline (in composer)                                                                                                        |
+| `Escape`      | cancel voice recording / close autocomplete popups                                                                           |
 
 ## Tips
 
 - **Start in Plan mode** for anything nontrivial. Reviewing a plan is much
   cheaper than reviewing a surprise.
 - **Run chats in parallel.** Worktrees make it safe — give each chat a
-  separate task on the same repo and watch the Kanban board.
+  separate task on the same repo and watch the sidebar activity dots.
 - **Use `@` mentions** to point the agent at the exact files that matter
   instead of hoping it finds them.
 - **Queue follow-ups** while the agent works instead of interrupting; they're
@@ -885,7 +863,7 @@ providers you configured.
 ## Where to get help
 
 - **The in-app guide** — the help button beside the theme toggle in the
-  sidebar (or `Cmd+9`) opens a built-in guide covering every part of the
+  sidebar (or `Cmd+8`) opens a built-in guide covering every part of the
   app, plus an FAQ and troubleshooting section.
 - **Settings → About** shows the bundled runtime's boot status and the full
   error text if the agent fails to start.

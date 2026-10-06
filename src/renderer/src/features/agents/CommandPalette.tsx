@@ -19,7 +19,6 @@ import {
   MessagesSquare,
   Settings2,
   SquareChevronRight,
-  SquareKanban,
   SquareSlash,
   TerminalSquare
 } from 'lucide-react'
@@ -43,18 +42,17 @@ import { useSelectChat } from '../../lib/use-select-chat'
 import { CommandDialog, type CommandAction } from '../../components/ui/command'
 import { paletteDispatchAtom, useSlashCommands } from './slash-commands'
 
-/** Shortcut hints must match TAB_ORDER in shortcuts.ts (⌘1–9); Factory is unnumbered. */
+/** Shortcut hints must match TAB_ORDER in shortcuts.ts (⌘1–8); Factory is unnumbered. */
 const TABS: Array<{ id: MainTab; label: string; icon: React.ReactNode; shortcut?: string }> = [
   { id: 'chat', label: 'Chat', icon: <MessageSquare size={13} />, shortcut: '1' },
   { id: 'cli', label: 'CLI', icon: <SquareChevronRight size={13} />, shortcut: '2' },
   { id: 'files', label: 'IDE', icon: <FileCode2 size={13} />, shortcut: '3' },
   { id: 'changes', label: 'Changes', icon: <GitCompare size={13} />, shortcut: '4' },
   { id: 'terminal', label: 'Terminal', icon: <TerminalSquare size={13} />, shortcut: '5' },
-  { id: 'kanban', label: 'Kanban', icon: <SquareKanban size={13} />, shortcut: '6' },
-  { id: 'analytics', label: 'Analytics', icon: <ChartColumn size={13} />, shortcut: '7' },
-  { id: 'preview', label: 'Preview', icon: <Globe size={13} />, shortcut: '8' },
+  { id: 'analytics', label: 'Analytics', icon: <ChartColumn size={13} />, shortcut: '6' },
+  { id: 'preview', label: 'Preview', icon: <Globe size={13} />, shortcut: '7' },
   { id: 'factory', label: 'Factory', icon: <Factory size={13} /> },
-  { id: 'guide', label: 'Guide', icon: <BookOpen size={13} />, shortcut: '9' }
+  { id: 'guide', label: 'Guide', icon: <BookOpen size={13} />, shortcut: '8' }
 ]
 
 const SETTINGS_SECTIONS: Array<{ id: SettingsTab; label: string }> = [

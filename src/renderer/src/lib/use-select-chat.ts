@@ -1,6 +1,6 @@
 /**
- * Shared chat-selection behavior (Sidebar rows, Kanban cards): select the
- * chat, clear the subchat immediately so the previous chat's subchat never
+ * Shared chat-selection behavior (Sidebar rows): select the chat, clear
+ * the subchat immediately so the previous chat's subchat never
  * renders against the new chat's cwd while the fetch is in flight, then load
  * the chat's first subchat.
  */

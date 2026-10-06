@@ -1,7 +1,6 @@
 /**
  * Shared chat creation: worktree provisioning + chat/subchat rows, used by
- * both the chats router (manual "New chat") and the kanban router (card
- * dispatch) so the lifecycle stays single-sourced.
+ * the chats router so the lifecycle stays single-sourced.
  */
 import { randomUUID } from 'node:crypto'
 import { eq } from 'drizzle-orm'

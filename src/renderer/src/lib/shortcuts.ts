@@ -10,7 +10,7 @@
  *   Cmd+J     toggle terminal tab
  *   Cmd+\     add a split chat pane
  *   Cmd+Shift+\  close the last split chat pane
- *   Cmd+1–9   main tabs in visual order (chat / CLI / IDE / changes / terminal / kanban / analytics / preview / guide)
+ *   Cmd+1–8   main tabs in visual order (chat / CLI / IDE / changes / terminal / analytics / preview / guide)
  *   Cmd+,     settings
  */
 import { useEffect } from 'react'
@@ -35,15 +35,14 @@ export function modLabel(key: string): string {
   return isMac ? `⌘${key}` : `Ctrl+${key}`
 }
 
-// Must match the visual TABS order in App.tsx. All 9 digit slots are taken —
-// the Factory tab is deliberately unnumbered (tab bar / ⌘K only).
+// Must match the visual TABS order in App.tsx. The Factory tab is
+// deliberately unnumbered (tab bar / ⌘K only).
 const TAB_ORDER: MainTab[] = [
   'chat',
   'cli',
   'files',
   'changes',
   'terminal',
-  'kanban',
   'analytics',
   'preview',
   'guide'
@@ -113,7 +112,6 @@ export function useAppShortcuts(): void {
         case '6':
         case '7':
         case '8':
-        case '9':
           e.preventDefault()
           setTab(TAB_ORDER[Number(e.key) - 1])
           break

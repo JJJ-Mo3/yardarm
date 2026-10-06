@@ -131,7 +131,9 @@ const MIGRATIONS: string[] = [
   // v11 — user-defined sidebar chat ordering (NULL = fall back to recency)
   `ALTER TABLE chats ADD COLUMN sort_order REAL;`,
   // v12 — fork parentage: which subchat a forked tab was branched from
-  `ALTER TABLE subchats ADD COLUMN forked_from_subchat_id TEXT;`
+  `ALTER TABLE subchats ADD COLUMN forked_from_subchat_id TEXT;`,
+  // v13 — the Kanban view was removed; drop its card store
+  `DROP TABLE IF EXISTS kanban_cards;`
 ]
 
 export function initDb(): DB {

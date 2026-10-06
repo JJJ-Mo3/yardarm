@@ -1,7 +1,7 @@
 /**
  * In-app guide/FAQ page: a table-of-contents rail on the left and the
  * purpose-written guide sections (from guide-content.ts) rendered as markdown
- * on the right. Opened via the sidebar help button or ⌘9; needs no project.
+ * on the right. Opened via the sidebar help button or ⌘8; needs no project.
  */
 import React from 'react'
 import { Tip } from '../../components/ui/tooltip'

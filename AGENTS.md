@@ -25,7 +25,7 @@ No accounts or login — everything runs locally against mastracode's own config
 - `src/preload/index.ts` — sandboxed; `trpc-electron` is bundled in (it cannot `require()`
   external modules).
 - `src/renderer/src/` — React 19 UI. Feature folders under `features/<domain>/` (agents,
-  analytics, changes, file-viewer, guide, kanban, preview, settings, sidebar, terminal,
+  analytics, changes, file-viewer, guide, preview, settings, sidebar, terminal,
   onboarding, project-settings, boot).
   Shared shadcn-style primitives in `components/ui/`; `lib/utils.ts` has `cn()` and `timeAgo()`.
 - `src/shared/` — types shared across processes (`ipc-types.ts`, `ui-message.ts`,
