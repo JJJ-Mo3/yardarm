@@ -71,6 +71,7 @@
             <li><a href="#max-output">"Maximum output length" error</a></li>
             <li><a href="#network-error">Network-ish error mid-task</a></li>
             <li><a href="#worktree-fails">Worktree creation fails</a></li>
+            <li><a href="#blank-window">The window went blank</a></li>
             <li><a href="#something-else">Something else?</a></li>
           </ul>
         </nav>
@@ -145,6 +146,15 @@
           The project must be a git repository Yardarm can write to. Repos with no commits are
           handled (a bootstrap commit is created); bare repos and repos with exotic
           <code>core.worktree</code> settings are not supported.
+        </p>
+
+        <h2 id="blank-window">The window went blank</h2>
+        <p>
+          A blank window means the UI process crashed — usually memory pressure after a very long
+          session. Yardarm reloads it automatically and re-seeds the open chat from its local
+          database, so you may only notice a brief flash; transcripts are also capped in memory to
+          make this rare. If a window ever stays blank (auto-reload gives up after repeated crashes
+          in a row), quit and reopen the app — nothing is lost, transcripts live in SQLite.
         </p>
 
         <h2 id="something-else">Something else?</h2>

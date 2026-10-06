@@ -214,8 +214,10 @@ A few notes on worktrees:
   command, file diff, or output.
 - **Approval prompts** appear inline when the agent wants to do something
   sensitive, with **Allow once / Always allow / Deny** buttons.
-- **Plan approval**: in Plan mode the agent ends with a plan card — approve
-  it to let the agent start building, or edit/deny it.
+- **Plan approval**: in Plan mode the agent ends with a plan card with two
+  choices — **Approve plan & build** (the agent switches to build mode and
+  starts implementing) or **Request changes** (reject it and tell the agent
+  what to revise).
 - **Questions from the agent** appear as answer cards with options or a
   free-text field.
 - **Task checklist** — when the agent breaks work into tasks, a collapsible
@@ -574,8 +576,9 @@ shortcuts stay with the left (primary) pane.
   (`npm create factory@latest`, fully interactive in an embedded terminal)
   in one of two modes — **Mastra platform** (browser sign-in; hosted
   Postgres and cloud sandboxes are provisioned and written to `.env` for
-  you) or **local self-hosted** (Docker Postgres/Redis, local sandboxes, no
-  account) — or adopts an existing folder with the mode auto-detected.
+  you) or **local self-hosted** (Docker Postgres/Redis, local sandboxes,
+  no hosted infrastructure) — or adopts an existing folder with the mode
+  auto-detected.
   **Environment** is a guided `.env` editor: generate the credential
   encryption key, seed the model-provider API keys Yardarm already knows,
   set `PORT` and `DATABASE_URL`, and (local mode) start/stop the Docker
@@ -583,9 +586,13 @@ shortcuts stay with the left (primary) pane.
   preserved. **Server** starts/stops `npm run dev`, auto-detects the
   dashboard URL from the logs, and loads the Factory dashboard in an
   embedded view (back/forward, reload, DevTools, open-in-browser); the
-  dashboard session persists across app restarts. The server stops when
-  Yardarm quits — run `npm run dev` in a standalone terminal for long-lived
-  hosting.
+  dashboard session persists across app restarts. Either way you sign in
+  once with your **Mastra account** via the embedded dashboard — required
+  **even for a local server**, because the work-board APIs are
+  organization-scoped. The sign-in is identity-only: a local server and
+  all of its data stay on your machine; the account just says who you are.
+  The server stops when Yardarm quits — run `npm run dev` in a standalone
+  terminal for long-lived hosting.
 
 ## Sidebar activity indicators
 

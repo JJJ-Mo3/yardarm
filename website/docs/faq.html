@@ -199,11 +199,13 @@
           The <a href="workspace.html#factory">Factory tab</a> scaffolds, configures, and runs a
           <a href="https://mastra.ai/factory">Mastra Factory</a> server — that part works with any
           setup. The <strong>Work</strong> tab (board, decisions, attention, intake) talks to the
-          server's organization-scoped APIs, so it additionally needs you signed in with an account
-          that belongs to an organization: sign in once via the Server tab's embedded dashboard and
-          the Work tab reuses that browser session — Yardarm never stores Factory tokens itself. A
-          purely local no-auth server can run, but it cannot serve the Work tab; use its dashboard
-          directly instead.
+          server's organization-scoped APIs, so it additionally needs you signed in with a Mastra
+          account that belongs to an organization —
+          <strong>even when the server runs locally</strong>. The sign-in is identity-only: a local
+          server and all of its data stay on your machine; the account just establishes who you are.
+          Sign in once via the Server tab's embedded dashboard and the Work tab reuses that browser
+          session — Yardarm never stores Factory tokens itself. A purely local no-auth server can
+          run, but it cannot serve the Work tab; use its dashboard directly instead.
         </p>
 
         <h2 id="uninstall">How do I uninstall completely?</h2>

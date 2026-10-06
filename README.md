@@ -576,11 +576,13 @@ legal transitions on the board (illegal targets are inert), start agent
 runs with a phase's role, approve/dismiss/retry automation decisions,
 work the attention inbox (unread items badge the Factory tab), and bind
 GitHub/Linear/Slack intake sources or pull incoming items onto the
-board. Sign in once via the embedded dashboard — the Work section reuses
-that session and Yardarm never stores Factory tokens; the board APIs are
-organization-scoped, so a purely local no-auth server can't serve them.
-The server stops when Yardarm quits; run `npm run dev` in a standalone
-terminal for long-lived hosting.
+board. Sign in once with your Mastra account via the embedded dashboard —
+required even for a local server, because the board APIs are
+organization-scoped (the sign-in is identity-only: the server and its data
+stay on your machine). The Work section reuses that session and Yardarm
+never stores Factory tokens; a purely local no-auth server can't serve the
+board. The server stops when Yardarm quits; run `npm run dev` in a
+standalone terminal for long-lived hosting.
 
 **Analytics.** The chart icon in the tab bar opens Analytics — token
 usage for the project by day, model, and chat, plus compression savings
@@ -764,6 +766,13 @@ server restarted or unloaded the model.
 The project must be a git repository Yardarm can write to. Repos with no
 commits are handled (a bootstrap commit is created); bare repos and repos
 with exotic `core.worktree` settings are not supported.
+
+**The window went blank.**
+The UI process crashed — usually memory pressure after a very long session.
+Yardarm reloads it automatically and re-seeds the open chat from its local
+database; transcripts are also capped in memory to make this rare. If a
+window ever stays blank (auto-reload gives up after repeated crashes in a
+row), quit and reopen the app — nothing is lost.
 
 **Something else?**
 Please [open an issue](https://github.com/JJJ-Mo3/yardarm/issues) with the

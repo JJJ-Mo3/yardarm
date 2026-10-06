@@ -129,13 +129,14 @@ required, 128k+ recommended.
     body: `
 The color-coded mode selector controls how the agent behaves:
 
-- **Plan** — read-only research. The agent explores the codebase and proposes a plan; it asks
-  for your approval before touching any files.
+- **Plan** — read-only research. The agent explores the codebase and ends with a plan card
+  with two choices: **Approve plan & build** (the agent switches to Build and starts
+  implementing) or **Request changes** (reject it and tell the agent what to revise).
 - **Build** — the default working mode. The agent edits files and runs tools to do the work.
 - **Fast** — quicker, lighter responses for small tasks.
 
-A common flow for larger changes: start in Plan, review and approve the plan, then let the
-agent switch to Build to implement it.
+A common flow for larger changes: start in Plan, review the plan card, then let the agent
+switch to Build to implement it.
 
 ### Thinking level
 
@@ -343,9 +344,10 @@ separate from the repos its agents work on — keep it outside your Yardarm proj
 - **Mastra platform** — the installer signs into the Mastra platform in your browser and
   provisions hosted Postgres and cloud sandboxes for you; credentials are written to \`.env\`
   automatically. The easiest way to start.
-- **Local self-hosted** — no account needed: Postgres (with pgvector) and Redis run in Docker
-  via the checkout's compose file, agents run in local sandboxes, and you manage \`.env\`
-  yourself. Requires Docker.
+- **Local self-hosted** — no hosted infrastructure: Postgres (with pgvector) and Redis run in
+  Docker via the checkout's compose file, agents run in local sandboxes, and you manage
+  \`.env\` yourself. Requires Docker. Note that you still **sign in with a Mastra account** to
+  use the work board — see *Signing in* below.
 
 Pick the mode when scaffolding; adopting an existing checkout auto-detects it (override in the
 header any time).
@@ -400,9 +402,11 @@ header any time).
 Once the checkout is scaffolded, Start/Stop controls also live in the Factory header next to
 the status dot, so the server can be controlled from any tab.
 
+### Signing in — a Mastra login is required, even for a local server
+
 Sign in **once** via the Server tab's embedded dashboard — the Work tab reuses that
 session (signing out there signs it out too), and Yardarm never stores Factory tokens itself.
-A local server still asks for a sign-in, and that is by design: the sign-in is
+A **local server still asks for a sign-in, and that is by design**: the sign-in is
 **identity-only** — the server and all of its data stay on your machine; the account (the same
 Mastra account mastracode uses) only says *who* you are, because the board APIs are
 organization-scoped. An account without an organization — or a purely local no-auth server —
@@ -679,6 +683,14 @@ in-app self-update is macOS-only for now.
 
 Use the retry button on the error screen. If it persists, check Settings → About for runtime
 details, or re-run onboarding ("Run setup again").
+
+### The window went blank
+
+A blank window means the UI process crashed — usually memory pressure after a very long
+session. Yardarm reloads it automatically and re-seeds the open chat from its local database,
+so you may only notice a brief flash; transcripts are also capped in memory to make this rare.
+If a window ever stays blank (auto-reload gives up after repeated crashes in a row), quit and
+reopen the app — nothing is lost, transcripts live in SQLite.
 
 ### Model errors about context length
 

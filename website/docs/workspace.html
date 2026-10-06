@@ -198,7 +198,10 @@
           Mastra's open-source agent-powered software factory: a server that connects to your GitHub
           org, runs work items through a kanban pipeline with human approval gates, and opens pull
           requests. The Factory server lives in its own checkout, separate from the repos its agents
-          work on.
+          work on. Using the work board requires signing in with a Mastra account —
+          <strong>even when the server runs locally</strong> — because its APIs are
+          organization-scoped; the sign-in is identity-only and a local server's data stays on your
+          machine (details under <strong>Work</strong> below).
         </p>
         <ul>
           <li>
