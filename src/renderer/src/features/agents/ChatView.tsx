@@ -222,8 +222,8 @@ export function ChatView({
     [subchatId, forkMutate]
   )
   const handleRespondSuspension = useCallback(
-    (toolCallId: string, resumeData: unknown) =>
-      respondSuspensionMutate({ subchatId, toolCallId, resumeData }),
+    (toolCallId: string, resumeData: unknown, toolName: string) =>
+      respondSuspensionMutate({ subchatId, toolCallId, resumeData, toolName }),
     [subchatId, respondSuspensionMutate]
   )
   const models = trpc.agent.listModels.useQuery({ subchatId }, { staleTime: 60_000 })
@@ -1045,7 +1045,12 @@ export function ChatView({
               )
               .map((s) => {
                 const respond = (resumeData: unknown): void =>
-                  respondSuspension.mutate({ subchatId, toolCallId: s.toolCallId, resumeData })
+                  respondSuspension.mutate({
+                    subchatId,
+                    toolCallId: s.toolCallId,
+                    resumeData,
+                    toolName: s.toolName
+                  })
                 return s.toolName === 'ask_user' ? (
                   <AskUserCard key={s.toolCallId} suspension={s} onResume={respond} />
                 ) : s.toolName === 'request_access' ? (

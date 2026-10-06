@@ -35,7 +35,7 @@ export const INTERACTIVE_TOOLS = new Set(['ask_user', 'submit_plan', 'request_ac
 
 interface SuspensionProps {
   suspensions?: PendingSuspension[]
-  onRespondSuspension?: (toolCallId: string, resumeData: unknown) => void
+  onRespondSuspension?: (toolCallId: string, resumeData: unknown, toolName: string) => void
 }
 
 /** Messages rendered before the user asks for earlier history. */
@@ -163,7 +163,8 @@ function InteractiveToolPart({
 }: { part: ToolCallPart } & SuspensionProps): React.JSX.Element {
   const live = suspensions?.find((s) => s.toolCallId === part.toolCallId)
   if (live && onRespondSuspension) {
-    const respond = (resumeData: unknown): void => onRespondSuspension(live.toolCallId, resumeData)
+    const respond = (resumeData: unknown): void =>
+      onRespondSuspension(live.toolCallId, resumeData, live.toolName)
     return (
       <div className="my-1">
         {part.toolName === 'ask_user' ? (

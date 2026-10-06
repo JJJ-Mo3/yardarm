@@ -1336,14 +1336,22 @@ export class AgentSessionManager {
    * suspension is still pending) — giving the model a fresh turn to revise
    * and resubmit the plan. Feedback left inside the resume would let the run
    * continue straight into that abort processor and die before revising.
+   *
+   * The translator's pendingSuspensions map is per-host-lifetime, so after a
+   * host restart (app relaunch, crash, rollback) it can't identify the tool
+   * anymore — the renderer's `toolName` (from the persisted card) is the
+   * fallback, otherwise the feedback rides inside the resume and dies in
+   * that abort processor.
    */
   async respondSuspension(
     subchatId: string,
     toolCallId: string,
-    resumeData: unknown
+    resumeData: unknown,
+    rendererToolName?: string
   ): Promise<void> {
     const handle = await this.ensureHost(subchatId)
-    const toolName = handle.translator.pendingSuspensions.get(toolCallId)?.toolName
+    const toolName =
+      handle.translator.pendingSuspensions.get(toolCallId)?.toolName ?? rendererToolName
     const split = splitPlanRejectionFeedback(toolName, resumeData)
     if (split.feedback) {
       this.promptQueue.enqueue(subchatId, split.feedback)
