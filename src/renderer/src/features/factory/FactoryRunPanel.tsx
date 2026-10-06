@@ -77,7 +77,7 @@ export function FactoryRunPanel({
   )
   const dbWarning =
     !serverRunning && scaffolded && dbCheck.data?.checked && !dbCheck.data.reachable
-      ? `Nothing is listening on ${dbCheck.data.host}:${dbCheck.data.port} (this checkout's DATABASE_URL) — the server will crash on startup with ECONNREFUSED. Start the local database first (Environment section), or fix DATABASE_URL.`
+      ? `Nothing is listening on ${dbCheck.data.host}:${dbCheck.data.port} (this checkout's DATABASE_URL) — the server will crash on startup with ECONNREFUSED. Start the local database first (Setup tab's database card), or fix DATABASE_URL.`
       : null
 
   // Dashboard-serving probe: a server whose SPA middleware failed to mount
@@ -250,9 +250,9 @@ export function FactoryRunPanel({
   const onSigninPage = serverRunning && (currentUrl?.includes('/signin') ?? false)
 
   const startBlocked = !scaffolded
-    ? 'Scaffold the checkout first (Setup section)'
+    ? 'Scaffold the checkout first (Setup tab)'
     : missingRequired.length > 0
-      ? `Set the required .env keys first (Environment section): ${missingRequired.join(', ')}`
+      ? `Set the required .env keys first (Setup tab): ${missingRequired.join(', ')}`
       : null
 
   return (
@@ -480,7 +480,7 @@ export function FactoryRunPanel({
           This sign-in is identity-only — the Factory server and its data stay on this machine. Use
           the same Mastra account mastracode uses — signing in here keeps the session inside
           Yardarm, and the Work tab reuses it. For self-managed identity instead, set WORKOS_API_KEY
-          and WORKOS_CLIENT_ID in .env (Environment section).
+          and WORKOS_CLIENT_ID in .env (Setup tab's environment card).
         </div>
       )}
 

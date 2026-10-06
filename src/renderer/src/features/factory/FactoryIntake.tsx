@@ -234,7 +234,7 @@ export function FactoryIntake({
           <div className="text-[11px] text-muted-foreground">
             Bind each integration source to a Factory project so its new items land on that
             project&apos;s board automatically. Integrations themselves are configured in the
-            Factory dashboard (Server section).
+            Factory dashboard (Server tab).
           </div>
           {(sources.data?.sources ?? []).map((s) => {
             const b = bindingFor(s)

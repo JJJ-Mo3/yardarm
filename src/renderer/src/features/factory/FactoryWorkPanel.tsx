@@ -6,7 +6,7 @@
  * Board / Decisions / Attention / Intake sub-tabs.
  */
 import React, { useState } from 'react'
-import { LogIn, Plus, ServerOff, X } from 'lucide-react'
+import { Loader2, LogIn, Play, Plus, ServerOff, X } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
 import { Button } from '../../components/ui/button'
@@ -116,19 +116,45 @@ export function FactoryWorkPanel({
       if (project?.id) selectProject(project.id)
     }
   })
+  const serverStart = trpc.factory.serverStart.useMutation({
+    onSuccess: () => utils.factory.status.invalidate()
+  })
 
   if (!serverRunning) {
     return (
       <Gate
         icon={<ServerOff size={20} />}
         title="Factory server not running"
-        body="The work board talks to your Factory server's API. Start the server first, then come back here."
+        body="The work board talks to your Factory server's API. Start the server, then come back here."
         action={
-          <Tip content="Go to the Server section and start the Factory server">
-            <Button size="sm" variant="outline" onClick={onShowServer}>
-              Go to Server
-            </Button>
-          </Tip>
+          <div className="flex flex-col items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <Tip content="Run `npm run dev` in the checkout right here">
+                <span className="inline-flex">
+                  <Button
+                    size="sm"
+                    disabled={serverStart.isPending}
+                    onClick={() => serverStart.mutate({ dir })}
+                  >
+                    {serverStart.isPending ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <Play size={12} />
+                    )}
+                    Start server
+                  </Button>
+                </span>
+              </Tip>
+              <Tip content="Go to the Server tab — dashboard, logs, and URL chips live there">
+                <Button size="sm" variant="outline" onClick={onShowServer}>
+                  Go to Server
+                </Button>
+              </Tip>
+            </div>
+            {serverStart.error && (
+              <div className="text-[11px] text-destructive">{serverStart.error.message}</div>
+            )}
+          </div>
         }
       />
     )
@@ -139,9 +165,9 @@ export function FactoryWorkPanel({
       <Gate
         icon={<LogIn size={20} />}
         title="Sign in to Factory"
-        body="Sign in once via the Server section's dashboard — Yardarm reuses that session for the work board. Signing out there signs this out too."
+        body="Sign in once via the Server tab's dashboard — Yardarm reuses that session for the work board. Signing out there signs this out too."
         action={
-          <Tip content="Open the Server section's embedded dashboard to sign in">
+          <Tip content="Open the Server tab's embedded dashboard to sign in">
             <Button size="sm" variant="outline" onClick={onShowServer}>
               Open dashboard
             </Button>

@@ -1,5 +1,5 @@
 /**
- * Factory Environment section — guided editor for the checkout's .env.
+ * Factory environment card (Setup tab) — guided editor for the checkout's .env.
  * Rows are the file's keys (file order) plus greyed .env.example suggestions;
  * writes go through the router's lossless queued-atomic helpers. Mode-aware:
  * platform shows a sign-in status row for the installer-written credentials,

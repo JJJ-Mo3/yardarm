@@ -1,7 +1,8 @@
 /**
- * Guided setup checklist for the Factory tab — every step from scaffold to a
- * working board, each with live status and either a one-click fix or a jump
- * to the section where the fix lives. Statuses are pure derivations over the
+ * Guided setup checklist at the top of the Factory Setup tab — every step from
+ * scaffold to a working board, each with live status and either a one-click
+ * fix or a scroll/jump to where the fix lives (the setup/env cards below, or
+ * the Server/Work tabs). Statuses are pure derivations over the
  * same tRPC queries the other sections use (react-query dedupes by key), so
  * the checklist owns no state of its own beyond its mutations.
  */
@@ -108,6 +109,7 @@ export function FactoryChecklist({
   active,
   inspection,
   serverRunning,
+  scaffoldRunning,
   installRunning,
   dbRunning,
   onGoTo
@@ -117,9 +119,10 @@ export function FactoryChecklist({
   active: boolean
   inspection: FactoryInspection | null
   serverRunning: boolean
+  scaffoldRunning: boolean
   installRunning: boolean
   dbRunning: boolean
-  onGoTo: (section: 'setup' | 'env' | 'run' | 'work') => void
+  onGoTo: (target: 'setup' | 'env' | 'run' | 'work') => void
 }): React.JSX.Element {
   const utils = trpc.useUtils()
   const scaffolded = !!inspection?.scaffolded
@@ -203,7 +206,8 @@ export function FactoryChecklist({
   // ---- step statuses ----
 
   const checkoutDone = !!inspection?.dirExists && scaffolded
-  const checkoutStatus: StepStatus = !inspection ? 'checking' : checkoutDone ? 'done' : 'todo'
+  const checkoutStatus: StepStatus =
+    !inspection || scaffoldRunning ? 'checking' : checkoutDone ? 'done' : 'todo'
 
   const installDone = !!inspection?.hasNodeModules
   const installStatus: StepStatus = !checkoutDone
@@ -256,7 +260,7 @@ export function FactoryChecklist({
 
   const serverStatus: StepStatus = !checkoutDone ? 'blocked' : serverRunning ? 'done' : 'todo'
   const startBlocked = !scaffolded
-    ? 'Scaffold the checkout first (Setup section)'
+    ? 'Scaffold the checkout first (setup card below)'
     : missing.length > 0
       ? `Set the required .env keys first: ${missing.join(', ')}`
       : null
@@ -312,18 +316,22 @@ export function FactoryChecklist({
       <div className="text-sm font-medium">Setup checklist</div>
       <div className="mb-1 text-[11px] text-muted-foreground">
         Everything a Factory needs, from an empty folder to a working board. Each step checks itself
-        live — fix it here or jump to the section that owns it.
+        live — fix it here or jump to the card below that owns it.
       </div>
 
       <Step
         status={checkoutStatus}
         title="Factory checkout scaffolded"
-        detail="A Factory server checkout (npm create factory@latest) with a dev script. Scaffold a new one or point Yardarm at an existing checkout in the Setup section."
+        detail={
+          scaffoldRunning
+            ? 'Scaffolding is running — answer the installer prompts in the setup card below.'
+            : 'A Factory server checkout (npm create factory@latest) with a dev script. Scaffold a new one or point Yardarm at an existing checkout in the setup card below.'
+        }
         actions={
           !checkoutDone && (
             <ActionButton
-              label="Go to Setup"
-              tip="Open the Setup section to scaffold or select a Factory checkout"
+              label="Show setup card"
+              tip="Scroll to the setup card to scaffold or select a Factory checkout"
               onClick={() => onGoTo('setup')}
             />
           )
@@ -335,7 +343,7 @@ export function FactoryChecklist({
         title="Dependencies installed"
         detail={
           installRunning
-            ? 'npm install is running — its output is in the Setup section.'
+            ? 'npm install is running — its output is in the setup card below.'
             : 'node_modules must exist: the server runs from it, and the dashboard UI ships inside the mastra CLI package there.'
         }
         error={install.error?.message}
@@ -343,7 +351,7 @@ export function FactoryChecklist({
           installStatus === 'todo' && (
             <ActionButton
               label="Install dependencies"
-              tip="Run npm install in the checkout (output appears in the Setup section)"
+              tip="Run npm install in the checkout (output appears in the setup card below)"
               pending={install.isPending}
               onClick={() => {
                 install.mutate({ dir })
@@ -372,7 +380,7 @@ export function FactoryChecklist({
             {dbStatus === 'fail' && docker.data?.runtime && (
               <ActionButton
                 label={`Start ${docker.data.runtime.label}`}
-                tip="Bring the Docker daemon up (output appears in the Environment section's database card)"
+                tip="Bring the Docker daemon up (output appears in the database card below)"
                 pending={dockerStart.isPending}
                 onClick={() => dockerStart.mutate({ dir })}
               />
@@ -380,15 +388,15 @@ export function FactoryChecklist({
             {dbStatus === 'todo' && (
               <ActionButton
                 label="Start database"
-                tip="Run npm run db:up in the checkout (output appears in the Environment section's database card)"
+                tip="Run npm run db:up in the checkout (output appears in the database card below)"
                 pending={dbUp.isPending}
                 onClick={() => dbUp.mutate({ dir })}
               />
             )}
             {(dbStatus === 'fail' || dbStatus === 'todo') && (
               <ActionButton
-                label="Open Environment"
-                tip="Open the Environment section — the database card and its terminal live there"
+                label="Show database card"
+                tip="Scroll to the database card — its controls and terminal live there"
                 onClick={() => onGoTo('env')}
               />
             )}
@@ -431,8 +439,8 @@ export function FactoryChecklist({
                 onClick={() => seedDefaults.mutate({ dir })}
               />
               <ActionButton
-                label="Open Environment"
-                tip="Open the Environment section to edit .env by hand"
+                label="Show environment"
+                tip="Scroll to the environment card to edit .env by hand"
                 onClick={() => onGoTo('env')}
               />
             </>
@@ -464,7 +472,7 @@ export function FactoryChecklist({
       <Step
         status={serverStatus}
         title="Server running"
-        detail="npm run dev in the checkout — the Server section embeds its dashboard and logs."
+        detail="npm run dev in the checkout — the Server tab embeds its dashboard and logs, and start/stop controls live in the header above."
         error={serverStart.error?.message}
         actions={
           serverStatus === 'todo' && (
@@ -478,7 +486,7 @@ export function FactoryChecklist({
               />
               <ActionButton
                 label="Go to Server"
-                tip="Open the Server section — dashboard, logs, and URL chips live there"
+                tip="Open the Server tab — dashboard, logs, and URL chips live there"
                 onClick={() => onGoTo('run')}
               />
             </>
@@ -507,16 +515,16 @@ export function FactoryChecklist({
         title="Signed in with an organization"
         detail={
           authPlan === 'workos'
-            ? 'Self-managed WorkOS sign-in is configured (WORKOS_API_KEY / WORKOS_CLIENT_ID in .env) — sign in inside the dashboard (Server section); a personal organization is bootstrapped automatically and Yardarm reuses that session for the work board.'
+            ? 'Self-managed WorkOS sign-in is configured (WORKOS_API_KEY / WORKOS_CLIENT_ID in .env) — sign in inside the dashboard (Server tab); a personal organization is bootstrapped automatically and Yardarm reuses that session for the work board.'
             : authPlan === 'platform-deferred'
-              ? 'Identity defers to the platform API set in MASTRA_SHARED_API_URL — sign in inside the dashboard (Server section); Yardarm reuses that session for the work board.'
+              ? 'Identity defers to the platform API set in MASTRA_SHARED_API_URL — sign in inside the dashboard (Server tab); Yardarm reuses that session for the work board.'
               : authPlan === 'disabled'
                 ? 'MASTRACODE_AUTH_DISABLED=1 removes the sign-in gate, but the work board APIs are organization-scoped and reject anonymous access — the board can never load this way. Remove the key to get the sign-in (and the board) back.'
-                : 'This checkout uses Mastra platform sign-in inside the dashboard itself (Server section) — identity-only: the server and its data stay on this machine, and it is the same account mastracode uses. Yardarm reuses that session for the work board. Self-hosters can switch to WorkOS by setting WORKOS_API_KEY and WORKOS_CLIENT_ID in .env (a personal organization is bootstrapped automatically).'
+                : 'This checkout uses Mastra platform sign-in inside the dashboard itself (Server tab) — identity-only: the server and its data stay on this machine, and it is the same account mastracode uses. Yardarm reuses that session for the work board. Self-hosters can switch to WorkOS by setting WORKOS_API_KEY and WORKOS_CLIENT_ID in .env (a personal organization is bootstrapped automatically).'
         }
         warning={
           authDisabled
-            ? 'MASTRACODE_AUTH_DISABLED is set in .env — remove it (Environment section) or the work board can never load.'
+            ? 'MASTRACODE_AUTH_DISABLED is set in .env — remove it (environment card below) or the work board can never load.'
             : signinStatus === 'fail'
               ? 'This account has no organization — create or join one from the Factory dashboard.'
               : null
@@ -526,14 +534,14 @@ export function FactoryChecklist({
             {signinStatus === 'todo' && (
               <ActionButton
                 label="Open dashboard to sign in"
-                tip="Open the Server section's embedded dashboard and sign in there — the work board reuses that session"
+                tip="Open the Server tab's embedded dashboard and sign in there — the work board reuses that session"
                 onClick={() => onGoTo('run')}
               />
             )}
             {authDisabled && (
               <ActionButton
-                label="Open Environment"
-                tip="Open the Environment section to remove MASTRACODE_AUTH_DISABLED from .env"
+                label="Show environment"
+                tip="Scroll to the environment card to remove MASTRACODE_AUTH_DISABLED from .env"
                 onClick={() => onGoTo('env')}
               />
             )}

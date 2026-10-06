@@ -6,14 +6,19 @@
  * A thin state machine over factory.getConfig + factory.inspect +
  * factory.status; all real state lives in the main process (app_settings
  * `factory` config, the checkout's .env, and the `factory-*` command ptys).
- * Sections are kept mounted (hidden) so the webview and terminals survive
- * section/tab switches — the component itself is kept mounted by App.
+ * Three tabs: Setup (checklist + scaffold/adopt cards + environment in one
+ * scrollable column — checklist buttons scroll to the card that owns the
+ * fix), Server, and Work; start/stop controls live in the header so every
+ * tab that mentions the server has them in sight. Sections are kept mounted
+ * (hidden) so the webview and terminals survive section/tab switches — the
+ * component itself is kept mounted by App.
  */
 import React, { useEffect, useRef, useState } from 'react'
-import { Factory } from 'lucide-react'
+import { Factory, Loader2, Play, Square } from 'lucide-react'
 import type { FactoryMode } from '@shared/ipc-types'
 import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
+import { Button } from '../../components/ui/button'
 import { Tip } from '../../components/ui/tooltip'
 import {
   Select,
@@ -42,7 +47,7 @@ export interface FactoryInspection {
   missingRequired: string[]
 }
 
-type Section = 'checklist' | 'setup' | 'env' | 'run' | 'work'
+type Section = 'setup' | 'run' | 'work'
 
 export function FactoryView({ active }: { active: boolean }): React.JSX.Element {
   const utils = trpc.useUtils()
@@ -64,7 +69,19 @@ export function FactoryView({ active }: { active: boolean }): React.JSX.Element 
       utils.factory.inspect.invalidate()
     }
   })
+  const serverStart = trpc.factory.serverStart.useMutation({
+    onSuccess: () => utils.factory.status.invalidate()
+  })
+  const serverStop = trpc.factory.serverStop.useMutation({
+    onSuccess: () => utils.factory.status.invalidate()
+  })
   const [section, setSection] = useState<Section | null>(null)
+
+  // Scroll targets inside the merged Setup tab, so checklist actions can jump
+  // to the card that owns a fix instead of bouncing between tabs.
+  const setupScrollRef = useRef<HTMLDivElement | null>(null)
+  const setupCardsRef = useRef<HTMLDivElement | null>(null)
+  const envCardsRef = useRef<HTMLDivElement | null>(null)
 
   // Scaffold/install completion: the busy-gated inspect poll stops as soon as
   // status flips, possibly holding pre-completion data — force a final refetch
@@ -82,7 +99,29 @@ export function FactoryView({ active }: { active: boolean }): React.JSX.Element 
   const scaffolded = !!inspection?.scaffolded
   const missing = inspection?.missingRequired ?? []
   const setupIncomplete = !scaffolded || missing.length > 0 || !inspection?.hasNodeModules
-  const effective: Section = !dir ? 'setup' : (section ?? (setupIncomplete ? 'checklist' : 'run'))
+  const serverRunning = !!status.data?.serverRunning
+  const effective: Section = !dir ? 'setup' : (section ?? (setupIncomplete ? 'setup' : 'run'))
+
+  const goTo = (target: 'setup' | 'env' | 'run' | 'work'): void => {
+    if (target === 'run' || target === 'work') {
+      setSection(target)
+      return
+    }
+    setSection('setup')
+    const el = target === 'env' ? envCardsRef : setupCardsRef
+    // Wait a frame so the tab is unhidden before scrolling.
+    requestAnimationFrame(() => el.current?.scrollIntoView({ behavior: 'smooth' }))
+  }
+  const showChecklist = (): void => {
+    setSection('setup')
+    requestAnimationFrame(() => setupScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }))
+  }
+
+  const startBlocked = !scaffolded
+    ? 'Scaffold the checkout first (Setup tab)'
+    : missing.length > 0
+      ? `Set the required .env keys first (Setup tab): ${missing.join(', ')}`
+      : null
 
   const navBtn = (id: Section, label: string, tip: string, badge?: React.ReactNode) => (
     <Tip key={id} content={tip} side="bottom">
@@ -129,37 +168,77 @@ export function FactoryView({ active }: { active: boolean }): React.JSX.Element 
           </Select>
         )}
         <div className="ml-auto flex items-center gap-1">
-          {dir &&
-            navBtn(
-              'checklist',
-              'Checklist',
-              'Guided setup checklist — every step from scaffold to a working board, with one-click fixes',
-              setupIncomplete ? (
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-              ) : undefined
-            )}
+          {dir && scaffolded && (
+            <>
+              <span
+                className={cn(
+                  'h-1.5 w-1.5 shrink-0 rounded-full',
+                  serverRunning ? 'bg-emerald-500' : 'bg-muted-foreground/40'
+                )}
+              />
+              {serverRunning ? (
+                <Tip
+                  content="Stop the Factory server and verify its port is actually released"
+                  side="bottom"
+                >
+                  <span className="inline-flex">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-[11px]"
+                      disabled={serverStop.isPending}
+                      onClick={() => serverStop.mutate({ dir })}
+                    >
+                      {serverStop.isPending ? (
+                        <Loader2 size={11} className="animate-spin" />
+                      ) : (
+                        <Square size={11} />
+                      )}
+                      Stop
+                    </Button>
+                  </span>
+                </Tip>
+              ) : (
+                <Tip content={startBlocked ?? 'Run `npm run dev` in the checkout'} side="bottom">
+                  <span className="inline-flex">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-[11px]"
+                      disabled={!!startBlocked || serverStart.isPending}
+                      onClick={() => serverStart.mutate({ dir })}
+                    >
+                      {serverStart.isPending ? (
+                        <Loader2 size={11} className="animate-spin" />
+                      ) : (
+                        <Play size={11} />
+                      )}
+                      Start server
+                    </Button>
+                  </span>
+                </Tip>
+              )}
+              <span className="mx-1 h-4 w-px bg-border" />
+            </>
+          )}
           {navBtn(
             'setup',
             'Setup',
-            'Scaffold a new Factory server checkout or point Yardarm at an existing one'
+            'Everything to get this Factory running: guided checklist, scaffold/adopt a checkout, and the .env + database configuration — all on one page',
+            dir && scaffolded && missing.length > 0 ? (
+              <span className="rounded-full bg-amber-500/20 px-1.5 text-[10px] font-medium text-amber-500">
+                {missing.length}
+              </span>
+            ) : dir && setupIncomplete ? (
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+            ) : undefined
           )}
-          {dir &&
-            navBtn(
-              'env',
-              'Environment',
-              'Edit the checkout’s .env — credentials, database, port, sandboxes',
-              missing.length > 0 && scaffolded ? (
-                <span className="rounded-full bg-amber-500/20 px-1.5 text-[10px] font-medium text-amber-500">
-                  {missing.length}
-                </span>
-              ) : undefined
-            )}
           {dir &&
             navBtn(
               'run',
               'Server',
               'Start/stop the Factory server (npm run dev) and use its dashboard in-app',
-              status.data?.serverRunning ? (
+              serverRunning ? (
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
               ) : undefined
             )}
@@ -172,54 +251,62 @@ export function FactoryView({ active }: { active: boolean }): React.JSX.Element 
         </div>
       </div>
 
+      {(serverStart.error || serverStop.error) && (
+        <div className="shrink-0 border-b border-border bg-destructive/10 px-3 py-1.5 text-[11px] text-destructive">
+          {serverStart.error?.message ?? serverStop.error?.message}
+        </div>
+      )}
+
       <div className="min-h-0 flex-1">
-        {dir && (
-          <div className={cn('h-full overflow-y-auto', effective !== 'checklist' && 'hidden')}>
+        <div
+          ref={setupScrollRef}
+          className={cn('h-full overflow-y-auto', effective !== 'setup' && 'hidden')}
+        >
+          {dir && (
             <FactoryChecklist
               dir={dir}
               mode={mode}
-              active={active && effective === 'checklist'}
+              active={active && effective === 'setup'}
               inspection={inspection}
-              serverRunning={!!status.data?.serverRunning}
+              serverRunning={serverRunning}
+              scaffoldRunning={!!status.data?.scaffoldRunning}
               installRunning={!!status.data?.installRunning}
               dbRunning={!!status.data?.dbRunning}
-              onGoTo={(s) => setSection(s)}
+              onGoTo={goTo}
+            />
+          )}
+          <div ref={setupCardsRef}>
+            <FactorySetup
+              dir={dir}
+              mode={mode}
+              inspection={inspection}
+              scaffoldRunning={!!status.data?.scaffoldRunning}
+              installRunning={!!status.data?.installRunning}
             />
           </div>
-        )}
-        <div className={cn('h-full overflow-y-auto', effective !== 'setup' && 'hidden')}>
-          <FactorySetup
-            dir={dir}
-            mode={mode}
-            inspection={inspection}
-            scaffoldRunning={!!status.data?.scaffoldRunning}
-            installRunning={!!status.data?.installRunning}
-          />
-        </div>
-        {dir && (
-          <div className={cn('h-full overflow-y-auto', effective !== 'env' && 'hidden')}>
-            <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
-              <FactoryEnvEditor dir={dir} mode={mode} active={active && effective === 'env'} />
+          {dir && (
+            <div ref={envCardsRef} className="mx-auto flex max-w-3xl flex-col gap-4 p-4 pt-0">
+              <FactoryEnvEditor dir={dir} mode={mode} active={active && effective === 'setup'} />
               {(mode === 'local' || inspection?.hasDbScript || inspection?.hasDockerCompose) && (
                 <FactoryDbCard
                   dir={dir}
                   hasDbScript={!!inspection?.hasDbScript}
                   dbRunning={!!status.data?.dbRunning}
-                  active={active && effective === 'env'}
+                  active={active && effective === 'setup'}
                 />
               )}
             </div>
-          </div>
-        )}
+          )}
+        </div>
         {dir && (
           <div className={cn('h-full', effective !== 'run' && 'hidden')}>
             <FactoryRunPanel
               dir={dir}
               active={active && effective === 'run'}
-              serverRunning={!!status.data?.serverRunning}
+              serverRunning={serverRunning}
               scaffolded={scaffolded}
               missingRequired={missing}
-              onShowChecklist={() => setSection('checklist')}
+              onShowChecklist={showChecklist}
             />
           </div>
         )}
@@ -228,9 +315,9 @@ export function FactoryView({ active }: { active: boolean }): React.JSX.Element 
             <FactoryWorkPanel
               dir={dir}
               active={active && effective === 'work'}
-              serverRunning={!!status.data?.serverRunning}
+              serverRunning={serverRunning}
               onShowServer={() => setSection('run')}
-              onShowChecklist={() => setSection('checklist')}
+              onShowChecklist={showChecklist}
             />
           </div>
         )}

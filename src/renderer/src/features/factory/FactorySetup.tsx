@@ -1,5 +1,5 @@
 /**
- * Factory Setup section — connect Yardarm to a Factory server checkout:
+ * Factory setup cards (Setup tab) — connect Yardarm to a Factory server checkout:
  * show the current checkout's health, scaffold a new one with
  * `npm create factory@latest` (interactive pty — platform mode runs a
  * browser sign-in), or adopt an existing folder (mode auto-detected).
@@ -124,7 +124,15 @@ export function FactorySetup({
               </Tip>
             </div>
           </div>
-          {inspection && !inspection.dirExists && (
+          {/* While the interactive installer is running the target folder
+              legitimately doesn't exist yet — don't call it missing. */}
+          {inspection && !inspection.dirExists && (scaffoldRunning || scaffold.isPending) && (
+            <div className="mt-3 rounded-md bg-accent/50 px-3 py-2 text-[11px] text-muted-foreground">
+              Scaffolding in progress — the installer creates this folder; answer its prompts in the
+              terminal below.
+            </div>
+          )}
+          {inspection && !inspection.dirExists && !scaffoldRunning && !scaffold.isPending && (
             <div className="mt-3 flex items-center gap-2 rounded-md bg-amber-500/10 px-3 py-2 text-[11px] text-amber-500">
               <AlertTriangle size={13} className="shrink-0" />
               This folder no longer exists — scaffold a new checkout or pick a different folder.

@@ -350,25 +350,27 @@ separate from the repos its agents work on — keep it outside your Yardarm proj
 Pick the mode when scaffolding; adopting an existing checkout auto-detects it (override in the
 header any time).
 
-### Checklist → Setup → Environment → Server → Work
+### Setup → Server → Work
 
-0. **Checklist** — a guided setup checklist covering every step from scaffold to a working
-   board: checkout, dependencies, database, required \`.env\` keys, dashboard UI, server,
-   dashboard-serving health, and sign-in. Each step shows live pass/fail state with a
-   one-click fix or a jump to the right section; it opens automatically while setup is
-   incomplete.
-1. **Setup** — scaffold a new checkout (\`npm create factory@latest\`, fully interactive in the
-   embedded terminal — platform mode prints a browser sign-in link) or point Yardarm at an
-   existing folder. Install dependencies from here if needed. Every step streams into its own
-   log terminal, which notes when a command has already finished.
-2. **Environment** — a guided \`.env\` editor: generate the credential encryption key, seed the
-   model-provider API keys Yardarm already knows, set the port and database URL, and (local
-   mode) start/stop the Docker database. Required keys are flagged until set; comments and
-   unknown keys in the file are preserved, including dotenv-style names with dots or dashes.
-   The database card checks Docker health before letting you start: a missing CLI, a stopped
-   daemon, or a missing \`docker compose\` plugin each show targeted guidance — and when Docker
-   Desktop, OrbStack, or colima is installed but not running, a one-click button starts it.
-3. **Server** — start/stop \`npm run dev\`; the dashboard URL is auto-detected from the logs
+1. **Setup** — everything to get a Factory running, on one scrollable page:
+   - The **guided checklist** sits at the top, covering every step from scaffold to a working
+     board: checkout, dependencies, database, required \`.env\` keys, dashboard UI, server,
+     dashboard-serving health, and sign-in. Each step shows live pass/fail state with a
+     one-click fix or a scroll to the card below that owns it; the tab opens automatically
+     while setup is incomplete.
+   - The **setup cards**: scaffold a new checkout (\`npm create factory@latest\`, fully
+     interactive in the embedded terminal — platform mode prints a browser sign-in link) or
+     point Yardarm at an existing folder. Install dependencies from here if needed. Every step
+     streams into its own log terminal, which notes when a command has already finished.
+   - The **environment card** — a guided \`.env\` editor: generate the credential encryption
+     key, seed the model-provider API keys Yardarm already knows, set the port and database
+     URL, and (local mode) start/stop the Docker database. Required keys are flagged until
+     set; comments and unknown keys in the file are preserved, including dotenv-style names
+     with dots or dashes. The database card checks Docker health before letting you start: a
+     missing CLI, a stopped daemon, or a missing \`docker compose\` plugin each show targeted
+     guidance — and when Docker Desktop, OrbStack, or colima is installed but not running, a
+     one-click button starts it.
+2. **Server** — start/stop \`npm run dev\`; the dashboard URL is auto-detected from the logs
    (the URL chips clear when the server stops) and loads in an embedded view with back/forward,
    reload, DevTools, and open-in-browser. The dashboard session persists across app restarts.
    If the \`.env\` DATABASE_URL points at a localhost port nobody is listening on, a warning
@@ -382,7 +384,7 @@ header any time).
    verify the old server process actually released its port — leaked server processes are
    cleaned up, so a fix can never be defeated by a stale server still answering with its old
    environment.
-4. **Work** — a native client for the running server's board APIs. Pick (or create) a Factory
+3. **Work** — a native client for the running server's board APIs. Pick (or create) a Factory
    project, then work the sub-tabs:
    - **Board** — kanban over the server's phase pipeline. Drag cards along their legal
      transitions (illegal targets are inert; a gated edge points you to Decisions), add cards
@@ -395,7 +397,10 @@ header any time).
    - **Intake** — bind external sources (GitHub, Linear, Slack) to a Factory project so new
      issues land on its board, and pull individual incoming items onto the board by hand.
 
-Sign in **once** via the Server section's embedded dashboard — the Work section reuses that
+Once the checkout is scaffolded, Start/Stop controls also live in the Factory header next to
+the status dot, so the server can be controlled from any tab.
+
+Sign in **once** via the Server tab's embedded dashboard — the Work tab reuses that
 session (signing out there signs it out too), and Yardarm never stores Factory tokens itself.
 A local server still asks for a sign-in, and that is by design: the sign-in is
 **identity-only** — the server and all of its data stay on your machine; the account (the same
@@ -648,13 +653,13 @@ network connection.
 Yes. Each chat (and each thread) runs independently — use split view, multiple chats, or the
 Kanban board to parallelize.
 
-### Why does the Factory Work section ask me to sign in — or say I need an organization?
+### Why does the Factory Work tab ask me to sign in — or say I need an organization?
 
 The Board, Decisions, Attention, and Intake sub-tabs talk to the Factory server's
 **organization-scoped** APIs. Even a fully local server asks for a sign-in — it's
 identity-only (the server and its data stay on your machine; it's the same Mastra account
-mastracode uses). Sign in once via the Server section's embedded dashboard with an account
-that belongs to an organization; the Work section reuses that session, and Yardarm never
+mastracode uses). Sign in once via the Server tab's embedded dashboard with an account
+that belongs to an organization; the Work tab reuses that session, and Yardarm never
 stores Factory tokens itself. Self-managed alternative: WorkOS via \`WORKOS_API_KEY\` +
 \`WORKOS_CLIENT_ID\` in \`.env\`. \`MASTRACODE_AUTH_DISABLED=1\` only removes the sign-in
 screen — the org-scoped APIs keep rejecting anonymous requests, so the board can never load
