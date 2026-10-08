@@ -1,6 +1,8 @@
 import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import type { SubchatStatusInfo } from '../../../shared/ui-message'
+import type { ComposerAttachment } from '../features/agents/attachments'
+import type { ShortcutOverrides } from './shortcut-registry'
 
 export type MainTab =
   'chat' | 'changes' | 'terminal' | 'files' | 'cli' | 'analytics' | 'preview' | 'factory' | 'guide'
@@ -14,6 +16,7 @@ export const themeAtom = atomWithStorage<Theme>('cz.theme', 'dark')
 export const settingsOpenAtom = atom(false)
 export type SettingsTab =
   | 'appearance'
+  | 'keyboard'
   | 'preferences'
   | 'keys'
   | 'models'
@@ -54,10 +57,14 @@ export const changesListWidthAtom = atomWithStorage<number>('cz.changesListWidth
 export const fileOpenRequestAtom = atom<string | null>(null)
 /** One-shot text inserted into the primary chat composer (e.g. "@path " from the Files tree). */
 export const composerInsertAtom = atom<string | null>(null)
+/** One-shot attachment appended to the primary composer (e.g. a quoted transcript selection). */
+export const composerAttachAtom = atom<ComposerAttachment | null>(null)
 /** Pane the Changes tab should switch to on next render (deep links; cleared on use). */
 export const changesPaneRequestAtom = atom<'changes' | 'history' | 'checkpoints' | null>(null)
 /** Global Cmd+K command palette. */
 export const commandPaletteOpenAtom = atom(false)
+/** User keyboard-shortcut overrides (persisted in app_settings 'keyboardShortcuts'). */
+export const shortcutOverridesAtom = atom<ShortcutOverrides>({})
 /** Cmd+O quick file open dialog (fuzzy search over the active worktree). */
 export const quickOpenAtom = atom(false)
 /** Re-open the first-run onboarding wizard (Settings → About → Run setup again). */

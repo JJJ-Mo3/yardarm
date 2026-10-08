@@ -28,7 +28,7 @@ import {
   themeAtom,
   type MainTab
 } from './lib/atoms'
-import { modLabel, useAppShortcuts } from './lib/shortcuts'
+import { modLabel, useAppShortcuts, useShortcutOverridesSync } from './lib/shortcuts'
 import { useSelectChat } from './lib/use-select-chat'
 import { Button } from './components/ui/button'
 import { Tip } from './components/ui/tooltip'
@@ -130,6 +130,7 @@ function SelectProjectPane(): React.JSX.Element {
 
 export default function App(): React.JSX.Element {
   useThemeEffect()
+  useShortcutOverridesSync()
   useAppShortcuts()
   useChatStatusTracker()
   useNotificationFocus()

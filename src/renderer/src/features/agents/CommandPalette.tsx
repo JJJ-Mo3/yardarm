@@ -33,11 +33,13 @@ import {
   selectedSubchatIdAtom,
   settingsOpenAtom,
   settingsTabAtom,
+  shortcutOverridesAtom,
   splitPanesAtom,
   type MainTab,
   type SettingsTab
 } from '../../lib/atoms'
 import { isMac, modLabel } from '../../lib/shortcuts'
+import { comboLabel, resolveCombo } from '../../lib/shortcut-registry'
 import { useSelectChat } from '../../lib/use-select-chat'
 import { CommandDialog, type CommandAction } from '../../components/ui/command'
 import { paletteDispatchAtom, useSlashCommands } from './slash-commands'
@@ -57,6 +59,7 @@ const TABS: Array<{ id: MainTab; label: string; icon: React.ReactNode; shortcut?
 
 const SETTINGS_SECTIONS: Array<{ id: SettingsTab; label: string }> = [
   { id: 'appearance', label: 'Appearance' },
+  { id: 'keyboard', label: 'Keyboard' },
   { id: 'preferences', label: 'Preferences' },
   { id: 'keys', label: 'API Keys' },
   { id: 'models', label: 'Models' },
@@ -82,6 +85,7 @@ export function CommandPalette(): React.JSX.Element {
   const setSettingsOpen = useSetAtom(settingsOpenAtom)
   const setSettingsTab = useSetAtom(settingsTabAtom)
   const selectChat = useSelectChat()
+  const shortcutOverrides = useAtomValue(shortcutOverridesAtom)
   const commands = useSlashCommands(open ? subchatId : null)
   const chats = trpc.chats.list.useQuery(
     { projectId: projectId ?? '' },
@@ -125,7 +129,7 @@ export function CommandPalette(): React.JSX.Element {
       group: 'Go to',
       label: 'Open file…',
       icon: <FileSearch size={13} />,
-      detail: modLabel('O'),
+      detail: comboLabel(resolveCombo('quickOpen', shortcutOverrides), isMac),
       onSelect: () => setQuickOpen(true)
     })
     list.push({
@@ -133,7 +137,7 @@ export function CommandPalette(): React.JSX.Element {
       group: 'Go to',
       label: 'Add split chat pane',
       icon: <Columns2 size={13} />,
-      detail: modLabel('\\'),
+      detail: comboLabel(resolveCombo('splitAdd', shortcutOverrides), isMac),
       onSelect: () => {
         setSplitPanes((panes) =>
           panes.length >= MAX_SPLIT_PANES
@@ -148,7 +152,7 @@ export function CommandPalette(): React.JSX.Element {
       group: 'Go to',
       label: 'Close last split pane',
       icon: <Columns2 size={13} />,
-      detail: isMac ? '⇧⌘\\' : 'Ctrl+Shift+\\',
+      detail: comboLabel(resolveCombo('splitClose', shortcutOverrides), isMac),
       onSelect: () => setSplitPanes((panes) => panes.slice(0, -1))
     })
     for (const s of SETTINGS_SECTIONS) {
@@ -188,7 +192,8 @@ export function CommandPalette(): React.JSX.Element {
     setSplitPanes,
     setSettingsTab,
     setSettingsOpen,
-    selectChat
+    selectChat,
+    shortcutOverrides
   ])
 
   return (

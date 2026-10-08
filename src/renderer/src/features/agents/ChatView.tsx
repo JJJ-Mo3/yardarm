@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import {
+  composerAttachAtom,
   composerInsertAtom,
   debugEventsAtom,
   detailsOpenAtom,
@@ -26,10 +27,12 @@ import {
   selectedSubchatIdAtom,
   settingsOpenAtom,
   settingsTabAtom,
+  shortcutOverridesAtom,
   threadsOpenAtom,
   type ProjectSettingsTab,
   type SettingsTab
 } from '../../lib/atoms'
+import { eventToCombo, resolveCombo } from '../../lib/shortcut-registry'
 import { Badge } from '../../components/ui/badge'
 import {
   Select,
@@ -118,6 +121,7 @@ export function ChatView({
   const send = trpc.agent.send.useMutation()
   const dismissQueued = trpc.agent.dismissQueued.useMutation()
   const reorderQueued = trpc.agent.reorderQueued.useMutation()
+  const updateQueued = trpc.agent.updateQueued.useMutation()
   const approve = trpc.agent.approve.useMutation()
   const respondSuspension = trpc.agent.respondSuspension.useMutation()
   const abort = trpc.agent.abort.useMutation()
@@ -140,6 +144,8 @@ export function ChatView({
   const [prefill, setPrefill] = useState<string | null>(null)
   // One-shot composer insert (e.g. "@path " from the Files tree) — primary pane only.
   const [composerInsert, setComposerInsert] = useAtom(composerInsertAtom)
+  // One-shot composer attachment (quoted transcript selection) — primary pane only.
+  const [composerAttach, setComposerAttach] = useAtom(composerAttachAtom)
   // × on the red agent-error banner: hide errors up to this timestamp; a
   // newer error (larger ts) brings the banner back.
   const [dismissedErrorTs, setDismissedErrorTs] = useState(0)
@@ -292,17 +298,18 @@ export function ChatView({
   // Details side panel (primary pane only — the split pane stays compact).
   const [detailsOpen, setDetailsOpen] = useAtom(detailsOpenAtom)
 
-  // In-chat search (Cmd+F). Window-level listener, gated on the primary pane
-  // and on the transcript actually being visible (tabs stay mounted hidden),
-  // so terminal search and the split pane stay independent.
+  // In-chat search (Cmd+F, rebindable). Window-level listener, gated on the
+  // primary pane and on the transcript actually being visible (tabs stay
+  // mounted hidden), so terminal search and the split pane stay independent.
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchSeq, setSearchSeq] = useState(0)
   const transcriptRef = useRef<HTMLDivElement | null>(null)
+  const shortcutOverrides = useAtomValue(shortcutOverridesAtom)
   useEffect(() => {
     if (!primary) return
+    const findCombo = resolveCombo('find', shortcutOverrides)
     const onKeyDown = (e: KeyboardEvent): void => {
-      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return
-      if (e.key.toLowerCase() !== 'f' || e.defaultPrevented) return
+      if (e.defaultPrevented || eventToCombo(e) !== findCombo) return
       if (!transcriptRef.current || transcriptRef.current.offsetParent === null) return
       e.preventDefault()
       setSearchOpen(true)
@@ -310,7 +317,7 @@ export function ChatView({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [primary])
+  }, [primary, shortcutOverrides])
   useEffect(() => setSearchOpen(false), [subchatId])
 
   const meta = state.meta
@@ -350,6 +357,7 @@ export function ChatView({
       ['send', send],
       ['dismiss', dismissQueued],
       ['reorder', reorderQueued],
+      ['edit queued', updateQueued],
       ['approval', approve],
       ['response', respondSuspension],
       ['abort', abort],
@@ -1156,6 +1164,7 @@ export function ChatView({
           items={state.queuedPrompts}
           onDismiss={(id) => dismissQueued.mutate({ subchatId, id })}
           onReorder={(id, beforeId) => reorderQueued.mutate({ subchatId, id, beforeId })}
+          onEdit={(id, text) => updateQueued.mutate({ subchatId, id, text })}
         />
 
         {goalOpen && (
@@ -1205,6 +1214,8 @@ export function ChatView({
           onPrefillConsumed={() => setPrefill(null)}
           insert={primary ? composerInsert : null}
           onInsertConsumed={() => setComposerInsert(null)}
+          attach={primary ? composerAttach : null}
+          onAttachConsumed={() => setComposerAttach(null)}
           goalStatus={goalQuery.data?.status ?? null}
           goalOpen={goalOpen}
           onToggleGoal={() => setGoalOpen((v) => !v)}

@@ -8,8 +8,11 @@ import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { SearchAddon } from '@xterm/addon-search'
 import { ChevronDown, ChevronUp, X } from 'lucide-react'
+import { useAtomValue } from 'jotai'
 import { Tip } from '../../components/ui/tooltip'
 import { trpc } from '../../lib/trpc'
+import { shortcutOverridesAtom } from '../../lib/atoms'
+import { eventToCombo, resolveCombo } from '../../lib/shortcut-registry'
 
 const SEARCH_DECORATIONS = {
   matchBackground: '#facc1533',
@@ -55,6 +58,12 @@ export function TerminalView({
   const write = trpc.terminal.write.useMutation()
   const resize = trpc.terminal.resize.useMutation()
 
+  // The key handler is registered once per mount; a ref keeps the (rebindable)
+  // find combo current without re-attaching it.
+  const shortcutOverrides = useAtomValue(shortcutOverridesAtom)
+  const findComboRef = useRef(resolveCombo('find', shortcutOverrides))
+  findComboRef.current = resolveCombo('find', shortcutOverrides)
+
   // Mount xterm once per terminal id.
   useEffect(() => {
     const el = containerRef.current
@@ -80,9 +89,10 @@ export function TerminalView({
     fitRef.current = fit
     searchRef.current = search
 
-    // Cmd/Ctrl+F opens the search overlay instead of reaching the pty.
+    // The find shortcut (Cmd/Ctrl+F by default, rebindable) opens the search
+    // overlay instead of reaching the pty.
     term.attachCustomKeyEventHandler((e) => {
-      if (e.type === 'keydown' && (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
+      if (e.type === 'keydown' && eventToCombo(e) === findComboRef.current) {
         setSearchOpen(true)
         requestAnimationFrame(() => searchInputRef.current?.select())
         return false

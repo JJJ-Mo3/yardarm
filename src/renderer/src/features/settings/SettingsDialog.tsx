@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Globe,
   Info,
+  Keyboard,
   KeyRound,
   Languages,
   Mic,
@@ -37,6 +38,7 @@ import { AboutTab } from './AboutTab'
 import { AgentsTab } from './AgentsTab'
 import { BrowserTab } from './BrowserTab'
 import { ConnectorsTab } from './ConnectorsTab'
+import { KeyboardTab } from './KeyboardTab'
 import { LanguagesTab } from './LanguagesTab'
 import { McpTab } from './McpTab'
 import { ModelsTab } from './ModelsTab'
@@ -311,6 +313,12 @@ export function SettingsDialog(): React.JSX.Element {
       tip: 'Theme and debug pane'
     },
     {
+      id: 'keyboard',
+      label: 'Keyboard',
+      icon: <Keyboard size={13} />,
+      tip: 'Customize keyboard shortcuts'
+    },
+    {
       id: 'preferences',
       label: 'Preferences',
       icon: <SlidersHorizontal size={13} />,
@@ -396,6 +404,7 @@ export function SettingsDialog(): React.JSX.Element {
           </div>
           <div className="min-h-72 max-h-[65vh] min-w-0 flex-1 overflow-y-auto pr-1">
             {tab === 'appearance' && <AppearanceTab />}
+            {tab === 'keyboard' && <KeyboardTab />}
             {tab === 'preferences' && <PreferencesTab />}
             {tab === 'keys' && <KeysTab />}
             {tab === 'models' && <ModelsTab />}

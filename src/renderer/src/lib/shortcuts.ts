@@ -3,18 +3,15 @@
  * surface (sidebar dialog, threads popover, tabs, settings) can be driven
  * from the keyboard. Cmd on macOS, Ctrl elsewhere.
  *
- *   Cmd+N     new chat
- *   Cmd+K     command palette
- *   Cmd+O     quick file open
- *   Cmd+P     thread switcher
- *   Cmd+J     toggle terminal tab
- *   Cmd+\     add a split chat pane
- *   Cmd+Shift+\  close the last split chat pane
- *   Cmd+1–8   main tabs in visual order (chat / CLI / IDE / changes / terminal / analytics / preview / guide)
- *   Cmd+,     settings
+ * Bindings are customizable in Settings → Keyboard: the action catalog and
+ * combo matching live in shortcut-registry.ts, user overrides are persisted
+ * in app_settings 'keyboardShortcuts' and mirrored into shortcutOverridesAtom
+ * by useShortcutOverridesSync. ⌘1–8 main-tab switching is fixed. The 'find'
+ * action is matched by its owners (ChatView / TerminalView), not here.
  */
-import { useEffect } from 'react'
-import { useSetAtom } from 'jotai'
+import { useEffect, useMemo } from 'react'
+import { useAtomValue, useSetAtom } from 'jotai'
+import { trpc } from './trpc'
 import {
   commandPaletteOpenAtom,
   mainTabAtom,
@@ -22,10 +19,18 @@ import {
   newChatOpenAtom,
   quickOpenAtom,
   settingsOpenAtom,
+  shortcutOverridesAtom,
   splitPanesAtom,
   threadsOpenAtom,
   type MainTab
 } from './atoms'
+import {
+  eventToCombo,
+  resolveCombo,
+  SHORTCUT_DEFS,
+  type ShortcutActionId,
+  type ShortcutOverrides
+} from './shortcut-registry'
 
 /** True in macOS renderers; drives shortcut display labels (⌘ vs Ctrl+). */
 export const isMac = navigator.platform.toUpperCase().includes('MAC')
@@ -48,6 +53,17 @@ const TAB_ORDER: MainTab[] = [
   'guide'
 ]
 
+/** Load persisted shortcut overrides into the atom once at app start. */
+export function useShortcutOverridesSync(): void {
+  const setOverrides = useSetAtom(shortcutOverridesAtom)
+  const stored = trpc.settings.get.useQuery({ key: 'keyboardShortcuts' })
+  useEffect(() => {
+    if (stored.data && typeof stored.data === 'object') {
+      setOverrides(stored.data as ShortcutOverrides)
+    }
+  }, [stored.data, setOverrides])
+}
+
 export function useAppShortcuts(): void {
   const setTab = useSetAtom(mainTabAtom)
   const setSettingsOpen = useSetAtom(settingsOpenAtom)
@@ -56,70 +72,77 @@ export function useAppShortcuts(): void {
   const setPaletteOpen = useSetAtom(commandPaletteOpenAtom)
   const setQuickOpen = useSetAtom(quickOpenAtom)
   const setSplitPanes = useSetAtom(splitPanesAtom)
+  const overrides = useAtomValue(shortcutOverridesAtom)
+
+  // Effective combo → action map ('find' is dispatched by its owning views).
+  const comboMap = useMemo(() => {
+    const map = new Map<string, ShortcutActionId>()
+    for (const def of SHORTCUT_DEFS) {
+      if (def.id === 'find') continue
+      map.set(resolveCombo(def.id, overrides), def.id)
+    }
+    return map
+  }, [overrides])
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent): void => {
       const mod = e.metaKey || e.ctrlKey
       if (!mod || e.altKey) return
-      // Backslash first: with Shift held, e.key may report '|' on US layouts.
-      if (e.key === '\\' || e.key === '|' || e.code === 'Backslash') {
+      // Fixed tab switching first — not rebindable.
+      if (!e.shiftKey && e.key >= '1' && e.key <= '8') {
         e.preventDefault()
-        if (e.shiftKey) {
-          setSplitPanes((panes) => panes.slice(0, -1))
-        } else {
+        setTab(TAB_ORDER[Number(e.key) - 1])
+        return
+      }
+      const combo = eventToCombo(e)
+      const action = combo ? comboMap.get(combo) : undefined
+      if (!action) return
+      switch (action) {
+        case 'newChat':
+          e.preventDefault()
+          setNewChatOpen(true)
+          break
+        case 'commandPalette':
+          // Skip when a focused surface (e.g. Monaco) already claimed the key.
+          if (e.defaultPrevented) break
+          e.preventDefault()
+          setPaletteOpen(true)
+          break
+        case 'quickOpen':
+          e.preventDefault()
+          setQuickOpen(true)
+          break
+        case 'threadSwitcher':
+          e.preventDefault()
+          setThreadsOpen(true)
+          break
+        case 'toggleTerminal':
+          e.preventDefault()
+          setTab((t) => (t === 'terminal' ? 'chat' : 'terminal'))
+          break
+        case 'settings':
+          e.preventDefault()
+          setSettingsOpen(true)
+          break
+        case 'splitAdd':
+          e.preventDefault()
           setSplitPanes((panes) =>
             panes.length >= MAX_SPLIT_PANES
               ? panes
               : [...panes, { key: crypto.randomUUID(), chatId: null, subchatId: null }]
           )
           setTab('chat')
-        }
-        return
-      }
-      if (e.shiftKey) return
-      switch (e.key) {
-        case 'n':
-          e.preventDefault()
-          setNewChatOpen(true)
           break
-        case 'k':
-          // Skip when a focused surface (e.g. Monaco) already claimed the key.
-          if (e.defaultPrevented) break
+        case 'splitClose':
           e.preventDefault()
-          setPaletteOpen(true)
-          break
-        case 'o':
-          e.preventDefault()
-          setQuickOpen(true)
-          break
-        case 'p':
-          e.preventDefault()
-          setThreadsOpen(true)
-          break
-        case 'j':
-          e.preventDefault()
-          setTab((t) => (t === 'terminal' ? 'chat' : 'terminal'))
-          break
-        case ',':
-          e.preventDefault()
-          setSettingsOpen(true)
-          break
-        case '1':
-        case '2':
-        case '3':
-        case '4':
-        case '5':
-        case '6':
-        case '7':
-        case '8':
-          e.preventDefault()
-          setTab(TAB_ORDER[Number(e.key) - 1])
+          setSplitPanes((panes) => panes.slice(0, -1))
           break
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [
+    comboMap,
     setTab,
     setSettingsOpen,
     setNewChatOpen,

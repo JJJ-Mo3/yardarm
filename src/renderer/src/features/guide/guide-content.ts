@@ -77,21 +77,25 @@ its reasoning, tool calls, and file edits into the transcript.
 - **Slash commands** — type \`/\` for the command palette (\`/help\` lists everything:
   reviews, permissions, goals, threads, and more).
 - **Attachments** — paste, drag in, or pick files with the attachment button: images and
-  PDFs go to the model directly, and text/code files (markdown, logs, CSV, source files, …)
-  are inlined into the prompt so any model can read them.
+  PDFs go to the model directly, and any text-like file (markdown, logs, CSV, source files,
+  config files, … — detected by content, not just extension) is inlined into the prompt so
+  any model can read it. Pasting a long block of text turns it into an attachment chip
+  instead of flooding the composer.
 - **Voice** — the microphone button dictates your prompt (needs a speech-to-text-capable API
   key, configured in Settings → Voice).
 - **Queueing** — you can keep typing while the agent runs; queued prompts are sent in order
-  when the current run finishes, and you can drag queued prompts to reorder them (or edit /
-  remove them) while they wait. Quitting the app while agents are still running asks for
-  confirmation first.
+  when the current run finishes, and you can drag queued prompts to reorder them, edit them
+  inline, copy their text, or remove them while they wait. Quitting the app while agents are
+  still running asks for confirmation first.
 - **Drafts** — whatever you've typed is saved automatically per chat, so switching chats or
   restarting the app never loses an unfinished prompt.
 
 ### The transcript
 
 - **Copy a message** — hover any message and click the copy button to grab its text, or just
-  select any text in the transcript — a floating Copy button appears next to the selection.
+  select any text in the transcript — a floating Copy button appears next to the selection,
+  along with a **Quote** button that drops the selection into the composer as an attachment
+  so your next prompt can reference it.
 - **Find in chat** — press ⌘F to search the transcript, with match count and next/previous
   navigation (Enter / Shift+Enter).
 - **Diagrams** — \`mermaid\` code blocks in agent replies render as diagrams (flowcharts,
@@ -511,6 +515,8 @@ doesn't guess.
 App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
 
 - **Appearance** — light/dark/system theme.
+- **Keyboard** — rebind the app shortcuts (command palette, find, split panes, …). ⌘1–8 tab
+  switching is fixed.
 - **Preferences** — agent behavior defaults (auto-approve, sandbox), token compression and
   verbosity steering, the **web-search provider** the agent's search tool uses (Tavily or
   Parallel), **commit attribution** (the co-author trailer on agent-made commits — customize
@@ -567,7 +573,8 @@ the Workflows tab (\`/workflows\`) runs and manages the agent's stored workflows
     id: 'shortcuts',
     title: 'Keyboard shortcuts',
     body: `
-⌘ on macOS, Ctrl on Windows/Linux.
+⌘ on macOS, Ctrl on Windows/Linux. Everything except ⌘1–8 tab switching is customizable in
+**Settings → Keyboard** (defaults shown below).
 
 | Shortcut | Action |
 | --- | --- |
