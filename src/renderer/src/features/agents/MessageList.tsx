@@ -7,9 +7,13 @@ import {
   Copy,
   GitFork,
   RotateCcw,
-  ScanSearch
+  ScanSearch,
+  TextQuote
 } from 'lucide-react'
+import { useSetAtom } from 'jotai'
 import { cn } from '../../lib/utils'
+import { composerAttachAtom } from '../../lib/atoms'
+import { encodeBase64Utf8 } from './attachments'
 import { Tip } from '../../components/ui/tooltip'
 import { Markdown } from './Markdown'
 import { ToolCallRow } from './tool-display/ToolCallRow'
@@ -82,10 +86,11 @@ function CopyMessageButton({ message }: { message: StoredMessage }): React.JSX.E
 }
 
 /**
- * Floating button shown near text selected in the transcript that copies the
- * selection to the clipboard. Fixed-positioned at the selection's viewport
- * rect and repositioned on scroll via a capturing listener; mousedown is
- * prevented so clicking the button doesn't collapse the selection first.
+ * Floating buttons shown near text selected in the transcript: Copy puts the
+ * selection on the clipboard; Quote attaches it to the composer as a text
+ * chip. Fixed-positioned at the selection's viewport rect and repositioned on
+ * scroll via a capturing listener; mousedown is prevented so clicking the
+ * buttons doesn't collapse the selection first.
  */
 function SelectionCopyButton({
   containerRef
@@ -96,6 +101,7 @@ function SelectionCopyButton({
     null
   )
   const [copied, setCopied] = useState(false)
+  const setComposerAttach = useSetAtom(composerAttachAtom)
 
   useEffect(() => {
     const update = (): void => {
@@ -138,20 +144,39 @@ function SelectionCopyButton({
       className={cn('fixed z-50 -translate-x-1/2', state.above && '-translate-y-full')}
       style={{ left: state.x, top: state.y }}
     >
-      <Tip content="Copy the selected text">
-        <button
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => {
-            void navigator.clipboard.writeText(state.text)
-            setCopied(true)
-            setTimeout(() => setCopied(false), 1500)
-          }}
-          className="flex items-center gap-1 rounded-md border border-border bg-background px-1.5 py-1 text-[11px] text-muted-foreground shadow-md hover:text-foreground cursor-pointer"
-        >
-          {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
-          Copy
-        </button>
-      </Tip>
+      <div className="flex items-center gap-1">
+        <Tip content="Copy the selected text">
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              void navigator.clipboard.writeText(state.text)
+              setCopied(true)
+              setTimeout(() => setCopied(false), 1500)
+            }}
+            className="flex items-center gap-1 rounded-md border border-border bg-background px-1.5 py-1 text-[11px] text-muted-foreground shadow-md hover:text-foreground cursor-pointer"
+          >
+            {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+            Copy
+          </button>
+        </Tip>
+        <Tip content="Quote the selected text into the composer as an attachment">
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              setComposerAttach({
+                data: encodeBase64Utf8(state.text),
+                mediaType: 'text/plain',
+                filename: 'quoted-text.txt'
+              })
+              window.getSelection()?.removeAllRanges()
+            }}
+            className="flex items-center gap-1 rounded-md border border-border bg-background px-1.5 py-1 text-[11px] text-muted-foreground shadow-md hover:text-foreground cursor-pointer"
+          >
+            <TextQuote size={12} />
+            Quote
+          </button>
+        </Tip>
+      </div>
     </div>
   )
 }

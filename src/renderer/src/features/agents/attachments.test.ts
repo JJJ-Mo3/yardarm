@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
-  ATTACHMENT_ACCEPT,
   buildAttachmentPrompt,
+  bytesToBase64,
   classifyAttachment,
-  decodeBase64Utf8
+  decodeBase64Utf8,
+  dedupeFilename,
+  encodeBase64Utf8,
+  looksLikeTextFile
 } from './attachments'
 
 const b64 = (text: string): string => Buffer.from(text, 'utf8').toString('base64')
@@ -35,6 +38,15 @@ describe('classifyAttachment', () => {
   it('matches extension-less well-known filenames', () => {
     expect(classifyAttachment('', 'Dockerfile')).toBe('text')
     expect(classifyAttachment('', 'Makefile')).toBe('text')
+    expect(classifyAttachment('', 'Gemfile')).toBe('text')
+    expect(classifyAttachment('', 'LICENSE')).toBe('text')
+  })
+
+  it('matches dotfiles and new language extensions', () => {
+    expect(classifyAttachment('', '.npmrc')).toBe('text')
+    expect(classifyAttachment('', '.editorconfig')).toBe('text')
+    expect(classifyAttachment('', 'main.tf')).toBe('text')
+    expect(classifyAttachment('', 'schema.graphql')).toBe('text')
   })
 
   it('rejects unknown binary types', () => {
@@ -43,19 +55,59 @@ describe('classifyAttachment', () => {
   })
 })
 
-describe('ATTACHMENT_ACCEPT', () => {
-  it('covers images, pdfs, text and the extension list', () => {
-    expect(ATTACHMENT_ACCEPT).toContain('image/*')
-    expect(ATTACHMENT_ACCEPT).toContain('application/pdf')
-    expect(ATTACHMENT_ACCEPT).toContain('text/*')
-    expect(ATTACHMENT_ACCEPT).toContain('.md')
+describe('looksLikeTextFile', () => {
+  it('accepts plain ASCII', () => {
+    expect(looksLikeTextFile(new TextEncoder().encode('hello world\nline two\n'))).toBe(true)
+  })
+
+  it('accepts multibyte UTF-8 split at the 8KB sample boundary', () => {
+    // Fill right up to the boundary so a 3-byte char straddles offset 8192.
+    const bytes = new TextEncoder().encode('a'.repeat(8191) + '日本語テキスト')
+    expect(looksLikeTextFile(bytes)).toBe(true)
+  })
+
+  it('rejects NUL-containing binaries', () => {
+    expect(looksLikeTextFile(new Uint8Array([0x68, 0x69, 0x00, 0x68, 0x69]))).toBe(false)
+  })
+
+  it('rejects PNG headers', () => {
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00])
+    expect(looksLikeTextFile(png)).toBe(false)
+  })
+
+  it('accepts empty files', () => {
+    expect(looksLikeTextFile(new Uint8Array(0))).toBe(true)
   })
 })
 
-describe('decodeBase64Utf8', () => {
-  it('round-trips UTF-8 text', () => {
+describe('dedupeFilename', () => {
+  it('returns the base name when free', () => {
+    expect(dedupeFilename([], 'pasted-text', 'txt')).toBe('pasted-text.txt')
+  })
+
+  it('suffixes -2, -3 … when taken', () => {
+    expect(dedupeFilename(['pasted-text.txt'], 'pasted-text', 'txt')).toBe('pasted-text-2.txt')
+    expect(
+      dedupeFilename(['pasted-text.txt', 'pasted-text-2.txt', undefined], 'pasted-text', 'txt')
+    ).toBe('pasted-text-3.txt')
+  })
+})
+
+describe('base64 helpers', () => {
+  it('decodeBase64Utf8 round-trips UTF-8 text', () => {
     const text = 'héllo wörld — ✓ 日本語'
     expect(decodeBase64Utf8(b64(text))).toBe(text)
+  })
+
+  it('encodeBase64Utf8 is the inverse of decodeBase64Utf8', () => {
+    const text = 'emoji 🙂 and ünïcode'
+    expect(decodeBase64Utf8(encodeBase64Utf8(text))).toBe(text)
+  })
+
+  it('bytesToBase64 chunking survives >128KB inputs', () => {
+    const text = 'x'.repeat(200 * 1024) + '日本語'
+    const bytes = new TextEncoder().encode(text)
+    expect(decodeBase64Utf8(bytesToBase64(bytes))).toBe(text)
   })
 })
 

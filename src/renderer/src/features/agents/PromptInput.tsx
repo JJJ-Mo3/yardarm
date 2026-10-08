@@ -5,9 +5,12 @@ import { Tip } from '../../components/ui/tooltip'
 import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
 import {
-  ATTACHMENT_ACCEPT,
+  LONG_PASTE_THRESHOLD,
   MAX_TEXT_ATTACHMENT_BYTES,
+  bytesToBase64,
   classifyAttachment,
+  dedupeFilename,
+  looksLikeTextFile,
   type ComposerAttachment
 } from './attachments'
 import { clearDraft, loadDraft, saveDraft } from './drafts'
@@ -48,6 +51,8 @@ export function PromptInput({
   onPrefillConsumed,
   insert,
   onInsertConsumed,
+  attach,
+  onAttachConsumed,
   goalStatus,
   goalOpen,
   onToggleGoal
@@ -68,6 +73,9 @@ export function PromptInput({
   /** One-shot text appended at the caret (e.g. "@path " from the Files tree). */
   insert?: string | null
   onInsertConsumed?: () => void
+  /** One-shot attachment appended as a chip (e.g. a quoted transcript selection). */
+  attach?: ComposerAttachment | null
+  onAttachConsumed?: () => void
   /** Current goal status ('active' | 'paused' | 'done') for the Goal button chip; null = no goal. */
   goalStatus?: string | null
   /** Whether the inline goal panel above the composer is open. */
@@ -149,6 +157,33 @@ export function PromptInput({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [insert])
+
+  // One-shot attachment (quoted transcript selection) — append as a chip with
+  // a deduped filename and hand focus to the textarea.
+  useEffect(() => {
+    if (attach) {
+      setAttachments((prev) => {
+        const name = attach.filename ?? 'quoted-text.txt'
+        const dot = name.lastIndexOf('.')
+        const base = dot > 0 ? name.slice(0, dot) : name
+        const ext = dot > 0 ? name.slice(dot + 1) : 'txt'
+        return [
+          ...prev,
+          {
+            ...attach,
+            filename: dedupeFilename(
+              prev.map((a) => a.filename),
+              base,
+              ext
+            )
+          }
+        ]
+      })
+      requestAnimationFrame(() => textareaRef.current?.focus())
+      onAttachConsumed?.()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attach])
 
   // Grow the textarea with its content (including wrapped long lines, which a
   // newline count alone misses) up to a cap, then scroll internally.
@@ -257,26 +292,41 @@ export function PromptInput({
     }
   }
 
-  /** Add picked/pasted/dropped files as attachments, flagging unsupported ones. */
+  /** Add picked/pasted/dropped files as attachments, sniffing unknown types for text. */
   async function addFiles(files: File[]): Promise<void> {
-    const accepted: File[] = []
+    const converted: ComposerAttachment[] = []
     const skipped: string[] = []
     for (const f of files) {
       const kind = classifyAttachment(f.type, f.name)
-      if (kind === 'unsupported') {
-        skipped.push(`${f.name || 'file'} — attach images, PDFs, or text files`)
-      } else if (kind === 'text' && f.size > MAX_TEXT_ATTACHMENT_BYTES) {
+      if (kind === 'text' && f.size > MAX_TEXT_ATTACHMENT_BYTES) {
         skipped.push(
           `${f.name || 'file'} — text attachments are limited to ${MAX_TEXT_ATTACHMENT_BYTES / 1024} KB`
         )
+      } else if (kind === 'unsupported') {
+        // Unknown type: sniff the bytes — anything that decodes as UTF-8 text
+        // attaches as text/plain (forced, so send-time classification inlines it).
+        if (f.size > MAX_TEXT_ATTACHMENT_BYTES) {
+          skipped.push(`${f.name || 'file'} — too large to attach as text`)
+          continue
+        }
+        const bytes = new Uint8Array(await f.arrayBuffer())
+        if (looksLikeTextFile(bytes)) {
+          converted.push({
+            data: bytesToBase64(bytes),
+            mediaType: 'text/plain',
+            filename: f.name || undefined
+          })
+        } else {
+          skipped.push(
+            `${f.name || 'file'} — file looks binary; attach images, PDFs, or text files`
+          )
+        }
       } else {
-        accepted.push(f)
+        converted.push(await fileToAttachment(f))
       }
     }
     if (skipped.length > 0) setHint(`Skipped ${skipped.join('; ')}`)
-    if (accepted.length === 0) return
-    const converted = await Promise.all(accepted.map(fileToAttachment))
-    setAttachments((prev) => [...prev, ...converted])
+    if (converted.length > 0) setAttachments((prev) => [...prev, ...converted])
   }
 
   function submit(): void {
@@ -472,10 +522,32 @@ export function PromptInput({
           }}
           onKeyDown={onKeyDown}
           onPaste={(e) => {
-            const files = Array.from(e.clipboardData.files)
-            if (files.some((f) => classifyAttachment(f.type, f.name) !== 'unsupported')) {
+            if (e.clipboardData.files.length > 0) {
               e.preventDefault()
-              void addFiles(files)
+              void addFiles(Array.from(e.clipboardData.files))
+              return
+            }
+            // Long text pastes become an attachment chip instead of flooding the composer.
+            const text = e.clipboardData.getData('text/plain')
+            if (text.length > LONG_PASTE_THRESHOLD) {
+              const bytes = new TextEncoder().encode(text)
+              if (bytes.length > MAX_TEXT_ATTACHMENT_BYTES) {
+                setHint('Pasted text is too large to attach — inserted inline instead')
+                return
+              }
+              e.preventDefault()
+              setAttachments((prev) => [
+                ...prev,
+                {
+                  data: bytesToBase64(bytes),
+                  mediaType: 'text/plain',
+                  filename: dedupeFilename(
+                    prev.map((a) => a.filename),
+                    'pasted-text',
+                    'txt'
+                  )
+                }
+              ])
             }
           }}
           className="max-h-[240px] min-h-[72px] flex-1 resize-none overflow-y-auto rounded-md border border-border bg-background px-3 py-2 text-[13px] placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
@@ -483,7 +555,6 @@ export function PromptInput({
         <input
           ref={fileInputRef}
           type="file"
-          accept={ATTACHMENT_ACCEPT}
           multiple
           className="hidden"
           onChange={(e) => {
@@ -512,7 +583,7 @@ export function PromptInput({
             </Tip>
           )}
           <div className="flex items-end gap-2">
-            <Tip content="Attach images, PDFs, or text files to your message — or paste or drag & drop them">
+            <Tip content="Attach images, PDFs, or any text file to your message — or paste or drag & drop them">
               <span className="inline-flex">
                 <Button
                   size="icon"
