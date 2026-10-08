@@ -185,7 +185,8 @@
           <li>
             <strong>Copy a message</strong> — hover any message and click the copy button to grab
             its text, or select any text in the transcript and use the floating Copy button that
-            appears next to the selection.
+            appears next to the selection. A <strong>Quote</strong> button next to it drops the
+            selection into the composer as an attachment, so your next prompt can reference it.
           </li>
           <li>
             <strong>Find in chat</strong> — <kbd>Cmd+F</kbd> opens a search overlay with a match
@@ -212,9 +213,11 @@
           </li>
           <li>
             <strong>Attachments</strong> — click the paperclip, or paste/drag-and-drop files
-            straight into the composer. Images and PDFs are sent to the model directly; text/code
-            files (markdown, logs, CSV, source files, …) are inlined into the prompt so any model
-            can read them.
+            straight into the composer. Images and PDFs are sent to the model directly; any
+            text-like file (markdown, logs, CSV, source files, config files, … — detected by
+            content, not just extension) is inlined into the prompt so any model can read it.
+            Pasting a long block of text turns it into an attachment chip instead of flooding the
+            composer.
           </li>
           <li>
             <strong>Mic button</strong> — voice dictation, if enabled. See
@@ -227,10 +230,10 @@
           </li>
           <li>
             <strong>While the agent is running</strong>, the send button becomes
-            <strong>Queue</strong>: messages you send are queued in a strip above the composer (each
-            with a dismiss button, and draggable to reorder) and delivered in order when the current
-            run finishes. The red square button stops the current run. Quitting the app while agents
-            are still running asks for confirmation first.
+            <strong>Queue</strong>: messages you send are queued in a strip above the composer and
+            delivered in order when the current run finishes. Queued prompts can be dragged to
+            reorder, edited inline, copied, or dismissed. The red square button stops the current
+            run. Quitting the app while agents are still running asks for confirmation first.
           </li>
           <li>
             <strong>Drafts are automatic</strong> — whatever you've typed is saved per chat, so
