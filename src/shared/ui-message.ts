@@ -138,6 +138,8 @@ export interface QueuedPromptInfo {
   text: string
   /** Number of file attachments riding along (payload stays in main). */
   fileCount: number
+  /** Plain prompt (no expanded payload) — inline editing is allowed. */
+  editable: boolean
   createdAt: number
 }
 

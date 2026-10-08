@@ -61,6 +61,18 @@ export class PromptQueue {
     return true
   }
 
+  /**
+   * Edit a plain queued prompt's text in place. Expanded prompts (those with
+   * a displayText or marker kind — e.g. inlined attachments or /review) are
+   * immutable because the renderer never sees their raw payload.
+   */
+  edit(subchatId: string, id: string, text: string): boolean {
+    const item = this.queues.get(subchatId)?.find((i) => i.id === id)
+    if (!item || item.displayText || item.displayKind) return false
+    item.text = text
+    return true
+  }
+
   /** Take the head item off the queue (next to send), if any. */
   shift(subchatId: string): QueuedPrompt | undefined {
     return this.queues.get(subchatId)?.shift()
@@ -97,6 +109,7 @@ export class PromptQueue {
       id: i.id,
       text: i.displayText ?? i.text,
       fileCount: i.files?.length ?? 0,
+      editable: !i.displayText && !i.displayKind,
       createdAt: i.createdAt
     }))
   }

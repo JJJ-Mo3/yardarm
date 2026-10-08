@@ -118,6 +118,14 @@ export const agentRouter = router({
       return { ok: true }
     }),
 
+  /** Edit a queued prompt's text before it sends (plain prompts only). */
+  updateQueued: publicProcedure
+    .input(z.object({ subchatId: z.string(), id: z.string(), text: z.string().min(1) }))
+    .mutation(({ input }) => {
+      agentSessionManager.editQueuedPrompt(input.subchatId, input.id, input.text)
+      return { ok: true }
+    }),
+
   approve: publicProcedure
     .input(
       z.object({

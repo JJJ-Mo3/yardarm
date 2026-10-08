@@ -1226,6 +1226,11 @@ export class AgentSessionManager {
     if (this.promptQueue.dismiss(subchatId, id)) this.emitQueuedPrompts(subchatId)
   }
 
+  /** Edit a queued prompt's text before it sends (no-op if already flushed or expanded). */
+  editQueuedPrompt(subchatId: string, id: string, text: string): void {
+    if (this.promptQueue.edit(subchatId, id, text)) this.emitQueuedPrompts(subchatId)
+  }
+
   /** Move a queued prompt before another (or to the end when beforeId is omitted). */
   reorderQueuedPrompt(subchatId: string, id: string, beforeId?: string): void {
     if (this.promptQueue.reorder(subchatId, id, beforeId)) this.emitQueuedPrompts(subchatId)
