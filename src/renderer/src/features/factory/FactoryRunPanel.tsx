@@ -125,8 +125,22 @@ export function FactoryRunPanel({
     } catch {}
   }, [probe.data?.state])
   // Gate on serverRunning: the disabled query retains its last data after a
-  // stop, which would leave stale URL chips for a dead server.
-  const urls = serverRunning ? (detected.data ?? []) : []
+  // stop, which would leave stale URL chips for a dead server. The dashboard
+  // home sorts first: the server logs both the root URL and its /api base,
+  // and raw recency order would auto-load the bare API page instead of the
+  // dashboard (stable sort keeps recency within each rank).
+  const urlRank = (u: string): number => {
+    try {
+      const path = new URL(u).pathname
+      if (path === '/' || path === '') return 0
+      return path === '/api' || path.startsWith('/api/') ? 2 : 1
+    } catch {
+      return 1
+    }
+  }
+  const urls = serverRunning
+    ? [...(detected.data ?? [])].sort((a, b) => urlRank(a) - urlRank(b))
+    : []
 
   const navigate = (raw: string): void => {
     if (!isLocalhostHttpUrl(raw)) return
