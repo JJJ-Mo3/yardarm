@@ -156,14 +156,20 @@ export function FactoryRunPanel({
   }
 
   // Auto-load the first detected URL once per server run (reset on stop so a
-  // restart re-detects — the port may have changed via .env).
+  // restart re-detects — the port may have changed via .env). The server logs
+  // collapse at the same moment — the dashboard is up, so give it the space —
+  // and reopen when the server goes down so exit/crash output stays visible.
   useEffect(() => {
-    if (!serverRunning) autoLoadedRef.current = false
+    if (!serverRunning) {
+      autoLoadedRef.current = false
+      setLogsOpen(true)
+    }
   }, [serverRunning])
   useEffect(() => {
     if (!serverRunning || autoLoadedRef.current || urls.length === 0) return
     autoLoadedRef.current = true
     navigate(urls[0])
+    setLogsOpen(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urls, serverRunning])
 
