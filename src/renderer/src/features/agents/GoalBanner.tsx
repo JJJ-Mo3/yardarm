@@ -2,7 +2,7 @@
  * Active-goal banner (/goal). Shows the thread's objective, judge, run
  * progress and the latest evaluation; clears via the X button.
  */
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Pause, Play, Target, X } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
@@ -40,14 +40,28 @@ export function GoalBanner({
     if (live) void utils.agent.goalGet.invalidate({ subchatId })
   }, [live, subchatId, utils])
 
+  // Long objectives are clamped so the banner never crowds the transcript.
+  const [expanded, setExpanded] = useState(false)
+  useEffect(() => {
+    setExpanded(false)
+  }, [subchatId])
+
   const g = goal.data
   if (!g) return null
+
+  const isLong = g.objective.length > 240
 
   return (
     <div className="flex items-start gap-2 border-b border-border bg-accent/30 px-4 py-1.5">
       <Target size={12} className="mt-0.5 shrink-0 text-muted-foreground" />
       <div className="min-w-0 flex-1">
-        <div className="text-[11px] selectable">
+        <div
+          className={cn(
+            'text-[11px] selectable break-words',
+            isLong && !expanded && 'line-clamp-2',
+            isLong && expanded && 'max-h-40 overflow-y-auto'
+          )}
+        >
           <span className="font-medium">Goal:</span> {g.objective}
         </div>
         <div className="text-[10px] text-muted-foreground selectable">
@@ -61,6 +75,16 @@ export function GoalBanner({
             : ''}
           {g.status === 'active' && !running ? ' · waiting for your next message' : ''}
         </div>
+        {isLong && (
+          <Tip content={expanded ? 'Collapse the goal text' : 'Show the full goal text'}>
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+            >
+              {expanded ? 'Show less' : 'Show more'}
+            </button>
+          </Tip>
+        )}
       </div>
       {g.status !== 'done' && (
         <Tip

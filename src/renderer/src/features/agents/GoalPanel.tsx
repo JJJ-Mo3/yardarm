@@ -4,7 +4,7 @@
  * pause/resume it, tune the judge model and run limit, or clear it — no
  * slash command needed.
  */
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, Pause, Pencil, Play, Target, X } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import { cn, timeAgo } from '../../lib/utils'
@@ -111,6 +111,17 @@ export function GoalPanel({
   // Which history group (index) is expanded to show per-iteration verdicts.
   const [expandedGroup, setExpandedGroup] = useState<number | null>(null)
 
+  // Grow the objective textarea with its content up to a cap, then scroll
+  // internally (PromptInput pattern) — only one of the two textareas mounts
+  // at a time, so a single ref covers both.
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+  }, [objective, editing])
+
   // Each judge evaluation updates runsUsed/status server-side; refresh.
   useEffect(() => {
     if (live) {
@@ -206,12 +217,13 @@ export function GoalPanel({
             keep going until the goal is met.
           </div>
           <textarea
+            ref={textareaRef}
             value={objective}
             disabled={busy}
             onChange={(e) => setObjective(e.target.value)}
             placeholder="Objective, e.g. all tests pass and the feature works end to end"
             rows={3}
-            className="w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-[11px] focus:outline-none"
+            className="max-h-40 w-full resize-none overflow-y-auto rounded-md border border-border bg-background px-2 py-1.5 text-[11px] focus:outline-none"
           />
           <div className="flex items-center justify-between gap-2">
             <span className="text-[11px] text-muted-foreground">Judge model</span>
@@ -284,11 +296,12 @@ export function GoalPanel({
           {editing ? (
             <div className="space-y-1.5">
               <textarea
+                ref={textareaRef}
                 value={objective}
                 disabled={busy}
                 onChange={(e) => setObjective(e.target.value)}
                 rows={3}
-                className="w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-[11px] focus:outline-none"
+                className="max-h-40 w-full resize-none overflow-y-auto rounded-md border border-border bg-background px-2 py-1.5 text-[11px] focus:outline-none"
               />
               <div className="flex gap-1.5">
                 <Tip content="Replace the objective — this restarts the goal's run count">
@@ -314,7 +327,9 @@ export function GoalPanel({
             </div>
           ) : (
             <div className="flex items-start gap-1.5">
-              <div className="min-w-0 flex-1 text-[11px] selectable">{g.objective}</div>
+              <div className="max-h-40 min-w-0 flex-1 overflow-y-auto break-words text-[11px] selectable">
+                {g.objective}
+              </div>
               <Tip content="Edit the objective — saving restarts the goal's run count">
                 <button
                   onClick={() => {
