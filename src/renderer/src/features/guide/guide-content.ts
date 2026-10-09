@@ -406,6 +406,11 @@ header any time).
 Once the checkout is scaffolded, Start/Stop controls also live in the Factory header next to
 the status dot, so the server can be controlled from any tab.
 
+The Factory tab is **immersive**: Yardarm's sidebar slides away while it's active so the
+dashboard (which has its own left nav) gets the full window — the tab bar stays as the way
+back. The panel button at the right end of the tab bar pins the sidebar back while you stay
+on Factory, and it returns automatically on any other tab.
+
 ### Signing in — a Mastra login is required, even for a local server
 
 Sign in **once** via the Server tab's embedded dashboard — the Work tab reuses that

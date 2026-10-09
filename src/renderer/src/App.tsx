@@ -10,6 +10,8 @@ import {
   GitFork,
   Globe,
   MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   SquareChevronRight,
   TerminalSquare
@@ -18,6 +20,7 @@ import { trpc } from './lib/trpc'
 import { cn } from './lib/utils'
 import {
   addProjectOpenAtom,
+  factorySidebarPinnedAtom,
   mainTabAtom,
   MAX_SPLIT_PANES,
   onboardingForceOpenAtom,
@@ -28,7 +31,7 @@ import {
   themeAtom,
   type MainTab
 } from './lib/atoms'
-import { modLabel, useAppShortcuts, useShortcutOverridesSync } from './lib/shortcuts'
+import { isMac, modLabel, useAppShortcuts, useShortcutOverridesSync } from './lib/shortcuts'
 import { useSelectChat } from './lib/use-select-chat'
 import { Button } from './components/ui/button'
 import { Tip } from './components/ui/tooltip'
@@ -140,6 +143,10 @@ export default function App(): React.JSX.Element {
   const subchatId = useAtomValue(selectedSubchatIdAtom)
   const setSubchatId = useSetAtom(selectedSubchatIdAtom)
   const [tab, setTab] = useAtom(mainTabAtom)
+  const [factorySidebarPinned, setFactorySidebarPinned] = useAtom(factorySidebarPinnedAtom)
+  // Immersive Factory mode: the app sidebar slides away while the Factory tab
+  // is active (the embedded dashboard has its own nav) unless pinned back.
+  const sidebarHidden = tab === 'factory' && !factorySidebarPinned
   const [forceOnboarding, setForceOnboarding] = useAtom(onboardingForceOpenAtom)
   const [splitPanes, setSplitPanes] = useAtom(splitPanesAtom)
   const selectChat = useSelectChat()
@@ -205,10 +212,24 @@ export default function App(): React.JSX.Element {
 
   return (
     <div className="flex h-full">
-      <Sidebar />
+      {/* Kept mounted during immersive Factory mode so sidebar state survives. */}
+      <div
+        className={cn(
+          'h-full shrink-0 overflow-hidden transition-[width] duration-200',
+          sidebarHidden ? 'w-0' : 'w-60'
+        )}
+      >
+        <Sidebar />
+      </div>
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Tab bar / titlebar drag region */}
-        <div className="titlebar-drag flex h-10 shrink-0 items-center gap-1 border-b border-border px-3">
+        {/* Tab bar / titlebar drag region. With the sidebar hidden the macOS
+            traffic lights land on this row, so pad the first tab clear. */}
+        <div
+          className={cn(
+            'titlebar-drag flex h-10 shrink-0 items-center gap-1 border-b border-border px-3',
+            sidebarHidden && isMac && 'pl-20'
+          )}
+        >
           {TABS.map((t) => (
             <Tip key={t.id} content={t.tip} side="bottom">
               <button
@@ -231,6 +252,27 @@ export default function App(): React.JSX.Element {
             </Tip>
           ))}
           <div className="ml-auto flex items-center gap-1">
+            {tab === 'factory' && (
+              <Tip
+                content={
+                  factorySidebarPinned
+                    ? 'Hide the sidebar for an immersive, full-width Factory view'
+                    : 'Keep the sidebar visible on the Factory tab'
+                }
+                side="bottom"
+              >
+                <button
+                  onClick={() => setFactorySidebarPinned((v) => !v)}
+                  className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs cursor-pointer text-muted-foreground hover:text-foreground"
+                >
+                  {factorySidebarPinned ? (
+                    <PanelLeftClose size={13} />
+                  ) : (
+                    <PanelLeftOpen size={13} />
+                  )}
+                </button>
+              </Tip>
+            )}
             {tab === 'chat' && chatId && (
               <Tip
                 content={

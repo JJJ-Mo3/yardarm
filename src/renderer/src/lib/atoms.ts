@@ -63,6 +63,8 @@ export const composerAttachAtom = atom<ComposerAttachment | null>(null)
 export const changesPaneRequestAtom = atom<'changes' | 'history' | 'checkpoints' | null>(null)
 /** Global Cmd+K command palette. */
 export const commandPaletteOpenAtom = atom(false)
+/** Factory tab: keep the app sidebar visible instead of the immersive auto-hide. */
+export const factorySidebarPinnedAtom = atom(false)
 /** User keyboard-shortcut overrides (persisted in app_settings 'keyboardShortcuts'). */
 export const shortcutOverridesAtom = atom<ShortcutOverrides>({})
 /** Cmd+O quick file open dialog (fuzzy search over the active worktree). */
