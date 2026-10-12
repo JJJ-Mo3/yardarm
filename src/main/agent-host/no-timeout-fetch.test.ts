@@ -2,7 +2,8 @@
  * Tests for the agent host's no-idle-timeout fetch. A local HTTP server
  * stalls mid-body to prove (a) undici's bodyTimeout would kill the stream
  * (control agent with tiny timeouts), (b) the patched fetch survives the
- * stall, and (c) AbortSignal cancellation still works.
+ * stall, (c) AbortSignal cancellation still works, and (d) native Request
+ * inputs are unpacked instead of being stringified into `new URL()`.
  */
 import { createServer, type Server } from 'node:http'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -17,9 +18,20 @@ const STALL_MS = 300
 
 beforeAll(async () => {
   server = createServer((req, res) => {
+    const url = new URL(req.url ?? '/', baseUrl)
+    if (url.pathname === '/echo') {
+      // Echo method, a marker header, and the body for the Request-input tests.
+      const chunks: Buffer[] = []
+      req.on('data', (c) => chunks.push(c))
+      req.on('end', () => {
+        res.writeHead(200, { 'content-type': 'text/plain' })
+        res.end(`${req.method}|${req.headers['x-test'] ?? ''}|${Buffer.concat(chunks).toString()}`)
+      })
+      return
+    }
     res.writeHead(200, { 'content-type': 'text/plain' })
     res.write('hello ')
-    const stall = Number(new URL(req.url ?? '/', baseUrl).searchParams.get('stall') ?? STALL_MS)
+    const stall = Number(url.searchParams.get('stall') ?? STALL_MS)
     setTimeout(() => res.end('world'), stall)
   })
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
@@ -45,6 +57,26 @@ describe('buildNoTimeoutFetch', () => {
   it('survives a mid-body stall longer than the control timeout', async () => {
     const fetchNoTimeout = buildNoTimeoutFetch()
     const res = await fetchNoTimeout(`${baseUrl}/?stall=${STALL_MS}`)
+    await expect(res.text()).resolves.toBe('hello world')
+  })
+
+  it('accepts a native Request input with a body (SDK OM calls fetch(new Request(...)))', async () => {
+    // Node's native Request fails the npm undici package's brand check and used
+    // to be stringified into `new URL()` → "Failed to parse URL from [object Request]".
+    const fetchNoTimeout = buildNoTimeoutFetch()
+    const res = await fetchNoTimeout(
+      new Request(`${baseUrl}/echo`, {
+        method: 'POST',
+        headers: { 'x-test': 'yes' },
+        body: 'ping'
+      })
+    )
+    await expect(res.text()).resolves.toBe('POST|yes|ping')
+  })
+
+  it('accepts a bodyless GET Request input', async () => {
+    const fetchNoTimeout = buildNoTimeoutFetch()
+    const res = await fetchNoTimeout(new Request(`${baseUrl}/?stall=50`))
     await expect(res.text()).resolves.toBe('hello world')
   })
 
