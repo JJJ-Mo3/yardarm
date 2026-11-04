@@ -103,131 +103,129 @@ export function OAuthSection(): React.JSX.Element {
       )}
       <div className="space-y-1">
         {(providers.data ?? []).map((p) => (
-          <div
-            key={p.id}
-            className="flex items-center gap-2 rounded border border-border px-2 py-1.5"
-          >
-            <span className="flex-1 text-xs font-medium">{p.name}</span>
-            {(p.authModes?.length ?? 0) > 1 && (!p.loggedIn || p.expired) && (
-              <Tip content="Which kind of account to log in with (e.g. subscription vs API billing)">
-                <select
-                  value={modeByProvider[p.id] ?? p.authModes![0].id}
-                  onChange={(e) => setModeByProvider((m) => ({ ...m, [p.id]: e.target.value }))}
-                  className="h-6 rounded border border-border bg-background px-1 text-[11px]"
+          <React.Fragment key={p.id}>
+            <div className="flex items-center gap-2 rounded border border-border px-2 py-1.5">
+              <span className="flex-1 text-xs font-medium">{p.name}</span>
+              {(p.authModes?.length ?? 0) > 1 && (!p.loggedIn || p.expired) && (
+                <Tip content="Which kind of account to log in with (e.g. subscription vs API billing)">
+                  <select
+                    value={modeByProvider[p.id] ?? p.authModes![0].id}
+                    onChange={(e) => setModeByProvider((m) => ({ ...m, [p.id]: e.target.value }))}
+                    className="h-6 rounded border border-border bg-background px-1 text-[11px]"
+                  >
+                    {p.authModes!.map((m) => (
+                      <option key={m.id} value={m.id} title={m.description}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </Tip>
+              )}
+              {p.loggedIn &&
+                (p.expired ? (
+                  <span className="text-[11px] text-amber-500">Session expired</span>
+                ) : (
+                  <span className="text-[11px] text-green-500">Logged in</span>
+                ))}
+              {p.loggedIn && (
+                <Tip content="Sign out and remove the stored credentials for this provider">
+                  <span className="inline-flex">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={logout.isPending}
+                      onClick={() => logout.mutate({ provider: p.id })}
+                    >
+                      <LogOut size={12} />
+                      Log out
+                    </Button>
+                  </span>
+                </Tip>
+              )}
+              {(!p.loggedIn || p.expired) && (
+                <Tip
+                  content={
+                    p.expired
+                      ? 'The saved session could not be renewed — run the browser login again'
+                      : 'Start the browser login flow for this provider'
+                  }
                 >
-                  {p.authModes!.map((m) => (
-                    <option key={m.id} value={m.id} title={m.description}>
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
-              </Tip>
-            )}
-            {p.loggedIn &&
-              (p.expired ? (
-                <span className="text-[11px] text-amber-500">Session expired</span>
-              ) : (
-                <span className="text-[11px] text-green-500">Logged in</span>
-              ))}
-            {p.loggedIn && (
-              <Tip content="Sign out and remove the stored credentials for this provider">
-                <span className="inline-flex">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={logout.isPending}
-                    onClick={() => logout.mutate({ provider: p.id })}
+                  <span className="inline-flex">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={flow !== null || start.isPending}
+                      onClick={() => login(p.id, p.name)}
+                    >
+                      <LogIn size={12} />
+                      {p.expired ? 'Log in again' : 'Log in'}
+                    </Button>
+                  </span>
+                </Tip>
+              )}
+            </div>
+            {flow && flow.provider === p.id && (
+              <div className="space-y-2 rounded border border-border bg-accent/30 p-2">
+                <div className="text-xs font-medium">Logging in to {flow.providerName}…</div>
+                {statusMsg && <div className="text-[11px] text-muted-foreground">{statusMsg}</div>}
+                {authUrl && (
+                  <a
+                    href={authUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 text-[11px] text-blue-400 hover:underline"
                   >
-                    <LogOut size={12} />
-                    Log out
-                  </Button>
-                </span>
-              </Tip>
+                    <ExternalLink size={11} />
+                    Open the login page again
+                  </a>
+                )}
+                {prompt && (
+                  <div className="space-y-1">
+                    <div className="text-[11px]">{prompt.message}</div>
+                    <div className="flex gap-2">
+                      <Input
+                        autoFocus
+                        placeholder={prompt.placeholder ?? 'Paste code'}
+                        value={promptValue}
+                        onChange={(e) => setPromptValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && promptValue.trim()) {
+                            respond.mutate({ flowId: flow.flowId, value: promptValue.trim() })
+                            setPrompt(null)
+                            setPromptValue('')
+                          }
+                        }}
+                      />
+                      <Button
+                        size="sm"
+                        disabled={!promptValue.trim()}
+                        onClick={() => {
+                          respond.mutate({ flowId: flow.flowId, value: promptValue.trim() })
+                          setPrompt(null)
+                          setPromptValue('')
+                        }}
+                      >
+                        Submit
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    cancel.mutate({ flowId: flow.flowId })
+                    resetFlow()
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
             )}
-            {(!p.loggedIn || p.expired) && (
-              <Tip
-                content={
-                  p.expired
-                    ? 'The saved session could not be renewed — run the browser login again'
-                    : 'Start the browser login flow for this provider'
-                }
-              >
-                <span className="inline-flex">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={flow !== null || start.isPending}
-                    onClick={() => login(p.id, p.name)}
-                  >
-                    <LogIn size={12} />
-                    {p.expired ? 'Log in again' : 'Log in'}
-                  </Button>
-                </span>
-              </Tip>
-            )}
-          </div>
+          </React.Fragment>
         ))}
         {providers.isLoading && <div className="text-xs text-muted-foreground">Loading…</div>}
       </div>
-
-      {flow && (
-        <div className="space-y-2 rounded border border-border bg-accent/30 p-2">
-          <div className="text-xs font-medium">Logging in to {flow.providerName}…</div>
-          {statusMsg && <div className="text-[11px] text-muted-foreground">{statusMsg}</div>}
-          {authUrl && (
-            <a
-              href={authUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1 text-[11px] text-blue-400 hover:underline"
-            >
-              <ExternalLink size={11} />
-              Open the login page again
-            </a>
-          )}
-          {prompt && (
-            <div className="space-y-1">
-              <div className="text-[11px]">{prompt.message}</div>
-              <div className="flex gap-2">
-                <Input
-                  autoFocus
-                  placeholder={prompt.placeholder ?? 'Paste code'}
-                  value={promptValue}
-                  onChange={(e) => setPromptValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && promptValue.trim()) {
-                      respond.mutate({ flowId: flow.flowId, value: promptValue.trim() })
-                      setPrompt(null)
-                      setPromptValue('')
-                    }
-                  }}
-                />
-                <Button
-                  size="sm"
-                  disabled={!promptValue.trim()}
-                  onClick={() => {
-                    respond.mutate({ flowId: flow.flowId, value: promptValue.trim() })
-                    setPrompt(null)
-                    setPromptValue('')
-                  }}
-                >
-                  Submit
-                </Button>
-              </div>
-            </div>
-          )}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              cancel.mutate({ flowId: flow.flowId })
-              resetFlow()
-            }}
-          >
-            Cancel
-          </Button>
-        </div>
-      )}
 
       {error && <div className="text-xs text-destructive selectable">{error}</div>}
     </div>
