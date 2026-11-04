@@ -24,8 +24,9 @@ import {
   normalizeCustomProviderModels
 } from './custom-provider-models'
 import { readSettings } from '../mastra-config/settings-json'
-import { updateMcpServers, type McpServerConfig } from '../mastra-config/mcp-json'
+import { readMcpJson, updateMcpServers, type McpServerConfig } from '../mastra-config/mcp-json'
 import { mirrorMcpOAuthTokens } from '../mastra-config/mcp-oauth-mirror'
+import { withRegisteredOAuthClient } from '../mastra-config/mcp-oauth-register'
 import { getLoginEnvVar, getLoginPath } from '../system/login-path'
 import {
   resolveProviderKeyEnv,
@@ -2502,6 +2503,14 @@ export class AgentSessionManager {
     subchatId: string | null,
     serverName: string
   ): Promise<McpServerStatusInfo> {
+    if (!subchatId) {
+      // Connectors-tab sign-in on an existing entry: if the server needs a
+      // pre-registered OAuth client (the runtime's URL client ID would open
+      // an error page), pin one and rerun the full connect flow — the host
+      // must reboot to pick up the new clientId from mcp.json.
+      const upgraded = await this.upgradedOAuthClientConfig(serverName)
+      if (upgraded) return this.mcpConnect(serverName, upgraded, true)
+    }
     const handle = subchatId ? await this.ensureHost(subchatId) : await this.ensureUtilityHost()
     // Human consent flow in a browser — outlive the host's own 4-minute cap
     // so the SDK's resolves-with-error status wins over an IPC timeout.
@@ -2514,6 +2523,22 @@ export class AgentSessionManager {
     // project roots) so existing hosts pick it up on their next boot.
     this.mirrorMcpTokensEverywhere()
     return status
+  }
+
+  /**
+   * The global mcp.json entry with a freshly registered OAuth client pinned,
+   * or null when no upgrade is needed (already pinned, CIMD-capable server,
+   * token/stdio config) or registration failed. Best-effort: never throws.
+   */
+  private async upgradedOAuthClientConfig(serverName: string): Promise<McpServerConfig | null> {
+    try {
+      const config = (await readMcpJson()).mcpServers?.[serverName]
+      if (!config?.url) return null
+      const upgraded = await withRegisteredOAuthClient(config)
+      return upgraded === config ? null : upgraded
+    } catch {
+      return null
+    }
   }
 
   /**
@@ -2623,6 +2648,20 @@ export class AgentSessionManager {
     autoAuth: boolean
   ): Promise<McpServerStatusInfo> {
     return this.queueMcpOp(async () => {
+      // Pre-register an OAuth client (RFC 7591) for servers that reject the
+      // runtime's URL client ID on the authorize page — best-effort no-op
+      // when the server supports CIMD or isn't an OAuth server at all. A
+      // client already pinned on the existing entry is reused so reconnects
+      // keep their sign-in (the OAuth token fingerprint includes clientId).
+      if (autoAuth && config.url && !config.oauth) {
+        try {
+          const existing = (await readMcpJson()).mcpServers?.[name]
+          if (existing?.url === config.url && existing.oauth) {
+            config = { ...config, oauth: existing.oauth }
+          }
+        } catch {}
+        config = await withRegisteredOAuthClient(config)
+      }
       await updateMcpServers((servers) => {
         servers[name] = config
       })
