@@ -10,7 +10,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// Canonical command list from the mastracode TUI registry (v0.44).
+// Canonical command list from the mastracode TUI registry (v0.49).
 // `/commands` was removed upstream but stays a Yardarm builtin (custom .md
 // command management); `plan`/`build`/`fast`/`skill` are Yardarm conveniences.
 // `/memory`, `/knowledge`, `/context`, `/ctx`, `/prune` were dropped from the
@@ -24,7 +24,7 @@ const CANONICAL = [
   // goals & memory
   'goal', 'om', 'memory', 'resource', 'knowledge',
   // threads
-  'new', 'threads', 'thread', 'name', 'clone', 'thread:tag-dir',
+  'new', 'threads', 'thread', 'resume', 'name', 'rename', 'clone', 'thread:tag-dir',
   // usage & git
   'cost', 'context', 'ctx', 'diff', 'prune', 'profile',
   // schedules (experimental, v0.44)
@@ -35,7 +35,7 @@ const CANONICAL = [
   // auth
   'login', 'logout', 'connect', 'api-keys',
   // integrations (TUI-only)
-  'sandbox', 'review', 'github', 'observability', 'voice', 'browser',
+  'sandbox', 'review', 'github', 'observability', 'voice', 'browser', 'factory', 'local',
   // meta
   'help', 'setup', 'update', 'report-issue', 'exit'
 ]

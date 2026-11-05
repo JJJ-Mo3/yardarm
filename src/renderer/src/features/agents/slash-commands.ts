@@ -64,11 +64,18 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
   },
   { name: 'om', description: 'Observational Memory status', kind: 'builtin' },
   { name: 'memory', description: 'Configure Observational Memory', kind: 'builtin' },
-  { name: 'knowledge', description: 'Browse scoped Subconscious knowledge', kind: 'builtin' },
+  { name: 'knowledge', description: 'Browse the agent knowledge base', kind: 'builtin' },
   { name: 'new', description: 'Start a new thread', kind: 'builtin' },
   { name: 'threads', description: 'List and switch threads', kind: 'builtin' },
   { name: 'thread', description: 'Thread operations', kind: 'builtin' },
+  { name: 'resume', description: 'Alias for /threads — list and switch threads', kind: 'builtin' },
   { name: 'name', description: 'Rename the current thread', args: '<title>', kind: 'builtin' },
+  {
+    name: 'rename',
+    description: 'Alias for /name — rename the current thread',
+    args: '<title>',
+    kind: 'builtin'
+  },
   { name: 'clone', description: 'Clone the current thread', kind: 'builtin' },
   { name: 'cost', description: 'Show token usage', kind: 'builtin' },
   { name: 'context', description: 'Audit what is using the context window', kind: 'builtin' },
@@ -126,6 +133,18 @@ export const CLI_ONLY_COMMANDS: SlashCommandEntry[] = [
     description: 'Voice input',
     kind: 'cli-only',
     hint: 'Use the mic button in the composer to dictate (Cloud engine — see Settings → Voice). macOS native dictation runs in the mastracode CLI.'
+  },
+  {
+    name: 'factory',
+    description: 'Switch to Factory mode',
+    kind: 'cli-only',
+    hint: 'Factory mode switching only exists in the mastracode CLI — use the Factory tab in Yardarm instead.'
+  },
+  {
+    name: 'local',
+    description: 'Switch from Factory mode back to local',
+    kind: 'cli-only',
+    hint: 'Factory mode switching only exists in the mastracode CLI — Yardarm chats always run locally.'
   },
   { name: 'exit', description: 'Exit the TUI', kind: 'cli-only' }
 ]

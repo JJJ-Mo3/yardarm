@@ -471,11 +471,13 @@ export function ChatView({
         return
       case 'threads':
       case 'thread':
+      case 'resume':
         if (!primary) return 'Thread switching is available in the primary chat pane.'
         setThreadsOpen(true)
         return
       case 'name':
-        if (!args.trim()) return 'Usage: /name <new thread title>'
+      case 'rename':
+        if (!args.trim()) return `Usage: /${entry.name} <new thread title>`
         renameThread.mutate({ subchatId, title: args.trim() })
         return
       case 'clone':
