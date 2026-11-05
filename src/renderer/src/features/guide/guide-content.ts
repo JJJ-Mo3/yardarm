@@ -455,9 +455,12 @@ demand.
     id: 'knowledge',
     title: 'Agent knowledge',
     body: `
-As the agent works it builds up **knowledge** about your project — durable notes it captures
-and reuses across conversations. \`/knowledge\` opens the **knowledge browser** to see what it
-has learned:
+With **Knowledge** enabled, the agent builds up durable notes about your project — knowledge
+it captures and reuses across conversations. It's experimental and **off by default**: turn
+it on in Settings → Preferences → **Experimental** (shared with the CLI's "Experimental
+Knowledge" setting), then restart running agents. Once on, agents get knowledge tools
+(including \`knowledge_list\`) and \`/knowledge\` opens the **knowledge browser** to see what
+they have learned:
 
 - **Scopes** — browse knowledge attached to the whole organization, the current project
   (resource), or just this thread.
@@ -528,7 +531,9 @@ App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
   or disable it), experimental **cross-agent communication** (lets running agents discover
   and signal each other), experimental **schedule tools** (gives the agent
   \`schedule_create/list/update/resume/run\` to manage recurring prompts on its own thread —
-  schedules live inside the agent process and end with it), an experimental **agent runtime**
+  schedules live inside the agent process and end with it), experimental **Knowledge** (a
+  persistent agent knowledge base + the \`/knowledge\` browser — see the Agent knowledge
+  section), an experimental **agent runtime**
   selector (durable/evented — leave on default unless you know you need it; invalid setups
   fail at agent start), and per-tool toggles to disable built-in agent tools you never
   want used. A **Notifications** card controls desktop notifications (a system notification
