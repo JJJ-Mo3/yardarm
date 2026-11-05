@@ -103,10 +103,24 @@ No accounts or login — everything runs locally against mastracode's own config
   SDK's workspace factory reads settings.json `lsp` and skips LSP entirely when falsy.
   `seedLspEnabled()` (settings-json.ts, called from `src/main/index.ts` before preflight)
   seeds `lsp: true` when the key is absent; an explicit user `false` is respected.
-- The SDK ships built-in explore/plan/execute subagents that a `subagents` array REPLACES
-  (`undefined` enables them, `[]` disables). Yardarm mirrors the CLI's
-  `preferences.subagentsEnabled` opt-in via `HostBootConfig.nativeSubagents`; custom
-  definitions from `.mastracode/agents` always win.
+- Built-in explore/plan/execute subagents are OFF by default since SDK 1.16: the SDK exports a
+  `builtinSubagents` array that must be passed explicitly in the `subagents` option to enable
+  them (a provided array fully REPLACES the defaults). Yardarm mirrors the CLI's
+  `preferences.subagentsEnabled` opt-in via `HostBootConfig.nativeSubagents` and the host
+  spreads `[...sdk.builtinSubagents]` when it is set; custom definitions from
+  `.mastracode/agents` always win (when any exist, built-ins are not passed).
+- The knowledge base (knowledge agent tools + the /knowledge inspector) is opt-in since
+  mastracode 0.49 via settings.json `signals.experimentalKnowledge` (default off; "Experimental
+  Knowledge" in the CLI's /settings). Yardarm surfaces it in Settings → Preferences →
+  Experimental (`setKnowledgeEnabled` in settings-json.ts); no auto-seeding — upstream default
+  is deliberately off. When off, `mc.knowledgeInspector` is undefined and
+  `knowledgeInspectorUnavailableReason` says why.
+- `session.model.switch(modelId)` takes a positional string since SDK 1.18 (was an object) and
+  is per-thread (persists to thread metadata) — concurrent chats on different models stay
+  independent.
+- `wrap-ansi` is pinned as a direct devDependency (`^7.0.0`): without it, hoisting puts the
+  ESM-only v8 at the root and mastracode's yargs/cliui dependency crashes postinstall with
+  `mixin.wrap is not a function`.
 - Agent-made commits carry a `Co-Authored-By` trailer by unconditional SDK prompt guidance;
   the default identity is `mastra-platform[bot]` unless `createMastraCode({ coAuthor })` is
   passed (the CLI passes `{ name: 'mastracode' }`; Yardarm passes the app_settings

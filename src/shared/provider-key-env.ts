@@ -31,10 +31,11 @@ export const ENV_VAR_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
  * seen (the cached catalog names in app_settings self-correct this at runtime).
  * Names verified against the SDK's PROVIDER_REGISTRY (@mastra/core llm) —
  * arrays there resolve to their first entry, hence google → GOOGLE_API_KEY.
- * deepgram is STT-only (absent from the registry); its name matches the CLI's
- * STT map. tavily/parallel are web-search-only (also absent) — the SDK's web
- * tools read those env vars directly. Re-verify on runtime bumps (see
- * AGENTS.md).
+ * google-vertex (ADC) and amazon-bedrock (SigV4) are keyless in the registry,
+ * so they never get a row here. deepgram is STT-only (absent from the
+ * registry); its name matches the CLI's STT map. tavily/parallel are
+ * web-search-only (also absent) — the SDK's web tools read those env vars
+ * directly. Re-verify on runtime bumps (see AGENTS.md).
  */
 export const SEED_PROVIDER_ENV_VARS: Record<string, string> = {
   anthropic: 'ANTHROPIC_API_KEY',
@@ -52,6 +53,7 @@ export const SEED_PROVIDER_ENV_VARS: Record<string, string> = {
   huggingface: 'HF_TOKEN',
   'kimi-code-plan-global': 'KIMI_API_KEY',
   'kimi-code-plan-cn': 'KIMI_API_KEY',
+  mastra: 'MASTRA_GATEWAY_API_KEY',
   deepgram: 'DEEPGRAM_API_KEY',
   tavily: 'TAVILY_API_KEY',
   parallel: 'PARALLEL_API_KEY'

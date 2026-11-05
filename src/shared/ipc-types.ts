@@ -134,7 +134,7 @@ export type HostCommand =
       mode?: 'working' | 'review'
     }
   | { t: 'githubPrUnsubscribe'; reqId: string; number: number; owner?: string; repo?: string }
-  /** Browse the SDK's Subconscious knowledge nodes — responds with KnowledgeListInfo. */
+  /** Browse the SDK's knowledge nodes (experimental knowledge) — responds with KnowledgeListInfo. */
   | { t: 'knowledgeList'; reqId: string; scope?: KnowledgeScopeLevel }
   /** Detail for one knowledge node by handle — responds with KnowledgeEntryDetail. */
   | { t: 'knowledgeGet'; reqId: string; id: string }
@@ -553,14 +553,13 @@ export interface GithubPrStatusInfo {
   subscriptions: GithubPrSubscriptionInfo[]
 }
 
-/** Scope level of the SDK's Subconscious knowledge inspector. */
+/** Scope level of the SDK's knowledge inspector. */
 export type KnowledgeScopeLevel = 'org' | 'resource' | 'thread'
 
-/** One Subconscious knowledge node summary (/knowledge browser). */
+/** One knowledge node summary (/knowledge browser). */
 export interface KnowledgeEntryInfo {
   handle: string
   name: string
-  kind?: string
   scopeLevel: KnowledgeScopeLevel
   updatedAt: string
   /** Observation records attached to the node (sampled count). */

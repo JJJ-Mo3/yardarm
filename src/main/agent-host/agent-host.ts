@@ -821,10 +821,12 @@ async function main(): Promise<void> {
 
   let mc: Awaited<ReturnType<typeof sdk.createMastraCode>>
   try {
-    // The SDK ships built-in explore/plan/execute subagents that a `subagents`
-    // array REPLACES (undefined enables them, [] disables). Custom definitions
-    // win; otherwise mirror the CLI's preferences.subagentsEnabled opt-in gate
-    // (boot.nativeSubagents) so natives stay off unless the user asked.
+    // Since SDK 1.16 the built-in explore/plan/execute subagents are NOT
+    // enabled by default — `createMastraCode` defaults `subagents` to none,
+    // and the former `undefined`-enables behavior is gone. Enabling them now
+    // means passing the exported `builtinSubagents` array. Custom definitions
+    // win (they replace the set); otherwise mirror the CLI's
+    // preferences.subagentsEnabled opt-in gate (boot.nativeSubagents).
     type SdkSubagents = NonNullable<Parameters<typeof sdk.createMastraCode>[0]>['subagents']
     mc = await sdk.createMastraCode({
       cwd: boot.cwd,
@@ -840,7 +842,7 @@ async function main(): Promise<void> {
       subagents: boot.subagents?.length
         ? (boot.subagents as SdkSubagents)
         : boot.nativeSubagents
-          ? undefined
+          ? ([...sdk.builtinSubagents] as SdkSubagents)
           : [],
       disabledTools: boot.disabledTools?.length ? boot.disabledTools : undefined,
       // Commit co-author identity for the SDK's (unconditional) commit
@@ -1320,7 +1322,7 @@ async function main(): Promise<void> {
   }
   if (boot.modelId) {
     try {
-      await session.model.switch({ modelId: boot.modelId })
+      await session.model.switch(boot.modelId)
     } catch (err) {
       post({ t: 'log', level: 'error', msg: `model.switch failed: ${String(err)}` })
     }
@@ -1559,7 +1561,7 @@ async function main(): Promise<void> {
             break
           case 'setModel':
             try {
-              await session.model.switch({ modelId: cmd.modelId })
+              await session.model.switch(cmd.modelId)
             } catch (err) {
               post({ t: 'log', level: 'error', msg: `model.switch failed: ${String(err)}` })
               post({
@@ -2063,8 +2065,9 @@ async function main(): Promise<void> {
             })
             break
           case 'knowledgeList':
-            // Subconscious knowledge browser (/knowledge). mc.knowledgeInspector
-            // is undefined when the workspace has no Subconscious storage —
+            // Knowledge browser (/knowledge). mc.knowledgeInspector is
+            // undefined when knowledge is off (opt-in via settings.json
+            // signals.experimentalKnowledge since mastracode 0.49) —
             // knowledgeInspectorUnavailableReason says why.
             await respond(cmd.reqId, async () => {
               const inspector = mc.knowledgeInspector
@@ -2096,7 +2099,7 @@ async function main(): Promise<void> {
                   entries: []
                 }
               }
-              const list = await inspector.listNodes({ level, sort: 'recent', limit: 100 })
+              const list = await inspector.listNodes({ level, sort: 'name', limit: 100 })
               return {
                 available: true,
                 scopeLevel: list.scopeLevel,
@@ -2104,7 +2107,6 @@ async function main(): Promise<void> {
                 entries: list.nodes.map((n) => ({
                   handle: n.handle,
                   name: n.name,
-                  kind: n.kind,
                   scopeLevel: n.scope.level,
                   updatedAt: n.updatedAt,
                   records: n.relationshipCounts?.records
@@ -2130,7 +2132,6 @@ async function main(): Promise<void> {
               const toEntry = (n: typeof detail.node): Record<string, unknown> => ({
                 handle: n.handle,
                 name: n.name,
-                kind: n.kind,
                 scopeLevel: n.scope.level,
                 updatedAt: n.updatedAt,
                 records: n.relationshipCounts?.records

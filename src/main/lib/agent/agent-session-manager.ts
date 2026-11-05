@@ -493,8 +493,9 @@ export class AgentSessionManager {
       sandbox: { enabled: subchat.fullSandbox, allowNetwork: subchat.sandboxNetwork },
       compression: this.compressionSettings(),
       subagents,
-      // The SDK enables its built-in explore/plan/execute subagents by
-      // default; mirror the CLI's opt-in gate (preferences.subagentsEnabled).
+      // Since SDK 1.16 the built-in explore/plan/execute subagents are off
+      // unless passed explicitly (the host spreads the SDK's builtinSubagents
+      // array); mirror the CLI's opt-in gate (preferences.subagentsEnabled).
       nativeSubagents: settings.preferences?.subagentsEnabled === true,
       coAuthor: this.commitCoAuthor(),
       disabledTools: this.getDisabledTools()
@@ -1944,7 +1945,7 @@ export class AgentSessionManager {
     })
   }
 
-  /** Subconscious knowledge nodes for one scope (/knowledge browser). */
+  /** Knowledge nodes for one scope (/knowledge browser; opt-in via experimental knowledge). */
   async knowledgeList(subchatId: string, scope?: KnowledgeScopeLevel): Promise<KnowledgeListInfo> {
     const handle = await this.ensureHost(subchatId)
     return this.request<KnowledgeListInfo>(handle, {
