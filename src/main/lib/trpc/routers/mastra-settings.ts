@@ -17,6 +17,7 @@ import {
   setExperimentalAgent,
   setGithubSignals,
   setGoalDefaults,
+  setKnowledgeEnabled,
   setLocalTracing,
   setMcpDiscovery,
   setModeDefault,
@@ -226,6 +227,14 @@ export const mastraSettingsRouter = router({
     .input(z.object({ enabled: z.boolean() }))
     .mutation(async ({ input }) => {
       await setScheduleTools(input.enabled)
+      return NEEDS_RESTART
+    }),
+
+  /** Toggle the experimental knowledge base (knowledge agent tools + /knowledge inspector). */
+  setKnowledgeEnabled: publicProcedure
+    .input(z.object({ enabled: z.boolean() }))
+    .mutation(async ({ input }) => {
+      await setKnowledgeEnabled(input.enabled)
       return NEEDS_RESTART
     }),
 

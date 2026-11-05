@@ -1,8 +1,9 @@
 /**
- * /knowledge browser: two-pane dialog over the SDK's Subconscious knowledge
- * inspector. Left pane picks a scope (org/resource/thread) and lists nodes;
- * right pane shows the selected node's content, records and related nodes.
- * Read-only — knowledge is written by the agent's memory subsystem.
+ * /knowledge browser: two-pane dialog over the SDK's knowledge inspector
+ * (opt-in via Settings → Preferences → Experimental since mastracode 0.49).
+ * Left pane picks a scope (org/resource/thread) and lists nodes; right pane
+ * shows the selected node's content, records and related nodes. Read-only —
+ * knowledge is written by the agent's memory subsystem.
  */
 import React, { useEffect, useState } from 'react'
 import { BookOpen } from 'lucide-react'
@@ -71,7 +72,8 @@ export function KnowledgeDialog({
   const entries = list.data?.entries ?? []
   const unavailable =
     list.data && (!list.data.available || list.data.unavailableReason)
-      ? (list.data.unavailableReason ?? 'Knowledge is unavailable in this workspace.')
+      ? (list.data.unavailableReason ?? 'Knowledge is unavailable in this workspace.') +
+        ' Knowledge is opt-in: enable it in Settings → Preferences → Experimental, then restart the agent.'
       : null
 
   return (
@@ -131,7 +133,6 @@ export function KnowledgeDialog({
                     {e.name}
                   </div>
                   <div className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                    {e.kind ? `${e.kind} · ` : ''}
                     {timeAgo(Date.parse(e.updatedAt))}
                     {typeof e.records === 'number' ? ` · ${e.records} records` : ''}
                   </div>
@@ -164,7 +165,6 @@ export function KnowledgeDialog({
                   <div>
                     <div className="text-xs font-medium">{detail.data.entry.name}</div>
                     <div className="mt-0.5 text-[10px] text-muted-foreground">
-                      {detail.data.entry.kind ? `${detail.data.entry.kind} · ` : ''}
                       {SCOPE_LABELS[detail.data.entry.scopeLevel]} scope ·{' '}
                       {timeAgo(Date.parse(detail.data.entry.updatedAt))}
                     </div>

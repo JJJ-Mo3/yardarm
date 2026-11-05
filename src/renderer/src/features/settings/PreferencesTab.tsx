@@ -221,6 +221,13 @@ export function PreferencesTab(): React.JSX.Element {
     }
   })
 
+  const setKnowledgeEnabled = trpc.mastraSettings.setKnowledgeEnabled.useMutation({
+    onSuccess: () => {
+      markDirty()
+      utils.mastraSettings.get.invalidate()
+    }
+  })
+
   const setExperimentalAgent = trpc.mastraSettings.setExperimentalAgent.useMutation({
     onSuccess: () => {
       markDirty()
@@ -264,6 +271,7 @@ export function PreferencesTab(): React.JSX.Element {
     setTokenCompression.error ??
     setCrossAgent.error ??
     setScheduleTools.error ??
+    setKnowledgeEnabled.error ??
     setExperimentalAgent.error ??
     setDesktopNotif.error ??
     setCoAuthor.error
@@ -530,6 +538,16 @@ export function PreferencesTab(): React.JSX.Element {
               onCheckedChange={(v) => setScheduleTools.mutate({ enabled: v })}
             />
             Schedule tools (recurring prompts on the agent&apos;s thread)
+          </label>
+        </Tip>
+        <Tip content="Gives agents a persistent knowledge base scoped to the project and machine (knowledge read/write/list tools + the /knowledge browser). Restart running agents to apply">
+          <label className="flex w-fit items-center gap-2 text-xs">
+            <Switch
+              checked={settings.data?.signals?.experimentalKnowledge === true}
+              disabled={setKnowledgeEnabled.isPending}
+              onCheckedChange={(v) => setKnowledgeEnabled.mutate({ enabled: v })}
+            />
+            Knowledge (persistent agent knowledge base + /knowledge browser)
           </label>
         </Tip>
         <div className="flex items-center gap-2">

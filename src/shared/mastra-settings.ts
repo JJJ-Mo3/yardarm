@@ -169,6 +169,12 @@ export interface MastraSignalsSettings {
    * 0.44). Schedules live in the agent process and end with it.
    */
   experimentalScheduleTools?: boolean
+  /**
+   * Opt-in for the agent's persistent knowledge base ("Experimental
+   * Knowledge" in the CLI's /settings, since mastracode 0.49; default off).
+   * Gates the knowledge agent tools and the /knowledge inspector.
+   */
+  experimentalKnowledge?: boolean
   [key: string]: unknown
 }
 

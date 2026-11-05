@@ -334,6 +334,18 @@ export function setScheduleTools(enabled: boolean): Promise<MastraSettings> {
 }
 
 /**
+ * Toggle the SDK's experimental knowledge base (knowledge agent tools + the
+ * /knowledge inspector, opt-in since mastracode 0.49). Hosts read it at boot
+ * via createMastraCode's knowledge default.
+ */
+export function setKnowledgeEnabled(enabled: boolean): Promise<MastraSettings> {
+  return updateSettings((s) => {
+    if (!s.signals) s.signals = {}
+    s.signals.experimentalKnowledge = enabled
+  })
+}
+
+/**
  * Set the experimental agent runtime (settings.json top-level
  * `experimentalAgent`, resolved inside createMastraCode at host boot).
  * null removes the key (default runtime).

@@ -501,7 +501,7 @@ export const agentRouter = router({
       )
     }),
 
-  /** Subconscious knowledge browser (/knowledge dialog). */
+  /** Knowledge browser (/knowledge dialog; opt-in via experimental knowledge). */
   knowledgeList: publicProcedure
     .input(
       z.object({ subchatId: z.string(), scope: z.enum(['org', 'resource', 'thread']).optional() })
