@@ -91,6 +91,8 @@ import {
   parseReviewArgs
 } from './review-prompts'
 import { MODES, type Mode } from '../../../../shared/ui-message'
+import { latestConfidence } from '../../../../shared/confidence'
+import { ConfidenceChip } from './ConfidenceChip'
 
 const THINKING = ['off', 'low', 'medium', 'high', 'xhigh', 'max'] as const
 
@@ -179,6 +181,10 @@ export function ChatView({
     for (const [, m] of actionMutationsRef.current) m.reset()
   }, [subchatId])
   const confirmDialog = useConfirm()
+
+  // Latest agent-reported confidence marker in the transcript (header chip);
+  // null (no chip) when the model never emits the marker.
+  const confidence = useMemo(() => latestConfidence(state.messages), [state.messages])
 
   // Fork-from-message: the mutation clones the Mastra thread into a new
   // subchat of the same chat; switch this pane's selection to the fork.
@@ -772,6 +778,7 @@ export function ChatView({
 
           <div className="flex-1" />
 
+          {confidence && <ConfidenceChip confidence={confidence} />}
           {state.approvals.length + state.suspensions.length > 0 && (
             <Tip content="Requests waiting for your approval below" side="bottom">
               <Badge className="border-amber-500/50 text-amber-500">

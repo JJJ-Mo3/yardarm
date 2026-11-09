@@ -787,6 +787,8 @@ export interface HostBootConfig {
   coAuthor?: { name?: string; email?: string }
   /** Tool names removed from the agent's tool set before exposure to the model. */
   disabledTools?: string[]
+  /** Inject the CONFIDENCE marker guidance (default on; app_settings opt-out). */
+  confidenceGuidance?: boolean
   /**
    * Packaged builds only: absolute path to the vendored mastracode runtime
    * (Resources/agent-runtime). The host imports mastracode/@mastra/code-sdk

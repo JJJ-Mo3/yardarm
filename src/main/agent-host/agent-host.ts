@@ -22,6 +22,7 @@ import type {
 } from '../../shared/ipc-types'
 import { z } from 'zod'
 import { patchApprovalRunBudget } from './approval-run-budget'
+import { CONFIDENCE_GUIDANCE } from '../../shared/confidence'
 import {
   installCoordinatedTokenRefresh,
   isExpiredOAuth,
@@ -1328,14 +1329,19 @@ async function main(): Promise<void> {
     }
   }
 
-  // Append Yardarm's ask_user guidance to the plugin-instructions state so it
-  // reaches the system prompt. state.set merges partial updates; the includes
-  // guard keeps this idempotent whether or not state persists across boots.
+  // Append Yardarm's guidance entries to the plugin-instructions state so
+  // they reach the system prompt. state.set merges partial updates; the
+  // includes guards keep this idempotent whether or not state persists
+  // across boots.
   try {
     const st = (session.state.get() ?? {}) as { pluginInstructions?: string[] }
-    const existing = st.pluginInstructions ?? []
-    if (!existing.includes(ASK_USER_GUIDANCE)) {
-      await session.state.set({ pluginInstructions: [...existing, ASK_USER_GUIDANCE] } as never)
+    const next = [...(st.pluginInstructions ?? [])]
+    if (!next.includes(ASK_USER_GUIDANCE)) next.push(ASK_USER_GUIDANCE)
+    if (boot.confidenceGuidance !== false && !next.includes(CONFIDENCE_GUIDANCE)) {
+      next.push(CONFIDENCE_GUIDANCE)
+    }
+    if (next.length !== (st.pluginInstructions?.length ?? 0)) {
+      await session.state.set({ pluginInstructions: next } as never)
     }
   } catch (err) {
     // Guidance is best-effort; never block boot on it.

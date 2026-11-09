@@ -4,6 +4,8 @@ import { Button } from '../../components/ui/button'
 import { Textarea } from '../../components/ui/textarea'
 import { Tip } from '../../components/ui/tooltip'
 import { Markdown } from './Markdown'
+import { ConfidenceChip } from './ConfidenceChip'
+import { parseConfidenceMarker, stripConfidenceLine } from '../../../../shared/confidence'
 import type { PendingSuspension, ToolCallPart } from '../../../../shared/ui-message'
 
 function extractPlanText(suspension: PendingSuspension): string | null {
@@ -50,6 +52,10 @@ export function PlanApprovalCard({
 }): React.JSX.Element {
   const isPlan = suspension.toolName === 'submit_plan'
   const planText = extractPlanText(suspension)
+  // The agent is asked to include its CONFIDENCE marker in submitted plans —
+  // surface it as a chip in the card header and strip the raw line.
+  const confidence = planText ? parseConfidenceMarker(planText) : null
+  const renderedPlan = planText && confidence ? stripConfidenceLine(planText) : planText
   const [feedback, setFeedback] = useState('')
   const [showReject, setShowReject] = useState(false)
 
@@ -58,10 +64,11 @@ export function PlanApprovalCard({
       <div className="flex items-center gap-2 text-[13px] font-medium">
         <ClipboardList size={14} className="text-blue-400" />
         {isPlan ? 'Plan ready for review' : `${suspension.toolName} needs input`}
+        {confidence && <ConfidenceChip confidence={confidence} className="ml-auto" />}
       </div>
-      {planText ? (
+      {renderedPlan ? (
         <div className="max-h-96 overflow-y-auto rounded bg-muted p-3 selectable">
-          <Markdown text={planText} />
+          <Markdown text={renderedPlan} />
         </div>
       ) : (
         <pre className="text-[11px] font-mono bg-muted rounded p-2 overflow-auto max-h-60 whitespace-pre-wrap selectable">

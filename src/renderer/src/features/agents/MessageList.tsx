@@ -23,6 +23,7 @@ import { SandboxAccessCard, SandboxAccessAnswered } from './SandboxAccessCard'
 import { computeForkEligible, computeRollbackEligible } from './rollback-eligibility'
 import { detectGitActivity } from './git-activity'
 import { GitActivityBadges } from './GitActivityBadges'
+import { stripConfidenceLine } from '../../../../shared/confidence'
 import type {
   MessagePart,
   PendingSuspension,
@@ -250,8 +251,13 @@ function Part({
   onRespondSuspension
 }: { part: MessagePart } & SuspensionProps): React.JSX.Element | null {
   switch (part.type) {
-    case 'text':
-      return <Markdown text={part.text} />
+    case 'text': {
+      // Part only renders assistant messages (user bubbles render raw text):
+      // the CONFIDENCE marker line becomes a header/plan chip, so hide it here.
+      const text = stripConfidenceLine(part.text)
+      if (!text) return null
+      return <Markdown text={text} />
+    }
     case 'reasoning':
       return <ReasoningBlock text={part.text} />
     case 'tool-call':

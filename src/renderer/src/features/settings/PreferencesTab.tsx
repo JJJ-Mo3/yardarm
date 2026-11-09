@@ -248,6 +248,14 @@ export function PreferencesTab(): React.JSX.Element {
   })
   const notifEnabled = desktopNotif.data !== false
 
+  // Confidence-marker guidance (app_settings KV, default on); hosts read it
+  // at boot, so changes apply to newly started agent sessions.
+  const confidenceSetting = trpc.settings.get.useQuery({ key: 'confidenceRatings' })
+  const setConfidence = trpc.settings.set.useMutation({
+    onSuccess: () => utils.settings.get.invalidate({ key: 'confidenceRatings' })
+  })
+  const confidenceEnabled = confidenceSetting.data !== false
+
   // Commit co-author identity (app_settings KV); applied to hosts at boot.
   const coAuthor = trpc.settings.get.useQuery({ key: 'commitCoAuthor' })
   const setCoAuthor = trpc.settings.set.useMutation({
@@ -274,6 +282,7 @@ export function PreferencesTab(): React.JSX.Element {
     setKnowledgeEnabled.error ??
     setExperimentalAgent.error ??
     setDesktopNotif.error ??
+    setConfidence.error ??
     setCoAuthor.error
 
   return (
@@ -439,6 +448,27 @@ export function PreferencesTab(): React.JSX.Element {
               }
             />
             Desktop notifications
+          </label>
+        </Tip>
+      </div>
+
+      <div className="space-y-3 rounded border border-border p-3">
+        <div>
+          <div className="text-xs font-medium">Confidence ratings</div>
+          <div className="text-[11px] text-muted-foreground">
+            Asks the agent to rate how confident it is in a new task (green / yellow / red, shown as
+            a chip in the chat header and on plan cards) and to ask clarifying questions first when
+            it isn&apos;t green. Applies to newly started agent sessions.
+          </div>
+        </div>
+        <Tip content="Inject the confidence-marker guidance into new agent sessions — when off, the agent is never asked to rate its confidence and no chip appears">
+          <label className="flex w-fit items-center gap-2 text-xs">
+            <Switch
+              checked={confidenceEnabled}
+              disabled={setConfidence.isPending}
+              onCheckedChange={(v) => setConfidence.mutate({ key: 'confidenceRatings', value: v })}
+            />
+            Agent confidence ratings
           </label>
         </Tip>
       </div>

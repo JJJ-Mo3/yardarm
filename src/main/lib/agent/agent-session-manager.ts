@@ -498,7 +498,9 @@ export class AgentSessionManager {
       // array); mirror the CLI's opt-in gate (preferences.subagentsEnabled).
       nativeSubagents: settings.preferences?.subagentsEnabled === true,
       coAuthor: this.commitCoAuthor(),
-      disabledTools: this.getDisabledTools()
+      disabledTools: this.getDisabledTools(),
+      // Confidence-marker guidance is default-on; app_settings opt-out.
+      confidenceGuidance: this.readAppSetting('confidenceRatings') !== false
     }
 
     // MCP OAuth tokens are fingerprinted by projectDir (git toplevel of the
