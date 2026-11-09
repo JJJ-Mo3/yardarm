@@ -37,7 +37,9 @@ const CANONICAL = [
   // integrations (TUI-only)
   'sandbox', 'review', 'github', 'observability', 'voice', 'browser', 'factory', 'local',
   // meta
-  'help', 'setup', 'update', 'report-issue', 'exit'
+  'help', 'setup', 'update', 'report-issue', 'exit',
+  // Yardarm conveniences (no upstream equivalent)
+  'ask'
 ]
 
 const registryPath = path.join(

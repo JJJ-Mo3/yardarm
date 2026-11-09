@@ -87,6 +87,12 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
     args: '[<pr-number>|changes] [focus]',
     kind: 'builtin'
   },
+  {
+    name: 'ask',
+    description: 'Ask a read-only question about the codebase (answers cite path:line)',
+    args: '<question>',
+    kind: 'builtin'
+  },
   { name: 'theme', description: 'Open appearance settings', kind: 'builtin' },
   { name: 'settings', description: 'Open settings', kind: 'builtin' },
   { name: 'mcp', description: 'Configure MCP servers', kind: 'builtin' },

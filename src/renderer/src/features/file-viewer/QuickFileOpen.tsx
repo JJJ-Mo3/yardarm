@@ -44,7 +44,7 @@ export function QuickFileOpen({ root }: { root: string | null }): React.JSX.Elem
 
   const openFile = (p: string): void => {
     setOpen(false)
-    setFileOpenRequest(p)
+    setFileOpenRequest({ path: p })
     setTab('files')
   }
 

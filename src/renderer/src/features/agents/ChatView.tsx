@@ -91,6 +91,7 @@ import {
   findCompletedReview,
   parseReviewArgs
 } from './review-prompts'
+import { buildAskMarker, buildAskPrompt } from './ask-prompts'
 import { MODES, type Mode } from '../../../../shared/ui-message'
 import { latestConfidence } from '../../../../shared/confidence'
 import { ConfidenceChip } from './ConfidenceChip'
@@ -524,6 +525,12 @@ export function ChatView({
           // review, so it must not trigger the follow-up bar.
           sendMarked(buildPrListPrompt(provider ?? 'github'), 'Review: list open PRs')
         }
+        return
+      }
+      case 'ask': {
+        const question = args.trim()
+        if (!question) return 'Usage: /ask <question>'
+        sendMarked(buildAskPrompt(question), buildAskMarker(question))
         return
       }
       case 'theme':

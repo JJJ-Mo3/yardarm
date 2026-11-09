@@ -256,7 +256,7 @@ function Part({
       // the CONFIDENCE marker line becomes a header/plan chip, so hide it here.
       const text = stripConfidenceLine(part.text)
       if (!text) return null
-      return <Markdown text={text} />
+      return <Markdown text={text} linkifyFileRefs />
     }
     case 'reasoning':
       return <ReasoningBlock text={part.text} />

@@ -49,7 +49,7 @@ export function ChangedFilesWidget({ cwd }: { cwd: string | null }): React.JSX.E
               <button
                 disabled={deleted}
                 onClick={() => {
-                  setFileOpenRequest(f.path)
+                  setFileOpenRequest({ path: f.path })
                   setMainTab('files')
                 }}
                 className="flex w-full min-w-0 items-center gap-1.5 rounded px-1 py-0.5 text-left text-[11px] hover:bg-accent disabled:cursor-default disabled:opacity-60 cursor-pointer"

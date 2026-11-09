@@ -291,14 +291,36 @@ export function FilesView({
   }
 
   // Cross-tab open requests (e.g. clicking a changed file in the chat
-  // details panel): open the requested worktree-relative path, then clear.
+  // details panel, or a `path:line` citation in an /ask answer): open the
+  // requested worktree-relative path, then clear. Line reveals are deferred
+  // until the right tab and editor exist (openFile is async and Monaco can
+  // mount after it resolves).
   const [fileOpenRequest, setFileOpenRequest] = useAtom(fileOpenRequestAtom)
+  const [pendingReveal, setPendingReveal] = useState<{ path: string; line: number } | null>(null)
   useEffect(() => {
     if (!fileOpenRequest) return
-    void openFile(fileOpenRequest)
+    void openFile(fileOpenRequest.path)
+    setPendingReveal(
+      fileOpenRequest.line ? { path: fileOpenRequest.path, line: fileOpenRequest.line } : null
+    )
     setFileOpenRequest(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileOpenRequest])
+  useEffect(() => {
+    if (!pendingReveal || activeTab?.path !== pendingReveal.path) return
+    if (activeTab.kind !== 'text') {
+      setPendingReveal(null)
+      return
+    }
+    const ed = editorRef.current
+    if (!ed) return
+    const pos = { lineNumber: pendingReveal.line, column: 1 }
+    ed.setPosition(pos)
+    ed.revealPositionInCenter(pos)
+    ed.focus()
+    setPendingReveal(null)
+    // editorEpoch retriggers once Monaco mounts for a freshly opened file.
+  }, [pendingReveal, activeTab, editorEpoch])
 
   // Language-server diagnostics for the active file, fetched from the chat's
   // agent host (or the shared utility host when no chat is selected).
