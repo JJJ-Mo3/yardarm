@@ -1,17 +1,19 @@
 /**
  * Right-hand details side panel for the primary chat pane: uncommitted
- * worktree changes, the agent's live task list, and the latest submitted
- * plan. Width is drag-resizable (clamped 240–480px) and persisted.
+ * worktree changes, the agent's live task list, the latest submitted plan,
+ * and the session timeline. Width is drag-resizable (clamped 240–480px)
+ * and persisted.
  */
 import React, { useRef } from 'react'
 import { useAtom } from 'jotai'
-import { FileDiff, GitPullRequest, ListTodo, ScrollText, X } from 'lucide-react'
+import { FileDiff, GitPullRequest, History, ListTodo, ScrollText, X } from 'lucide-react'
 import { detailsWidthAtom } from '../../../lib/atoms'
 import { Tip } from '../../../components/ui/tooltip'
 import { ChangedFilesWidget } from './ChangedFilesWidget'
 import { TasksWidget } from './TasksWidget'
 import { PlanWidget } from './PlanWidget'
 import { PrCommentsWidget } from './PrCommentsWidget'
+import { TimelineWidget } from './TimelineWidget'
 import type { StoredMessage, TaskItem } from '../../../../../shared/ui-message'
 
 const MIN_WIDTH = 240
@@ -107,6 +109,9 @@ export function DetailsPanel({
         </Section>
         <Section icon={<ScrollText size={11} />} title="Plan">
           <PlanWidget messages={messages} />
+        </Section>
+        <Section icon={<History size={11} />} title="Timeline">
+          <TimelineWidget messages={messages} />
         </Section>
       </div>
     </div>
