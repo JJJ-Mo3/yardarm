@@ -6,6 +6,7 @@ import {
   FolderOpen,
   GitPullRequest,
   KeyRound,
+  ListChecks,
   MoreHorizontal,
   PanelRight,
   PieChart,
@@ -131,6 +132,11 @@ export function ChatView({
   const setModel = trpc.agent.setModel.useMutation()
   const setThinking = trpc.agent.setThinking.useMutation()
   const setYolo = trpc.agent.setYolo.useMutation()
+  // Per-subchat self-verification override (⋯ More menu three-state control).
+  const verifyWork = trpc.agent.verifyWork.useQuery({ subchatId })
+  const setVerifyWork = trpc.agent.setVerifyWork.useMutation({
+    onSuccess: () => utils.agent.verifyWork.invalidate({ subchatId })
+  })
   // Repo host (GitHub/GitLab) for provider-aware review prompts and follow-up copy.
   const forge = trpc.git.forgeInfo.useQuery(
     { cwd: projectRoot ?? '' },
@@ -371,6 +377,7 @@ export function ChatView({
       ['model', setModel],
       ['thinking', setThinking],
       ['auto-approve', setYolo],
+      ['verify work', setVerifyWork],
       ['rollback', rollback],
       ['fork', fork],
       ['command', runCommand],
@@ -836,7 +843,7 @@ export function ChatView({
               button so they also open here via slash commands. */}
           <Popover open={moreOpen} onOpenChange={setMoreOpen}>
             <Tip
-              content="More tools — code review, memory, PR subscriptions, MCP servers, open folder, export, context audit"
+              content="More tools — code review, memory, PR subscriptions, MCP servers, open folder, export, context audit, verify work"
               side="bottom"
             >
               <PopoverTrigger asChild>
@@ -944,6 +951,44 @@ export function ChatView({
                   Context audit
                 </button>
               </Tip>
+              <div className="my-1 border-t" />
+              <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                <span className="flex items-center gap-2 text-[11px]">
+                  <ListChecks size={12} className="shrink-0 text-muted-foreground" />
+                  Verify work
+                </span>
+                <div className="flex overflow-hidden rounded border text-[10px]">
+                  {(
+                    [
+                      { label: 'Default', value: null },
+                      { label: 'On', value: true },
+                      { label: 'Off', value: false }
+                    ] as Array<{ label: string; value: boolean | null }>
+                  ).map((opt) => {
+                    const selected = (verifyWork.data?.override ?? null) === opt.value
+                    const tip =
+                      opt.value === null
+                        ? `Follow the global Preferences setting (currently ${verifyWork.data?.global ? 'on' : 'off'})`
+                        : opt.value
+                          ? 'Have the agent run the project checks and fix failures before finishing (this chat only)'
+                          : 'Skip the verification pass in this chat'
+                    return (
+                      <Tip key={opt.label} content={tip} side="bottom">
+                        <button
+                          className={`px-1.5 py-0.5 cursor-pointer ${
+                            selected
+                              ? 'bg-secondary text-foreground'
+                              : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                          onClick={() => setVerifyWork.mutate({ subchatId, value: opt.value })}
+                        >
+                          {opt.label}
+                        </button>
+                      </Tip>
+                    )
+                  })}
+                </div>
+              </div>
             </PopoverContent>
           </Popover>
           <ReviewPopover

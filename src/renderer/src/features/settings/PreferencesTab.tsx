@@ -256,6 +256,14 @@ export function PreferencesTab(): React.JSX.Element {
   })
   const confidenceEnabled = confidenceSetting.data !== false
 
+  // Self-verification steering (app_settings KV, opt-in default off); hosts
+  // read it at boot and each chat's ⋯ menu can override it per chat.
+  const verifySetting = trpc.settings.get.useQuery({ key: 'verifyWork' })
+  const setVerify = trpc.settings.set.useMutation({
+    onSuccess: () => utils.settings.get.invalidate({ key: 'verifyWork' })
+  })
+  const verifyEnabled = verifySetting.data === true
+
   // Commit co-author identity (app_settings KV); applied to hosts at boot.
   const coAuthor = trpc.settings.get.useQuery({ key: 'commitCoAuthor' })
   const setCoAuthor = trpc.settings.set.useMutation({
@@ -283,6 +291,7 @@ export function PreferencesTab(): React.JSX.Element {
     setExperimentalAgent.error ??
     setDesktopNotif.error ??
     setConfidence.error ??
+    setVerify.error ??
     setCoAuthor.error
 
   return (
@@ -469,6 +478,28 @@ export function PreferencesTab(): React.JSX.Element {
               onCheckedChange={(v) => setConfidence.mutate({ key: 'confidenceRatings', value: v })}
             />
             Agent confidence ratings
+          </label>
+        </Tip>
+      </div>
+
+      <div className="space-y-3 rounded border border-border p-3">
+        <div>
+          <div className="text-xs font-medium">Verify work before finishing</div>
+          <div className="text-[11px] text-muted-foreground">
+            Asks the agent to discover and run the project&apos;s own checks (typecheck, lint,
+            tests, build) before claiming a task is done, fix failures, and report honestly if
+            something still fails. Applies to newly started agent sessions; each chat&apos;s ⋯ menu
+            can override it.
+          </div>
+        </div>
+        <Tip content="Inject the self-verification guidance into new agent sessions — runs take longer but finish verified; a per-chat Default/On/Off override lives in the chat's ⋯ menu">
+          <label className="flex w-fit items-center gap-2 text-xs">
+            <Switch
+              checked={verifyEnabled}
+              disabled={setVerify.isPending}
+              onCheckedChange={(v) => setVerify.mutate({ key: 'verifyWork', value: v })}
+            />
+            Verify work before finishing
           </label>
         </Tip>
       </div>

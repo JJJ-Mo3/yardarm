@@ -194,6 +194,19 @@ export const agentRouter = router({
       return { ok: true }
     }),
 
+  /** Per-subchat self-verification override + the resolved effective value. */
+  verifyWork: publicProcedure
+    .input(z.object({ subchatId: z.string() }))
+    .query(({ input }) => agentSessionManager.getVerifyWork(input.subchatId)),
+
+  /** Set/clear the per-subchat self-verification override (null = follow global). */
+  setVerifyWork: publicProcedure
+    .input(z.object({ subchatId: z.string(), value: z.boolean().nullable() }))
+    .mutation(async ({ input }) => {
+      await agentSessionManager.setVerifyWork(input.subchatId, input.value)
+      return { ok: true }
+    }),
+
   /**
    * Global token-compression settings (compression + verbosity steering):
    * persist to app_settings and broadcast to all live hosts in one place so

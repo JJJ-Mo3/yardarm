@@ -23,6 +23,7 @@ import type {
 import { z } from 'zod'
 import { patchApprovalRunBudget } from './approval-run-budget'
 import { CONFIDENCE_GUIDANCE } from '../../shared/confidence'
+import { buildVerificationGuidance } from '../../shared/verification'
 import {
   installCoordinatedTokenRefresh,
   isExpiredOAuth,
@@ -1348,6 +1349,33 @@ async function main(): Promise<void> {
     post({ t: 'log', level: 'error', msg: `guidance state.set failed: ${String(err)}` })
   }
 
+  // Self-verification guidance is reconciled (remove both variants, append the
+  // active one) rather than just appended: the setVerification command toggles
+  // it live, and the browser variant can change between boots. state.set
+  // replaces the pluginInstructions array wholesale, which is what we want.
+  const reconcileVerification = async (enabled: boolean, browser: boolean): Promise<void> => {
+    try {
+      const st = (session.state.get() ?? {}) as { pluginInstructions?: string[] }
+      const prev = st.pluginInstructions ?? []
+      const variants = [
+        buildVerificationGuidance({ browser: false }),
+        buildVerificationGuidance({ browser: true })
+      ]
+      const next = prev.filter((entry) => !variants.includes(entry))
+      if (enabled) next.push(buildVerificationGuidance({ browser }))
+      if (next.length !== prev.length || next.some((entry, i) => entry !== prev[i])) {
+        await session.state.set({ pluginInstructions: next } as never)
+      }
+    } catch (err) {
+      // Best-effort steering; never block boot or command handling on it.
+      post({ t: 'log', level: 'error', msg: `verification state.set failed: ${String(err)}` })
+    }
+  }
+  await reconcileVerification(
+    boot.verification?.enabled === true,
+    boot.verification?.browser === true
+  )
+
   // Full sandbox mode: bring isolation up before ready so the very first
   // shell command already runs contained. Fail visible — on error the state
   // reports isolation off plus the error instead of pretending.
@@ -1588,6 +1616,9 @@ async function main(): Promise<void> {
           case 'setCompression':
             compression.setEnabled(cmd.enabled)
             compression.setVerbosity(cmd.verbosity)
+            break
+          case 'setVerification':
+            await reconcileVerification(cmd.enabled, cmd.browser)
             break
           case 'setThinking':
             await session.state.set({ thinkingLevel: cmd.level } as never)

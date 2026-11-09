@@ -18,6 +18,7 @@ import { clampMessageForStorage } from './message-clamp'
 import { isPrefillError } from './prefill-error'
 import { isStallError } from '../../../shared/stall-error'
 import { splitPlanRejectionFeedback } from './plan-rejection'
+import { resolveVerifyWork } from '../../../shared/verification'
 import { PromptQueue } from './prompt-queue'
 import {
   normalizeCustomProviderModelId,
@@ -500,7 +501,13 @@ export class AgentSessionManager {
       coAuthor: this.commitCoAuthor(),
       disabledTools: this.getDisabledTools(),
       // Confidence-marker guidance is default-on; app_settings opt-out.
-      confidenceGuidance: this.readAppSetting('confidenceRatings') !== false
+      confidenceGuidance: this.readAppSetting('confidenceRatings') !== false,
+      // Self-verification steering: per-subchat override, global opt-in
+      // fallback; the browser flag adds the smoke-test sentence.
+      verification: {
+        enabled: resolveVerifyWork(subchat.verifyWork, this.readAppSetting('verifyWork')),
+        browser: settings.browser?.enabled === true
+      }
     }
 
     // MCP OAuth tokens are fingerprinted by projectDir (git toplevel of the
@@ -1412,6 +1419,49 @@ export class AgentSessionManager {
     getDb().update(schema.subchats).set({ yolo }).where(eq(schema.subchats.id, subchatId)).run()
     const handle = await this.ensureHost(subchatId)
     this.sendCommand(handle, { t: 'setYolo', yolo })
+  }
+
+  /**
+   * Per-subchat self-verification override plus the resolved effective value
+   * (override wins; otherwise the global app_settings `verifyWork` opt-in).
+   */
+  getVerifyWork(subchatId: string): {
+    override: boolean | null
+    global: boolean
+    effective: boolean
+  } {
+    const row = getDb()
+      .select({ verifyWork: schema.subchats.verifyWork })
+      .from(schema.subchats)
+      .where(eq(schema.subchats.id, subchatId))
+      .get()
+    const override = row?.verifyWork ?? null
+    const global = this.readAppSetting('verifyWork') === true
+    return { override, global, effective: resolveVerifyWork(override, global) }
+  }
+
+  /**
+   * Persist the per-subchat self-verification override (null = follow the
+   * global setting) and live-toggle the guidance on a running host — no
+   * restart needed; the host reconciles its pluginInstructions state.
+   */
+  async setVerifyWork(subchatId: string, value: boolean | null): Promise<void> {
+    getDb()
+      .update(schema.subchats)
+      .set({ verifyWork: value })
+      .where(eq(schema.subchats.id, subchatId))
+      .run()
+    const handle = this.hosts.get(subchatId)
+    if (!handle || handle.killed) return
+    let browser = false
+    try {
+      browser = (await readSettings()).browser?.enabled === true
+    } catch {}
+    this.sendCommand(handle, {
+      t: 'setVerification',
+      enabled: resolveVerifyWork(value, this.readAppSetting('verifyWork')),
+      browser
+    })
   }
 
   /** Global disabled-tool names (app_settings KV); new hosts boot with them. */

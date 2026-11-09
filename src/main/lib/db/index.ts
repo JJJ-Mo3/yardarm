@@ -133,7 +133,9 @@ const MIGRATIONS: string[] = [
   // v12 — fork parentage: which subchat a forked tab was branched from
   `ALTER TABLE subchats ADD COLUMN forked_from_subchat_id TEXT;`,
   // v13 — the Kanban view was removed; drop its card store
-  `DROP TABLE IF EXISTS kanban_cards;`
+  `DROP TABLE IF EXISTS kanban_cards;`,
+  // v14 — per-subchat self-verification override (NULL = follow the global setting)
+  `ALTER TABLE subchats ADD COLUMN verify_work INTEGER;`
 ]
 
 export function initDb(): DB {

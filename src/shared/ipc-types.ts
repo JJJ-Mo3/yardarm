@@ -21,6 +21,8 @@ export type HostCommand =
   | { t: 'setYolo'; yolo: boolean }
   /** Toggle prompt token compression + verbosity steering (global setting, fire-and-forget). */
   | { t: 'setCompression'; enabled: boolean; verbosity: boolean }
+  /** Toggle the self-verification guidance (verify work before finishing) without a restart. */
+  | { t: 'setVerification'; enabled: boolean; browser: boolean }
   /**
    * Toggle OS-level isolation (seatbelt/bwrap) for agent shell commands.
    * Request/response so availability failures surface to the UI.
@@ -789,6 +791,12 @@ export interface HostBootConfig {
   disabledTools?: string[]
   /** Inject the CONFIDENCE marker guidance (default on; app_settings opt-out). */
   confidenceGuidance?: boolean
+  /**
+   * Self-verification steering (verify work before finishing): opt-in via
+   * app_settings `verifyWork` with a per-subchat override; browser adds the
+   * browser-tools smoke-test sentence.
+   */
+  verification?: { enabled: boolean; browser: boolean }
   /**
    * Packaged builds only: absolute path to the vendored mastracode runtime
    * (Resources/agent-runtime). The host imports mastracode/@mastra/code-sdk

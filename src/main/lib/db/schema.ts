@@ -57,6 +57,8 @@ export const subchats = sqliteTable(
     sandboxNetwork: integer('sandbox_network', { mode: 'boolean' }).notNull().default(true),
     /** Auto-approve all tool calls (YOLO); seeded from preferences.yolo at creation. */
     yolo: integer('yolo', { mode: 'boolean' }).notNull().default(false),
+    /** Self-verification override for this subchat; NULL = follow the global setting. */
+    verifyWork: integer('verify_work', { mode: 'boolean' }),
     /** Subchat this tab was forked from (fork-from-message); NULL = not a fork. */
     forkedFromSubchatId: text('forked_from_subchat_id'),
     createdAt: integer('created_at').notNull(),
