@@ -1062,6 +1062,7 @@ export function ChatView({
           <ReviewPopover
             cwd={projectRoot}
             baseBranch={baseBranch}
+            projectId={projectId}
             running={state.running}
             open={reviewOpen}
             onOpenChange={setReviewOpen}

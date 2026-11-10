@@ -11,12 +11,20 @@ import { trpc } from '../../lib/trpc'
 import { forgeCopy } from '../../lib/forge-copy'
 import { Input } from '../../components/ui/input'
 import { Popover, PopoverContent, PopoverVirtualAnchor } from '../../components/ui/popover'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '../../components/ui/select'
 import { Tip } from '../../components/ui/tooltip'
 import { buildLocalReviewPrompt, buildPrReviewPrompt, buildReviewMarker } from './review-prompts'
 
 export function ReviewPopover({
   cwd,
   baseBranch,
+  projectId,
   running,
   open,
   onOpenChange,
@@ -25,6 +33,8 @@ export function ReviewPopover({
 }: {
   /** Worktree (or project) path PR/MR queries run in; null while the chat loads. */
   cwd: string | null
+  /** Project whose reviewer personas (Project Settings → General) to offer. */
+  projectId: string | null
   /** The worktree's base branch, or null when unknown (agent auto-detects). */
   baseBranch: string | null
   /** Whether a run is in progress (the review would queue behind it). */
@@ -47,10 +57,17 @@ export function ReviewPopover({
     { enabled: open && !!cwd && !!provider && forge.data?.cliAvailable === true, staleTime: 30_000 }
   )
   const [focus, setFocus] = useState('')
+  const [personaId, setPersonaId] = useState('default')
+  const reviewers = trpc.projects.reviewersGet.useQuery(
+    { projectId: projectId ?? '' },
+    { enabled: open && !!projectId, staleTime: 30_000 }
+  )
+  const persona = reviewers.data?.find((p) => p.id === personaId)
 
   useEffect(() => {
-    // Reset the focus field whenever the popover closes or the chat changes.
+    // Reset the focus field and persona whenever the popover closes or the chat changes.
     setFocus('')
+    setPersonaId('default')
   }, [open, cwd])
 
   const pick = (content: string, marker: string): void => {
@@ -64,6 +81,23 @@ export function ReviewPopover({
       <PopoverContent align="end" className="w-80">
         <div className="mb-1.5 text-xs font-medium">Code review</div>
         <div className="space-y-2">
+          {reviewers.data && reviewers.data.length > 0 && (
+            <Select value={personaId} onValueChange={setPersonaId}>
+              <Tip content="Reviewer persona — a named profile from Project Settings → General that steers the review's perspective">
+                <SelectTrigger className="h-6 w-full text-[11px]">
+                  <SelectValue placeholder="Reviewer persona" />
+                </SelectTrigger>
+              </Tip>
+              <SelectContent>
+                <SelectItem value="default">Default reviewer</SelectItem>
+                {reviewers.data.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Tip content="Optional — a specific area, file, or concern the review should focus on">
             <Input
               value={focus}
@@ -79,7 +113,8 @@ export function ReviewPopover({
                 pick(
                   buildLocalReviewPrompt({
                     baseBranch: baseBranch ?? undefined,
-                    focus: focus.trim() || undefined
+                    focus: focus.trim() || undefined,
+                    personaInstructions: persona?.instructions
                   }),
                   buildReviewMarker({ kind: 'local' })
                 )
@@ -135,7 +170,8 @@ export function ReviewPopover({
                               buildPrReviewPrompt(
                                 String(pr.number),
                                 provider ?? 'github',
-                                focus.trim() || undefined
+                                focus.trim() || undefined,
+                                persona?.instructions
                               ),
                               buildReviewMarker(
                                 { kind: 'pr', prNumber: String(pr.number), title: pr.title },

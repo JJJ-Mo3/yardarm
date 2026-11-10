@@ -8,7 +8,7 @@ import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm'
 import { simpleGit } from 'simple-git'
 import { z } from 'zod'
 import { getDb, schema } from '../../db'
-import { parseProjectSettings, projectEnvVars } from '../../db/project-settings'
+import { parseProjectSettings, projectEnvVars, projectReviewers } from '../../db/project-settings'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import { checkpointStashSha, deleteCheckpointRefs } from '../../git/ops'
 import {
@@ -338,6 +338,50 @@ export const projectsRouter = router({
         .where(eq(schema.projects.id, input.projectId))
         .run()
       agentSessionManager.restartByProject(project.path)
+      return { ok: true }
+    }),
+
+  /** Reviewer personas selectable when starting a review (Review popover). */
+  reviewersGet: publicProcedure.input(z.object({ projectId: z.string() })).query(({ input }) => {
+    return projectReviewers(input.projectId)
+  }),
+
+  /**
+   * Replace the project's reviewer persona list. Personas only steer review
+   * prompts at send time, so no agent restart is needed.
+   */
+  reviewersSet: publicProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        reviewers: z
+          .array(
+            z.object({
+              id: z.string().min(1),
+              name: z.string().trim().min(1).max(100),
+              instructions: z.string().trim().min(1).max(4000)
+            })
+          )
+          .max(50)
+      })
+    )
+    .mutation(({ input }) => {
+      const db = getDb()
+      const project = db
+        .select()
+        .from(schema.projects)
+        .where(eq(schema.projects.id, input.projectId))
+        .get()
+      if (!project) throw new Error('Project not found')
+      // Read-modify-write the JSON blob so unknown keys are preserved.
+      const settings = parseProjectSettings(project.settings)
+      if (input.reviewers.length === 0) delete settings.reviewers
+      else settings.reviewers = input.reviewers
+      const serialized = Object.keys(settings).length > 0 ? JSON.stringify(settings) : null
+      db.update(schema.projects)
+        .set({ settings: serialized, updatedAt: Date.now() })
+        .where(eq(schema.projects.id, input.projectId))
+        .run()
       return { ok: true }
     })
 })

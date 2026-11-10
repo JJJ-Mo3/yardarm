@@ -188,6 +188,8 @@ function GeneralTab({
 
       <WorktreeSetupCard projectPath={projectPath} />
 
+      <ReviewersCard projectId={projectId} />
+
       <div className="space-y-2 rounded-md border border-border p-3">
         <div className="text-xs font-medium">Archive</div>
         <div className="text-[11px] text-muted-foreground">
@@ -270,6 +272,187 @@ function GeneralTab({
           <div className="text-xs text-destructive selectable">{remove.error.message}</div>
         )}
       </div>
+    </div>
+  )
+}
+
+/**
+ * Reviewer personas: named profiles (name + steering instructions) selectable
+ * in the Review popover. Prompt-time only — no agent restart on change.
+ */
+function ReviewersCard({ projectId }: { projectId: string }): React.JSX.Element {
+  const utils = trpc.useUtils()
+  const confirmDialog = useConfirm()
+  const reviewers = trpc.projects.reviewersGet.useQuery({ projectId })
+  const save = trpc.projects.reviewersSet.useMutation({
+    onSuccess: () => utils.projects.reviewersGet.invalidate({ projectId })
+  })
+  const [newName, setNewName] = useState('')
+  const [newInstructions, setNewInstructions] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editInstructions, setEditInstructions] = useState('')
+
+  // The dialog is shared across projects — reset forms when the target changes.
+  useEffect(() => {
+    setNewName('')
+    setNewInstructions('')
+    setEditingId(null)
+  }, [projectId])
+
+  const list = reviewers.data ?? []
+  const canAdd = newName.trim().length > 0 && newInstructions.trim().length > 0 && !save.isPending
+  const canSaveEdit =
+    editName.trim().length > 0 && editInstructions.trim().length > 0 && !save.isPending
+
+  return (
+    <div className="space-y-2 rounded-md border border-border p-3">
+      <div className="text-xs font-medium">Reviewer personas</div>
+      <div className="text-[11px] text-muted-foreground">
+        Named reviewer profiles selectable when starting a code review (⋯ → Review). The selected
+        persona&apos;s instructions steer the review&apos;s perspective and tone.
+      </div>
+
+      {list.map((p) =>
+        editingId === p.id ? (
+          <div key={p.id} className="space-y-1.5 rounded-md border border-border p-2">
+            <Input
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              maxLength={100}
+              placeholder="Persona name"
+              className="h-6 text-[11px]"
+            />
+            <Textarea
+              value={editInstructions}
+              onChange={(e) => setEditInstructions(e.target.value)}
+              maxLength={4000}
+              placeholder="Reviewer instructions, e.g. act as a security auditor focused on injection and authz issues"
+              className="min-h-16 text-[11px]"
+            />
+            <div className="flex gap-1.5">
+              <Tip content="Save changes to this persona">
+                <span className="inline-flex">
+                  <Button
+                    size="sm"
+                    disabled={!canSaveEdit}
+                    onClick={() =>
+                      save.mutate(
+                        {
+                          projectId,
+                          reviewers: list.map((r) =>
+                            r.id === p.id
+                              ? {
+                                  id: r.id,
+                                  name: editName.trim(),
+                                  instructions: editInstructions.trim()
+                                }
+                              : r
+                          )
+                        },
+                        { onSuccess: () => setEditingId(null) }
+                      )
+                    }
+                  >
+                    Save
+                  </Button>
+                </span>
+              </Tip>
+              <Tip content="Discard changes">
+                <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
+                  Cancel
+                </Button>
+              </Tip>
+            </div>
+          </div>
+        ) : (
+          <div key={p.id} className="flex items-start gap-2 rounded-md border border-border p-2">
+            <div className="min-w-0 flex-1">
+              <div className="text-[11px] font-medium">{p.name}</div>
+              <div
+                className="line-clamp-2 text-[10px] text-muted-foreground"
+                title={p.instructions}
+              >
+                {p.instructions}
+              </div>
+            </div>
+            <Tip content="Edit this persona's name and instructions">
+              <button
+                onClick={() => {
+                  setEditingId(p.id)
+                  setEditName(p.name)
+                  setEditInstructions(p.instructions)
+                }}
+                className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                <Settings2 size={12} />
+              </button>
+            </Tip>
+            <Tip content="Delete this persona">
+              <button
+                onClick={() => {
+                  void confirmDialog({
+                    title: 'Delete reviewer persona?',
+                    description: `"${p.name}" will no longer be offered in the Review popover.`,
+                    confirmLabel: 'Delete'
+                  }).then((ok) => {
+                    if (ok) save.mutate({ projectId, reviewers: list.filter((r) => r.id !== p.id) })
+                  })
+                }}
+                className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-destructive cursor-pointer"
+              >
+                <Trash2 size={12} />
+              </button>
+            </Tip>
+          </div>
+        )
+      )}
+
+      <div className="space-y-1.5">
+        <Input
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          maxLength={100}
+          placeholder="New persona name, e.g. Security auditor"
+          className="h-6 text-[11px]"
+        />
+        <Textarea
+          value={newInstructions}
+          onChange={(e) => setNewInstructions(e.target.value)}
+          maxLength={4000}
+          placeholder="Reviewer instructions, e.g. act as a security auditor focused on injection and authz issues"
+          className="min-h-16 text-[11px]"
+        />
+        <Tip content="Add this reviewer persona to the project">
+          <span className="inline-flex">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!canAdd || list.length >= 50}
+              onClick={() => {
+                save.mutate({
+                  projectId,
+                  reviewers: [
+                    ...list,
+                    {
+                      id: crypto.randomUUID(),
+                      name: newName.trim(),
+                      instructions: newInstructions.trim()
+                    }
+                  ]
+                })
+                setNewName('')
+                setNewInstructions('')
+              }}
+            >
+              <Plus size={12} className="mr-1" /> Add persona
+            </Button>
+          </span>
+        </Tip>
+      </div>
+      {save.error && (
+        <div className="text-xs text-destructive selectable">{save.error.message}</div>
+      )}
     </div>
   )
 }

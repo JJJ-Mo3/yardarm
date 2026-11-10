@@ -32,6 +32,18 @@ export function parseReviewArgs(args: string): ReviewArgs {
 
 const FOCUS_SUFFIX = (focus: string): string => `\nPay special attention to: ${focus}\n`
 
+/** Steering block for a selected reviewer persona (Project Settings → General). */
+const PERSONA_PREFIX = (instructions: string): string =>
+  `\nReview persona — adopt this reviewer profile:\n${instructions}\n`
+
+/**
+ * Appended to every review prompt so findings carry machine-stable severity
+ * and confidence tags the user can scan and sort by.
+ */
+const SEVERITY_NOTE =
+  '\nFor each finding, prefix with a severity tag [critical|major|minor|nit] and a ' +
+  'confidence tag [high|medium|low].\n'
+
 /**
  * Appended as the final instruction of every review prompt: the agent's reply
  * is the deliverable. Without it, agents sometimes complete the investigation
@@ -53,7 +65,8 @@ export function buildPrListPrompt(provider: RepoProvider = 'github'): string {
 export function buildPrReviewPrompt(
   prNumber: string,
   provider: RepoProvider = 'github',
-  focus?: string
+  focus?: string,
+  personaInstructions?: string
 ): string {
   let prompt: string
   if (provider === 'gitlab') {
@@ -89,7 +102,9 @@ export function buildPrReviewPrompt(
    - Final verdict (approve/request changes/comment)
 `
   }
+  if (personaInstructions) prompt += PERSONA_PREFIX(personaInstructions)
   if (focus) prompt += FOCUS_SUFFIX(focus)
+  prompt += SEVERITY_NOTE
   prompt += REVIEW_DELIVERY_NOTE(
     provider === 'gitlab' ? 'post it only to the MR' : 'post it only to the PR'
   )
@@ -188,7 +203,11 @@ export function findCompletedReview(messages: StoredMessage[]): {
   return { markerId: messages[lastUser].id, target, shared }
 }
 
-export function buildLocalReviewPrompt(opts?: { baseBranch?: string; focus?: string }): string {
+export function buildLocalReviewPrompt(opts?: {
+  baseBranch?: string
+  focus?: string
+  personaInstructions?: string
+}): string {
   const diffStep = opts?.baseBranch
     ? `Run \`git diff ${opts.baseBranch}...HEAD\` to see committed work on this branch, and \`git diff HEAD\` for uncommitted changes. Review both.`
     : `Determine the base branch (check \`git symbolic-ref refs/remotes/origin/HEAD\`, falling back to main or master), then run \`git diff <base>...HEAD\` to see committed work on this branch, and \`git diff HEAD\` for uncommitted changes. Review both.`
@@ -204,7 +223,9 @@ export function buildLocalReviewPrompt(opts?: { baseBranch?: string; focus?: str
    - Suggestions for improvement
    - Final verdict (ready to ship / needs work)
 `
+  if (opts?.personaInstructions) prompt += PERSONA_PREFIX(opts.personaInstructions)
   if (opts?.focus) prompt += FOCUS_SUFFIX(opts.focus)
+  prompt += SEVERITY_NOTE
   prompt += REVIEW_DELIVERY_NOTE('post it somewhere else')
   return prompt
 }

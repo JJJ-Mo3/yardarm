@@ -125,6 +125,33 @@ describe('prompt templates', () => {
       prompt.indexOf('Write the complete review as your reply')
     )
   })
+
+  it('every review prompt asks for severity and confidence tags', () => {
+    const tagLine = 'severity tag [critical|major|minor|nit] and a confidence tag [high|medium|low]'
+    expect(buildPrReviewPrompt('42')).toContain(tagLine)
+    expect(buildPrReviewPrompt('5', 'gitlab')).toContain(tagLine)
+    expect(buildLocalReviewPrompt()).toContain(tagLine)
+  })
+
+  it('includes the persona block when instructions are given, before the focus suffix', () => {
+    const block = 'Review persona — adopt this reviewer profile:\nBe a ruthless security auditor.'
+    const pr = buildPrReviewPrompt('42', 'github', 'auth', 'Be a ruthless security auditor.')
+    expect(pr).toContain(block)
+    expect(pr.indexOf('Review persona')).toBeLessThan(pr.indexOf('Pay special attention to: auth'))
+    const local = buildLocalReviewPrompt({
+      focus: 'auth',
+      personaInstructions: 'Be a ruthless security auditor.'
+    })
+    expect(local).toContain(block)
+    expect(local.indexOf('Review persona')).toBeLessThan(
+      local.indexOf('Pay special attention to: auth')
+    )
+  })
+
+  it('omits the persona block when no persona is selected', () => {
+    expect(buildPrReviewPrompt('42')).not.toContain('Review persona')
+    expect(buildLocalReviewPrompt()).not.toContain('Review persona')
+  })
 })
 
 describe('review markers', () => {

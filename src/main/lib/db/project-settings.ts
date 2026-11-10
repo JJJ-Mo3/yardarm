@@ -15,11 +15,20 @@ export interface ProjectEnvVar {
   secret?: boolean
 }
 
+/** A named reviewer profile steering /review prompts (Project Settings → General). */
+export interface ReviewerPersona {
+  id: string
+  name: string
+  instructions: string
+}
+
 export interface ProjectSettings {
   /** Repo-host override for PR/MR features; absent means auto-detect. */
   repoHost?: RepoHostSetting
   /** Env vars added to this project's agent hosts and terminals. */
   envVars?: ProjectEnvVar[]
+  /** Reviewer personas selectable when starting a review. */
+  reviewers?: ReviewerPersona[]
   [key: string]: unknown
 }
 
@@ -57,6 +66,30 @@ export function projectEnvVars(projectId: string): ProjectEnvVar[] {
   const raw = parseProjectSettings(project?.settings ?? null).envVars
   if (!Array.isArray(raw)) return []
   return raw.filter(isEnvVar)
+}
+
+/** Narrow a stored reviewers entry (free-form JSON — validate defensively). */
+function isReviewerPersona(v: unknown): v is ReviewerPersona {
+  const p = v as ReviewerPersona
+  return (
+    !!p &&
+    typeof p === 'object' &&
+    typeof p.id === 'string' &&
+    typeof p.name === 'string' &&
+    typeof p.instructions === 'string'
+  )
+}
+
+/** The validated reviewer personas stored for a project (empty when unset). */
+export function projectReviewers(projectId: string): ReviewerPersona[] {
+  const project = getDb()
+    .select({ settings: schema.projects.settings })
+    .from(schema.projects)
+    .where(eq(schema.projects.id, projectId))
+    .get()
+  const raw = parseProjectSettings(project?.settings ?? null).reviewers
+  if (!Array.isArray(raw)) return []
+  return raw.filter(isReviewerPersona)
 }
 
 /**
