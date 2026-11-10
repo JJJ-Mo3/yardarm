@@ -107,6 +107,30 @@ export const chatsRouter = router({
       return { ok: true }
     }),
 
+  /** Saved AI-generated session insights for a chat (Insights dialog). */
+  getInsights: publicProcedure.input(z.object({ chatId: z.string() })).query(({ input }) => {
+    const chat = getDb()
+      .select({
+        insights: schema.chats.insights,
+        insightsGeneratedAt: schema.chats.insightsGeneratedAt
+      })
+      .from(schema.chats)
+      .where(eq(schema.chats.id, input.chatId))
+      .get()
+    return chat ?? { insights: null, insightsGeneratedAt: null }
+  }),
+
+  setInsights: publicProcedure
+    .input(z.object({ chatId: z.string(), insights: z.string().min(1).max(100_000) }))
+    .mutation(({ input }) => {
+      getDb()
+        .update(schema.chats)
+        .set({ insights: input.insights, insightsGeneratedAt: Date.now(), updatedAt: Date.now() })
+        .where(eq(schema.chats.id, input.chatId))
+        .run()
+      return { ok: true }
+    }),
+
   /** Pin/unpin a chat to the top of the sidebar. Does not bump recency. */
   setPinned: publicProcedure
     .input(z.object({ id: z.string(), pinned: z.boolean() }))

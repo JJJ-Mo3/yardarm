@@ -141,6 +141,8 @@ export function Sidebar(): React.JSX.Element {
           archived: false,
           pinned: false,
           sortOrder: null,
+          insights: null,
+          insightsGeneratedAt: null,
           createdAt: now,
           updatedAt: now
         },
@@ -159,7 +161,9 @@ export function Sidebar(): React.JSX.Element {
       // (create's return has no sortOrder — new chats are never hand-ordered).
       utils.chats.list.setData({ projectId: vars.projectId }, (old) =>
         (old ?? []).map((c) =>
-          c.id === ctx?.tempId ? { ...chat, pinned: false, sortOrder: null } : c
+          c.id === ctx?.tempId
+            ? { ...chat, pinned: false, sortOrder: null, insights: null, insightsGeneratedAt: null }
+            : c
         )
       )
       setChatId(chat.id)

@@ -32,6 +32,9 @@ export const chats = sqliteTable(
     pinned: integer('pinned', { mode: 'boolean' }).notNull().default(false),
     /** User-defined sidebar position; NULL rows sort after, by recency. */
     sortOrder: real('sort_order'),
+    /** AI-generated session insights (markdown); regenerated on demand. */
+    insights: text('insights'),
+    insightsGeneratedAt: integer('insights_generated_at'),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull()
   },

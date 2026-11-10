@@ -79,6 +79,21 @@ export const analyticsRouter = router({
     `)
   }),
 
+  /** All-time usage totals for one chat (Insights dialog footer). */
+  usageForChat: publicProcedure.input(z.object({ chatId: z.string() })).query(({ input }) => {
+    const row = getDb().get<UsageTotals & { messages: number }>(sql`
+      select count(*) as messages,
+             coalesce(sum(json_extract(m.usage, '$.inputTokens')), 0) as inputTokens,
+             coalesce(sum(json_extract(m.usage, '$.outputTokens')), 0) as outputTokens,
+             coalesce(sum(json_extract(m.usage, '$.totalTokens')), 0) as totalTokens
+      from messages m
+      join subchats s on s.id = m.subchat_id
+      where s.chat_id = ${input.chatId}
+        and m.usage is not null
+    `)
+    return row ?? { messages: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0 }
+  }),
+
   compressionSavings: publicProcedure.input(rangeInput).query(({ input }) => {
     const row = getDb().get<{ tokensSaved: number }>(sql`
       select coalesce(sum(e.tokens_saved), 0) as tokensSaved

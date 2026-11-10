@@ -9,6 +9,7 @@ import {
   KeyRound,
   ListChecks,
   MoreHorizontal,
+  NotebookText,
   PanelRight,
   PieChart,
   ScanSearch,
@@ -69,6 +70,7 @@ import { PermissionsDialog } from './PermissionsDialog'
 import { SandboxDialog } from './SandboxDialog'
 import { PruneStorageDialog } from '../settings/PruneStorageDialog'
 import { KnowledgeDialog } from './KnowledgeDialog'
+import { InsightsDialog } from './InsightsDialog'
 import { SchedulesDialog } from '../schedules/SchedulesDialog'
 import { DetailsPanel } from './details/DetailsPanel'
 import { GoalBanner } from './GoalBanner'
@@ -299,6 +301,7 @@ export function ChatView({
   const [permissionsOpen, setPermissionsOpen] = useState(false)
   const [knowledgeOpen, setKnowledgeOpen] = useState(false)
   const [schedulesOpen, setSchedulesOpen] = useState(false)
+  const [insightsOpen, setInsightsOpen] = useState(false)
   const [sandboxOpen, setSandboxOpen] = useState(false)
   // On failure the switch reverts (fail-visible meta) — open the dialog so the error is seen.
   const setSandbox = trpc.agent.setSandbox.useMutation({ onError: () => setSandboxOpen(true) })
@@ -1019,6 +1022,18 @@ export function ChatView({
                   Scheduled runs
                 </button>
               </Tip>
+              <Tip
+                content="AI summary of this chat — outcome, what changed, risks & follow-ups"
+                side="left"
+              >
+                <button
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] hover:bg-secondary cursor-pointer"
+                  onClick={() => openFromMore(() => setInsightsOpen(true))}
+                >
+                  <NotebookText size={12} className="shrink-0 text-muted-foreground" />
+                  Session insights
+                </button>
+              </Tip>
               <div className="my-1 border-t" />
               <div className="flex items-center justify-between gap-2 px-2 py-1.5">
                 <span className="flex items-center gap-2 text-[11px]">
@@ -1363,6 +1378,14 @@ export function ChatView({
           onOpenChange={setKnowledgeOpen}
         />
         <SchedulesDialog open={schedulesOpen} onOpenChange={setSchedulesOpen} />
+        {selectedChatId && (
+          <InsightsDialog
+            chatId={selectedChatId}
+            subchatId={subchatId}
+            open={insightsOpen}
+            onOpenChange={setInsightsOpen}
+          />
+        )}
       </div>
       {primary && detailsOpen && (
         <DetailsPanel

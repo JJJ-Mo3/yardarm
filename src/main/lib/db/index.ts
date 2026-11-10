@@ -169,7 +169,10 @@ const MIGRATIONS: string[] = [
   // v17 — pinned chats (sort to the top of the sidebar)
   `ALTER TABLE chats ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0;`,
   // v18 — knowledge-note trigger keywords (comma-separated; inject on prompt match)
-  `ALTER TABLE knowledge_notes ADD COLUMN triggers TEXT;`
+  `ALTER TABLE knowledge_notes ADD COLUMN triggers TEXT;`,
+  // v19 — AI-generated session insights (markdown + generation timestamp)
+  `ALTER TABLE chats ADD COLUMN insights TEXT;
+   ALTER TABLE chats ADD COLUMN insights_generated_at INTEGER;`
 ]
 
 export function initDb(): DB {
