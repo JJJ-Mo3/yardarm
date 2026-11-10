@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
+  BookOpenCheck,
   Brain,
   CalendarClock,
   Download,
@@ -72,6 +73,8 @@ import { PruneStorageDialog } from '../settings/PruneStorageDialog'
 import { KnowledgeDialog } from './KnowledgeDialog'
 import { InsightsDialog } from './InsightsDialog'
 import { SchedulesDialog } from '../schedules/SchedulesDialog'
+import { PlaybooksDialog } from '../playbooks/PlaybooksDialog'
+import { buildDraftWorkflowPrompt } from '../playbooks/input-schema'
 import { DetailsPanel } from './details/DetailsPanel'
 import { GoalBanner } from './GoalBanner'
 import { TaskChecklist } from './TaskChecklist'
@@ -302,6 +305,7 @@ export function ChatView({
   const [knowledgeOpen, setKnowledgeOpen] = useState(false)
   const [schedulesOpen, setSchedulesOpen] = useState(false)
   const [insightsOpen, setInsightsOpen] = useState(false)
+  const [playbooksOpen, setPlaybooksOpen] = useState(false)
   const [sandboxOpen, setSandboxOpen] = useState(false)
   // On failure the switch reverts (fail-visible meta) — open the dialog so the error is seen.
   const setSandbox = trpc.agent.setSandbox.useMutation({ onError: () => setSandboxOpen(true) })
@@ -690,6 +694,9 @@ export function ChatView({
       case 'schedules':
         setSchedulesOpen(true)
         return
+      case 'playbooks':
+        setPlaybooksOpen(true)
+        return
       case 'observability':
         openSettings('connectors')
         return
@@ -1020,6 +1027,18 @@ export function ChatView({
                 >
                   <CalendarClock size={12} className="shrink-0 text-muted-foreground" />
                   Scheduled runs
+                </button>
+              </Tip>
+              <Tip
+                content="Reusable workflow playbooks — run and manage run-books backed by stored workflows (/playbooks)"
+                side="left"
+              >
+                <button
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] hover:bg-secondary cursor-pointer"
+                  onClick={() => openFromMore(() => setPlaybooksOpen(true))}
+                >
+                  <BookOpenCheck size={12} className="shrink-0 text-muted-foreground" />
+                  Playbooks
                 </button>
               </Tip>
               <Tip
@@ -1378,6 +1397,17 @@ export function ChatView({
           onOpenChange={setKnowledgeOpen}
         />
         <SchedulesDialog open={schedulesOpen} onOpenChange={setSchedulesOpen} />
+        <PlaybooksDialog
+          open={playbooksOpen}
+          onOpenChange={setPlaybooksOpen}
+          subchatId={subchatId}
+          onDraftWithAgent={(d) =>
+            sendMarked(
+              buildDraftWorkflowPrompt(d),
+              `Draft workflow: ${d.length > 60 ? `${d.slice(0, 60)}…` : d}`
+            )
+          }
+        />
         {selectedChatId && (
           <InsightsDialog
             chatId={selectedChatId}

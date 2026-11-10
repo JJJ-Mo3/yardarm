@@ -172,7 +172,23 @@ const MIGRATIONS: string[] = [
   `ALTER TABLE knowledge_notes ADD COLUMN triggers TEXT;`,
   // v19 — AI-generated session insights (markdown + generation timestamp)
   `ALTER TABLE chats ADD COLUMN insights TEXT;
-   ALTER TABLE chats ADD COLUMN insights_generated_at INTEGER;`
+   ALTER TABLE chats ADD COLUMN insights_generated_at INTEGER;`,
+  // v20 — playbooks (app-managed run-books over SDK-stored workflows) +
+  // optional playbook linkage on schedules (fires the workflow instead of a prompt)
+  `CREATE TABLE IF NOT EXISTS playbooks (
+     id TEXT PRIMARY KEY,
+     project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+     name TEXT NOT NULL,
+     description TEXT,
+     workflow_id TEXT NOT NULL,
+     default_input_json TEXT,
+     last_run_at INTEGER,
+     last_run_status TEXT,
+     created_at INTEGER NOT NULL,
+     updated_at INTEGER NOT NULL
+   );
+   CREATE INDEX IF NOT EXISTS playbooks_project_idx ON playbooks(project_id);
+   ALTER TABLE schedules ADD COLUMN playbook_id TEXT;`
 ]
 
 export function initDb(): DB {

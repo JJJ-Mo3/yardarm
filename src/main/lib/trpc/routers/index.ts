@@ -13,6 +13,7 @@ import { knowledgeNotesRouter } from './knowledge-notes'
 import { lspPacksRouter } from './lsp-packs'
 import { mastraSettingsRouter } from './mastra-settings'
 import { mcpRouter } from './mcp'
+import { playbooksRouter } from './playbooks'
 import { projectConfigRouter } from './project-config'
 import { projectsRouter } from './projects'
 import { schedulesRouter } from './schedules'
@@ -42,6 +43,7 @@ export const appRouter = router({
   settings: settingsRouter,
   mastraSettings: mastraSettingsRouter,
   mcp: mcpRouter,
+  playbooks: playbooksRouter,
   projectConfig: projectConfigRouter,
   schedules: schedulesRouter,
   system: systemRouter,

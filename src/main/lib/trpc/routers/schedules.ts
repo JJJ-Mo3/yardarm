@@ -35,6 +35,15 @@ const cadenceSchema = z.discriminatedUnion('kind', [
   })
 ])
 
+function assertPlaybookExists(playbookId: string): void {
+  const pb = getDb()
+    .select({ id: schema.playbooks.id })
+    .from(schema.playbooks)
+    .where(eq(schema.playbooks.id, playbookId))
+    .get()
+  if (!pb) throw new Error('Playbook not found')
+}
+
 export const schedulesRouter = router({
   list: publicProcedure.input(z.object({ projectId: z.string() })).query(({ input }) => {
     return getDb()
@@ -47,21 +56,29 @@ export const schedulesRouter = router({
 
   create: publicProcedure
     .input(
-      z.object({
-        projectId: z.string(),
-        name: z.string().min(1).max(100),
-        prompt: z.string().min(1),
-        cadence: cadenceSchema,
-        useWorktree: z.boolean().default(false)
-      })
+      z
+        .object({
+          projectId: z.string(),
+          name: z.string().min(1).max(100),
+          prompt: z.string().optional(),
+          /** When set, firing runs this playbook's workflow instead of a prompt. */
+          playbookId: z.string().optional(),
+          cadence: cadenceSchema,
+          useWorktree: z.boolean().default(false)
+        })
+        .refine((v) => !!v.playbookId || !!v.prompt?.trim(), {
+          message: 'A prompt or a playbook is required'
+        })
     )
     .mutation(({ input }) => {
+      if (input.playbookId) assertPlaybookExists(input.playbookId)
       const now = Date.now()
       const row = {
         id: randomUUID(),
         projectId: input.projectId,
         name: input.name,
-        prompt: input.prompt,
+        prompt: input.playbookId ? '' : (input.prompt ?? ''),
+        playbookId: input.playbookId ?? null,
         cadence: JSON.stringify(input.cadence),
         enabled: true,
         chatId: null,
@@ -78,14 +95,20 @@ export const schedulesRouter = router({
 
   update: publicProcedure
     .input(
-      z.object({
-        id: z.string(),
-        name: z.string().min(1).max(100),
-        prompt: z.string().min(1),
-        cadence: cadenceSchema
-      })
+      z
+        .object({
+          id: z.string(),
+          name: z.string().min(1).max(100),
+          prompt: z.string().optional(),
+          playbookId: z.string().optional(),
+          cadence: cadenceSchema
+        })
+        .refine((v) => !!v.playbookId || !!v.prompt?.trim(), {
+          message: 'A prompt or a playbook is required'
+        })
     )
     .mutation(({ input }) => {
+      if (input.playbookId) assertPlaybookExists(input.playbookId)
       const db = getDb()
       const row = db.select().from(schema.schedules).where(eq(schema.schedules.id, input.id)).get()
       if (!row) throw new Error('Schedule not found')
@@ -97,7 +120,8 @@ export const schedulesRouter = router({
       db.update(schema.schedules)
         .set({
           name: input.name,
-          prompt: input.prompt,
+          prompt: input.playbookId ? '' : (input.prompt ?? ''),
+          playbookId: input.playbookId ?? null,
           cadence: cadenceJson,
           nextRunAt,
           updatedAt: now

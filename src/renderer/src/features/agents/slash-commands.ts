@@ -58,6 +58,11 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
     description: 'Manage recurring agent runs for this project',
     kind: 'builtin'
   },
+  {
+    name: 'playbooks',
+    description: 'Run and manage reusable workflow playbooks',
+    kind: 'builtin'
+  },
   { name: 'skill', description: 'Run a skill', args: '<name> [args]', kind: 'builtin' },
   { name: 'subagents', description: 'Manage custom subagents', kind: 'builtin' },
   { name: 'sandbox', description: 'Sandbox & session settings', kind: 'builtin' },

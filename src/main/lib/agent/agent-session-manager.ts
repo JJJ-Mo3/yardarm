@@ -1826,6 +1826,11 @@ export class AgentSessionManager {
     this.emitUI(subchatId, { type: 'message-upsert', message: marker })
   }
 
+  /** Public transcript-marker insert (persists + emits; needs no live host). */
+  postMarker(subchatId: string, text: string): void {
+    this.insertMarker(subchatId, text)
+  }
+
   async listThreads(subchatId: string): Promise<ThreadInfo[]> {
     const handle = await this.ensureHost(subchatId)
     return this.request<ThreadInfo[]>(handle, { t: 'threadList', reqId: randomUUID() })
