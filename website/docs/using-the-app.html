@@ -79,6 +79,8 @@
             <li><a href="#goals">Goals</a></li>
             <li><a href="#schedules">Scheduled runs</a></li>
             <li><a href="#workflows">Workflows</a></li>
+            <li><a href="#playbooks">Playbooks</a></li>
+            <li><a href="#session-insights">Session insights</a></li>
             <li><a href="#knowledge">Knowledge notes &amp; agent knowledge</a></li>
             <li><a href="#threads">Threads, forking, split view</a></li>
           </ul>
@@ -143,7 +145,12 @@
             self-verification pass, see <a href="#confidence">Confidence &amp; verification</a>),
             <strong>Observational memory</strong> (<code>/om</code> status and tuning),
             <strong>Scheduled runs</strong> (<code>/schedules</code> — recurring agent runs, see
-            <a href="#schedules">Scheduled runs</a>),
+            <a href="#schedules">Scheduled runs</a>), <strong>Playbooks</strong> (<code
+              >/playbooks</code
+            >
+            — reusable workflow run-books, see <a href="#playbooks">Playbooks</a>),
+            <strong>Session insights</strong> (an agent-written summary of the chat, see
+            <a href="#session-insights">Session insights</a>),
             <strong>PR subscriptions</strong> (<code>/github</code>),
             <strong>MCP servers</strong> (live status of this chat's MCP servers with a quick
             per-server enable/disable switch — no trip to Settings needed),
@@ -224,6 +231,11 @@
           <li>
             <code>@</code> searches project files and inserts a mention so the agent looks at that
             file.
+          </li>
+          <li>
+            <code>!</code> searches the project's <a href="#knowledge">knowledge notes</a> by title
+            and attaches the chosen note's text to your prompt as a chip — for notes you want in one
+            specific prompt without pinning them.
           </li>
           <li>
             <strong>Attachments</strong> — click the paperclip, or paste/drag-and-drop files
@@ -463,6 +475,12 @@
         <ul>
           <li><strong>Diffs</strong> — side-by-side Monaco diffs of every changed file.</li>
           <li>
+            <strong>Quote diff lines</strong> — select text in any diff and a floating
+            <strong>Quote</strong> button appears: it drops the selection into the chat composer as
+            an attachment named after the file and switches to the Chat tab, so you can ask about
+            exactly those lines.
+          </li>
+          <li>
             <strong>Stage / unstage</strong> files and <strong>commit</strong> with a message. Drag
             the file list's right edge to resize it.
           </li>
@@ -518,7 +536,18 @@
             The optional <strong>focus</strong> field steers the review toward a specific concern
             ("error handling", "security", a file name, …).
           </li>
+          <li>
+            A <strong>reviewer persona</strong> selector applies a named reviewer profile — e.g. a
+            "security reviewer" or an "API-compatibility hawk" — defined in Project Settings →
+            General → Reviewers (a name plus instructions describing what that reviewer cares
+            about).
+          </li>
         </ul>
+        <p>
+          Each finding in the review carries a <strong>severity tag</strong> (critical / major /
+          minor / nit) and a <strong>confidence tag</strong> (high / medium / low), so you can
+          triage at a glance.
+        </p>
         <p>
           Reviews run silently: no user message is posted — the transcript just shows a compact
           "Review: local changes" or "Review: PR #42 — …" marker line (hover it to roll back, like
@@ -684,6 +713,11 @@
             a day — local wall-clock time.
           </li>
           <li>
+            <strong>Prompt or playbook</strong> — a schedule fires either a prompt or a
+            <a href="#playbooks">playbook</a>: playbook schedules run the linked workflow instead of
+            sending text.
+          </li>
+          <li>
             <strong>Where runs land</strong> — each schedule gets its own dedicated chat ("Schedule:
             &lt;name&gt;"), created on first fire, so recurring output never clutters your working
             chats. Schedules can optionally run in an isolated worktree.
@@ -753,6 +787,51 @@
           chat and have it save the workflow again.
         </p>
 
+        <h2 id="playbooks">Playbooks: run-books over stored workflows</h2>
+        <p>
+          <strong>Playbooks</strong> are named, reusable run-books built on top of stored workflows:
+          a friendly name and description, a linked workflow, and default inputs — so a repeatable
+          process is one click away instead of a raw workflow id and a JSON blob. Open the library
+          from the chat header's ⋯ menu or <code>/playbooks</code>.
+        </p>
+        <ul>
+          <li>
+            <strong>Create</strong> — pick one of the project's stored workflows, name it, and
+            optionally set default JSON input. No workflow yet? <strong>Draft with agent</strong>
+            sends your description to the chat's agent, which builds and saves the workflow with its
+            workflow tools — then link it.
+          </li>
+          <li>
+            <strong>Run</strong> — when the workflow declares a simple input schema, the Run view
+            shows a real form (text / number / toggle fields) seeded from the defaults; otherwise
+            you get a raw-JSON editor. Runs execute in the active chat's agent host, drop a
+            "Playbook" marker into the transcript, and show per-step results; each playbook
+            remembers its last run status.
+          </li>
+          <li>
+            <strong>Schedule</strong> — a <a href="#schedules">scheduled run</a> can fire a playbook
+            instead of a prompt. Deleting a playbook disables schedules linked to it rather than
+            letting them fire nothing.
+          </li>
+        </ul>
+        <p>
+          Naming things: <strong>workflows</strong> are the step sequences stored by the agent
+          runtime (shared with the CLI); <strong>playbooks</strong> are Yardarm's run-books over
+          them — metadata, input forms, and scheduling. Deleting a playbook never deletes its
+          workflow.
+        </p>
+
+        <h2 id="session-insights">Session insights</h2>
+        <p>
+          Pick <strong>Session insights</strong> from the chat header's ⋯ menu for an agent-written
+          summary of the conversation: an <strong>Outcome</strong> section,
+          <strong>What changed</strong>, and <strong>Risks &amp; follow-ups</strong> — plus the
+          chat's total token usage and when the summary was generated. Generation runs silently in
+          the chat (a compact marker line appears in the transcript);
+          <strong>Regenerate</strong> replaces the saved summary any time. Useful before handing a
+          branch to a teammate or picking a chat back up after a few days.
+        </p>
+
         <h2 id="knowledge">Knowledge notes &amp; agent knowledge</h2>
         <p>
           Two distinct systems share the "knowledge" name — one you write, one the agent writes.
@@ -779,6 +858,17 @@
           Notes can be toggled off without deleting, and there's a pinned-size budget so
           instructions stay bounded. Edits apply at the next run — running chats in the project
           restart.
+        </p>
+        <p>
+          <strong>Triggers</strong> — give a note trigger keywords (comma-separated) and its full
+          text is injected automatically whenever a prompt you send mentions one (whole-word,
+          case-insensitive). A small "Injected knowledge notes" marker in the transcript shows which
+          notes matched. Pinned notes skip triggers — they're always present anyway.
+        </p>
+        <p>
+          <strong>! macros</strong> — type <code>!</code> in the composer to search the project's
+          notes by title and attach the chosen note's body to your prompt as a text chip — handy for
+          notes you want in one specific prompt without pinning or triggers.
         </p>
         <p>
           <strong>Suggested notes</strong> — when you correct the agent or it learns something

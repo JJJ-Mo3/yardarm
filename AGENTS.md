@@ -115,14 +115,25 @@ No accounts or login — everything runs locally against mastracode's own config
   Experimental (`setKnowledgeEnabled` in settings-json.ts); no auto-seeding — upstream default
   is deliberately off. When off, `mc.knowledgeInspector` is undefined and
   `knowledgeInspectorUnavailableReason` says why.
-- Two "knowledge" systems, two "schedules" systems — keep the naming straight. **Knowledge
-  notes** are Yardarm's user-authored notes (`knowledge_notes` table, Project Settings →
-  Knowledge, `src/shared/knowledge-notes.ts`, pinned bodies + titles-only index with the
-  auto-approved `knowledge_note_lookup` extra tool); the **agent knowledge base** is the SDK's
-  experimental agent-captured memory above. **Scheduled runs** are Yardarm's app-managed
-  recurring runs (`schedules` table, `src/main/lib/schedules/scheduler.ts`, /schedules dialog,
-  survive restarts); the SDK's experimental `schedule_*` tools live inside one agent process
-  and die with it. UI copy and docs must preserve these distinctions.
+- Two "knowledge" systems, two "schedules" systems, workflows vs playbooks — keep the naming
+  straight. **Knowledge notes** are Yardarm's user-authored notes (`knowledge_notes` table,
+  Project Settings → Knowledge, `src/shared/knowledge-notes.ts`, pinned bodies + titles-only
+  index with the auto-approved `knowledge_note_lookup` extra tool; notes with trigger keywords
+  also inject at send time — `matchTriggeredNotes` applied in `sendMessage`, skipped for
+  marker sends); the **agent knowledge base** is the SDK's experimental agent-captured memory
+  above. **Scheduled runs** are Yardarm's app-managed recurring runs (`schedules` table,
+  `src/main/lib/schedules/scheduler.ts`, /schedules dialog, survive restarts) and fire either
+  a prompt or a playbook; the SDK's experimental `schedule_*` tools live inside one agent
+  process and die with it. **Workflows** are the SDK-stored step sequences (shared with the
+  CLI, managed via the host `workflows*` commands); **playbooks** are Yardarm's app-managed
+  run-books over them (`playbooks` table, `trpc/routers/playbooks.ts`, /playbooks dialog) —
+  metadata, input forms, transcript markers, scheduling. UI copy and docs must preserve all
+  these distinctions.
+- Three env-injection surfaces on spawned processes: `buildProviderKeyEnv()` (provider API
+  keys), per-project env vars from project settings (`projectEnvRecord` in
+  `src/main/lib/db/project-settings.ts`, spread into both the agent-host spawn and pty
+  creation — after provider keys, never overriding PATH or YARDARM_BOOT), and the
+  `YARDARM_BOOT` payload itself. Project env edits restart the project's active agents.
 - `session.model.switch(modelId)` takes a positional string since SDK 1.18 (was an object) and
   is per-thread (persists to thread metadata) — concurrent chats on different models stay
   independent.

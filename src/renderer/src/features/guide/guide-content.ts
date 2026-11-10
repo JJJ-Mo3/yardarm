@@ -48,6 +48,11 @@ ordered sort by recency. **Pin** a chat (the pin button on its row) to keep it a
 the list regardless of order or recency — pinned rows show a persistent pin icon; hover it to
 unpin.
 
+**Hover a chat row** for a preview card: the chat's status (running, awaiting approval,
+unread reply, or idle), its branch and last activity, a snippet of the latest agent reply,
+and — when the branch has an open PR — a PR chip. On macOS the **dock icon badge** counts
+chats that need you: pending approvals plus finished replies you haven't read yet.
+
 ### Worktrees
 
 When you create a chat you choose whether it runs in an **isolated git worktree** or directly
@@ -82,6 +87,8 @@ its reasoning, tool calls, and file edits into the transcript.
 ### Composer tips
 
 - **@-mention files** — type \`@\` to search the repo and attach a file to your prompt.
+- **!-mention knowledge notes** — type \`!\` to search the project's knowledge notes and
+  attach a note's text to your prompt (see Knowledge notes).
 - **Slash commands** — type \`/\` for the command palette (\`/help\` lists everything:
   reviews, permissions, goals, threads, and more).
 - **Attachments** — paste, drag in, or pick files with the attachment button: images and
@@ -129,6 +136,9 @@ its reasoning, tool calls, and file edits into the transcript.
   self-verification pass — see Confidence & verification),
   **Observational memory** (\`/om\` status and tuning),
   **Scheduled runs** (\`/schedules\` — recurring agent runs, see Scheduled runs below),
+  **Playbooks** (\`/playbooks\` — reusable workflow run-books, see Playbooks below),
+  **Session insights** (an agent-written summary of the chat — outcome, what changed, risks
+  and follow-ups — plus the chat's total token usage; regenerate any time),
   **PR subscriptions** (\`/github\`), **MCP servers** (live status of this chat's MCP servers
   with a quick per-server enable/disable switch — no trip to Settings needed),
   **Open folder in…** (reveal the chat's folder in your
@@ -245,6 +255,8 @@ weekly changelog draft, an hourly health check. Open them from the chat header's
 
 - **Cadence** — every N minutes (up to 7 days), daily at a time, or weekly on a day — local
   wall-clock time.
+- **Prompt or playbook** — a schedule fires either a prompt or a **playbook** (a workflow
+  run-book — see Playbooks); playbook schedules run the workflow instead of sending text.
 - **Where runs land** — each schedule gets its own dedicated chat ("Schedule: <name>"),
   created on first fire, so recurring output never clutters your working chats. Schedules
   can optionally run in an isolated worktree.
@@ -310,7 +322,14 @@ root).
 - **Merge & pull** — worktree chats can merge their branch back into the base branch from
   here, and pull the base to stay current.
 - **Review** — the review action (in the chat header's ⋯ menu, also \`/review\`) has the
-  agent review local changes or an open PR/MR and post findings back into the chat.
+  agent review local changes or an open PR/MR and post findings back into the chat. Each
+  finding carries a **severity tag** (critical / major / minor / nit) and a **confidence
+  tag**. A **reviewer persona** selector steers the review — personas are named reviewer
+  profiles (e.g. "security reviewer", "API-compatibility hawk") you define in Project
+  Settings → General → Reviewers.
+- **Quote diff lines** — select text in any diff and a floating **Quote** button appears:
+  it drops the selection into the chat composer as an attachment named after the file and
+  switches to the Chat tab, so you can ask about exactly those lines.
 - **Pull / merge requests** — with the GitHub CLI (\`gh\`) or GitLab CLI (\`glab\`) installed
   and authenticated, you can open PRs/MRs from the app; the title is prefilled from your last
   commit. The host is auto-detected from the origin remote; for self-hosted instances, set it
@@ -557,6 +576,31 @@ demand.
 `
   },
   {
+    id: 'playbooks',
+    title: 'Playbooks',
+    body: `
+**Playbooks** are named, reusable run-books built on top of stored workflows: a friendly
+name and description, a linked workflow, and default inputs — so a repeatable process is one
+click away instead of a raw workflow id and a JSON blob. Open the library from the chat
+header's ⋯ menu or \`/playbooks\`.
+
+- **Create** — pick one of the project's stored workflows, name it, and optionally set
+  default JSON input. No workflow yet? **Draft with agent** sends your description to the
+  chat's agent, which builds and saves the workflow with its workflow tools — then link it.
+- **Run** — when the workflow declares a simple input schema, the Run view shows a real form
+  (text/number/toggle fields) seeded from the defaults; otherwise you get a raw-JSON editor.
+  Runs execute in the active chat's agent host, drop a "Playbook" marker into the
+  transcript, and show per-step results; each playbook remembers its last run status.
+- **Schedule** — a scheduled run can fire a playbook instead of a prompt: pick "playbook"
+  mode in the schedule form. Deleting a playbook disables schedules linked to it rather than
+  letting them fire nothing.
+
+Naming things: **workflows** are the step sequences stored by the agent runtime (shared with
+the CLI); **playbooks** are Yardarm's run-books over them — metadata, input forms, and
+scheduling. Deleting a playbook never deletes its workflow.
+`
+  },
+  {
     id: 'knowledge',
     title: 'Knowledge notes & agent knowledge',
     body: `
@@ -574,6 +618,15 @@ should always know about the project — "deploys go through \`make release\`", 
 
 Notes can be toggled off without deleting, and there's a pinned-size budget so instructions
 stay bounded. Edits apply at the next run — running chats in the project restart.
+
+**Triggers** — give a note trigger keywords (comma-separated) and its full text is injected
+automatically whenever a prompt you send mentions one (whole-word, case-insensitive). A small
+"Injected knowledge notes" marker in the transcript shows which notes matched. Pinned notes
+skip triggers — they're always present anyway.
+
+**! macros** — type \`!\` in the composer to search the project's notes by title and attach
+the chosen note's body to your prompt as a text chip — handy for notes you want in one
+specific prompt without pinning or triggers.
 
 **Suggested notes** — when you correct the agent or it learns something durable, it may end
 its reply with a suggestion; a card appears under the reply with **Save** (lands in the
@@ -708,8 +761,12 @@ App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
 commands, agent instructions, **knowledge notes** (see Knowledge notes), resources, plugins,
 and workflows — plugins with configuration schemas get generated settings forms,
 **Create plugin** scaffolds a new plugin for you, and the Workflows tab (\`/workflows\`) runs
-and manages the agent's stored workflows. The General tab also holds the repository host
-override and the **worktree setup commands** (see Projects, chats & worktrees).
+and manages the agent's stored workflows. An **Environment** tab holds per-project
+environment variables, added to every agent run and terminal in the project (changing them
+restarts the project's active agents; values are stored in plaintext in the app database —
+the secret toggle only masks display). The General tab also holds the repository host
+override, the **reviewer personas** used by code review (see Reviewing changes), and the
+**worktree setup commands** (see Projects, chats & worktrees).
 `
   },
   {

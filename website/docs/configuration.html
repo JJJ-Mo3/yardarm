@@ -135,6 +135,13 @@
               <td>run and manage stored workflows</td>
             </tr>
             <tr>
+              <td><code>/playbooks</code></td>
+              <td>
+                run and manage reusable workflow run-books (see
+                <a href="using-the-app.html#playbooks">Playbooks</a>)
+              </td>
+            </tr>
+            <tr>
               <td><code>/schedules</code></td>
               <td>
                 app-managed recurring agent runs — create, edit, run now (see
@@ -400,7 +407,9 @@
         <ul>
           <li>
             <strong>General</strong> — rename, archive, or remove the project, set the repository
-            host, and edit the <strong>worktree setup commands</strong>
+            host, define the <strong>reviewer personas</strong> offered by code review (see
+            <a href="using-the-app.html#agent-code-review">Agent code review</a>), and edit the
+            <strong>worktree setup commands</strong>
             (<code>.yardarm/worktree.json</code>) that run in every newly created worktree (see
             <a href="workspace.html#worktrees">Worktrees</a>). Archived projects move to an
             "Archived" group at the bottom of the project picker, from where they can be reopened
@@ -408,8 +417,13 @@
             folder on disk unless you tick the option to delete it too.
           </li>
           <li>
-            <strong>Knowledge</strong> — user-authored knowledge notes the agent always knows,
-            pinned or fetched on demand (see
+            <strong>Environment</strong> — per-project environment variables added to every agent
+            run and terminal in the project. Saving restarts the project's active agents. Values are
+            stored in plaintext in the app database — the secret toggle only masks display.
+          </li>
+          <li>
+            <strong>Knowledge</strong> — user-authored knowledge notes the agent always knows:
+            pinned, fetched on demand, or injected automatically by trigger keywords (see
             <a href="using-the-app.html#knowledge">Knowledge notes</a>)
           </li>
           <li>
