@@ -165,7 +165,9 @@ const MIGRATIONS: string[] = [
      created_at INTEGER NOT NULL,
      updated_at INTEGER NOT NULL
    );
-   CREATE INDEX IF NOT EXISTS knowledge_notes_project_idx ON knowledge_notes(project_id);`
+   CREATE INDEX IF NOT EXISTS knowledge_notes_project_idx ON knowledge_notes(project_id);`,
+  // v17 — pinned chats (sort to the top of the sidebar)
+  `ALTER TABLE chats ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0;`
 ]
 
 export function initDb(): DB {

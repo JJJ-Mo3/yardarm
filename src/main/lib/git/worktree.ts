@@ -110,7 +110,7 @@ async function uniqueBranch(projectPath: string, base: string): Promise<string> 
 }
 
 /** Optional per-repo worktree setup commands (mirrors 1code's format). */
-async function readSetupCommands(projectPath: string): Promise<string[]> {
+export async function readSetupCommands(projectPath: string): Promise<string[]> {
   for (const rel of ['.yardarm/worktree.json', '.1code/worktree.json']) {
     try {
       const raw = await fs.readFile(path.join(projectPath, rel), 'utf8')
@@ -121,6 +121,37 @@ async function readSetupCommands(projectPath: string): Promise<string[]> {
     }
   }
   return []
+}
+
+/**
+ * Persist setup commands to .yardarm/worktree.json, preserving unknown keys
+ * (the file is a user-editable config). An empty list removes the key, and
+ * the file too when nothing else remains (best-effort).
+ */
+export async function writeSetupCommands(projectPath: string, commands: string[]): Promise<void> {
+  const file = path.join(projectPath, '.yardarm', 'worktree.json')
+  let config: Record<string, unknown> = {}
+  try {
+    const parsed = JSON.parse(await fs.readFile(file, 'utf8')) as unknown
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      config = parsed as Record<string, unknown>
+    }
+  } catch {
+    // missing or invalid — start fresh
+  }
+  if (commands.length > 0) config['setup-worktree'] = commands
+  else delete config['setup-worktree']
+  if (Object.keys(config).length === 0) {
+    try {
+      await fs.unlink(file)
+    } catch {}
+    return
+  }
+  await fs.mkdir(path.dirname(file), { recursive: true })
+  // Atomic replace so a crash mid-write can't leave a truncated config.
+  const tmp = `${file}.tmp-${Date.now()}`
+  await fs.writeFile(tmp, JSON.stringify(config, null, 2) + '\n', 'utf8')
+  await fs.rename(tmp, file)
 }
 
 export async function createWorktree(

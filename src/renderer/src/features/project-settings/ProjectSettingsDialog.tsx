@@ -181,6 +181,8 @@ function GeneralTab({
         )}
       </div>
 
+      <WorktreeSetupCard projectPath={projectPath} />
+
       <div className="space-y-2 rounded-md border border-border p-3">
         <div className="text-xs font-medium">Archive</div>
         <div className="text-[11px] text-muted-foreground">
@@ -263,6 +265,73 @@ function GeneralTab({
           <div className="text-xs text-destructive selectable">{remove.error.message}</div>
         )}
       </div>
+    </div>
+  )
+}
+
+/**
+ * Editor for .yardarm/worktree.json "setup-worktree" — shell commands run in
+ * every newly created worktree (dependency install etc.). One per line.
+ */
+function WorktreeSetupCard({ projectPath }: { projectPath: string }): React.JSX.Element {
+  const utils = trpc.useUtils()
+  const setup = trpc.projectConfig.worktreeSetupGet.useQuery({ projectPath })
+  const [text, setText] = useState('')
+  const [dirty, setDirty] = useState(false)
+
+  useEffect(() => {
+    if (setup.data && !dirty) setText(setup.data.commands.join('\n'))
+  }, [setup.data, dirty])
+  // The dialog is shared across projects — resync when the target changes.
+  useEffect(() => {
+    setDirty(false)
+  }, [projectPath])
+
+  const save = trpc.projectConfig.worktreeSetupSet.useMutation({
+    onSuccess: () => {
+      setDirty(false)
+      utils.projectConfig.worktreeSetupGet.invalidate({ projectPath })
+    }
+  })
+
+  return (
+    <div className="space-y-2 rounded-md border border-border p-3">
+      <div className="text-xs font-medium">Worktree setup commands</div>
+      <div className="text-[11px] text-muted-foreground">
+        Shell commands run in every new chat worktree right after it is created — one per line (e.g.{' '}
+        <code>npm install</code>). Each gets 5 minutes and failures are logged but don&apos;t block
+        the chat. Saved to <code>.yardarm/worktree.json</code> in the repo.
+      </div>
+      <Textarea
+        rows={3}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value)
+          setDirty(true)
+        }}
+        className="font-mono text-[11px]"
+        spellCheck={false}
+        placeholder={'npm install'}
+      />
+      <Tip content="Write the commands to .yardarm/worktree.json — applies to worktrees created from now on">
+        <span className="inline-flex">
+          <Button
+            size="sm"
+            disabled={!dirty || save.isPending}
+            onClick={() =>
+              save.mutate({
+                projectPath,
+                commands: text.split('\n').map((c) => c.trim())
+              })
+            }
+          >
+            {save.isPending ? 'Saving…' : 'Save'}
+          </Button>
+        </span>
+      </Tip>
+      {save.error && (
+        <div className="text-xs text-destructive selectable">{save.error.message}</div>
+      )}
     </div>
   )
 }

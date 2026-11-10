@@ -25,6 +25,7 @@ import { DEFAULT_AGENTS, installDefaultAgents } from '../../mastra-config/defaul
 import { readDatabaseJson, writeResourceId } from '../../mastra-config/database-json'
 import { readInstructions, writeInstructions } from '../../mastra-config/agent-instructions'
 import { HOOK_EVENTS, readHooksJson, writeHooksJson } from '../../mastra-config/hooks-json'
+import { readSetupCommands, writeSetupCommands } from '../../git/worktree'
 import { publicProcedure, router } from '../trpc'
 
 const scopeInput = z.object({ projectPath: z.string().optional() })
@@ -215,6 +216,25 @@ export const projectConfigRouter = router({
     .mutation(async ({ input }) => {
       await writeInstructions(input.projectPath, input.content)
       agentSessionManager.restartByProject(input.projectPath)
+      return { ok: true }
+    }),
+
+  // ---- worktree setup commands (.yardarm/worktree.json) ---------------------
+  /** Effective setup commands run in every new worktree (.yardarm with .1code fallback). */
+  worktreeSetupGet: publicProcedure
+    .input(z.object({ projectPath: z.string() }))
+    .query(async ({ input }) => {
+      return { commands: await readSetupCommands(input.projectPath) }
+    }),
+
+  /** Persist setup commands; applies to worktrees created from now on. */
+  worktreeSetupSet: publicProcedure
+    .input(z.object({ projectPath: z.string(), commands: z.array(z.string()) }))
+    .mutation(async ({ input }) => {
+      await writeSetupCommands(
+        input.projectPath,
+        input.commands.map((c) => c.trim()).filter((c) => c.length > 0)
+      )
       return { ok: true }
     }),
 

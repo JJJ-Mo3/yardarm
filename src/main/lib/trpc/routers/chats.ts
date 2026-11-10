@@ -12,12 +12,13 @@ import { publicProcedure, router } from '../trpc'
 
 export const chatsRouter = router({
   list: publicProcedure.input(z.object({ projectId: z.string() })).query(({ input }) => {
-    // Manually ordered chats first (drag-to-reorder), then the rest by recency.
+    // Pinned chats first, then manually ordered (drag-to-reorder), then by recency.
     return getDb()
       .select()
       .from(schema.chats)
       .where(eq(schema.chats.projectId, input.projectId))
       .orderBy(
+        desc(schema.chats.pinned),
         sql`${schema.chats.sortOrder} IS NULL`,
         asc(schema.chats.sortOrder),
         desc(schema.chats.updatedAt)
@@ -40,6 +41,7 @@ export const chatsRouter = router({
         .from(schema.chats)
         .where(eq(schema.chats.projectId, input.projectId))
         .orderBy(
+          desc(schema.chats.pinned),
           sql`${schema.chats.sortOrder} IS NULL`,
           asc(schema.chats.sortOrder),
           desc(schema.chats.updatedAt)
@@ -100,6 +102,18 @@ export const chatsRouter = router({
       getDb()
         .update(schema.chats)
         .set({ archived: input.archived, updatedAt: Date.now() })
+        .where(eq(schema.chats.id, input.id))
+        .run()
+      return { ok: true }
+    }),
+
+  /** Pin/unpin a chat to the top of the sidebar. Does not bump recency. */
+  setPinned: publicProcedure
+    .input(z.object({ id: z.string(), pinned: z.boolean() }))
+    .mutation(({ input }) => {
+      getDb()
+        .update(schema.chats)
+        .set({ pinned: input.pinned })
         .where(eq(schema.chats.id, input.id))
         .run()
       return { ok: true }

@@ -13,6 +13,8 @@ import {
   MessageSquarePlus,
   Moon,
   Pencil,
+  Pin,
+  PinOff,
   Plus,
   Settings,
   Sun,
@@ -137,6 +139,7 @@ export function Sidebar(): React.JSX.Element {
           baseBranch: null,
           status: 'creating',
           archived: false,
+          pinned: false,
           sortOrder: null,
           createdAt: now,
           updatedAt: now
@@ -155,7 +158,9 @@ export function Sidebar(): React.JSX.Element {
       // Swap the placeholder for the real row before the refetch lands
       // (create's return has no sortOrder — new chats are never hand-ordered).
       utils.chats.list.setData({ projectId: vars.projectId }, (old) =>
-        (old ?? []).map((c) => (c.id === ctx?.tempId ? { ...chat, sortOrder: null } : c))
+        (old ?? []).map((c) =>
+          c.id === ctx?.tempId ? { ...chat, pinned: false, sortOrder: null } : c
+        )
       )
       setChatId(chat.id)
       setSubchatId(chat.subchats[0]?.id ?? null)
@@ -168,6 +173,9 @@ export function Sidebar(): React.JSX.Element {
     onSuccess: () => utils.chats.list.invalidate()
   })
   const setArchived = trpc.chats.setArchived.useMutation({
+    onSuccess: () => utils.chats.list.invalidate()
+  })
+  const setPinned = trpc.chats.setPinned.useMutation({
     onSuccess: () => utils.chats.list.invalidate()
   })
   const renameChat = trpc.chats.rename.useMutation({
@@ -385,6 +393,35 @@ export function Sidebar(): React.JSX.Element {
             )}
             {c.status !== 'creating' && (
               <>
+                <Tip
+                  content={
+                    c.pinned
+                      ? 'Unpin this chat — it returns to its usual place in the list'
+                      : 'Pin this chat to the top of the list'
+                  }
+                >
+                  <button
+                    className={cn(
+                      'cursor-pointer text-muted-foreground hover:text-foreground',
+                      // Pinned rows keep the pin visible as the indicator;
+                      // on hover it becomes the unpin control.
+                      c.pinned ? 'block' : 'hidden group-hover:block'
+                    )}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setPinned.mutate({ id: c.id, pinned: !c.pinned })
+                    }}
+                  >
+                    {c.pinned ? (
+                      <>
+                        <Pin size={12} className="block group-hover:hidden" />
+                        <PinOff size={12} className="hidden group-hover:block" />
+                      </>
+                    ) : (
+                      <Pin size={12} />
+                    )}
+                  </button>
+                </Tip>
                 <Tip content="Rename this chat">
                   <button
                     className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
@@ -502,6 +539,11 @@ export function Sidebar(): React.JSX.Element {
         {setArchived.error && (
           <div className="px-2 py-1 text-[11px] text-destructive selectable">
             Archive failed: {setArchived.error.message}
+          </div>
+        )}
+        {setPinned.error && (
+          <div className="px-2 py-1 text-[11px] text-destructive selectable">
+            Pin failed: {setPinned.error.message}
           </div>
         )}
         {reorderChat.error && (
