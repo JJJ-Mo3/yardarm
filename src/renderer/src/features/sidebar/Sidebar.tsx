@@ -52,6 +52,7 @@ import { Switch } from '../../components/ui/switch'
 import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { AddProjectDialog } from './AddProjectDialog'
+import { ChatHoverCard } from './ChatHoverCard'
 import { Logo } from '../../components/Logo'
 
 /** dataTransfer type for dragging a sidebar chat row (reorder; split-pane drop). */
@@ -378,14 +379,23 @@ export function Sidebar(): React.JSX.Element {
               chatId === c.id ? 'bg-accent' : 'hover:bg-accent/50'
             )}
           >
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[13px]">{c.title}</div>
-              <div className="truncate text-[10px] text-muted-foreground font-mono">
-                {c.status === 'creating'
-                  ? 'creating…'
-                  : `${c.branch ?? 'no worktree'} · ${timeAgo(c.updatedAt)}`}
+            {c.status === 'creating' ? (
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px]">{c.title}</div>
+                <div className="truncate text-[10px] text-muted-foreground font-mono">
+                  creating…
+                </div>
               </div>
-            </div>
+            ) : (
+              <ChatHoverCard chatId={c.id}>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[13px]">{c.title}</div>
+                  <div className="truncate text-[10px] text-muted-foreground font-mono">
+                    {c.branch ?? 'no worktree'} · {timeAgo(c.updatedAt)}
+                  </div>
+                </div>
+              </ChatHoverCard>
+            )}
             {c.status === 'creating' ? (
               <Loader2 size={12} className="shrink-0 animate-spin text-muted-foreground" />
             ) : (
@@ -498,12 +508,14 @@ export function Sidebar(): React.JSX.Element {
                     chatId === c.id ? 'bg-accent' : 'hover:bg-accent/50'
                   )}
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13px]">{c.title}</div>
-                    <div className="truncate text-[10px] text-muted-foreground font-mono">
-                      {c.branch ?? 'no worktree'} · {timeAgo(c.updatedAt)}
+                  <ChatHoverCard chatId={c.id}>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13px]">{c.title}</div>
+                      <div className="truncate text-[10px] text-muted-foreground font-mono">
+                        {c.branch ?? 'no worktree'} · {timeAgo(c.updatedAt)}
+                      </div>
                     </div>
-                  </div>
+                  </ChatHoverCard>
                   <ChatStatusIndicator
                     running={chatStatuses.get(c.id)?.running ?? false}
                     awaiting={chatStatuses.get(c.id)?.awaiting ?? false}

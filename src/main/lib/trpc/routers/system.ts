@@ -95,6 +95,15 @@ export const systemRouter = router({
     return { terminalId: id }
   }),
 
+  /** Dock/taskbar badge: chats needing attention (approvals + unread replies). */
+  setBadgeCount: publicProcedure
+    .input(z.object({ count: z.number().int().min(0) }))
+    .mutation(({ input }) => {
+      // No-op-safe cross-platform: Electron ignores it where unsupported.
+      app.setBadgeCount(input.count)
+      return { ok: true }
+    }),
+
   /** Opens an http(s) URL in the system browser (renderer window.open is unreliable when sandboxed). */
   openExternal: publicProcedure.input(z.object({ url: z.string() })).mutation(async ({ input }) => {
     if (!/^https?:\/\//i.test(input.url)) throw new Error('Only http(s) URLs can be opened')

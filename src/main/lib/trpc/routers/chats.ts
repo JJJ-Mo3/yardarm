@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { and, asc, desc, eq, gte, inArray, isNotNull, lt, sql } from 'drizzle-orm'
 import { z } from 'zod'
+import { stripSuggestedKnowledgeLine } from '@shared/knowledge-notes'
 import { getDb, maintainDb, schema } from '../../db'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import { createChatWithSubchat, sandboxDefaults, yoloDefault } from '../../agent/chat-factory'
@@ -70,6 +71,54 @@ export const chatsRouter = router({
       .orderBy(asc(schema.subchats.createdAt))
       .all()
     return { ...chat, subchats }
+  }),
+
+  /**
+   * Lightweight data for the sidebar hover preview card: chat metadata plus
+   * a short snippet of the newest assistant reply across all subchats.
+   */
+  preview: publicProcedure.input(z.object({ chatId: z.string() })).query(({ input }) => {
+    const db = getDb()
+    const chat = db.select().from(schema.chats).where(eq(schema.chats.id, input.chatId)).get()
+    if (!chat) return null
+    const project = db
+      .select({ path: schema.projects.path })
+      .from(schema.projects)
+      .where(eq(schema.projects.id, chat.projectId))
+      .get()
+    // Newest assistant message across the chat's subchats. createdAt is a
+    // global timestamp (seq is only per-subchat), so it orders correctly.
+    const last = db
+      .select({ parts: schema.messages.parts, createdAt: schema.messages.createdAt })
+      .from(schema.messages)
+      .innerJoin(schema.subchats, eq(schema.messages.subchatId, schema.subchats.id))
+      .where(and(eq(schema.subchats.chatId, input.chatId), eq(schema.messages.role, 'assistant')))
+      .orderBy(desc(schema.messages.createdAt))
+      .limit(1)
+      .get()
+    let lastAssistantSnippet: string | null = null
+    if (last) {
+      try {
+        const parts = JSON.parse(last.parts) as Array<{ type: string; text?: string }>
+        const text = parts
+          .filter((p) => p.type === 'text' && p.text)
+          .map((p) => p.text)
+          .join('\n')
+          .trim()
+        if (text) {
+          const cleaned = stripSuggestedKnowledgeLine(text).trim()
+          lastAssistantSnippet = cleaned.length > 280 ? `${cleaned.slice(0, 280)}…` : cleaned
+        }
+      } catch {}
+    }
+    return {
+      title: chat.title,
+      branch: chat.branch,
+      updatedAt: chat.updatedAt,
+      lastAssistantSnippet,
+      lastAssistantAt: last?.createdAt ?? null,
+      cwd: chat.worktreePath ?? project?.path ?? null
+    }
   }),
 
   create: publicProcedure

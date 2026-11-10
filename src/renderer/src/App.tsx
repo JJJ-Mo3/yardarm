@@ -33,6 +33,7 @@ import {
   type MainTab
 } from './lib/atoms'
 import { isMac, modLabel, useAppShortcuts, useShortcutOverridesSync } from './lib/shortcuts'
+import { useAttentionBadge } from './lib/use-attention-badge'
 import { useSelectChat } from './lib/use-select-chat'
 import { Button } from './components/ui/button'
 import { Tip } from './components/ui/tooltip'
@@ -139,6 +140,7 @@ export default function App(): React.JSX.Element {
   useAppShortcuts()
   useChatStatusTracker()
   useNotificationFocus()
+  useAttentionBadge()
   const projectId = useAtomValue(selectedProjectIdAtom)
   const setAddProjectOpen = useSetAtom(addProjectOpenAtom)
   const chatId = useAtomValue(selectedChatIdAtom)
