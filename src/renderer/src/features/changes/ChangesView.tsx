@@ -20,6 +20,7 @@ import {
   Plus,
   RefreshCw,
   ScanSearch,
+  Sparkles,
   Undo2,
   Upload,
   X
@@ -29,6 +30,12 @@ import { changesListWidthAtom, changesPaneRequestAtom, mainTabAtom } from '../..
 import { forgeCopy } from '../../lib/forge-copy'
 import { compareRefAtomFamily } from './compare-ref-atom'
 import { buildLocalReviewPrompt, buildReviewMarker } from '../agents/review-prompts'
+import {
+  buildPrDraftPrompt,
+  findCompletedPrDraft,
+  PR_DRAFT_MARKER
+} from '../../../../shared/pr-draft'
+import { useAgentStream } from '../agents/use-agent-stream'
 import { cn, timeAgo } from '../../lib/utils'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -201,6 +208,45 @@ export function ChangesView({
       setPrBody('')
     }
   })
+
+  // "Draft with AI": a marker run in the chat's agent reads the branch and
+  // replies with a ```pr-draft fenced JSON block; while the PR dialog is open
+  // we watch the transcript and fill the (still editable) form on completion.
+  const [drafting, setDrafting] = useState(false)
+  const [draftError, setDraftError] = useState<string | null>(null)
+  /** Marker id of a draft already completed at click time — ignored as stale. */
+  const draftBaseline = useRef<string | null>(null)
+  const sendDraft = trpc.agent.send.useMutation()
+  const draftStream = useAgentStream(prOpen && review ? review.subchatId : null)
+  const startDraft = (): void => {
+    if (!review) return
+    draftBaseline.current = findCompletedPrDraft(draftStream.messages)?.markerId ?? null
+    setDraftError(null)
+    setDrafting(true)
+    sendDraft.mutate(
+      {
+        subchatId: review.subchatId,
+        content: buildPrDraftPrompt(review.baseBranch),
+        displayText: PR_DRAFT_MARKER,
+        displayKind: 'marker'
+      },
+      { onError: () => setDrafting(false) }
+    )
+  }
+  useEffect(() => {
+    if (!drafting || draftStream.running) return
+    const done = findCompletedPrDraft(draftStream.messages)
+    if (!done || done.markerId === draftBaseline.current) return
+    setDrafting(false)
+    if (done.draft) {
+      setPrTitle(done.draft.title)
+      setPrBody(done.draft.body)
+    } else {
+      setDraftError(
+        'The agent finished without a usable pr-draft block — try again or fill the fields manually.'
+      )
+    }
+  }, [drafting, draftStream.running, draftStream.messages])
 
   const files = status.data?.files ?? []
   const branchList = branches.data?.all ?? []
@@ -874,7 +920,19 @@ export function ChangesView({
       </Dialog>
 
       {/* Create PR/MR dialog (gh / glab CLI) */}
-      <Dialog open={prOpen} onOpenChange={setPrOpen}>
+      <Dialog
+        open={prOpen}
+        onOpenChange={(o) => {
+          setPrOpen(o)
+          if (!o) {
+            // An in-flight draft keeps running in the chat; we just stop
+            // watching for it — reopening the dialog can draft again.
+            setDrafting(false)
+            setDraftError(null)
+            sendDraft.reset()
+          }
+        }}
+      >
         <DialogContent>
           <DialogTitle>Create {fc.long}</DialogTitle>
           {createPr.data ? (
@@ -898,9 +956,37 @@ export function ChangesView({
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="text-[11px] text-muted-foreground font-mono">
-                {currentBranch} → default branch
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0 truncate text-[11px] text-muted-foreground font-mono">
+                  {currentBranch} → default branch
+                </div>
+                <Tip
+                  content={
+                    !review
+                      ? 'AI drafting needs an agent chat — open Changes from a chat to use it'
+                      : draftStream.running && !drafting
+                        ? 'The agent is busy — wait for the current run to finish'
+                        : 'Ask the chat’s agent to read the branch’s commits and diff and draft the title and description (both stay editable)'
+                  }
+                >
+                  <span className="inline-flex shrink-0">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={!review || drafting || sendDraft.isPending || draftStream.running}
+                      onClick={startDraft}
+                    >
+                      <Sparkles size={13} />
+                      {drafting ? 'Drafting…' : 'Draft with AI'}
+                    </Button>
+                  </span>
+                </Tip>
               </div>
+              {drafting && (
+                <div className="text-[11px] text-muted-foreground">
+                  The agent is reading the branch and drafting a description…
+                </div>
+              )}
               <Input
                 autoFocus
                 placeholder="Title"
@@ -935,9 +1021,9 @@ export function ChangesView({
                   {createPr.isPending ? 'Creating…' : `Create ${fc.short}`}
                 </Button>
               </div>
-              {createPr.error && (
+              {(createPr.error || sendDraft.error || draftError) && (
                 <div className="max-h-24 overflow-y-auto text-[11px] text-destructive selectable whitespace-pre-wrap">
-                  {createPr.error.message}
+                  {createPr.error?.message ?? sendDraft.error?.message ?? draftError}
                 </div>
               )}
             </div>
