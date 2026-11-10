@@ -67,11 +67,14 @@
           <ul class="toc">
             <li><a href="#chat-screen">The chat screen</a></li>
             <li><a href="#modes">Modes: Plan, Build, Fast</a></li>
+            <li><a href="#confidence">Confidence &amp; verification</a></li>
             <li><a href="#approvals">Approvals &amp; permissions</a></li>
             <li><a href="#full-sandbox">Full sandbox</a></li>
             <li><a href="#token-compression">Token compression</a></li>
             <li><a href="#reviewing-and-shipping">Reviewing &amp; shipping</a></li>
             <li><a href="#agent-code-review">Agent code review</a></li>
+            <li><a href="#codebase-qa">Codebase Q&amp;A (/ask)</a></li>
+            <li><a href="#repo-wiki">Repo wiki</a></li>
             <li><a href="#checkpoints">Checkpoints &amp; rollback</a></li>
             <li><a href="#goals">Goals</a></li>
             <li><a href="#workflows">Workflows</a></li>
@@ -128,13 +131,15 @@
           </li>
           <li>
             <strong>details</strong> — toggle the <a href="#details-panel">details panel</a>: a
-            resizable side panel with the chat's changed files, live tasks, latest plan, and the
-            branch's open-PR comments.
+            resizable side panel with the chat's changed files, live tasks, latest plan, session
+            timeline, and the branch's open-PR comments.
           </li>
           <li>
             <strong>The ⋯ menu</strong> — occasional tools live behind the ⋯ button:
             <strong>Code review</strong> (review this chat's changes or an open PR/MR, see
             <a href="#agent-code-review">Agent code review</a>),
+            <strong>Verify work</strong> (per-chat Default / On / Off override for the
+            self-verification pass, see <a href="#confidence">Confidence &amp; verification</a>),
             <strong>Observational memory</strong> (<code>/om</code> status and tuning),
             <strong>PR subscriptions</strong> (<code>/github</code>),
             <strong>MCP servers</strong> (live status of this chat's MCP servers with a quick
@@ -244,7 +249,7 @@
         <h3 id="details-panel">The details panel</h3>
         <p>
           The <strong>details</strong> button in the chat header opens a side panel next to the
-          transcript (drag its edge to resize) with three live sections:
+          transcript (drag its edge to resize) with live sections:
         </p>
         <ul>
           <li>
@@ -253,6 +258,11 @@
           </li>
           <li><strong>Tasks</strong> — the agent's current task checklist as it progresses.</li>
           <li><strong>Plan</strong> — the most recent plan the agent submitted.</li>
+          <li>
+            <strong>Timeline</strong> — a chronological record of the session: your prompts,
+            commands the agent ran (with pass/fail status), file changes (click one to open it in
+            the IDE), subagent runs, model switches, and checkpoints.
+          </li>
           <li>
             <strong>PR comments</strong> — when the chat's branch has an open pull request (GitHub,
             via the <code>gh</code> CLI), its comments and reviews appear here and refresh
@@ -303,6 +313,35 @@
         <p>
           A good rhythm for nontrivial work: start in <strong>Plan</strong>, let the agent explore
           and propose, approve the plan, and let it flip to <strong>Build</strong> to execute.
+        </p>
+
+        <h2 id="confidence">Confidence &amp; verification</h2>
+
+        <h3>Confidence ratings</h3>
+        <p>
+          When the agent takes on a task it states how confident it is that it understood the
+          request and can deliver: a green / yellow / red <strong>confidence chip</strong> appears
+          in the chat header and on plan cards, with the agent's reasoning in the tooltip. On yellow
+          or red the agent asks clarifying questions before diving in rather than guessing.
+        </p>
+        <p>
+          Ratings are on by default and can be turned off in Settings →
+          <strong>Preferences</strong>. They rely on the model following instructions — if a model
+          doesn't emit a rating, the chip simply doesn't appear; nothing is blocked.
+        </p>
+
+        <h3>Verify work before finishing</h3>
+        <p>
+          An opt-in self-verification pass: before declaring a task done, the agent discovers the
+          project's own checks (test/lint/build scripts, Makefile targets, CI config), runs them,
+          fixes failures, and re-runs — and reports honestly if something still fails instead of
+          claiming success. When the browser tool is configured it can also smoke-test the running
+          app.
+        </p>
+        <p>
+          Off by default. Enable it globally in Settings → <strong>Preferences</strong>, or per chat
+          via <strong>Verify work</strong> in the chat header's ⋯ menu (Default follows the global
+          setting). Expect longer, more thorough runs when it's on.
         </p>
 
         <h2 id="approvals">Approvals and permissions</h2>
@@ -494,6 +533,45 @@
           PR or MR), <code>/review</code> alone (list open PRs/MRs to pick from); append a focus to
           either form, e.g. <code>/review 42 security</code>.
         </p>
+
+        <h2 id="codebase-qa">Codebase Q&amp;A (/ask)</h2>
+        <p>
+          <code>/ask &lt;question&gt;</code> answers questions about the codebase
+          <strong>read-only</strong> — the agent explores but never edits files or runs
+          state-changing commands. Answers cite their sources as clickable
+          <code>path:line</code> references that open the file in the IDE at that line. Great for
+          "where is X handled?" or "how does Y work?" before you start a task.
+        </p>
+
+        <h2 id="repo-wiki">Repo wiki</h2>
+        <p>
+          The <strong>Wiki</strong> tab (book icon in the tab bar) holds agent-generated
+          architecture docs for the selected project: an overview page with a Mermaid diagram plus a
+          page per major module, with clickable <code>path:line</code> source references that open
+          the IDE and links between pages.
+        </p>
+        <ul>
+          <li>
+            <strong>Generate</strong> — click Generate (or run <code>/wiki generate</code>): the
+            wiki is written as a normal, visible agent run in the selected chat, with the usual
+            approvals and cost tracking. When the run finishes, the pages are collected
+            automatically.
+          </li>
+          <li>
+            <strong>Storage</strong> — pages live in Yardarm's app data folder, per project — never
+            inside your repository, so diffs, reviews, and commits stay clean. (The temporary
+            <code>.yardarm-wiki/</code> staging folder the agent writes to is git-excluded and
+            removed on collection.) See <a href="workspace.html#wiki">Workspace</a>.
+          </li>
+          <li>
+            <strong>Staleness</strong> — when the repository has new commits since generation, a
+            banner shows how many commits behind the wiki is, with a one-click Refresh.
+          </li>
+          <li>
+            <code>/wiki</code> opens the tab; the trash button deletes all pages (regenerate any
+            time).
+          </li>
+        </ul>
 
         <h2 id="checkpoints">Checkpoints and rollback</h2>
         <p>

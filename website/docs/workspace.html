@@ -70,6 +70,7 @@
             <li><a href="#cli">CLI</a></li>
             <li><a href="#preview">Preview</a></li>
             <li><a href="#factory">Factory</a></li>
+            <li><a href="#wiki">Wiki</a></li>
             <li><a href="#sidebar-indicators">Sidebar indicators</a></li>
             <li><a href="#analytics">Analytics</a></li>
             <li><a href="#connectors">Connectors</a></li>
@@ -277,6 +278,27 @@
             session transcripts stay in the dashboard.
           </li>
         </ul>
+
+        <h2 id="wiki">Wiki</h2>
+        <p>
+          The <strong>Wiki</strong> tab (book icon in the tab bar, unnumbered — reach it from the
+          tab bar, <kbd>Cmd+K</kbd>, or <code>/wiki</code>) holds agent-generated architecture docs
+          for the selected project: an overview page with a Mermaid diagram plus a page per major
+          module, with clickable <code>path:line</code> source references that open the IDE and
+          links between pages. Generation runs as a normal, visible agent run in the selected chat
+          (<code>/wiki generate</code>); a banner shows when the wiki has fallen behind the
+          repository, with a one-click Refresh. See
+          <a href="using-the-app.html#repo-wiki">Repo wiki</a> for the full flow.
+        </p>
+        <p>
+          Pages are stored per project in Yardarm's app data folder
+          (<code>wiki/&lt;projectId&gt;</code>, next to <code>worktrees/</code> — see
+          <a href="configuration.html#app-data">App data</a>) — never inside your repository, so
+          diffs, reviews, and commits stay clean. During generation the agent writes to a temporary
+          <code>.yardarm-wiki/</code> staging folder in the chat's worktree, which is registered in
+          the repo's <code>.git/info/exclude</code> (not your <code>.gitignore</code>) and removed
+          once the pages are collected.
+        </p>
 
         <h2 id="sidebar-indicators">Sidebar activity indicators</h2>
         <p>

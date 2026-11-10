@@ -158,6 +158,20 @@
               <td>review a PR or the local changes</td>
             </tr>
             <tr>
+              <td><code>/ask</code></td>
+              <td>
+                read-only codebase Q&amp;A with clickable <code>path:line</code> citations (see
+                <a href="using-the-app.html#codebase-qa">Codebase Q&amp;A</a>)
+              </td>
+            </tr>
+            <tr>
+              <td><code>/wiki</code></td>
+              <td>
+                open the repo wiki; <code>/wiki generate</code> (re)generates it (see
+                <a href="using-the-app.html#repo-wiki">Repo wiki</a>)
+              </td>
+            </tr>
+            <tr>
               <td><code>/setup</code></td>
               <td>re-run the setup wizard</td>
             </tr>
@@ -224,13 +238,14 @@
               <td><strong>Preferences</strong></td>
               <td>
                 default auto-approve (yolo), CLI theme, default thinking level, tool-output
-                previews, new-chat sandbox defaults, token compression + verbosity steering, the
-                web-search provider the agent's search tool uses (Tavily or Parallel), commit
-                attribution (customize or disable the co-author trailer on agent-made commits),
-                experimental cross-agent communication, experimental Knowledge (a persistent agent
-                knowledge base + the <code>/knowledge</code> browser), per-tool toggles to disable
-                built-in agent tools, desktop notifications, and a Storage card (sizes +
-                <strong>Prune now</strong>)
+                previews, new-chat sandbox defaults, confidence ratings (the green/yellow/red chip —
+                on by default), verify work before finishing (the self-verification pass — off by
+                default), token compression + verbosity steering, the web-search provider the
+                agent's search tool uses (Tavily or Parallel), commit attribution (customize or
+                disable the co-author trailer on agent-made commits), experimental cross-agent
+                communication, experimental Knowledge (a persistent agent knowledge base + the
+                <code>/knowledge</code> browser), per-tool toggles to disable built-in agent tools,
+                desktop notifications, and a Storage card (sizes + <strong>Prune now</strong>)
               </td>
             </tr>
             <tr>
@@ -455,8 +470,10 @@
         </ul>
         <p>
           Chat worktrees live under <code>worktrees/&lt;projectId&gt;/&lt;chatId&gt;</code> in the
-          same directory. The database runs in WAL mode with periodic maintenance (vacuum/optimize,
-          size-bounded transcripts) so long-lived installs don't degrade.
+          same directory, and generated repo wikis under <code>wiki/&lt;projectId&gt;</code> (see
+          <a href="workspace.html#wiki">Wiki</a>). The database runs in WAL mode with periodic
+          maintenance (vacuum/optimize, size-bounded transcripts) so long-lived installs don't
+          degrade.
         </p>
         <p>
           Optional language-server packs downloaded from <strong>Settings → Languages</strong> are

@@ -27,8 +27,9 @@ the two stay in sync.
 
 The main window has a project sidebar on the left and a set of tabs across the top: **Chat**,
 **CLI**, **IDE**, **Changes**, **Terminal**, **Preview**, and **Factory**, plus icon
-buttons for **Analytics** and this **Guide**. Switch tabs with ⌘1–⌘8 (⌘ on macOS; use Ctrl on
-Windows/Linux throughout this guide); Factory is unnumbered — reach it from the tab bar or ⌘K.
+buttons for the **Wiki**, **Analytics**, and this **Guide**. Switch tabs with ⌘1–⌘8 (⌘ on
+macOS; use Ctrl on Windows/Linux throughout this guide); Factory and the Wiki are unnumbered —
+reach them from the tab bar or ⌘K.
 
 Press **⌘K** anywhere for the **command palette**: run slash commands, jump to any tab or
 settings section, or switch to another chat — all from the keyboard.
@@ -107,11 +108,15 @@ its reasoning, tool calls, and file edits into the transcript.
 ### Header tools
 
 - **Details panel** — the details button opens a resizable side panel with the chat's
-  changed files (click to view), the live task checklist, the latest plan, and — when the
-  branch has an open PR — the PR's comments and reviews.
+  changed files (click to view), the live task checklist, the latest plan, a **session
+  timeline** (everything the agent did, in order: your prompts, commands with pass/fail
+  status, file changes — click one to open it in the IDE — subagent runs, model switches,
+  and checkpoints), and — when the branch has an open PR — the PR's comments and reviews.
 - **Checkpoints** — a quick view of the chat's rollback checkpoints (see Checkpoints below).
 - **The ⋯ menu** — occasional tools live under the ⋯ button: **Code review** (review local
-  changes or an open PR/MR), **Observational memory** (\`/om\` status and tuning),
+  changes or an open PR/MR), **Verify work** (per-chat Default / On / Off override for the
+  self-verification pass — see Confidence & verification),
+  **Observational memory** (\`/om\` status and tuning),
   **PR subscriptions** (\`/github\`), **MCP servers** (live status of this chat's MCP servers
   with a quick per-server enable/disable switch — no trip to Settings needed),
   **Open folder in…** (reveal the chat's folder in your
@@ -174,6 +179,33 @@ deny inline.
   sandboxed commands, smart editing, completion notifications, and **skip global
   instructions** (leave your \`~/.mastracode\` global agent instructions out of this one
   session — project instructions still apply).
+`
+  },
+  {
+    id: 'confidence',
+    title: 'Confidence & verification',
+    body: `
+### Confidence ratings
+
+When the agent takes on a task it states how confident it is that it understood the request
+and can deliver: a green / yellow / red **confidence chip** appears in the chat header and on
+plan cards, with the agent's reasoning in the tooltip. On yellow or red the agent asks
+clarifying questions before diving in rather than guessing.
+
+Ratings are on by default and can be turned off in Settings → Preferences. They rely on the
+model following instructions — if a model doesn't emit a rating, the chip simply doesn't
+appear; nothing is blocked.
+
+### Verify work before finishing
+
+An opt-in self-verification pass: before declaring a task done, the agent discovers the
+project's own checks (test/lint/build scripts, Makefile targets, CI config), runs them, fixes
+failures, and re-runs — and reports honestly if something still fails instead of claiming
+success. When the browser tool is configured it can also smoke-test the running app.
+
+Off by default. Enable it globally in Settings → Preferences, or per chat via **Verify work**
+in the chat header's ⋯ menu (Default follows the global setting). Expect longer, more
+thorough runs when it's on.
 `
   },
   {
@@ -243,6 +275,34 @@ root).
   and authenticated, you can open PRs/MRs from the app; the title is prefilled from your last
   commit. The host is auto-detected from the origin remote; for self-hosted instances, set it
   in Project Settings → General.
+`
+  },
+  {
+    id: 'wiki',
+    title: 'Repo wiki & codebase Q&A',
+    body: `
+### Repo wiki
+
+The **Wiki** tab (book icon in the tab bar) holds agent-generated architecture docs for the
+selected project: an overview page with a Mermaid diagram plus a page per major module, with
+clickable \`path:line\` source references that open the IDE and links between pages.
+
+- **Generate** — click Generate (or run \`/wiki generate\`): the wiki is written as a normal,
+  visible agent run in the selected chat, with the usual approvals and cost tracking. When
+  the run finishes, the pages are collected automatically.
+- **Storage** — pages live in Yardarm's app data folder, per project — never inside your
+  repository, so diffs, reviews, and commits stay clean. (The temporary \`.yardarm-wiki/\`
+  staging folder the agent writes to is git-excluded and removed on collection.)
+- **Staleness** — when the repository has new commits since generation, a banner shows how
+  many commits behind the wiki is, with a one-click Refresh.
+- \`/wiki\` opens the tab; the trash button deletes all pages (regenerate any time).
+
+### Codebase Q&A (/ask)
+
+\`/ask <question>\` answers questions about the codebase **read-only** — the agent explores
+but never edits files or runs state-changing commands. Answers cite their sources as
+clickable \`path:line\` references that open the file in the IDE at that line. Great for
+"where is X handled?" or "how does Y work?" before you start a task.
 `
   },
   {
@@ -525,8 +585,9 @@ App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
 - **Appearance** — light/dark/system theme.
 - **Keyboard** — rebind the app shortcuts (command palette, find, split panes, …). ⌘1–8 tab
   switching is fixed.
-- **Preferences** — agent behavior defaults (auto-approve, sandbox), token compression and
-  verbosity steering, the **web-search provider** the agent's search tool uses (Tavily or
+- **Preferences** — agent behavior defaults (auto-approve, sandbox, **confidence ratings** —
+  the colored chip, on by default — and **verify work before finishing**, off by default),
+  token compression and verbosity steering, the **web-search provider** the agent's search tool uses (Tavily or
   Parallel), **commit attribution** (the co-author trailer on agent-made commits — customize
   or disable it), experimental **cross-agent communication** (lets running agents discover
   and signal each other), experimental **schedule tools** (gives the agent
