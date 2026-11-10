@@ -283,9 +283,10 @@ root).
     body: `
 ### Repo wiki
 
-The **Wiki** tab (book icon in the tab bar) holds agent-generated architecture docs for the
-selected project: an overview page with a Mermaid diagram plus a page per major module, with
-clickable \`path:line\` source references that open the IDE and links between pages.
+The **Wiki** tab (book icon in the tab bar or the sidebar footer) holds agent-generated
+architecture docs for the selected project: an overview page with a Mermaid diagram plus a
+page per major module, with clickable \`path:line\` source references that open the IDE and
+links between pages.
 
 - **Generate** — click Generate (or run \`/wiki generate\`): the wiki is written as a normal,
   visible agent run in the selected chat, with the usual approvals and cost tracking. When
@@ -302,7 +303,8 @@ clickable \`path:line\` source references that open the IDE and links between pa
 \`/ask <question>\` answers questions about the codebase **read-only** — the agent explores
 but never edits files or runs state-changing commands. Answers cite their sources as
 clickable \`path:line\` references that open the file in the IDE at that line. Great for
-"where is X handled?" or "how does Y work?" before you start a task.
+"where is X handled?" or "how does Y work?" before you start a task. The question-mark
+button in the sidebar footer jumps to the composer with \`/ask\` prefilled.
 `
   },
   {

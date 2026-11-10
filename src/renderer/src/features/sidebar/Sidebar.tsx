@@ -3,11 +3,13 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   Archive,
   ArchiveRestore,
+  BookText,
   ChevronRight,
   CircleHelp,
   Folder,
   FolderGit2,
   Loader2,
+  MessageCircleQuestion,
   MessageSquarePlus,
   Moon,
   Pencil,
@@ -21,6 +23,7 @@ import { cn, timeAgo } from '../../lib/utils'
 import {
   addProjectOpenAtom,
   chatStatusesAtom,
+  composerInsertAtom,
   mainTabAtom,
   newChatOpenAtom,
   projectSettingsOpenAtom,
@@ -98,6 +101,7 @@ export function Sidebar(): React.JSX.Element {
   const setSubchatId = useSetAtom(selectedSubchatIdAtom)
   const setSettingsOpen = useSetAtom(settingsOpenAtom)
   const setMainTab = useSetAtom(mainTabAtom)
+  const setComposerInsert = useSetAtom(composerInsertAtom)
   const setTheme = useSetAtom(themeAtom)
   const isDark = useIsDark()
   const setProjectSettingsOpen = useSetAtom(projectSettingsOpenAtom)
@@ -519,6 +523,47 @@ export function Sidebar(): React.JSX.Element {
             <Settings size={13} />
             Settings
           </Button>
+        </Tip>
+        <Tip
+          content={
+            projectId
+              ? 'Repo wiki — agent-generated architecture docs for the selected project'
+              : 'Repo wiki — select a project first'
+          }
+          side="top"
+        >
+          <span className="inline-flex">
+            <Button
+              variant="ghost"
+              size="icon"
+              disabled={!projectId}
+              onClick={() => setMainTab('wiki')}
+            >
+              <BookText size={13} />
+            </Button>
+          </span>
+        </Tip>
+        <Tip
+          content={
+            chatId
+              ? 'Ask about the codebase — opens the chat composer with /ask (read-only Q&A with clickable citations)'
+              : 'Ask about the codebase — select a chat first'
+          }
+          side="top"
+        >
+          <span className="inline-flex">
+            <Button
+              variant="ghost"
+              size="icon"
+              disabled={!chatId}
+              onClick={() => {
+                setComposerInsert('/ask ')
+                setMainTab('chat')
+              }}
+            >
+              <MessageCircleQuestion size={13} />
+            </Button>
+          </span>
         </Tip>
         <Tip content="Open the in-app guide — how every part of Yardarm works, plus FAQ" side="top">
           <Button variant="ghost" size="icon" onClick={() => setMainTab('guide')}>
