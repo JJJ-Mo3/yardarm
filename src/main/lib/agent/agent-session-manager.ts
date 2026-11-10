@@ -10,6 +10,7 @@ import path from 'node:path'
 import { app, shell, utilityProcess, type UtilityProcess } from 'electron'
 import { and, asc, eq, desc, isNotNull, isNull, or, sql } from 'drizzle-orm'
 import { getDb, schema } from '../db'
+import { projectEnvRecord } from '../db/project-settings'
 import { notifyAgentEvent } from '../notifications'
 import { captureCheckpoint } from '../git/ops'
 import { EventTranslator } from './event-translator'
@@ -532,14 +533,18 @@ export class AgentSessionManager {
       .filter((p): p is string => !!p)
     await mirrorMcpOAuthTokens([cwd, project.path, os.homedir(), ...siblingWorktrees])
 
-    const handle = this.spawnHost(subchatId, boot)
+    const handle = this.spawnHost(subchatId, boot, projectEnvRecord(chat.projectId))
     this.hosts.set(subchatId, handle)
     this.emitUI(subchatId, { type: 'status', status: 'starting' })
     await handle.readyPromise
     return handle
   }
 
-  private spawnHost(subchatId: string, boot: HostBootConfig): HostHandle {
+  private spawnHost(
+    subchatId: string,
+    boot: HostBootConfig,
+    projectEnv?: Record<string, string>
+  ): HostHandle {
     // Downloaded optional language-server packs (src/shared/lsp-packs.ts).
     boot = { ...boot, lspServersDir: path.join(app.getPath('userData'), 'lsp-servers') }
     if (app.isPackaged) {
@@ -561,6 +566,10 @@ export class AgentSessionManager {
         // Provider keys referenced by env var (Settings → API Keys) plus
         // auto-detected standard vars from the login shell — named vars only.
         ...this.buildProviderKeyEnv(),
+        // Per-project env vars (Project Settings → Environment). After the
+        // provider keys so explicit project values win; projectEnvRecord
+        // drops PATH and YARDARM_BOOT so the app-controlled values hold.
+        ...projectEnv,
         YARDARM_BOOT: JSON.stringify(boot)
       }
     })

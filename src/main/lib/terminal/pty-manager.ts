@@ -60,7 +60,14 @@ export class PtyManager {
    */
   private finished = new Map<string, { buffer: string; code: number }>()
 
-  create(id: string, cwd: string, cols = 80, rows = 24, command?: string): void {
+  create(
+    id: string,
+    cwd: string,
+    cols = 80,
+    rows = 24,
+    command?: string,
+    env?: Record<string, string>
+  ): void {
     if (this.sessions.has(id)) return
     this.finished.delete(id)
     // Login shell: GUI apps get a bare PATH on macOS, and homebrew / node
@@ -82,7 +89,9 @@ export class PtyManager {
       cols,
       rows,
       cwd,
-      env: { ...process.env, TERM_PROGRAM: 'yardarm' } as Record<string, string>
+      // Extra vars (per-project env) come last so they win over inherited
+      // ones; the shell's login rc files may still re-set PATH.
+      env: { ...process.env, TERM_PROGRAM: 'yardarm', ...env } as Record<string, string>
     })
     const session: PtySession = { id, proc, cwd, buffer: '', emitter: new EventEmitter() }
     session.emitter.setMaxListeners(20)

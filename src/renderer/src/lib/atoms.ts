@@ -57,6 +57,7 @@ export type ProjectSettingsTab =
   | 'commands'
   | 'instructions'
   | 'knowledge'
+  | 'environment'
   | 'resource'
   | 'plugins'
   | 'workflows'

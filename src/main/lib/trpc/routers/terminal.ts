@@ -2,6 +2,7 @@ import { observable } from '@trpc/server/observable'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb, schema } from '../../db'
+import { projectEnvRecord } from '../../db/project-settings'
 import { detectDevCommand } from '../../terminal/dev-command'
 import { buildMastracodeCommand, ptyManager } from '../../terminal/pty-manager'
 import { extractLocalhostUrls } from '../../terminal/url-detect'
@@ -43,6 +44,8 @@ export const terminalRouter = router({
         cols: z.number().int().positive().default(80),
         rows: z.number().int().positive().default(24),
         kind: z.enum(['shell', 'mastracode']).default('shell'),
+        /** Project whose env vars (Project Settings → Environment) to inject. */
+        projectId: z.string().optional(),
         /**
          * Attach to an existing pty only — never spawn. Used for the
          * router-created command ptys (factory-*): if the command already
@@ -69,7 +72,8 @@ export const terminalRouter = router({
         if (!cliPath) throw new Error('Bundled mastracode runtime not found')
         command = buildMastracodeCommand(process.execPath, cliPath)
       }
-      ptyManager.create(input.id, input.cwd, input.cols, input.rows, command)
+      const env = input.projectId ? projectEnvRecord(input.projectId) : undefined
+      ptyManager.create(input.id, input.cwd, input.cols, input.rows, command, env)
       return { ok: true, attached: true }
     }),
 
@@ -146,7 +150,15 @@ export const terminalRouter = router({
    * port) are killed first, with a short grace period for the port to free.
    */
   startDevServer: publicProcedure
-    .input(z.object({ id: z.string(), cwd: z.string(), stopIds: z.array(z.string()).default([]) }))
+    .input(
+      z.object({
+        id: z.string(),
+        cwd: z.string(),
+        stopIds: z.array(z.string()).default([]),
+        /** Project whose env vars (Project Settings → Environment) to inject. */
+        projectId: z.string().optional()
+      })
+    )
     .mutation(async ({ input }) => {
       const dev = detectDevCommand(input.cwd)
       if (!dev) throw new Error('No dev/serve/start script or root .html files in this project')
@@ -158,7 +170,8 @@ export const terminalRouter = router({
       )
       for (const id of stopped) ptyManager.kill(id)
       if (stopped.length > 0) await sleep(1000)
-      ptyManager.create(input.id, input.cwd, 80, 24, dev.command)
+      const env = input.projectId ? projectEnvRecord(input.projectId) : undefined
+      ptyManager.create(input.id, input.cwd, 80, 24, dev.command, env)
       return { ok: true }
     }),
 

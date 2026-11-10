@@ -516,6 +516,7 @@ export default function App(): React.JSX.Element {
                     id={chatId ? `cli-chat-${chatId}` : `cli-project-${projectId}`}
                     cwd={cwd}
                     kind="mastracode"
+                    projectId={projectId}
                   />
                 ) : (
                   <SelectProjectPane />
@@ -546,6 +547,7 @@ export default function App(): React.JSX.Element {
                     active={tab === 'preview'}
                     cwd={cwd}
                     devTerminalId={chatId ? `dev-chat-${chatId}` : `dev-project-${projectId}`}
+                    projectId={projectId}
                   />
                 ) : (
                   <SelectProjectPane />

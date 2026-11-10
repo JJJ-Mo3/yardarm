@@ -8,7 +8,7 @@ import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm'
 import { simpleGit } from 'simple-git'
 import { z } from 'zod'
 import { getDb, schema } from '../../db'
-import { parseProjectSettings } from '../../db/project-settings'
+import { parseProjectSettings, projectEnvVars } from '../../db/project-settings'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import { checkpointStashSha, deleteCheckpointRefs } from '../../git/ops'
 import {
@@ -288,6 +288,56 @@ export const projectsRouter = router({
         .set({ settings: serialized, updatedAt: Date.now() })
         .where(eq(schema.projects.id, input.id))
         .run()
+      return { ok: true }
+    }),
+
+  /** Per-project env vars added to agent hosts and terminals (Environment tab). */
+  envGet: publicProcedure.input(z.object({ projectId: z.string() })).query(({ input }) => {
+    return projectEnvVars(input.projectId)
+  }),
+
+  /**
+   * Replace the project's env var list, then restart its active agent hosts
+   * so running chats pick the new values up. Terminals apply on next spawn.
+   */
+  envSet: publicProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        envVars: z
+          .array(
+            z.object({
+              key: z
+                .string()
+                .regex(/^[A-Za-z_][A-Za-z0-9_]*$/, 'Keys must match [A-Za-z_][A-Za-z0-9_]*')
+                .refine((k) => k !== 'PATH' && k !== 'YARDARM_BOOT', 'This name is reserved'),
+              value: z.string().max(10_000),
+              secret: z.boolean().optional()
+            })
+          )
+          .max(100)
+      })
+    )
+    .mutation(({ input }) => {
+      const db = getDb()
+      const project = db
+        .select()
+        .from(schema.projects)
+        .where(eq(schema.projects.id, input.projectId))
+        .get()
+      if (!project) throw new Error('Project not found')
+      const keys = input.envVars.map((v) => v.key)
+      if (new Set(keys).size !== keys.length) throw new Error('Duplicate variable names')
+      // Read-modify-write the JSON blob so unknown keys are preserved.
+      const settings = parseProjectSettings(project.settings)
+      if (input.envVars.length === 0) delete settings.envVars
+      else settings.envVars = input.envVars
+      const serialized = Object.keys(settings).length > 0 ? JSON.stringify(settings) : null
+      db.update(schema.projects)
+        .set({ settings: serialized, updatedAt: Date.now() })
+        .where(eq(schema.projects.id, input.projectId))
+        .run()
+      agentSessionManager.restartByProject(project.path)
       return { ok: true }
     })
 })

@@ -28,7 +28,8 @@ export function PreviewView({
   terminalIds,
   active,
   cwd,
-  devTerminalId
+  devTerminalId,
+  projectId
 }: {
   /** Terminals whose scrollback is scanned for dev-server URLs. */
   terminalIds: string[]
@@ -38,6 +39,8 @@ export function PreviewView({
   cwd: string
   /** Dedicated pty id for the one-click dev server — must be in terminalIds. */
   devTerminalId: string
+  /** Project whose env vars (Project Settings → Environment) to inject. */
+  projectId?: string | null
 }): React.JSX.Element {
   const webviewRef = useRef<WebviewElement | null>(null)
   const devtoolsPaneRef = useRef<HTMLDivElement | null>(null)
@@ -92,7 +95,12 @@ export function PreviewView({
   )
   const otherServers = otherDev.data ?? []
   const startDevHere = (): void =>
-    startDev.mutate({ id: devTerminalId, cwd, stopIds: otherServers.map((o) => o.id) })
+    startDev.mutate({
+      id: devTerminalId,
+      cwd,
+      stopIds: otherServers.map((o) => o.id),
+      projectId: projectId ?? undefined
+    })
   const startDevTip = (command: string): string =>
     otherServers.length > 0
       ? `Stop the dev server still running in ${otherServers

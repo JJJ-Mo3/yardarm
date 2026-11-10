@@ -9,13 +9,17 @@ import {
   BookOpenText,
   Database,
   ExternalLink,
+  Eye,
+  EyeOff,
   FileCode2,
   Lightbulb,
   Pin,
   Play,
+  Plus,
   Puzzle,
   Settings2,
   Trash2,
+  Variable,
   Webhook,
   Workflow
 } from 'lucide-react'
@@ -1746,6 +1750,179 @@ function KnowledgeTab({
   )
 }
 
+/** One editable env-var row in the Environment tab (local state only). */
+interface EnvRow {
+  key: string
+  value: string
+  secret: boolean
+  reveal: boolean
+}
+
+const ENV_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
+const RESERVED_ENV_KEYS = ['PATH', 'YARDARM_BOOT']
+
+function EnvironmentTab({ projectId }: { projectId: string }): React.JSX.Element {
+  const utils = trpc.useUtils()
+  const stored = trpc.projects.envGet.useQuery({ projectId })
+  const [rows, setRows] = useState<EnvRow[] | null>(null)
+  const [saved, setSaved] = useState(false)
+  const save = trpc.projects.envSet.useMutation({
+    onSuccess: () => {
+      setSaved(true)
+      void utils.projects.envGet.invalidate({ projectId })
+    }
+  })
+
+  // Seed the editable rows from the stored list once per mount (the tab is
+  // keyed by projectId, so a project switch remounts and re-seeds).
+  useEffect(() => {
+    if (stored.data && rows === null) {
+      setRows(
+        stored.data.map((v) => ({ key: v.key, value: v.value, secret: !!v.secret, reveal: false }))
+      )
+    }
+  }, [stored.data, rows])
+
+  const list = rows ?? []
+  const entries = list.filter((r) => r.key.trim() !== '' || r.value !== '')
+  const keys = entries.map((r) => r.key.trim())
+  const badKey = keys.find((k) => !ENV_KEY_RE.test(k) || RESERVED_ENV_KEYS.includes(k))
+  const hasDuplicates = new Set(keys).size !== keys.length
+  const validationError =
+    badKey !== undefined
+      ? RESERVED_ENV_KEYS.includes(badKey)
+        ? `"${badKey}" is reserved by the app`
+        : `Invalid name "${badKey}" — use letters, digits, and _ (not starting with a digit)`
+      : hasDuplicates
+        ? 'Duplicate variable names'
+        : null
+
+  function edit(index: number, patch: Partial<EnvRow>): void {
+    setSaved(false)
+    setRows(list.map((r, i) => (i === index ? { ...r, ...patch } : r)))
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="text-[11px] text-muted-foreground">
+        Environment variables added to this project&apos;s agent and terminal processes. Saving
+        restarts the project&apos;s active agents; terminals pick changes up on their next session.
+        Values are stored in plaintext in the app database — &ldquo;secret&rdquo; only masks them
+        here.
+      </div>
+
+      {stored.isLoading && rows === null && (
+        <div className="text-xs text-muted-foreground">Loading…</div>
+      )}
+
+      <div className="space-y-1.5">
+        {list.map((r, i) => (
+          <div key={i} className="flex items-center gap-1.5">
+            <Input
+              placeholder="NAME"
+              value={r.key}
+              maxLength={100}
+              onChange={(e) => edit(i, { key: e.target.value })}
+              className="w-40 shrink-0 font-mono text-xs"
+            />
+            <Input
+              placeholder="value"
+              type={r.secret && !r.reveal ? 'password' : 'text'}
+              value={r.value}
+              maxLength={10_000}
+              onChange={(e) => edit(i, { value: e.target.value })}
+              className="min-w-0 flex-1 font-mono text-xs"
+            />
+            {r.secret && (
+              <Tip content={r.reveal ? 'Hide the value' : 'Show the value'}>
+                <button
+                  onClick={() => edit(i, { reveal: !r.reveal })}
+                  className="rounded p-1 text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  {r.reveal ? <EyeOff size={13} /> : <Eye size={13} />}
+                </button>
+              </Tip>
+            )}
+            <Tip content="Mask this value in the UI (it is still stored in plaintext)">
+              <label className="flex cursor-pointer items-center gap-1 text-[11px] text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={r.secret}
+                  onChange={(e) => edit(i, { secret: e.target.checked, reveal: false })}
+                />
+                Secret
+              </label>
+            </Tip>
+            <Tip content="Remove this variable (takes effect on Save)">
+              <button
+                onClick={() => {
+                  setSaved(false)
+                  setRows(list.filter((_, j) => j !== i))
+                }}
+                className="rounded p-1 text-muted-foreground hover:text-destructive cursor-pointer"
+              >
+                <Trash2 size={13} />
+              </button>
+            </Tip>
+          </div>
+        ))}
+        {!stored.isLoading && list.length === 0 && (
+          <div className="text-xs text-muted-foreground">No variables yet.</div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Tip content="Add an environment variable row">
+          <span className="inline-flex">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={rows === null || list.length >= 100}
+              onClick={() => {
+                setSaved(false)
+                setRows([...list, { key: '', value: '', secret: false, reveal: false }])
+              }}
+            >
+              <Plus size={13} className="mr-1" />
+              Add variable
+            </Button>
+          </span>
+        </Tip>
+        <Tip content="Save the variable list — restarts this project's active agents so running chats pick the values up">
+          <span className="inline-flex">
+            <Button
+              size="sm"
+              disabled={rows === null || validationError !== null || save.isPending}
+              onClick={() =>
+                save.mutate({
+                  projectId,
+                  envVars: entries.map((r) => ({
+                    key: r.key.trim(),
+                    value: r.value,
+                    secret: r.secret || undefined
+                  }))
+                })
+              }
+            >
+              {save.isPending ? 'Saving…' : 'Save'}
+            </Button>
+          </span>
+        </Tip>
+        {saved && !save.isPending && (
+          <span className="text-[11px] text-muted-foreground">Saved</span>
+        )}
+      </div>
+
+      {validationError && (
+        <div className="text-xs text-destructive selectable">{validationError}</div>
+      )}
+      {save.error && (
+        <div className="text-xs text-destructive selectable">{save.error.message}</div>
+      )}
+    </div>
+  )
+}
+
 export function ProjectSettingsDialog({
   projectId,
   projectPath,
@@ -1797,6 +1974,12 @@ export function ProjectSettingsDialog({
       label: 'Knowledge',
       icon: <Lightbulb size={13} />,
       tip: 'Durable project notes for the agent — pinned ones ride in every prompt'
+    },
+    {
+      id: 'environment',
+      label: 'Environment',
+      icon: <Variable size={13} />,
+      tip: 'Env vars added to this project’s agent and terminal processes'
     },
     {
       id: 'resource',
@@ -1856,6 +2039,9 @@ export function ProjectSettingsDialog({
               {tab === 'instructions' && <InstructionsTab projectPath={projectPath} />}
               {tab === 'knowledge' && projectId && (
                 <KnowledgeTab projectId={projectId} projectPath={projectPath} />
+              )}
+              {tab === 'environment' && projectId && (
+                <EnvironmentTab key={projectId} projectId={projectId} />
               )}
               {tab === 'resource' && (
                 <ResourceTab projectPath={projectPath} subchatId={subchatId} />

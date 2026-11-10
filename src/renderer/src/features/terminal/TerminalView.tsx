@@ -27,13 +27,16 @@ export function TerminalView({
   id,
   cwd,
   kind = 'shell',
-  attachOnly = false
+  attachOnly = false,
+  projectId
 }: {
   id: string
   cwd: string
   kind?: 'shell' | 'mastracode'
   /** Attach to an existing pty only — never spawn (router-created command ptys). */
   attachOnly?: boolean
+  /** Project whose env vars (Project Settings → Environment) to inject on spawn. */
+  projectId?: string | null
 }): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
@@ -100,7 +103,15 @@ export function TerminalView({
       return true
     })
 
-    create.mutate({ id, cwd, cols: term.cols, rows: term.rows, kind, attachOnly })
+    create.mutate({
+      id,
+      cwd,
+      cols: term.cols,
+      rows: term.rows,
+      kind,
+      attachOnly,
+      projectId: projectId ?? undefined
+    })
 
     const onDataDisposable = term.onData((data) => write.mutate({ id, data }))
 

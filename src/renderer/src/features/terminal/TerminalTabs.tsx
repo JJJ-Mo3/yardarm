@@ -158,9 +158,9 @@ export function TerminalTabs({
       </div>
       <div className="min-h-0 flex-1">
         {active ? (
-          <TerminalView key={active.id} id={active.id} cwd={active.cwd} />
+          <TerminalView key={active.id} id={active.id} cwd={active.cwd} projectId={projectId} />
         ) : (
-          <TerminalView key={defaultId} id={defaultId} cwd={cwd} />
+          <TerminalView key={defaultId} id={defaultId} cwd={cwd} projectId={projectId} />
         )}
       </div>
     </div>
