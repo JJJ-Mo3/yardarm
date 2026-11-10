@@ -8,6 +8,7 @@ import React, { useMemo } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   BookOpen,
+  BookText,
   ChartColumn,
   Columns2,
   Factory,
@@ -54,6 +55,7 @@ const TABS: Array<{ id: MainTab; label: string; icon: React.ReactNode; shortcut?
   { id: 'analytics', label: 'Analytics', icon: <ChartColumn size={13} />, shortcut: '6' },
   { id: 'preview', label: 'Preview', icon: <Globe size={13} />, shortcut: '7' },
   { id: 'factory', label: 'Factory', icon: <Factory size={13} /> },
+  { id: 'wiki', label: 'Wiki', icon: <BookText size={13} /> },
   { id: 'guide', label: 'Guide', icon: <BookOpen size={13} />, shortcut: '8' }
 ]
 

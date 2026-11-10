@@ -5,7 +5,16 @@ import type { ComposerAttachment } from '../features/agents/attachments'
 import type { ShortcutOverrides } from './shortcut-registry'
 
 export type MainTab =
-  'chat' | 'changes' | 'terminal' | 'files' | 'cli' | 'analytics' | 'preview' | 'factory' | 'guide'
+  | 'chat'
+  | 'changes'
+  | 'terminal'
+  | 'files'
+  | 'cli'
+  | 'analytics'
+  | 'preview'
+  | 'factory'
+  | 'wiki'
+  | 'guide'
 export type Theme = 'light' | 'dark' | 'system'
 
 export const selectedProjectIdAtom = atomWithStorage<string | null>('cz.selectedProject', null)

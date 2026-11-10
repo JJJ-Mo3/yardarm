@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
+  BookText,
   ChartColumn,
   Columns2,
   Factory,
@@ -52,6 +53,7 @@ import { QuickFileOpen } from './features/file-viewer/QuickFileOpen'
 import { AnalyticsView } from './features/analytics/AnalyticsView'
 import { PreviewView } from './features/preview/PreviewView'
 import { FactoryView } from './features/factory/FactoryView'
+import { WikiView } from './features/wiki/WikiView'
 import { GuideView } from './features/guide/GuideView'
 import { SettingsDialog } from './features/settings/SettingsDialog'
 import { UpdateRestartBanner } from './features/settings/UpdateRestartBanner'
@@ -301,6 +303,22 @@ export default function App(): React.JSX.Element {
               </Tip>
             )}
             <Tip
+              content="Repo wiki — agent-generated architecture docs for this project"
+              side="bottom"
+            >
+              <button
+                onClick={() => setTab('wiki')}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs cursor-pointer',
+                  tab === 'wiki'
+                    ? 'bg-accent font-medium'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <BookText size={13} />
+              </button>
+            </Tip>
+            <Tip
               content="Analytics — token usage for this project, by day, model, and chat"
               side="bottom"
             >
@@ -503,6 +521,12 @@ export default function App(): React.JSX.Element {
                 ))}
               {tab === 'analytics' &&
                 (projectId ? <AnalyticsView projectId={projectId} /> : <SelectProjectPane />)}
+              {tab === 'wiki' &&
+                (projectId ? (
+                  <WikiView key={projectId} projectId={projectId} chatId={chatId} />
+                ) : (
+                  <SelectProjectPane />
+                ))}
               {/* Preview tab — kept mounted (hidden) so the previewed page
                   survives tab switches. The terminal ids must match the
                   Terminal/CLI mounts above. */}

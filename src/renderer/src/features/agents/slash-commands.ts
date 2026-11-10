@@ -93,6 +93,12 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
     args: '<question>',
     kind: 'builtin'
   },
+  {
+    name: 'wiki',
+    description: 'Open the repo wiki — agent-generated architecture docs',
+    args: '[generate]',
+    kind: 'builtin'
+  },
   { name: 'theme', description: 'Open appearance settings', kind: 'builtin' },
   { name: 'settings', description: 'Open settings', kind: 'builtin' },
   { name: 'mcp', description: 'Configure MCP servers', kind: 'builtin' },
