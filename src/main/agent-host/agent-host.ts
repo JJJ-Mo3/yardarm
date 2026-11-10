@@ -1330,18 +1330,18 @@ async function main(): Promise<void> {
     }
   }
 
-  // Append Yardarm's guidance entries to the plugin-instructions state so
-  // they reach the system prompt. state.set merges partial updates; the
-  // includes guards keep this idempotent whether or not state persists
-  // across boots.
+  // Reconcile Yardarm's guidance entries in the plugin-instructions state so
+  // they reach the system prompt. Confidence guidance is removed (not just
+  // not-added) when disabled, so turning the setting off also clears state
+  // persisted by an earlier boot. Re-appending keeps the original order, so
+  // an unchanged config never writes.
   try {
     const st = (session.state.get() ?? {}) as { pluginInstructions?: string[] }
-    const next = [...(st.pluginInstructions ?? [])]
+    const prev = st.pluginInstructions ?? []
+    const next = prev.filter((entry) => entry !== CONFIDENCE_GUIDANCE)
     if (!next.includes(ASK_USER_GUIDANCE)) next.push(ASK_USER_GUIDANCE)
-    if (boot.confidenceGuidance !== false && !next.includes(CONFIDENCE_GUIDANCE)) {
-      next.push(CONFIDENCE_GUIDANCE)
-    }
-    if (next.length !== (st.pluginInstructions?.length ?? 0)) {
+    if (boot.confidenceGuidance !== false) next.push(CONFIDENCE_GUIDANCE)
+    if (next.length !== prev.length || next.some((entry, i) => entry !== prev[i])) {
       await session.state.set({ pluginInstructions: next } as never)
     }
   } catch (err) {
