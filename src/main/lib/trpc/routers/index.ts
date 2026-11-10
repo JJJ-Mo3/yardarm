@@ -14,6 +14,7 @@ import { mastraSettingsRouter } from './mastra-settings'
 import { mcpRouter } from './mcp'
 import { projectConfigRouter } from './project-config'
 import { projectsRouter } from './projects'
+import { schedulesRouter } from './schedules'
 import { settingsRouter } from './settings'
 import { systemRouter } from './system'
 import { terminalRouter } from './terminal'
@@ -40,6 +41,7 @@ export const appRouter = router({
   mastraSettings: mastraSettingsRouter,
   mcp: mcpRouter,
   projectConfig: projectConfigRouter,
+  schedules: schedulesRouter,
   system: systemRouter,
   updates: updatesRouter,
   voice: voiceRouter,

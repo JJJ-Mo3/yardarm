@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   Brain,
+  CalendarClock,
   Download,
   FolderOpen,
   GitPullRequest,
@@ -68,6 +69,7 @@ import { PermissionsDialog } from './PermissionsDialog'
 import { SandboxDialog } from './SandboxDialog'
 import { PruneStorageDialog } from '../settings/PruneStorageDialog'
 import { KnowledgeDialog } from './KnowledgeDialog'
+import { SchedulesDialog } from '../schedules/SchedulesDialog'
 import { DetailsPanel } from './details/DetailsPanel'
 import { GoalBanner } from './GoalBanner'
 import { TaskChecklist } from './TaskChecklist'
@@ -293,6 +295,7 @@ export function ChatView({
   const [threadsOpen, setThreadsOpen] = useAtom(threadsOpenAtom)
   const [permissionsOpen, setPermissionsOpen] = useState(false)
   const [knowledgeOpen, setKnowledgeOpen] = useState(false)
+  const [schedulesOpen, setSchedulesOpen] = useState(false)
   const [sandboxOpen, setSandboxOpen] = useState(false)
   // On failure the switch reverts (fail-visible meta) — open the dialog so the error is seen.
   const setSandbox = trpc.agent.setSandbox.useMutation({ onError: () => setSandboxOpen(true) })
@@ -678,6 +681,9 @@ export function ChatView({
       case 'knowledge':
         setKnowledgeOpen(true)
         return
+      case 'schedules':
+        setSchedulesOpen(true)
+        return
       case 'observability':
         openSettings('connectors')
         return
@@ -890,7 +896,7 @@ export function ChatView({
               button so they also open here via slash commands. */}
           <Popover open={moreOpen} onOpenChange={setMoreOpen}>
             <Tip
-              content="More tools — code review, memory, PR subscriptions, MCP servers, open folder, export, context audit, verify work"
+              content="More tools — code review, memory, PR subscriptions, MCP servers, open folder, export, context audit, scheduled runs, verify work"
               side="bottom"
             >
               <PopoverTrigger asChild>
@@ -996,6 +1002,18 @@ export function ChatView({
                 >
                   <PieChart size={12} className="shrink-0 text-muted-foreground" />
                   Context audit
+                </button>
+              </Tip>
+              <Tip
+                content="Recurring agent runs for this project — create and manage schedules (/schedules)"
+                side="left"
+              >
+                <button
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] hover:bg-secondary cursor-pointer"
+                  onClick={() => openFromMore(() => setSchedulesOpen(true))}
+                >
+                  <CalendarClock size={12} className="shrink-0 text-muted-foreground" />
+                  Scheduled runs
                 </button>
               </Tip>
               <div className="my-1 border-t" />
@@ -1339,6 +1357,7 @@ export function ChatView({
           open={knowledgeOpen}
           onOpenChange={setKnowledgeOpen}
         />
+        <SchedulesDialog open={schedulesOpen} onOpenChange={setSchedulesOpen} />
       </div>
       {primary && detailsOpen && (
         <DetailsPanel

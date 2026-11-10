@@ -150,6 +150,37 @@ export const goalEvaluations = sqliteTable(
   (t) => [index('goal_evaluations_chat_idx').on(t.chatId)]
 )
 
+/**
+ * App-managed recurring agent runs (Devin-style scheduled sessions). The
+ * main-process scheduler fires due rows while the app is open; `cadence` is a
+ * JSON ScheduleCadence (src/shared/schedules.ts) and `next_run_at` is
+ * persisted so catch-up after relaunch is a plain `<= now` comparison.
+ */
+export const schedules = sqliteTable(
+  'schedules',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    prompt: text('prompt').notNull(),
+    /** JSON-encoded ScheduleCadence. */
+    cadence: text('cadence').notNull(),
+    enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+    /** Fixed target chat, lazily created on first fire; NULL = recreate next fire. */
+    chatId: text('chat_id').references(() => chats.id, { onDelete: 'set null' }),
+    useWorktree: integer('use_worktree', { mode: 'boolean' }).notNull().default(false),
+    lastRunAt: integer('last_run_at'),
+    /** 'ok' | 'error' | 'skipped' (skipped = target chat was busy). */
+    lastRunStatus: text('last_run_status'),
+    nextRunAt: integer('next_run_at'),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull()
+  },
+  (t) => [index('schedules_project_idx').on(t.projectId)]
+)
+
 export const appSettings = sqliteTable('app_settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull()

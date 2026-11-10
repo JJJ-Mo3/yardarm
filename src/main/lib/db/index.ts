@@ -135,7 +135,24 @@ const MIGRATIONS: string[] = [
   // v13 — the Kanban view was removed; drop its card store
   `DROP TABLE IF EXISTS kanban_cards;`,
   // v14 — per-subchat self-verification override (NULL = follow the global setting)
-  `ALTER TABLE subchats ADD COLUMN verify_work INTEGER;`
+  `ALTER TABLE subchats ADD COLUMN verify_work INTEGER;`,
+  // v15 — app-managed recurring agent runs (scheduled sessions)
+  `CREATE TABLE IF NOT EXISTS schedules (
+     id TEXT PRIMARY KEY,
+     project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+     name TEXT NOT NULL,
+     prompt TEXT NOT NULL,
+     cadence TEXT NOT NULL,
+     enabled INTEGER NOT NULL DEFAULT 1,
+     chat_id TEXT REFERENCES chats(id) ON DELETE SET NULL,
+     use_worktree INTEGER NOT NULL DEFAULT 0,
+     last_run_at INTEGER,
+     last_run_status TEXT,
+     next_run_at INTEGER,
+     created_at INTEGER NOT NULL,
+     updated_at INTEGER NOT NULL
+   );
+   CREATE INDEX IF NOT EXISTS schedules_project_idx ON schedules(project_id);`
 ]
 
 export function initDb(): DB {

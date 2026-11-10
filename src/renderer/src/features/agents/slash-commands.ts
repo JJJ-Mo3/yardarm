@@ -53,6 +53,11 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
   { name: 'skills', description: 'List installed skills & plugins', kind: 'builtin' },
   { name: 'plugins', description: 'Manage Mastra Code plugins', kind: 'builtin' },
   { name: 'workflows', description: 'Run and manage stored workflows', kind: 'builtin' },
+  {
+    name: 'schedules',
+    description: 'Manage recurring agent runs for this project',
+    kind: 'builtin'
+  },
   { name: 'skill', description: 'Run a skill', args: '<name> [args]', kind: 'builtin' },
   { name: 'subagents', description: 'Manage custom subagents', kind: 'builtin' },
   { name: 'sandbox', description: 'Sandbox & session settings', kind: 'builtin' },
@@ -133,12 +138,6 @@ export const CLI_ONLY_COMMANDS: SlashCommandEntry[] = [
     description: 'Control process memory diagnostics',
     kind: 'cli-only',
     hint: 'Process memory profiling only exists in the mastracode CLI (`/profile` in a terminal).'
-  },
-  {
-    name: 'schedules',
-    description: 'Manage recurring prompt schedules (experimental)',
-    kind: 'cli-only',
-    hint: 'Enable "Schedule tools" in Settings → Preferences → Experimental to let the agent manage schedules with schedule_create/list/update/resume/run; the /schedules browser only exists in the mastracode CLI.'
   },
   {
     name: 'voice',

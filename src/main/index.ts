@@ -3,6 +3,7 @@ import { createIPCHandler } from 'trpc-electron/main'
 import { initDb, closeDb, maintainDb } from './lib/db'
 import { appRouter } from './lib/trpc/routers'
 import { agentSessionManager } from './lib/agent/agent-session-manager'
+import { startScheduler } from './lib/schedules/scheduler'
 import { normalizeModelIdsInSettings } from './lib/mastra-config/normalize-model-ids'
 import { seedLspEnabled } from './lib/mastra-config/settings-json'
 import { ptyManager } from './lib/terminal/pty-manager'
@@ -45,6 +46,7 @@ app.whenReady().then(() => {
   initDb()
   maintainDb()
   setInterval(maintainDb, 30 * 60 * 1000).unref()
+  stopScheduler = startScheduler()
 
   const handler = createIPCHandler({ router: appRouter, windows: [] })
   setIpcHandler(handler)
@@ -82,6 +84,9 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
+// Stops the scheduled-runs timer at quit (set once the DB is ready).
+let stopScheduler: (() => void) | null = null
+
 // Quitting mid-run kills agent hosts and discards queued prompts, so confirm
 // first; "Quit anyway" re-enters this handler with the flag set.
 let quitConfirmed = false
@@ -107,6 +112,7 @@ app.on('before-quit', (e) => {
     }
     return
   }
+  stopScheduler?.()
   agentSessionManager.shutdownAll()
   ptyManager.killAll()
   closeDb()
