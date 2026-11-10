@@ -13,7 +13,6 @@ import { knowledgeNotesRouter } from './knowledge-notes'
 import { lspPacksRouter } from './lsp-packs'
 import { mastraSettingsRouter } from './mastra-settings'
 import { mcpRouter } from './mcp'
-import { playbooksRouter } from './playbooks'
 import { projectConfigRouter } from './project-config'
 import { projectsRouter } from './projects'
 import { schedulesRouter } from './schedules'
@@ -23,6 +22,7 @@ import { terminalRouter } from './terminal'
 import { updatesRouter } from './updates'
 import { voiceRouter } from './voice'
 import { wikiRouter } from './wiki'
+import { workflowsRouter } from './workflows'
 
 export const appRouter = router({
   ping: publicProcedure.query(() => 'pong'),
@@ -43,13 +43,13 @@ export const appRouter = router({
   settings: settingsRouter,
   mastraSettings: mastraSettingsRouter,
   mcp: mcpRouter,
-  playbooks: playbooksRouter,
   projectConfig: projectConfigRouter,
   schedules: schedulesRouter,
   system: systemRouter,
   updates: updatesRouter,
   voice: voiceRouter,
-  wiki: wikiRouter
+  wiki: wikiRouter,
+  workflows: workflowsRouter
 })
 
 export type AppRouter = typeof appRouter

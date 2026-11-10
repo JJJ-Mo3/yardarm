@@ -52,15 +52,10 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
   { name: 'resource', description: 'Show/set the memory resource id', kind: 'builtin' },
   { name: 'skills', description: 'List installed skills & plugins', kind: 'builtin' },
   { name: 'plugins', description: 'Manage Mastra Code plugins', kind: 'builtin' },
-  { name: 'workflows', description: 'Run and manage stored workflows', kind: 'builtin' },
+  { name: 'workflows', description: 'Run and manage reusable workflows', kind: 'builtin' },
   {
     name: 'schedules',
     description: 'Manage recurring agent runs for this project',
-    kind: 'builtin'
-  },
-  {
-    name: 'playbooks',
-    description: 'Run and manage reusable workflow playbooks',
     kind: 'builtin'
   },
   { name: 'skill', description: 'Run a skill', args: '<name> [args]', kind: 'builtin' },

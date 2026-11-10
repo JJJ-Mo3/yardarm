@@ -188,7 +188,14 @@ const MIGRATIONS: string[] = [
      updated_at INTEGER NOT NULL
    );
    CREATE INDEX IF NOT EXISTS playbooks_project_idx ON playbooks(project_id);
-   ALTER TABLE schedules ADD COLUMN playbook_id TEXT;`
+   ALTER TABLE schedules ADD COLUMN playbook_id TEXT;`,
+  // v21 — rename playbooks → workflows to match the agent runtime's naming
+  // (rows are still Yardarm run-books; definition_id points into SDK storage)
+  `ALTER TABLE playbooks RENAME TO workflows;
+   DROP INDEX IF EXISTS playbooks_project_idx;
+   CREATE INDEX IF NOT EXISTS workflows_project_idx ON workflows(project_id);
+   ALTER TABLE workflows RENAME COLUMN workflow_id TO definition_id;
+   ALTER TABLE schedules RENAME COLUMN playbook_id TO workflow_id;`
 ]
 
 export function initDb(): DB {

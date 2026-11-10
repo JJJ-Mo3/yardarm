@@ -1488,15 +1488,16 @@ function WorkflowsTab({ subchatId }: { subchatId: string | null }): React.JSX.El
   if (!subchatId) {
     return (
       <div className="text-[11px] text-muted-foreground">
-        Open a chat in this project to manage its stored workflows.
+        Open a chat in this project to manage its stored workflow definitions.
       </div>
     )
   }
   return (
     <div className="space-y-2">
       <div className="text-[11px] text-muted-foreground">
-        Workflows are reusable multi-step routines the agent builds for you — ask in chat (e.g.
-        &ldquo;create a workflow that&hellip;&rdquo;) and it appears here to re-run on demand.
+        Raw workflow definitions the agent builds and stores for this project — ask in chat (e.g.
+        &ldquo;create a workflow that&hellip;&rdquo;) and it appears here. For friendly run-books
+        with input forms and scheduling, use /workflows in a chat.
       </div>
       {workflows.isLoading && <div className="text-xs text-muted-foreground">Loading…</div>}
       {workflows.error && (
@@ -2178,9 +2179,9 @@ export function ProjectSettingsDialog({
     },
     {
       id: 'workflows',
-      label: 'Workflows',
+      label: 'Workflow definitions',
       icon: <Workflow size={13} />,
-      tip: 'Run and manage reusable multi-step workflows the agent built in chat'
+      tip: 'Inspect, edit, and run the raw workflow definitions the agent stores for this project'
     }
   ]
 

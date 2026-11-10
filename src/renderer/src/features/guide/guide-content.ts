@@ -136,7 +136,7 @@ its reasoning, tool calls, and file edits into the transcript.
   self-verification pass — see Confidence & verification),
   **Observational memory** (\`/om\` status and tuning),
   **Scheduled runs** (\`/schedules\` — recurring agent runs, see Scheduled runs below),
-  **Playbooks** (\`/playbooks\` — reusable workflow run-books, see Playbooks below),
+  **Workflows** (\`/workflows\` — reusable workflow run-books, see Workflows below),
   **Session insights** (an agent-written summary of the chat — outcome, what changed, risks
   and follow-ups — plus the chat's total token usage; regenerate any time),
   **PR subscriptions** (\`/github\`), **MCP servers** (live status of this chat's MCP servers
@@ -255,8 +255,8 @@ weekly changelog draft, an hourly health check. Open them from the chat header's
 
 - **Cadence** — every N minutes (up to 7 days), daily at a time, or weekly on a day — local
   wall-clock time.
-- **Prompt or playbook** — a schedule fires either a prompt or a **playbook** (a workflow
-  run-book — see Playbooks); playbook schedules run the workflow instead of sending text.
+- **Prompt or workflow** — a schedule fires either a prompt or a **workflow** (a run-book —
+  see Workflows); workflow schedules run the stored definition instead of sending text.
 - **Where runs land** — each schedule gets its own dedicated chat ("Schedule: <name>"),
   created on first fire, so recurring output never clutters your working chats. Schedules
   can optionally run in an isolated worktree.
@@ -559,45 +559,32 @@ standalone terminal instead. The Factory tab is unnumbered; reach it from the ta
     id: 'workflows',
     title: 'Workflows',
     body: `
-**Workflows** are reusable multi-step automations the agent builds for you in chat. Describe
-a repeatable process — a release checklist, a codebase audit, a scaffolding routine — and ask
-the agent to save it as a workflow; it becomes a stored sequence of steps you can re-run on
-demand.
+**Workflows** are named, reusable run-books over the multi-step automations the agent builds
+for you in chat: a friendly name and description, a linked stored definition, and default
+inputs — so a repeatable process is one click away instead of a raw definition id and a JSON
+blob. Open the library from the chat header's ⋯ menu or \`/workflows\`.
 
-- **Create in chat** — just ask, e.g. "build a workflow that runs the tests, updates the
-  changelog, and drafts release notes". The agent designs the steps and stores the workflow.
-- **Manage & run** — Project Settings → **Workflows** (or \`/workflows\`) lists stored
-  workflows with their steps. Run one (optionally passing JSON input), watch the per-step
-  results, and delete workflows you no longer need.
-- **View & edit** — the definition button on each workflow opens its stored JSON definition;
-  edit it in place and Save — the definition is fully validated before anything changes.
-- **Shared with the CLI** — workflows live in mastracode's shared storage, so the same
-  workflows are available from the \`mastracode\` CLI.
-`
-  },
-  {
-    id: 'playbooks',
-    title: 'Playbooks',
-    body: `
-**Playbooks** are named, reusable run-books built on top of stored workflows: a friendly
-name and description, a linked workflow, and default inputs — so a repeatable process is one
-click away instead of a raw workflow id and a JSON blob. Open the library from the chat
-header's ⋯ menu or \`/playbooks\`.
-
-- **Create** — pick one of the project's stored workflows, name it, and optionally set
-  default JSON input. No workflow yet? **Draft with agent** sends your description to the
-  chat's agent, which builds and saves the workflow with its workflow tools — then link it.
-- **Run** — when the workflow declares a simple input schema, the Run view shows a real form
-  (text/number/toggle fields) seeded from the defaults; otherwise you get a raw-JSON editor.
-  Runs execute in the active chat's agent host, drop a "Playbook" marker into the
-  transcript, and show per-step results; each playbook remembers its last run status.
-- **Schedule** — a scheduled run can fire a playbook instead of a prompt: pick "playbook"
-  mode in the schedule form. Deleting a playbook disables schedules linked to it rather than
+- **Create** — pick one of the project's stored workflow definitions, name it, and optionally
+  set default JSON input. No definition yet? **Draft with agent** sends your description to
+  the chat's agent, which builds and saves a definition with its workflow tools — then link
+  it. You can also just ask in chat, e.g. "build a workflow that runs the tests, updates the
+  changelog, and drafts release notes".
+- **Run** — when the definition declares a simple input schema, the Run view shows a real
+  form (text/number/toggle fields) seeded from the defaults; otherwise you get a raw-JSON
+  editor. Runs execute in the active chat's agent host, drop a "Workflow" marker into the
+  transcript, and show per-step results; each workflow remembers its last run status.
+- **Schedule** — a scheduled run can fire a workflow instead of a prompt: pick "workflow"
+  mode in the schedule form. Deleting a workflow disables schedules linked to it rather than
   letting them fire nothing.
+- **Raw definitions** — Project Settings → **Workflow definitions** lists the stored
+  definitions themselves with their steps; open one to edit its JSON in place and Save — the
+  definition is fully validated before anything changes.
+- **Shared with the CLI** — definitions live in mastracode's shared storage, so the same
+  automations are available from the \`mastracode\` CLI.
 
-Naming things: **workflows** are the step sequences stored by the agent runtime (shared with
-the CLI); **playbooks** are Yardarm's run-books over them — metadata, input forms, and
-scheduling. Deleting a playbook never deletes its workflow.
+Naming things: **workflow definitions** are the step sequences stored by the agent runtime
+(shared with the CLI); **workflows** are Yardarm's run-books over them — metadata, input
+forms, and scheduling. Deleting a workflow entry never deletes its stored definition.
 `
   },
   {

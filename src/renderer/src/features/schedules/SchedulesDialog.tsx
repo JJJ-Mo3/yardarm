@@ -35,10 +35,10 @@ import {
 
 interface FormState {
   name: string
-  /** What the schedule fires: a prompt into the chat, or a playbook's workflow. */
-  mode: 'prompt' | 'playbook'
+  /** What the schedule fires: a prompt into the chat, or a workflow run-book. */
+  mode: 'prompt' | 'workflow'
   prompt: string
-  playbookId: string
+  workflowId: string
   kind: ScheduleCadence['kind']
   minutes: string
   hour: string
@@ -51,7 +51,7 @@ const EMPTY_FORM: FormState = {
   name: '',
   mode: 'prompt',
   prompt: '',
-  playbookId: '',
+  workflowId: '',
   kind: 'daily',
   minutes: '60',
   hour: '9',
@@ -62,12 +62,12 @@ const EMPTY_FORM: FormState = {
 
 const MODE_LABELS: Record<FormState['mode'], string> = {
   prompt: 'Prompt',
-  playbook: 'Playbook'
+  workflow: 'Workflow'
 }
 
 const MODE_TIPS: Record<FormState['mode'], string> = {
   prompt: 'Send a prompt to the agent on each run',
-  playbook: "Run a playbook's stored workflow on each run instead of sending a prompt"
+  workflow: "Run a workflow's stored definition on each run instead of sending a prompt"
 }
 
 const KIND_LABELS: Record<ScheduleCadence['kind'], string> = {
@@ -125,15 +125,15 @@ function cadenceFromForm(f: FormState): ScheduleCadence | null {
 function formFromCadence(
   name: string,
   prompt: string,
-  playbookId: string | null,
+  workflowId: string | null,
   cadence: ScheduleCadence | null
 ): FormState {
   const base: FormState = {
     ...EMPTY_FORM,
     name,
     prompt,
-    mode: playbookId ? 'playbook' : 'prompt',
-    playbookId: playbookId ?? ''
+    mode: workflowId ? 'workflow' : 'prompt',
+    workflowId: workflowId ?? ''
   }
   if (!cadence) return base
   if (cadence.kind === 'interval') {
@@ -165,8 +165,8 @@ export function SchedulesDialog({
     { projectId: projectId ?? '' },
     { enabled: open && !!projectId, refetchInterval: open ? 30_000 : false }
   )
-  // Playbooks for the playbook-mode Select and for naming linked rows in the list.
-  const playbooks = trpc.playbooks.list.useQuery(
+  // Workflows for the workflow-mode Select and for naming linked rows in the list.
+  const workflows = trpc.workflows.list.useQuery(
     { projectId: projectId ?? '' },
     { enabled: open && !!projectId }
   )
@@ -194,13 +194,13 @@ export function SchedulesDialog({
   const formValid =
     cadence !== null &&
     form.name.trim() !== '' &&
-    (form.mode === 'playbook' ? form.playbookId !== '' : form.prompt.trim() !== '')
+    (form.mode === 'workflow' ? form.workflowId !== '' : form.prompt.trim() !== '')
 
   const submit = (): void => {
     if (!cadence || !formValid || !projectId) return
     const common =
-      form.mode === 'playbook'
-        ? { name: form.name.trim(), playbookId: form.playbookId, cadence }
+      form.mode === 'workflow'
+        ? { name: form.name.trim(), workflowId: form.workflowId, cadence }
         : { name: form.name.trim(), prompt: form.prompt.trim(), cadence }
     if (editing === 'new') {
       create.mutate(
@@ -235,7 +235,7 @@ export function SchedulesDialog({
               <div>
                 <div className="mb-1 text-[11px] text-muted-foreground">On each run</div>
                 <div className="mb-2 flex w-fit overflow-hidden rounded border text-[11px]">
-                  {(['prompt', 'playbook'] as const).map((m) => (
+                  {(['prompt', 'workflow'] as const).map((m) => (
                     <Tip key={m} content={MODE_TIPS[m]} side="bottom">
                       <button
                         className={`px-2 py-1 cursor-pointer ${
@@ -258,24 +258,24 @@ export function SchedulesDialog({
                     onChange={(e) => setForm({ ...form, prompt: e.target.value })}
                   />
                 ) : (
-                  <Tip content="Playbook whose workflow runs on each fire (manage playbooks via /playbooks)">
+                  <Tip content="Workflow that runs on each fire (manage workflows via /workflows)">
                     <span className="inline-flex w-full">
                       <Select
-                        value={form.playbookId || undefined}
-                        onValueChange={(v) => setForm({ ...form, playbookId: v })}
+                        value={form.workflowId || undefined}
+                        onValueChange={(v) => setForm({ ...form, workflowId: v })}
                       >
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Choose a playbook…" />
+                          <SelectValue placeholder="Choose a workflow…" />
                         </SelectTrigger>
                         <SelectContent>
-                          {(playbooks.data ?? []).map((pb) => (
-                            <SelectItem key={pb.id} value={pb.id}>
-                              {pb.name}
+                          {(workflows.data ?? []).map((wf) => (
+                            <SelectItem key={wf.id} value={wf.id}>
+                              {wf.name}
                             </SelectItem>
                           ))}
-                          {(playbooks.data ?? []).length === 0 && (
+                          {(workflows.data ?? []).length === 0 && (
                             <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
-                              No playbooks yet — create one via /playbooks
+                              No workflows yet — create one via /workflows
                             </div>
                           )}
                         </SelectContent>
@@ -390,7 +390,7 @@ export function SchedulesDialog({
                       ? editing === 'new'
                         ? 'Create the schedule — the first run is computed from now'
                         : 'Save changes — a cadence change re-anchors the next run to now'
-                      : 'Fill in a name, a prompt or playbook, and a valid cadence first'
+                      : 'Fill in a name, a prompt or workflow, and a valid cadence first'
                   }
                 >
                   <span className="inline-flex">
@@ -443,8 +443,8 @@ export function SchedulesDialog({
               {rows.map((row) => {
                 const rowCadence = parseCadence(row.cadence)
                 const status = row.lastRunStatus ? STATUS_STYLES[row.lastRunStatus] : undefined
-                const linkedPlaybook = row.playbookId
-                  ? (playbooks.data ?? []).find((pb) => pb.id === row.playbookId)
+                const linkedWorkflow = row.workflowId
+                  ? (workflows.data ?? []).find((wf) => wf.id === row.workflowId)
                   : undefined
                 return (
                   <div key={row.id} className="rounded border border-border px-3 py-2">
@@ -457,8 +457,8 @@ export function SchedulesDialog({
                           <span>
                             {rowCadence ? describeCadence(rowCadence) : 'invalid cadence'}
                           </span>
-                          {row.playbookId && (
-                            <span>playbook: {linkedPlaybook?.name ?? 'missing'}</span>
+                          {row.workflowId && (
+                            <span>workflow: {linkedWorkflow?.name ?? 'missing'}</span>
                           )}
                           {row.enabled && row.nextRunAt !== null && (
                             <span>next {formatUntil(row.nextRunAt)}</span>
@@ -497,7 +497,7 @@ export function SchedulesDialog({
                           </button>
                         </span>
                       </Tip>
-                      <Tip content="Edit this schedule's name, prompt or playbook, or cadence">
+                      <Tip content="Edit this schedule's name, prompt or workflow, or cadence">
                         <button
                           className="flex items-center text-muted-foreground hover:text-foreground cursor-pointer"
                           onClick={() => {
@@ -505,7 +505,7 @@ export function SchedulesDialog({
                               formFromCadence(
                                 row.name,
                                 row.prompt,
-                                row.playbookId,
+                                row.workflowId,
                                 parseCadence(row.cadence)
                               )
                             )
@@ -532,7 +532,7 @@ export function SchedulesDialog({
         </div>
         <div className="text-[10px] text-muted-foreground">
           Schedules fire only while Yardarm is open; an overdue schedule fires once at launch, then
-          re-anchors. A playbook schedule runs its workflow instead of sending a prompt. Distinct
+          re-anchors. A workflow schedule runs its workflow instead of sending a prompt. Distinct
           from the SDK&apos;s experimental in-agent schedule_* tools, which live inside a single
           agent process.
         </div>

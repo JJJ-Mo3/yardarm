@@ -69,14 +69,14 @@ async function resolveTarget(row: ScheduleRow): Promise<{ chatId: string; subcha
   return { chatId: created.id, subchatId: created.subchats[0].id }
 }
 
-/** Run a playbook-mode schedule: workflowRun awaits completion, so outcome
+/** Run a workflow-mode schedule: workflowRun awaits completion, so outcome
  * bookkeeping is direct — no run-finished listener is needed. */
-async function firePlaybook(row: ScheduleRow, chatId: string, subchatId: string): Promise<void> {
+async function fireWorkflow(row: ScheduleRow, chatId: string, subchatId: string): Promise<void> {
   const db = getDb()
-  const pb = row.playbookId
-    ? db.select().from(schema.playbooks).where(eq(schema.playbooks.id, row.playbookId)).get()
+  const wf = row.workflowId
+    ? db.select().from(schema.workflows).where(eq(schema.workflows.id, row.workflowId)).get()
     : undefined
-  if (!pb) {
+  if (!wf) {
     setLastRun(row.id, 'error')
     return
   }
@@ -85,38 +85,38 @@ async function firePlaybook(row: ScheduleRow, chatId: string, subchatId: string)
   try {
     const result = await agentSessionManager.workflowRun(
       subchatId,
-      pb.workflowId,
-      pb.defaultInputJson ?? undefined
+      wf.definitionId,
+      wf.defaultInputJson ?? undefined
     )
     const now = Date.now()
-    db.update(schema.playbooks)
+    db.update(schema.workflows)
       .set({
         lastRunAt: now,
         lastRunStatus: result.status === 'success' ? 'ok' : 'error',
         updatedAt: now
       })
-      .where(eq(schema.playbooks.id, pb.id))
+      .where(eq(schema.workflows.id, wf.id))
       .run()
     if (result.status !== 'success') setLastRunStatus(row.id, 'error')
-    agentSessionManager.postMarker(subchatId, `Scheduled playbook "${pb.name}": ${result.status}`)
-    notifyAgentEvent(`Scheduled playbook "${pb.name}" finished`, chatId, subchatId)
+    agentSessionManager.postMarker(subchatId, `Scheduled workflow "${wf.name}": ${result.status}`)
+    notifyAgentEvent(`Scheduled workflow "${wf.name}" finished`, chatId, subchatId)
   } catch (err) {
     const now = Date.now()
-    db.update(schema.playbooks)
+    db.update(schema.workflows)
       .set({ lastRunAt: now, lastRunStatus: 'error', updatedAt: now })
-      .where(eq(schema.playbooks.id, pb.id))
+      .where(eq(schema.workflows.id, wf.id))
       .run()
     setLastRunStatus(row.id, 'error')
     agentSessionManager.postMarker(
       subchatId,
-      `Scheduled playbook "${pb.name}" failed: ${err instanceof Error ? err.message : String(err)}`
+      `Scheduled workflow "${wf.name}" failed: ${err instanceof Error ? err.message : String(err)}`
     )
-    console.error('[schedules] playbook run failed', row.id, err)
+    console.error('[schedules] workflow run failed', row.id, err)
   }
 }
 
 /** Fire one schedule: resolve the chat, skip when busy, send the marked prompt
- * (or run the linked playbook's workflow). */
+ * (or run the linked workflow). */
 async function fireSchedule(row: ScheduleRow): Promise<void> {
   const { chatId, subchatId } = await resolveTarget(row)
   const busy = shouldSkip(
@@ -127,8 +127,8 @@ async function fireSchedule(row: ScheduleRow): Promise<void> {
     setLastRun(row.id, 'skipped')
     return
   }
-  if (row.playbookId) {
-    await firePlaybook(row, chatId, subchatId)
+  if (row.workflowId) {
+    await fireWorkflow(row, chatId, subchatId)
     return
   }
   // Notify when the run completes; the listener also detaches on host errors

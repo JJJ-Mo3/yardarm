@@ -39,7 +39,7 @@ const CANONICAL = [
   // meta
   'help', 'setup', 'update', 'report-issue', 'exit',
   // Yardarm conveniences (no upstream equivalent)
-  'ask', 'wiki', 'playbooks'
+  'ask', 'wiki'
 ]
 
 const registryPath = path.join(

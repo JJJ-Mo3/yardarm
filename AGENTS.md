@@ -115,18 +115,19 @@ No accounts or login — everything runs locally against mastracode's own config
   Experimental (`setKnowledgeEnabled` in settings-json.ts); no auto-seeding — upstream default
   is deliberately off. When off, `mc.knowledgeInspector` is undefined and
   `knowledgeInspectorUnavailableReason` says why.
-- Two "knowledge" systems, two "schedules" systems, workflows vs playbooks — keep the naming
-  straight. **Knowledge notes** are Yardarm's user-authored notes (`knowledge_notes` table,
-  Project Settings → Knowledge, `src/shared/knowledge-notes.ts`, pinned bodies + titles-only
-  index with the auto-approved `knowledge_note_lookup` extra tool; notes with trigger keywords
-  also inject at send time — `matchTriggeredNotes` applied in `sendMessage`, skipped for
-  marker sends); the **agent knowledge base** is the SDK's experimental agent-captured memory
-  above. **Scheduled runs** are Yardarm's app-managed recurring runs (`schedules` table,
-  `src/main/lib/schedules/scheduler.ts`, /schedules dialog, survive restarts) and fire either
-  a prompt or a playbook; the SDK's experimental `schedule_*` tools live inside one agent
-  process and die with it. **Workflows** are the SDK-stored step sequences (shared with the
-  CLI, managed via the host `workflows*` commands); **playbooks** are Yardarm's app-managed
-  run-books over them (`playbooks` table, `trpc/routers/playbooks.ts`, /playbooks dialog) —
+- Two "knowledge" systems, two "schedules" systems, workflow definitions vs workflows — keep
+  the naming straight. **Knowledge notes** are Yardarm's user-authored notes (`knowledge_notes`
+  table, Project Settings → Knowledge, `src/shared/knowledge-notes.ts`, pinned bodies +
+  titles-only index with the auto-approved `knowledge_note_lookup` extra tool; notes with
+  trigger keywords also inject at send time — `matchTriggeredNotes` applied in `sendMessage`,
+  skipped for marker sends); the **agent knowledge base** is the SDK's experimental
+  agent-captured memory above. **Scheduled runs** are Yardarm's app-managed recurring runs
+  (`schedules` table, `src/main/lib/schedules/scheduler.ts`, /schedules dialog, survive
+  restarts) and fire either a prompt or a workflow; the SDK's experimental `schedule_*` tools
+  live inside one agent process and die with it. **Workflow definitions** are the SDK-stored
+  step sequences (shared with the CLI, managed via the host `workflows*` commands and the
+  Project Settings → Workflow definitions tab); **workflows** are Yardarm's app-managed
+  run-books over them (`workflows` table, `trpc/routers/workflows.ts`, /workflows dialog) —
   metadata, input forms, transcript markers, scheduling. UI copy and docs must preserve all
   these distinctions.
 - Three env-injection surfaces on spawned processes: `buildProviderKeyEnv()` (provider API

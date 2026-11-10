@@ -73,8 +73,8 @@ import { PruneStorageDialog } from '../settings/PruneStorageDialog'
 import { KnowledgeDialog } from './KnowledgeDialog'
 import { InsightsDialog } from './InsightsDialog'
 import { SchedulesDialog } from '../schedules/SchedulesDialog'
-import { PlaybooksDialog } from '../playbooks/PlaybooksDialog'
-import { buildDraftWorkflowPrompt } from '../playbooks/input-schema'
+import { WorkflowsDialog } from '../workflows/WorkflowsDialog'
+import { buildDraftWorkflowPrompt } from '../workflows/input-schema'
 import { DetailsPanel } from './details/DetailsPanel'
 import { GoalBanner } from './GoalBanner'
 import { TaskChecklist } from './TaskChecklist'
@@ -305,7 +305,7 @@ export function ChatView({
   const [knowledgeOpen, setKnowledgeOpen] = useState(false)
   const [schedulesOpen, setSchedulesOpen] = useState(false)
   const [insightsOpen, setInsightsOpen] = useState(false)
-  const [playbooksOpen, setPlaybooksOpen] = useState(false)
+  const [workflowsOpen, setWorkflowsOpen] = useState(false)
   const [sandboxOpen, setSandboxOpen] = useState(false)
   // On failure the switch reverts (fail-visible meta) — open the dialog so the error is seen.
   const setSandbox = trpc.agent.setSandbox.useMutation({ onError: () => setSandboxOpen(true) })
@@ -622,7 +622,7 @@ export function ChatView({
         openProjectSettings('plugins')
         return
       case 'workflows':
-        openProjectSettings('workflows')
+        setWorkflowsOpen(true)
         return
       case 'skill': {
         const trimmed = args.trim()
@@ -693,9 +693,6 @@ export function ChatView({
         return
       case 'schedules':
         setSchedulesOpen(true)
-        return
-      case 'playbooks':
-        setPlaybooksOpen(true)
         return
       case 'observability':
         openSettings('connectors')
@@ -1030,15 +1027,15 @@ export function ChatView({
                 </button>
               </Tip>
               <Tip
-                content="Reusable workflow playbooks — run and manage run-books backed by stored workflows (/playbooks)"
+                content="Workflows — run and manage run-books over stored workflow definitions (/workflows)"
                 side="left"
               >
                 <button
                   className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] hover:bg-secondary cursor-pointer"
-                  onClick={() => openFromMore(() => setPlaybooksOpen(true))}
+                  onClick={() => openFromMore(() => setWorkflowsOpen(true))}
                 >
                   <BookOpenCheck size={12} className="shrink-0 text-muted-foreground" />
-                  Playbooks
+                  Workflows
                 </button>
               </Tip>
               <Tip
@@ -1397,9 +1394,9 @@ export function ChatView({
           onOpenChange={setKnowledgeOpen}
         />
         <SchedulesDialog open={schedulesOpen} onOpenChange={setSchedulesOpen} />
-        <PlaybooksDialog
-          open={playbooksOpen}
-          onOpenChange={setPlaybooksOpen}
+        <WorkflowsDialog
+          open={workflowsOpen}
+          onOpenChange={setWorkflowsOpen}
           subchatId={subchatId}
           onDraftWithAgent={(d) =>
             sendMarked(

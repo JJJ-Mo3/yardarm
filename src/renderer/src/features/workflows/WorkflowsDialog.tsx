@@ -1,10 +1,11 @@
 /**
- * Playbooks manager (/playbooks or ⋯ → Playbooks): Yardarm-managed run-books
- * over workflows stored by the agent SDK. A playbook names a stored workflow,
- * carries a description and default JSON input, and runs through the active
- * chat's agent host — with a form derived from the workflow's input schema
- * when it is flat, or a raw-JSON fallback otherwise. Create here from an
- * existing workflow, or hand a description to the agent to draft one.
+ * Workflows manager (/workflows or ⋯ → Workflows): Yardarm-managed run-books
+ * over workflow definitions stored by the agent SDK. A workflow entry names a
+ * stored definition, carries a description and default JSON input, and runs
+ * through the active chat's agent host — with a form derived from the
+ * definition's input schema when it is flat, or a raw-JSON fallback otherwise.
+ * Create here from an existing definition, or hand a description to the agent
+ * to draft one.
  */
 import React, { useEffect, useMemo, useState } from 'react'
 import { useAtomValue } from 'jotai'
@@ -33,11 +34,11 @@ type View = { kind: 'list' } | { kind: 'edit'; id: string | null } | { kind: 'ru
 interface FormState {
   name: string
   description: string
-  workflowId: string
+  definitionId: string
   defaultInputJson: string
 }
 
-const EMPTY_FORM: FormState = { name: '', description: '', workflowId: '', defaultInputJson: '' }
+const EMPTY_FORM: FormState = { name: '', description: '', definitionId: '', defaultInputJson: '' }
 
 const STATUS_STYLES: Record<string, { dot: string; label: string }> = {
   ok: { dot: 'bg-emerald-500', label: 'ok' },
@@ -56,7 +57,7 @@ function jsonObjectError(text: string): string | null {
   }
 }
 
-export function PlaybooksDialog({
+export function WorkflowsDialog({
   open,
   onOpenChange,
   subchatId,
@@ -64,7 +65,7 @@ export function PlaybooksDialog({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** Active chat's subchat — workflow storage is read via its agent host. */
+  /** Active chat's subchat — definition storage is read via its agent host. */
   subchatId: string | null
   /** Sends a workflow-drafting prompt to the active chat. */
   onDraftWithAgent: (description: string) => void
@@ -72,20 +73,20 @@ export function PlaybooksDialog({
   const projectId = useAtomValue(selectedProjectIdAtom)
   const utils = trpc.useUtils()
   const confirmDialog = useConfirm()
-  const list = trpc.playbooks.list.useQuery(
+  const list = trpc.workflows.list.useQuery(
     { projectId: projectId ?? '' },
     { enabled: open && !!projectId }
   )
-  const workflows = trpc.projectConfig.workflowsList.useQuery(
+  const definitions = trpc.projectConfig.workflowsList.useQuery(
     { subchatId: subchatId ?? '' },
     { enabled: open && !!subchatId }
   )
   const invalidate = (): void => {
-    utils.playbooks.list.invalidate()
+    utils.workflows.list.invalidate()
   }
-  const create = trpc.playbooks.create.useMutation({ onSuccess: invalidate })
-  const update = trpc.playbooks.update.useMutation({ onSuccess: invalidate })
-  const remove = trpc.playbooks.delete.useMutation({ onSuccess: invalidate })
+  const create = trpc.workflows.create.useMutation({ onSuccess: invalidate })
+  const update = trpc.workflows.update.useMutation({ onSuccess: invalidate })
+  const remove = trpc.workflows.delete.useMutation({ onSuccess: invalidate })
 
   const [view, setView] = useState<View>({ kind: 'list' })
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
@@ -100,17 +101,17 @@ export function PlaybooksDialog({
   }, [open])
 
   const rows = list.data ?? []
-  const workflowIds = new Set((workflows.data ?? []).map((w) => w.id))
+  const definitionIds = new Set((definitions.data ?? []).map((w) => w.id))
   const mutationError = create.error ?? update.error ?? remove.error
   const defaultInputError = jsonObjectError(form.defaultInputJson)
-  const formValid = form.name.trim() !== '' && form.workflowId !== '' && !defaultInputError
+  const formValid = form.name.trim() !== '' && form.definitionId !== '' && !defaultInputError
 
   const submit = (): void => {
     if (!formValid || !projectId || view.kind !== 'edit') return
     const common = {
       name: form.name.trim(),
       description: form.description.trim() || undefined,
-      workflowId: form.workflowId,
+      definitionId: form.definitionId,
       defaultInputJson: form.defaultInputJson.trim() || undefined
     }
     if (view.id === null) {
@@ -127,7 +128,7 @@ export function PlaybooksDialog({
       <DialogContent className="max-w-2xl">
         <DialogTitle className="flex items-center gap-1.5">
           <BookOpenCheck size={14} />
-          Playbooks
+          Workflows
         </DialogTitle>
         <div className="flex max-h-[26rem] min-h-[14rem] flex-col gap-2 overflow-y-auto">
           {mutationError && <div className="text-[11px] text-red-500">{mutationError.message}</div>}
@@ -147,31 +148,31 @@ export function PlaybooksDialog({
                 <Input
                   value={form.description}
                   maxLength={500}
-                  placeholder="What this run-book does and when to use it"
+                  placeholder="What this workflow does and when to use it"
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                 />
               </div>
               <div>
-                <div className="mb-1 text-[11px] text-muted-foreground">Stored workflow</div>
+                <div className="mb-1 text-[11px] text-muted-foreground">Workflow definition</div>
                 {subchatId ? (
-                  <Tip content="Workflows stored by the agent SDK for this project — ask the agent in chat to create one">
+                  <Tip content="Definitions stored by the agent SDK for this project — ask the agent in chat to create one">
                     <span className="inline-flex w-full">
                       <Select
-                        value={form.workflowId || undefined}
-                        onValueChange={(v) => setForm({ ...form, workflowId: v })}
+                        value={form.definitionId || undefined}
+                        onValueChange={(v) => setForm({ ...form, definitionId: v })}
                       >
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Pick a stored workflow…" />
+                          <SelectValue placeholder="Pick a stored definition…" />
                         </SelectTrigger>
                         <SelectContent>
-                          {(workflows.data ?? []).map((w) => (
+                          {(definitions.data ?? []).map((w) => (
                             <SelectItem key={w.id} value={w.id}>
                               {w.id}
                             </SelectItem>
                           ))}
-                          {form.workflowId && !workflowIds.has(form.workflowId) && (
-                            <SelectItem value={form.workflowId}>
-                              {form.workflowId} (missing)
+                          {form.definitionId && !definitionIds.has(form.definitionId) && (
+                            <SelectItem value={form.definitionId}>
+                              {form.definitionId} (missing)
                             </SelectItem>
                           )}
                         </SelectContent>
@@ -180,7 +181,7 @@ export function PlaybooksDialog({
                   </Tip>
                 ) : (
                   <div className="text-[11px] text-muted-foreground">
-                    Open a chat in this project to pick from its stored workflows.
+                    Open a chat in this project to pick from its stored definitions.
                   </div>
                 )}
               </div>
@@ -201,7 +202,7 @@ export function PlaybooksDialog({
                 )}
               </div>
               <div className="flex items-center justify-end gap-2">
-                <Tip content="Back to the playbook list without saving">
+                <Tip content="Back to the workflow list without saving">
                   <Button variant="secondary" size="sm" onClick={() => setView({ kind: 'list' })}>
                     Cancel
                   </Button>
@@ -210,9 +211,9 @@ export function PlaybooksDialog({
                   content={
                     formValid
                       ? view.id === null
-                        ? 'Create the playbook'
-                        : 'Save changes to this playbook'
-                      : 'Fill in a name, pick a workflow, and fix the default input first'
+                        ? 'Create the workflow'
+                        : 'Save changes to this workflow'
+                      : 'Fill in a name, pick a definition, and fix the default input first'
                   }
                 >
                   <span className="inline-flex">
@@ -221,15 +222,15 @@ export function PlaybooksDialog({
                       disabled={!formValid || create.isPending || update.isPending}
                       onClick={submit}
                     >
-                      {view.id === null ? 'Create playbook' : 'Save changes'}
+                      {view.id === null ? 'Create workflow' : 'Save changes'}
                     </Button>
                   </span>
                 </Tip>
               </div>
             </div>
           ) : view.kind === 'run' && runTarget && subchatId ? (
-            <PlaybookRunView
-              playbook={runTarget}
+            <WorkflowRunView
+              workflow={runTarget}
               subchatId={subchatId}
               onBack={() => setView({ kind: 'list' })}
               onRan={invalidate}
@@ -238,10 +239,10 @@ export function PlaybooksDialog({
             <>
               <div className="flex items-center justify-between">
                 <div className="text-[11px] text-muted-foreground">
-                  Named run-books over this project&apos;s stored workflows.
+                  Named run-books over this project&apos;s stored workflow definitions.
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Tip content="Describe a run-book and let this chat's agent build and save the workflow for it">
+                  <Tip content="Describe a workflow and let this chat's agent build and save the definition for it">
                     <span className="inline-flex">
                       <Button
                         variant="secondary"
@@ -254,7 +255,7 @@ export function PlaybooksDialog({
                       </Button>
                     </span>
                   </Tip>
-                  <Tip content="Create a playbook from an existing stored workflow">
+                  <Tip content="Create a workflow from an existing stored definition">
                     <span className="inline-flex">
                       <Button
                         variant="secondary"
@@ -266,7 +267,7 @@ export function PlaybooksDialog({
                         }}
                       >
                         <Plus size={12} />
-                        New playbook
+                        New workflow
                       </Button>
                     </span>
                   </Tip>
@@ -275,8 +276,8 @@ export function PlaybooksDialog({
               {draftOpen && (
                 <div className="space-y-1.5 rounded border border-border p-2">
                   <div className="text-[11px] text-muted-foreground">
-                    Describe what the run-book should do; the agent builds and saves a workflow for
-                    it, then you link it here as a playbook.
+                    Describe what the workflow should do; the agent builds and saves a definition
+                    for it, then you link it here as a workflow.
                   </div>
                   <Textarea
                     rows={2}
@@ -307,24 +308,24 @@ export function PlaybooksDialog({
               {list.isLoading && <div className="text-[11px] text-muted-foreground">Loading…</div>}
               {list.error && (
                 <div className="text-[11px] text-red-500">
-                  Failed to load playbooks: {list.error.message}
+                  Failed to load workflows: {list.error.message}
                 </div>
               )}
               {!subchatId && (
                 <div className="text-[11px] text-muted-foreground">
-                  Open a chat in this project to run playbooks — workflow storage is read via the
+                  Open a chat in this project to run workflows — definition storage is read via the
                   chat&apos;s agent host.
                 </div>
               )}
               {list.data && rows.length === 0 && (
                 <div className="text-[11px] text-muted-foreground">
-                  No playbooks yet. Link an existing stored workflow, or use “Draft with agent” to
+                  No workflows yet. Link an existing stored definition, or use “Draft with agent” to
                   have one built from a description.
                 </div>
               )}
               {rows.map((row) => {
                 const status = row.lastRunStatus ? STATUS_STYLES[row.lastRunStatus] : undefined
-                const missing = !!workflows.data && !workflowIds.has(row.workflowId)
+                const missing = !!definitions.data && !definitionIds.has(row.definitionId)
                 return (
                   <div key={row.id} className="rounded border border-border px-3 py-2">
                     <div className="flex items-center gap-2">
@@ -335,7 +336,7 @@ export function PlaybooksDialog({
                           </span>
                           {missing && (
                             <span className="shrink-0 rounded bg-amber-500/15 px-1 py-0.5 text-[9px] text-amber-500">
-                              workflow missing
+                              definition missing
                             </span>
                           )}
                         </div>
@@ -345,8 +346,8 @@ export function PlaybooksDialog({
                           </div>
                         )}
                         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
-                          <span className="truncate font-mono" title={row.workflowId}>
-                            {row.workflowId}
+                          <span className="truncate font-mono" title={row.definitionId}>
+                            {row.definitionId}
                           </span>
                           {status && row.lastRunAt !== null && (
                             <span className="flex items-center gap-1">
@@ -359,8 +360,8 @@ export function PlaybooksDialog({
                       <Tip
                         content={
                           subchatId
-                            ? 'Run this playbook in the active chat (with inputs)'
-                            : 'Open a chat in this project to run playbooks'
+                            ? 'Run this workflow in the active chat (with inputs)'
+                            : 'Open a chat in this project to run workflows'
                         }
                       >
                         <span className="inline-flex">
@@ -373,14 +374,14 @@ export function PlaybooksDialog({
                           </button>
                         </span>
                       </Tip>
-                      <Tip content="Edit this playbook's name, workflow, or default input">
+                      <Tip content="Edit this workflow's name, definition, or default input">
                         <button
                           className="flex items-center text-muted-foreground hover:text-foreground cursor-pointer"
                           onClick={() => {
                             setForm({
                               name: row.name,
                               description: row.description ?? '',
-                              workflowId: row.workflowId,
+                              definitionId: row.definitionId,
                               defaultInputJson: row.defaultInputJson ?? ''
                             })
                             setView({ kind: 'edit', id: row.id })
@@ -389,13 +390,13 @@ export function PlaybooksDialog({
                           <Pencil size={13} />
                         </button>
                       </Tip>
-                      <Tip content="Delete this playbook (the stored workflow stays; linked schedules are disabled)">
+                      <Tip content="Delete this workflow (the stored definition stays; linked schedules are disabled)">
                         <button
                           className="flex items-center text-muted-foreground hover:text-red-500 cursor-pointer"
                           onClick={() => {
                             void confirmDialog({
-                              title: 'Delete playbook?',
-                              description: `"${row.name}" will be removed. The stored workflow stays; any schedules linked to this playbook are disabled.`,
+                              title: 'Delete workflow?',
+                              description: `"${row.name}" will be removed. The stored definition stays; any schedules linked to this workflow are disabled.`,
                               confirmLabel: 'Delete'
                             }).then((ok) => {
                               if (ok) remove.mutate({ id: row.id })
@@ -413,27 +414,27 @@ export function PlaybooksDialog({
           )}
         </div>
         <div className="text-[10px] text-muted-foreground">
-          Playbooks are Yardarm-managed run-books over workflows stored by the agent SDK. Runs
-          execute in the active chat&apos;s agent host; schedules can fire a playbook instead of a
-          prompt.
+          Workflows are Yardarm-managed run-books over definitions stored by the agent SDK (edit raw
+          definitions in Project Settings → Workflow definitions). Runs execute in the active
+          chat&apos;s agent host; schedules can fire a workflow instead of a prompt.
         </div>
       </DialogContent>
     </Dialog>
   )
 }
 
-/** Run form + result: schema-derived fields when the workflow's input schema
+/** Run form + result: schema-derived fields when the definition's input schema
  * is flat, raw-JSON fallback otherwise. */
-function PlaybookRunView({
-  playbook,
+function WorkflowRunView({
+  workflow,
   subchatId,
   onBack,
   onRan
 }: {
-  playbook: {
+  workflow: {
     id: string
     name: string
-    workflowId: string
+    definitionId: string
     defaultInputJson: string | null
   }
   subchatId: string
@@ -442,9 +443,9 @@ function PlaybookRunView({
 }): React.JSX.Element {
   const def = trpc.projectConfig.workflowGet.useQuery({
     subchatId,
-    workflowId: playbook.workflowId
+    workflowId: workflow.definitionId
   })
-  const run = trpc.playbooks.run.useMutation({ onSuccess: onRan, onError: onRan })
+  const run = trpc.workflows.run.useMutation({ onSuccess: onRan, onError: onRan })
 
   const fields = useMemo(
     () => (def.data ? parseInputFields(def.data.definitionJson) : null),
@@ -452,14 +453,14 @@ function PlaybookRunView({
   )
   const defaults = useMemo(() => {
     try {
-      const v = JSON.parse(playbook.defaultInputJson ?? '')
+      const v = JSON.parse(workflow.defaultInputJson ?? '')
       return typeof v === 'object' && v !== null && !Array.isArray(v)
         ? (v as Record<string, unknown>)
         : {}
     } catch {
       return {}
     }
-  }, [playbook.defaultInputJson])
+  }, [workflow.defaultInputJson])
 
   const [values, setValues] = useState<Record<string, string | boolean>>({})
   const [rawJson, setRawJson] = useState('')
@@ -476,9 +477,9 @@ function PlaybookRunView({
       }
       setValues(next)
     } else {
-      setRawJson(playbook.defaultInputJson ?? '')
+      setRawJson(workflow.defaultInputJson ?? '')
     }
-  }, [seeded, def.data, fields, defaults, playbook.defaultInputJson])
+  }, [seeded, def.data, fields, defaults, workflow.defaultInputJson])
 
   /** Build the run input; null = invalid form. */
   const buildInput = (): { inputJson?: string } | null => {
@@ -511,8 +512,10 @@ function PlaybookRunView({
 
   return (
     <div className="space-y-2">
-      <div className="text-xs font-medium">Run “{playbook.name}”</div>
-      {def.isLoading && <div className="text-[11px] text-muted-foreground">Loading workflow…</div>}
+      <div className="text-xs font-medium">Run “{workflow.name}”</div>
+      {def.isLoading && (
+        <div className="text-[11px] text-muted-foreground">Loading definition…</div>
+      )}
       {def.error && (
         <div className="text-[11px] text-red-500">
           Failed to load the workflow definition: {def.error.message}
@@ -564,7 +567,7 @@ function PlaybookRunView({
         </div>
       )}
       <div className="flex items-center justify-end gap-2">
-        <Tip content="Back to the playbook list">
+        <Tip content="Back to the workflow list">
           <Button variant="secondary" size="sm" onClick={onBack}>
             Back
           </Button>
@@ -581,10 +584,10 @@ function PlaybookRunView({
               size="sm"
               disabled={!input || run.isPending || def.data === undefined}
               onClick={() => {
-                if (input) run.mutate({ playbookId: playbook.id, subchatId, ...input })
+                if (input) run.mutate({ workflowId: workflow.id, subchatId, ...input })
               }}
             >
-              {run.isPending ? 'Running…' : 'Run playbook'}
+              {run.isPending ? 'Running…' : 'Run workflow'}
             </Button>
           </span>
         </Tip>

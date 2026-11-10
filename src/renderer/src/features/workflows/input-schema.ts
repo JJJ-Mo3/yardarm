@@ -44,7 +44,7 @@ export function parseInputFields(definitionJson: string): InputField[] | null {
   return fields
 }
 
-/** Prompt asking the chat's agent to build + save a workflow for a playbook. */
+/** Prompt asking the chat's agent to build + save a definition to link as a workflow. */
 export function buildDraftWorkflowPrompt(description: string): string {
   return `Use your workflow tools (create_workflow / save_workflow) to build and save a reusable workflow that: ${description.trim()}
 

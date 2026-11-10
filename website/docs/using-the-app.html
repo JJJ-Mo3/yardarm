@@ -79,7 +79,6 @@
             <li><a href="#goals">Goals</a></li>
             <li><a href="#schedules">Scheduled runs</a></li>
             <li><a href="#workflows">Workflows</a></li>
-            <li><a href="#playbooks">Playbooks</a></li>
             <li><a href="#session-insights">Session insights</a></li>
             <li><a href="#knowledge">Knowledge notes &amp; agent knowledge</a></li>
             <li><a href="#threads">Threads, forking, split view</a></li>
@@ -145,10 +144,10 @@
             self-verification pass, see <a href="#confidence">Confidence &amp; verification</a>),
             <strong>Observational memory</strong> (<code>/om</code> status and tuning),
             <strong>Scheduled runs</strong> (<code>/schedules</code> — recurring agent runs, see
-            <a href="#schedules">Scheduled runs</a>), <strong>Playbooks</strong> (<code
-              >/playbooks</code
+            <a href="#schedules">Scheduled runs</a>), <strong>Workflows</strong> (<code
+              >/workflows</code
             >
-            — reusable workflow run-books, see <a href="#playbooks">Playbooks</a>),
+            — reusable workflow run-books, see <a href="#workflows">Workflows</a>),
             <strong>Session insights</strong> (an agent-written summary of the chat, see
             <a href="#session-insights">Session insights</a>),
             <strong>PR subscriptions</strong> (<code>/github</code>),
@@ -713,9 +712,9 @@
             a day — local wall-clock time.
           </li>
           <li>
-            <strong>Prompt or playbook</strong> — a schedule fires either a prompt or a
-            <a href="#playbooks">playbook</a>: playbook schedules run the linked workflow instead of
-            sending text.
+            <strong>Prompt or workflow</strong> — a schedule fires either a prompt or a
+            <a href="#workflows">workflow</a>: workflow schedules run the linked stored definition
+            instead of sending text.
           </li>
           <li>
             <strong>Where runs land</strong> — each schedule gets its own dedicated chat ("Schedule:
@@ -746,10 +745,10 @@
         <h2 id="workflows">Workflows: save and re-run multi-step processes</h2>
         <p>
           When you find yourself asking the agent for the same multi-step process again and again,
-          ask it to <strong>save the process as a workflow</strong>. The agent builds the workflow
-          in chat, and from then on it's a stored, repeatable procedure you can run on demand — no
-          re-explaining, no forgotten steps. Stored workflows are shared with the
-          <code>mastracode</code> CLI.
+          ask it to <strong>save the process as a workflow</strong>. The agent builds a stored
+          <strong>workflow definition</strong> in chat, and from then on it's a repeatable procedure
+          you can run on demand — no re-explaining, no forgotten steps. Stored definitions are
+          shared with the <code>mastracode</code> CLI.
         </p>
         <p>Where workflows shine:</p>
         <ul>
@@ -778,47 +777,43 @@
           </li>
         </ul>
         <p>
-          Manage stored workflows in <strong>Project Settings → Workflows</strong> (or run
-          <code>/workflows</code>): the tab lists each workflow with its description and lets you
-          <strong>run</strong> one — optionally with a JSON input for workflows that take parameters
-          — watching per-step results appear as it executes, <strong>view and edit</strong> its
-          stored JSON definition (fully validated before anything is saved), or
-          <strong>delete</strong> ones you no longer need. For bigger changes, just ask the agent in
-          chat and have it save the workflow again.
-        </p>
-
-        <h2 id="playbooks">Playbooks: run-books over stored workflows</h2>
-        <p>
-          <strong>Playbooks</strong> are named, reusable run-books built on top of stored workflows:
-          a friendly name and description, a linked workflow, and default inputs — so a repeatable
-          process is one click away instead of a raw workflow id and a JSON blob. Open the library
-          from the chat header's ⋯ menu or <code>/playbooks</code>.
+          The <strong>Workflows</strong> library — open it from the chat header's ⋯ menu or
+          <code>/workflows</code> — wraps each stored definition in a named, reusable run-book: a
+          friendly name and description, a linked definition, and default inputs — so a repeatable
+          process is one click away instead of a raw definition id and a JSON blob.
         </p>
         <ul>
           <li>
-            <strong>Create</strong> — pick one of the project's stored workflows, name it, and
-            optionally set default JSON input. No workflow yet? <strong>Draft with agent</strong>
-            sends your description to the chat's agent, which builds and saves the workflow with its
-            workflow tools — then link it.
+            <strong>Create</strong> — pick one of the project's stored definitions, name it, and
+            optionally set default JSON input. No definition yet?
+            <strong>Draft with agent</strong> sends your description to the chat's agent, which
+            builds and saves a definition with its workflow tools — then link it.
           </li>
           <li>
-            <strong>Run</strong> — when the workflow declares a simple input schema, the Run view
+            <strong>Run</strong> — when the definition declares a simple input schema, the Run view
             shows a real form (text / number / toggle fields) seeded from the defaults; otherwise
             you get a raw-JSON editor. Runs execute in the active chat's agent host, drop a
-            "Playbook" marker into the transcript, and show per-step results; each playbook
+            "Workflow" marker into the transcript, and show per-step results; each workflow
             remembers its last run status.
           </li>
           <li>
-            <strong>Schedule</strong> — a <a href="#schedules">scheduled run</a> can fire a playbook
-            instead of a prompt. Deleting a playbook disables schedules linked to it rather than
+            <strong>Schedule</strong> — a <a href="#schedules">scheduled run</a> can fire a workflow
+            instead of a prompt. Deleting a workflow disables schedules linked to it rather than
             letting them fire nothing.
           </li>
         </ul>
         <p>
-          Naming things: <strong>workflows</strong> are the step sequences stored by the agent
-          runtime (shared with the CLI); <strong>playbooks</strong> are Yardarm's run-books over
-          them — metadata, input forms, and scheduling. Deleting a playbook never deletes its
-          workflow.
+          The raw definitions live in <strong>Project Settings → Workflow definitions</strong>: the
+          tab lists each stored definition with its description and lets you run one directly,
+          <strong>view and edit</strong> its stored JSON (fully validated before anything is saved),
+          or <strong>delete</strong> ones you no longer need. For bigger changes, just ask the agent
+          in chat and have it save the definition again.
+        </p>
+        <p>
+          Naming things: <strong>workflow definitions</strong> are the step sequences stored by the
+          agent runtime (shared with the CLI); <strong>workflows</strong> are Yardarm's run-books
+          over them — metadata, input forms, and scheduling. Deleting a workflow entry never deletes
+          its stored definition.
         </p>
 
         <h2 id="session-insights">Session insights</h2>

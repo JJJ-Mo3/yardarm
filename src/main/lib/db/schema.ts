@@ -180,8 +180,8 @@ export const schedules = sqliteTable(
     /** 'ok' | 'error' | 'skipped' (skipped = target chat was busy). */
     lastRunStatus: text('last_run_status'),
     nextRunAt: integer('next_run_at'),
-    /** When set, firing runs this playbook's workflow instead of sending `prompt`. */
-    playbookId: text('playbook_id'),
+    /** When set, firing runs this workflow (run-book) instead of sending `prompt`. */
+    workflowId: text('workflow_id'),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull()
   },
@@ -189,14 +189,15 @@ export const schedules = sqliteTable(
 )
 
 /**
- * Playbooks: app-managed run-books over SDK-stored workflows — Yardarm
- * metadata (name, description, default input, last-run state) layered on a
- * workflow that lives in the agent SDK's own storage. Distinct from the SDK
- * workflow storage itself (workflow_id is a plain SDK-storage id string, not
- * an app FK) and from scheduled runs (which may optionally fire a playbook).
+ * Workflows: app-managed run-books over SDK-stored workflow definitions —
+ * Yardarm metadata (name, description, default input, last-run state) layered
+ * on a definition that lives in the agent SDK's own storage. Distinct from the
+ * SDK definition storage itself (definition_id is a plain SDK-storage id
+ * string, not an app FK) and from scheduled runs (which may optionally fire a
+ * workflow).
  */
-export const playbooks = sqliteTable(
-  'playbooks',
+export const workflows = sqliteTable(
+  'workflows',
   {
     id: text('id').primaryKey(),
     projectId: text('project_id')
@@ -204,8 +205,8 @@ export const playbooks = sqliteTable(
       .references(() => projects.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     description: text('description'),
-    /** Id of the workflow in SDK storage (resolved via the chat's agent host). */
-    workflowId: text('workflow_id').notNull(),
+    /** Id of the definition in SDK storage (resolved via the chat's agent host). */
+    definitionId: text('definition_id').notNull(),
     /** JSON object used as the run input when none is provided. */
     defaultInputJson: text('default_input_json'),
     lastRunAt: integer('last_run_at'),
@@ -214,7 +215,7 @@ export const playbooks = sqliteTable(
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull()
   },
-  (t) => [index('playbooks_project_idx').on(t.projectId)]
+  (t) => [index('workflows_project_idx').on(t.projectId)]
 )
 
 /**
