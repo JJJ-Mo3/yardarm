@@ -1,5 +1,5 @@
 /**
- * Editable knowledge notes (Devin-style "Knowledge"): user-authored,
+ * Editable knowledge notes: user-authored,
  * project-scoped notes stored in the app DB. Pinned note bodies are inlined
  * into the system prompt via pluginInstructions; the rest are listed by title
  * and fetched on demand through the knowledge_note_lookup extra tool. A

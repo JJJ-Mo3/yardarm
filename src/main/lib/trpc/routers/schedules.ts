@@ -1,5 +1,5 @@
 /**
- * Scheduled runs CRUD (Devin-style scheduled sessions). Rows live in the app
+ * Scheduled runs CRUD. Rows live in the app
  * DB; the main-process scheduler (src/main/lib/schedules/scheduler.ts) fires
  * due rows while the app is open. Distinct from the SDK's experimental
  * in-agent schedule_* tools, which live inside one agent process.

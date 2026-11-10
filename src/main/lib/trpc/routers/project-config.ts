@@ -220,7 +220,7 @@ export const projectConfigRouter = router({
     }),
 
   // ---- worktree setup commands (.yardarm/worktree.json) ---------------------
-  /** Effective setup commands run in every new worktree (.yardarm with .1code fallback). */
+  /** Effective setup commands run in every new worktree (.yardarm/worktree.json). */
   worktreeSetupGet: publicProcedure
     .input(z.object({ projectPath: z.string() }))
     .query(async ({ input }) => {

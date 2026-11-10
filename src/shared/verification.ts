@@ -1,5 +1,5 @@
 /**
- * Self-verification loop (Devin-style): opt-in system-prompt guidance asking
+ * Self-verification loop: opt-in system-prompt guidance asking
  * the agent to verify its work with the project's own checks before declaring
  * a task done. Pure and shared — the agent host injects/removes the guidance
  * via the pluginInstructions state; the session manager resolves the

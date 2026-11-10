@@ -1,5 +1,5 @@
 /**
- * Follow-up suggestions (Devin-style next steps): system-prompt guidance
+ * Follow-up suggestions: system-prompt guidance
  * asking the agent to end substantial replies with up to three one-line
  * "Follow-up: <next step>" markers, plus the lenient parser and strip helper
  * the renderer uses to turn them into clickable composer-prefill chips. Pure

@@ -1,5 +1,5 @@
 /**
- * User-authored knowledge notes CRUD (Devin-style Knowledge). Rows live in
+ * User-authored knowledge notes CRUD. Rows live in
  * the app DB per project; pinned note bodies are inlined into the system
  * prompt at host boot, the rest are indexed by title and fetched on demand
  * via the auto-approved knowledge_note_lookup tool. Distinct from the SDK's

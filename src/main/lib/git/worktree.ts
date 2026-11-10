@@ -109,16 +109,14 @@ async function uniqueBranch(projectPath: string, base: string): Promise<string> 
   return `${base}-${Date.now()}`
 }
 
-/** Optional per-repo worktree setup commands (mirrors 1code's format). */
+/** Optional per-repo worktree setup commands (.yardarm/worktree.json). */
 export async function readSetupCommands(projectPath: string): Promise<string[]> {
-  for (const rel of ['.yardarm/worktree.json', '.1code/worktree.json']) {
-    try {
-      const raw = await fs.readFile(path.join(projectPath, rel), 'utf8')
-      const parsed = JSON.parse(raw) as { 'setup-worktree'?: string[] }
-      if (Array.isArray(parsed['setup-worktree'])) return parsed['setup-worktree']
-    } catch {
-      // missing or invalid — skip
-    }
+  try {
+    const raw = await fs.readFile(path.join(projectPath, '.yardarm', 'worktree.json'), 'utf8')
+    const parsed = JSON.parse(raw) as { 'setup-worktree'?: string[] }
+    if (Array.isArray(parsed['setup-worktree'])) return parsed['setup-worktree']
+  } catch {
+    // missing or invalid — skip
   }
   return []
 }

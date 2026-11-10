@@ -1,5 +1,5 @@
 /**
- * Confidence ratings (Devin-style): system-prompt guidance asking the agent
+ * Confidence ratings: system-prompt guidance asking the agent
  * to emit a one-line CONFIDENCE marker, plus the lenient parser and
  * transcript helpers the renderer uses to surface it as a header chip and on
  * plan cards. Pure and shared — the agent host injects the guidance, the

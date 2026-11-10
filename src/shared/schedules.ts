@@ -1,5 +1,5 @@
 /**
- * Scheduled runs (Devin-style scheduled sessions): the cadence model shared
+ * Scheduled runs: the cadence model shared
  * by the main-process scheduler (computes next_run_at) and the renderer
  * (cadence picker + descriptions). Pure date math on local wall-clock time —
  * a DST transition makes one daily/weekly occurrence land an hour off once,

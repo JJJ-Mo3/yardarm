@@ -153,7 +153,7 @@ export const goalEvaluations = sqliteTable(
 )
 
 /**
- * App-managed recurring agent runs (Devin-style scheduled sessions). The
+ * App-managed recurring agent runs. The
  * main-process scheduler fires due rows while the app is open; `cadence` is a
  * JSON ScheduleCadence (src/shared/schedules.ts) and `next_run_at` is
  * persisted so catch-up after relaunch is a plain `<= now` comparison.
@@ -184,7 +184,7 @@ export const schedules = sqliteTable(
 )
 
 /**
- * Editable knowledge notes (Devin-style "Knowledge"): user-authored,
+ * Editable knowledge notes: user-authored,
  * project-scoped notes injected into agent boots — pinned bodies go into the
  * system prompt, the rest are fetchable via the knowledge_note_lookup tool
  * (caps in src/shared/knowledge-notes.ts). Distinct from the SDK's

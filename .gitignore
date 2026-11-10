@@ -6,4 +6,3 @@ release/
 *.log
 .DS_Store
 *.tsbuildinfo
-.1code/

@@ -1,5 +1,5 @@
 /**
- * Scheduled runs manager (Devin-style scheduled sessions): recurring prompts
+ * Scheduled runs manager: recurring prompts
  * the main-process scheduler fires into a dedicated per-schedule chat while
  * Yardarm is open. Distinct from the SDK's experimental in-agent schedule_*
  * tools, which live inside a single agent process and die with it. Opened
