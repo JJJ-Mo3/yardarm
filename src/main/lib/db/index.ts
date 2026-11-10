@@ -195,7 +195,10 @@ const MIGRATIONS: string[] = [
    DROP INDEX IF EXISTS playbooks_project_idx;
    CREATE INDEX IF NOT EXISTS workflows_project_idx ON workflows(project_id);
    ALTER TABLE workflows RENAME COLUMN workflow_id TO definition_id;
-   ALTER TABLE schedules RENAME COLUMN playbook_id TO workflow_id;`
+   ALTER TABLE schedules RENAME COLUMN playbook_id TO workflow_id;`,
+  // v22 — dedicated per-project wiki-generation chat (lazily created on first
+  // generate; validated at use, so no FK)
+  `ALTER TABLE projects ADD COLUMN wiki_chat_id TEXT;`
 ]
 
 export function initDb(): DB {

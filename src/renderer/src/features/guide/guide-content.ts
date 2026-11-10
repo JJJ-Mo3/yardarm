@@ -350,9 +350,10 @@ architecture docs for the selected project: an overview page with a Mermaid diag
 page per major module, with clickable \`path:line\` source references that open the IDE and
 links between pages.
 
-- **Generate** — click Generate (or run \`/wiki generate\`): the wiki is written as a normal,
-  visible agent run in the selected chat, with the usual approvals and cost tracking. When
-  the run finishes, the pages are collected automatically.
+- **Generate** — click Generate (or run \`/wiki generate\`): generation runs behind the
+  scenes in a dedicated **"Repo wiki"** chat the app creates for the project — no chat
+  selection needed, and your own chats stay untouched. The Wiki tab shows progress with a
+  **View run** button to watch the run; pages are collected automatically when it finishes.
 - **Storage** — pages live in Yardarm's app data folder, per project — never inside your
   repository, so diffs, reviews, and commits stay clean. (The temporary \`.yardarm-wiki/\`
   staging folder the agent writes to is git-excluded and removed on collection.)

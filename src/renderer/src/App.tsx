@@ -527,7 +527,7 @@ export default function App(): React.JSX.Element {
                 (projectId ? <AnalyticsView projectId={projectId} /> : <SelectProjectPane />)}
               {tab === 'wiki' &&
                 (projectId ? (
-                  <WikiView key={projectId} projectId={projectId} chatId={chatId} />
+                  <WikiView key={projectId} projectId={projectId} />
                 ) : (
                   <SelectProjectPane />
                 ))}

@@ -100,7 +100,6 @@ import {
   parseReviewArgs
 } from './review-prompts'
 import { buildAskMarker, buildAskPrompt } from './ask-prompts'
-import { buildWikiPrompt, findCompletedWikiRun, WIKI_MARKER } from '../wiki/wiki-prompts'
 import { MODES, type Mode } from '../../../../shared/ui-message'
 import { latestConfidence } from '../../../../shared/confidence'
 import { ConfidenceChip } from './ConfidenceChip'
@@ -150,14 +149,11 @@ export function ChatView({
   const setVerifyWork = trpc.agent.setVerifyWork.useMutation({
     onSuccess: () => utils.agent.verifyWork.invalidate({ subchatId })
   })
-  // Repo wiki: /wiki generate prepares the staging folder before the marked
-  // run; collect moves finished staging into the per-project store.
   const selectedChatId = useAtomValue(selectedChatIdAtom)
-  const wikiPrepare = trpc.wiki.prepare.useMutation()
-  const wikiCollect = trpc.wiki.collect.useMutation({
-    onSuccess: (r) => {
-      if (r.collected) void utils.wiki.invalidate()
-    }
+  // Repo wiki: /wiki generate kicks off a run in the project's dedicated
+  // behind-the-scenes wiki chat (no chat selection required).
+  const wikiGenerate = trpc.wiki.generate.useMutation({
+    onSuccess: () => void utils.wiki.status.invalidate()
   })
   // Repo host (GitHub/GitLab) for provider-aware review prompts and follow-up copy.
   const forge = trpc.git.forgeInfo.useQuery(
@@ -372,18 +368,6 @@ export function ChatView({
     [state.running, state.messages]
   )
 
-  // Collect the staged wiki pages into the per-project store once a wiki
-  // generation run finishes. The ref dedupes per marker so retries stay manual.
-  const collectedWikiMarkerRef = useRef<string | null>(null)
-  const { mutate: wikiCollectMutate } = wikiCollect
-  useEffect(() => {
-    if (!primary || state.running || !selectedChatId) return
-    const run = findCompletedWikiRun(state.messages)
-    if (!run || collectedWikiMarkerRef.current === run.markerId) return
-    collectedWikiMarkerRef.current = run.markerId
-    wikiCollectMutate({ chatId: selectedChatId })
-  }, [primary, state.running, state.messages, selectedChatId, wikiCollectMutate])
-
   const currentMode: Mode = (MODES as readonly string[]).includes(meta.mode ?? '')
     ? (meta.mode as Mode)
     : 'build'
@@ -415,8 +399,7 @@ export function ChatView({
       ['thinking', setThinking],
       ['auto-approve', setYolo],
       ['verify work', setVerifyWork],
-      ['wiki', wikiPrepare],
-      ['wiki collect', wikiCollect],
+      ['wiki', wikiGenerate],
       ['rollback', rollback],
       ['fork', fork],
       ['command', runCommand],
@@ -574,12 +557,9 @@ export function ChatView({
       case 'wiki': {
         const sub = args.trim()
         if (sub === 'generate') {
-          if (!primary) return 'Wiki generation runs from the primary chat pane.'
-          if (!selectedChatId) return 'Select a chat first — wiki generation runs in its worktree.'
-          wikiPrepare.mutate(
-            { chatId: selectedChatId },
-            { onSuccess: () => sendMarked(buildWikiPrompt(), WIKI_MARKER) }
-          )
+          if (!projectId) return 'Open a project first — the wiki is generated per project.'
+          wikiGenerate.mutate({ projectId })
+          setMainTab('wiki')
           return
         }
         if (sub) return 'Usage: /wiki [generate]'

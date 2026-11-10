@@ -1,36 +1,27 @@
 /**
  * Repo Wiki tab: agent-generated architecture docs for the selected project.
  * Pages are served from the per-project store (<userData>/wiki/<projectId>/)
- * via the wiki router; generation runs as a visible marked run in the selected
- * chat, dispatched through the primary ChatView's palette bridge
- * (/wiki generate). Shows a staleness banner when the project HEAD moved
- * since generation, and opportunistically collects leftover staging (e.g.
- * after the app closed mid-run) when opened with a chat selected.
+ * via the wiki router; generation runs behind the scenes in the project's
+ * dedicated "Repo wiki" chat (wiki.generate — no chat selection required).
+ * While a run is active this view polls wiki.status, which also recovers
+ * leftover staging (e.g. the app closed mid-run) once the wiki chat is idle.
+ * Shows a staleness banner when the project HEAD moved since generation.
  */
-import React, { useEffect, useState } from 'react'
-import { useAtomValue, useSetAtom } from 'jotai'
-import { BookText, Loader2, RefreshCw, Trash2 } from 'lucide-react'
-import { mainTabAtom } from '../../lib/atoms'
+import React, { useEffect, useRef, useState } from 'react'
+import { useSetAtom } from 'jotai'
+import { BookText, Loader2, MessageSquare, RefreshCw, Trash2 } from 'lucide-react'
+import { mainTabAtom, selectedChatIdAtom } from '../../lib/atoms'
 import { trpc } from '../../lib/trpc'
 import { cn, timeAgo } from '../../lib/utils'
 import { Button } from '../../components/ui/button'
 import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
-import { BUILTIN_COMMANDS, paletteDispatchAtom } from '../agents/slash-commands'
 import { Markdown } from '../agents/Markdown'
 
-const WIKI_COMMAND = BUILTIN_COMMANDS.find((c) => c.name === 'wiki')
-
-export function WikiView({
-  projectId,
-  chatId
-}: {
-  projectId: string
-  chatId: string | null
-}): React.JSX.Element {
+export function WikiView({ projectId }: { projectId: string }): React.JSX.Element {
   const utils = trpc.useUtils()
   const setTab = useSetAtom(mainTabAtom)
-  const dispatch = useAtomValue(paletteDispatchAtom)
+  const setSelectedChat = useSetAtom(selectedChatIdAtom)
   const confirm = useConfirm()
   const [selected, setSelected] = useState<string | null>(null)
 
@@ -44,28 +35,27 @@ export function WikiView({
     { projectId, name: pageName ?? '' },
     { enabled: pageName !== null }
   )
-  const collect = trpc.wiki.collect.useMutation({
-    onSuccess: (r) => {
-      if (r.collected) void utils.wiki.invalidate()
-    }
+  const status = trpc.wiki.status.useQuery(
+    { projectId },
+    { refetchInterval: (q) => (q.state.data?.running ? 2500 : false) }
+  )
+  const generate = trpc.wiki.generate.useMutation({
+    onSuccess: () => void utils.wiki.status.invalidate()
   })
   const remove = trpc.wiki.remove.useMutation({
     onSuccess: () => void utils.wiki.invalidate()
   })
 
-  // App-closed-mid-run recovery: collect any finished staging left in the
-  // chat worktree. Retry-safe no-op when there is nothing staged.
-  const { mutate: collectMutate } = collect
-  useEffect(() => {
-    if (chatId) collectMutate({ chatId })
-  }, [chatId, collectMutate])
+  const running = status.data?.running ?? false
+  const runChatId = status.data?.chatId ?? null
 
-  const canGenerate = dispatch !== null && chatId !== null && WIKI_COMMAND !== undefined
-  const generate = (): void => {
-    if (!dispatch || !WIKI_COMMAND) return
-    dispatch.run(WIKI_COMMAND, 'generate')
-    setTab('chat')
-  }
+  // Refresh pages when a run finishes (running → false) or when the status
+  // poll recovered leftover staging into the store.
+  const prevRunning = useRef(false)
+  useEffect(() => {
+    if ((prevRunning.current && !running) || status.data?.collected) void utils.wiki.invalidate()
+    prevRunning.current = running
+  }, [running, status.data?.collected, utils])
 
   const onDelete = async (): Promise<void> => {
     const ok = await confirm({
@@ -78,6 +68,12 @@ export function WikiView({
       setSelected(null)
       remove.mutate({ projectId })
     }
+  }
+
+  const viewRun = (): void => {
+    if (!runChatId) return
+    setSelectedChat(runChatId)
+    setTab('chat')
   }
 
   // Relative .md links between wiki pages navigate in-wiki instead of
@@ -99,14 +95,23 @@ export function WikiView({
   const generateButton = (label: string): React.JSX.Element => (
     <Tip
       content={
-        canGenerate
-          ? 'Run wiki generation as an agent task in the selected chat (switches to the Chat tab)'
-          : 'Select a chat first — wiki generation runs as an agent task in its worktree'
+        running
+          ? 'Wiki generation is already running'
+          : 'Generate the wiki behind the scenes in this project\u2019s dedicated "Repo wiki" chat'
       }
     >
       <span className="inline-flex">
-        <Button size="sm" variant="secondary" disabled={!canGenerate} onClick={generate}>
-          <RefreshCw size={13} />
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={running || generate.isPending}
+          onClick={() => generate.mutate({ projectId })}
+        >
+          {running || generate.isPending ? (
+            <Loader2 size={13} className="animate-spin" />
+          ) : (
+            <RefreshCw size={13} />
+          )}
           {label}
         </Button>
       </span>
@@ -144,6 +149,30 @@ export function WikiView({
         </div>
       </div>
 
+      {generate.error && (
+        <div className="border-b border-red-500/30 bg-red-500/10 px-4 py-1.5 text-[11px] text-red-600 dark:text-red-400">
+          {generate.error.message}
+        </div>
+      )}
+
+      {running && (
+        <div className="flex items-center justify-between gap-2 border-b border-border bg-accent/40 px-4 py-1.5">
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <Loader2 size={12} className="animate-spin" />
+            Generating the wiki in this project&apos;s &quot;Repo wiki&quot; chat&hellip; pages
+            appear here when the run finishes.
+          </div>
+          <Tip content="Open the wiki-generation chat to watch the run">
+            <span className="inline-flex">
+              <Button size="sm" variant="ghost" disabled={!runChatId} onClick={viewRun}>
+                <MessageSquare size={13} />
+                View run
+              </Button>
+            </span>
+          </Tip>
+        </div>
+      )}
+
       {hasPages && behind !== null && behind > 0 && (
         <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-[11px] text-amber-600 dark:text-amber-400">
           This wiki is {behind} commit{behind === 1 ? '' : 's'} behind the repository — refresh it
@@ -161,7 +190,8 @@ export function WikiView({
           <div className="text-sm font-medium">No wiki yet</div>
           <div className="max-w-sm text-xs text-muted-foreground">
             Generate an agent-written wiki for this project: an architecture overview with a Mermaid
-            diagram, plus a page per major module with clickable source references.
+            diagram, plus a page per major module with clickable source references. Generation runs
+            behind the scenes in a dedicated chat.
           </div>
           {generateButton('Generate wiki')}
         </div>

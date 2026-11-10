@@ -8,6 +8,8 @@ export const projects = sqliteTable(
     path: text('path').notNull(),
     defaultBranch: text('default_branch'),
     settings: text('settings'),
+    /** Dedicated wiki-generation chat, lazily created on first /wiki generate. */
+    wikiChatId: text('wiki_chat_id'),
     archived: integer('archived', { mode: 'boolean' }).notNull().default(false),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull()

@@ -1,28 +1,18 @@
 /**
  * Repo-wiki router: serves agent-generated wiki pages stored per project
- * under <userData>/wiki/<projectId>/, prepares a generation run (registers
- * .yardarm-wiki/ in .git/info/exclude + writes staging meta in the chat
- * worktree), collects finished staging into the store, and reports
- * staleness (commits behind) vs the project repo's HEAD.
+ * under <userData>/wiki/<projectId>/, kicks off generation (which runs as a
+ * marked agent task in the project's dedicated behind-the-scenes wiki chat —
+ * see wiki-generate.ts), reports generation status, and reports staleness
+ * (commits behind) vs the project repo's HEAD.
  */
 import { existsSync } from 'node:fs'
-import path from 'node:path'
 import { app } from 'electron'
 import { eq } from 'drizzle-orm'
 import { simpleGit } from 'simple-git'
 import { z } from 'zod'
 import { getDb, schema } from '../../db'
-import {
-  collectStaging,
-  deleteWiki,
-  ensureExcludeLine,
-  listPages,
-  readMeta,
-  readPage,
-  wikiDir,
-  WIKI_STAGING_DIR,
-  writeStagingMeta
-} from '../../wiki/wiki-fs'
+import { deleteWiki, listPages, readMeta, readPage, wikiDir } from '../../wiki/wiki-fs'
+import { startWikiGeneration, wikiGenerationStatus } from '../../wiki/wiki-generate'
 import { publicProcedure, router } from '../trpc'
 
 export interface WikiMetaResult {
@@ -34,21 +24,6 @@ export interface WikiMetaResult {
 
 function storeDir(projectId: string): string {
   return wikiDir(app.getPath('userData'), projectId)
-}
-
-function chatContext(chatId: string): { cwd: string; projectId: string } {
-  const db = getDb()
-  const chat = db.select().from(schema.chats).where(eq(schema.chats.id, chatId)).get()
-  if (!chat) throw new Error('Chat not found')
-  const project = db
-    .select()
-    .from(schema.projects)
-    .where(eq(schema.projects.id, chat.projectId))
-    .get()
-  if (!project) throw new Error('Project not found')
-  const cwd = chat.worktreePath ?? project.path
-  if (!existsSync(cwd)) throw new Error(`Folder no longer exists: ${cwd}`)
-  return { cwd, projectId: project.id }
 }
 
 export const wikiRouter = router({
@@ -92,33 +67,16 @@ export const wikiRouter = router({
       return { sha: meta.sha, generatedAt: meta.generatedAt, behind }
     }),
 
-  /** Pre-generation setup: keep .yardarm-wiki/ out of git + write staging meta. */
-  prepare: publicProcedure.input(z.object({ chatId: z.string() })).mutation(async ({ input }) => {
-    const { cwd, projectId } = chatContext(input.chatId)
-    const git = simpleGit(cwd)
-    let sha: string | null = null
-    try {
-      sha = (await git.revparse(['HEAD'])).trim() || null
-    } catch {
-      // repo without commits
-    }
-    try {
-      // info/exclude resolves to the shared common dir for worktrees; never
-      // the user's .gitignore. `git add -A` and checkpoint capture respect it.
-      const rel = (await git.raw(['rev-parse', '--git-path', 'info/exclude'])).trim()
-      await ensureExcludeLine(path.resolve(cwd, rel), `${WIKI_STAGING_DIR}/`)
-    } catch {
-      // not a git repo — exclusion is best-effort
-    }
-    await writeStagingMeta(cwd, { projectId, sha })
-    return { ok: true }
-  }),
+  /** Start a generation run in the project's dedicated wiki chat (never queues). */
+  generate: publicProcedure
+    .input(z.object({ projectId: z.string() }))
+    .mutation(async ({ input }) => {
+      return startWikiGeneration(input.projectId)
+    }),
 
-  /** Move finished staging pages into the store (retry-safe no-op without any). */
-  collect: publicProcedure.input(z.object({ chatId: z.string() })).mutation(async ({ input }) => {
-    const { cwd, projectId } = chatContext(input.chatId)
-    const collected = await collectStaging(cwd, storeDir(projectId))
-    return { collected }
+  /** Live generation status + opportunistic recovery of leftover staging. */
+  status: publicProcedure.input(z.object({ projectId: z.string() })).query(async ({ input }) => {
+    return wikiGenerationStatus(input.projectId)
   }),
 
   remove: publicProcedure.input(z.object({ projectId: z.string() })).mutation(async ({ input }) => {

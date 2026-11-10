@@ -64,6 +64,7 @@ async function insertProject(
     path: projectPath,
     defaultBranch: await detectDefaultBranch(projectPath),
     settings: null,
+    wikiChatId: null,
     archived: false,
     createdAt: Date.now(),
     updatedAt: Date.now()
