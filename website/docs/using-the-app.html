@@ -77,8 +77,9 @@
             <li><a href="#repo-wiki">Repo wiki</a></li>
             <li><a href="#checkpoints">Checkpoints &amp; rollback</a></li>
             <li><a href="#goals">Goals</a></li>
+            <li><a href="#schedules">Scheduled runs</a></li>
             <li><a href="#workflows">Workflows</a></li>
-            <li><a href="#knowledge">Agent knowledge</a></li>
+            <li><a href="#knowledge">Knowledge notes &amp; agent knowledge</a></li>
             <li><a href="#threads">Threads, forking, split view</a></li>
           </ul>
         </nav>
@@ -141,6 +142,8 @@
             <strong>Verify work</strong> (per-chat Default / On / Off override for the
             self-verification pass, see <a href="#confidence">Confidence &amp; verification</a>),
             <strong>Observational memory</strong> (<code>/om</code> status and tuning),
+            <strong>Scheduled runs</strong> (<code>/schedules</code> — recurring agent runs, see
+            <a href="#schedules">Scheduled runs</a>),
             <strong>PR subscriptions</strong> (<code>/github</code>),
             <strong>MCP servers</strong> (live status of this chat's MCP servers with a quick
             per-server enable/disable switch — no trip to Settings needed),
@@ -202,6 +205,12 @@
             <strong>Mermaid diagrams</strong> — <code>mermaid</code> code blocks in agent replies
             render as diagrams (flowcharts, sequence diagrams, …), following the app theme; invalid
             syntax falls back to the plain code block.
+          </li>
+          <li>
+            <strong>Follow-up suggestions</strong> — after finishing a substantial task the agent
+            proposes next steps as clickable chips under its reply. Clicking one prefills the
+            composer (never auto-sends) so you can edit before sending; dismiss the row with the ×.
+            On by default — turn off in Settings → Preferences.
           </li>
         </ul>
 
@@ -467,6 +476,12 @@
             Project Settings → General → Repository host.
           </li>
           <li>
+            <strong>Draft with AI</strong> — inside the Create PR/MR dialog, the Draft with AI
+            button has the chat's agent read the branch's commits and diff and write the PR title
+            and description for you. Both fields stay editable, so polish before creating. Needs the
+            chat's agent to be idle.
+          </li>
+          <li>
             <strong>Branch switching</strong> — the branch selector checks out another branch. If
             the working tree has uncommitted changes, Yardarm asks first: stash them and switch,
             carry them over, or cancel.
@@ -657,6 +672,43 @@
           converged (or why it kept failing) long after it finished.
         </p>
 
+        <h2 id="schedules">Scheduled runs</h2>
+        <p>
+          <strong>Scheduled runs</strong> fire a prompt on a recurring cadence — a nightly
+          dependency audit, a weekly changelog draft, an hourly health check. Open them from the
+          chat header's ⋯ menu (or <code>/schedules</code>).
+        </p>
+        <ul>
+          <li>
+            <strong>Cadence</strong> — every N minutes (up to 7 days), daily at a time, or weekly on
+            a day — local wall-clock time.
+          </li>
+          <li>
+            <strong>Where runs land</strong> — each schedule gets its own dedicated chat ("Schedule:
+            &lt;name&gt;"), created on first fire, so recurring output never clutters your working
+            chats. Schedules can optionally run in an isolated worktree.
+          </li>
+          <li>
+            <strong>Controls</strong> — each schedule shows its next-run countdown and last-run
+            status, with enable/disable, <strong>Run now</strong>, edit, and delete.
+          </li>
+          <li>
+            <strong>Overlap</strong> — if the schedule's chat is still busy when the next fire comes
+            due, that fire is <strong>skipped</strong> (shown as "skipped"), never queued — a
+            recurring prompt that stacked up behind a long run would replay itself.
+          </li>
+        </ul>
+        <p>
+          Schedules fire only while Yardarm is open; an overdue schedule fires once at launch, then
+          re-anchors to its normal cadence.
+        </p>
+        <p>
+          Not the same as the agent's experimental <strong>schedule tools</strong> (Settings →
+          Preferences): those give the agent <code>schedule_*</code> tools to manage recurring
+          prompts on its own thread, and they live inside one agent process — they end when it
+          exits. Scheduled runs are managed by the app and survive restarts.
+        </p>
+
         <h2 id="workflows">Workflows: save and re-run multi-step processes</h2>
         <p>
           When you find yourself asking the agent for the same multi-step process again and again,
@@ -701,7 +753,42 @@
           chat and have it save the workflow again.
         </p>
 
-        <h2 id="knowledge">Agent knowledge</h2>
+        <h2 id="knowledge">Knowledge notes &amp; agent knowledge</h2>
+        <p>
+          Two distinct systems share the "knowledge" name — one you write, one the agent writes.
+        </p>
+
+        <h3>Knowledge notes (you write them)</h3>
+        <p>
+          <strong>Knowledge notes</strong> (Project Settings → Knowledge) are durable, user-authored
+          facts the agent should always know about the project — "deploys go through
+          <code>make release</code>", "never touch <code>legacy/</code>". Each note can be:
+        </p>
+        <ul>
+          <li>
+            <strong>Pinned</strong> — its full text rides along in the agent's instructions on every
+            run.
+          </li>
+          <li>
+            <strong>Unpinned</strong> — only its title is listed; the agent fetches the body on
+            demand with the auto-approved <code>knowledge_note_lookup</code> tool, keeping prompts
+            lean.
+          </li>
+        </ul>
+        <p>
+          Notes can be toggled off without deleting, and there's a pinned-size budget so
+          instructions stay bounded. Edits apply at the next run — running chats in the project
+          restart.
+        </p>
+        <p>
+          <strong>Suggested notes</strong> — when you correct the agent or it learns something
+          durable, it may end its reply with a suggestion; a card appears under the reply with
+          <strong>Save</strong> (lands in the Knowledge tab, unpinned, marked "suggested") and
+          <strong>Dismiss</strong>. On by default — turn off via
+          <strong>Suggest knowledge notes</strong> in Settings → Preferences.
+        </p>
+
+        <h3>Agent knowledge base (the agent writes it)</h3>
         <p>
           With <strong>Knowledge</strong> enabled, the agent builds up durable notes about your
           project — knowledge it captures and reuses across conversations. It's experimental and off

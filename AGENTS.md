@@ -115,6 +115,14 @@ No accounts or login — everything runs locally against mastracode's own config
   Experimental (`setKnowledgeEnabled` in settings-json.ts); no auto-seeding — upstream default
   is deliberately off. When off, `mc.knowledgeInspector` is undefined and
   `knowledgeInspectorUnavailableReason` says why.
+- Two "knowledge" systems, two "schedules" systems — keep the naming straight. **Knowledge
+  notes** are Yardarm's user-authored notes (`knowledge_notes` table, Project Settings →
+  Knowledge, `src/shared/knowledge-notes.ts`, pinned bodies + titles-only index with the
+  auto-approved `knowledge_note_lookup` extra tool); the **agent knowledge base** is the SDK's
+  experimental agent-captured memory above. **Scheduled runs** are Yardarm's app-managed
+  recurring runs (`schedules` table, `src/main/lib/schedules/scheduler.ts`, /schedules dialog,
+  survive restarts); the SDK's experimental `schedule_*` tools live inside one agent process
+  and die with it. UI copy and docs must preserve these distinctions.
 - `session.model.switch(modelId)` takes a positional string since SDK 1.18 (was an object) and
   is per-thread (persists to thread metadata) — concurrent chats on different models stay
   independent.

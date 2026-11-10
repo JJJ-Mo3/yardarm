@@ -44,7 +44,9 @@ When you add one, Yardarm offers to write **agent instructions** (an \`AGENTS.md
 agent knows your project's conventions from the first prompt — you can skip it or edit the
 file later in Project Settings. Inside a project you create **chats** — independent
 conversations with the agent. Drag chats in the sidebar to reorder them; chats you haven't
-ordered sort by recency.
+ordered sort by recency. **Pin** a chat (the pin button on its row) to keep it at the top of
+the list regardless of order or recency — pinned rows show a persistent pin icon; hover it to
+unpin.
 
 ### Worktrees
 
@@ -60,6 +62,11 @@ in the project folder:
 The IDE, Terminal, Changes, and Preview tabs all follow the selected chat's worktree (or the
 project root when no chat is selected). Repositories without any commits get a small bootstrap
 "Initial commit" so worktrees and checkpoints work.
+
+**Worktree setup commands** (Project Settings → General) run in every newly created worktree
+right after it's checked out — one per line, e.g. \`npm install\`, so new chats start with
+dependencies ready. Each command gets 5 minutes and failures are logged but never block the
+chat. They're saved to \`.yardarm/worktree.json\` in the repo, so the whole team shares them.
 
 Projects can be archived from the sidebar; archived projects are hidden but nothing is
 deleted unless you explicitly opt in.
@@ -104,6 +111,10 @@ its reasoning, tool calls, and file edits into the transcript.
 - **Git activity badges** — when the agent commits, pushes, merges, or switches branches
   during a turn, small badges under the reply summarize it at a glance (e.g. "2 commits",
   "pushed", "→ branch-name").
+- **Follow-up suggestions** — after finishing a substantial task the agent proposes next
+  steps as clickable chips under its reply. Clicking one prefills the composer (never
+  auto-sends) so you can edit before sending; dismiss the row with the ×. On by default —
+  turn off in Settings → Preferences.
 
 ### Header tools
 
@@ -117,6 +128,7 @@ its reasoning, tool calls, and file edits into the transcript.
   changes or an open PR/MR), **Verify work** (per-chat Default / On / Off override for the
   self-verification pass — see Confidence & verification),
   **Observational memory** (\`/om\` status and tuning),
+  **Scheduled runs** (\`/schedules\` — recurring agent runs, see Scheduled runs below),
   **PR subscriptions** (\`/github\`), **MCP servers** (live status of this chat's MCP servers
   with a quick per-server enable/disable switch — no trip to Settings needed),
   **Open folder in…** (reveal the chat's folder in your
@@ -224,6 +236,34 @@ so you can see how a goal converged.
 `
   },
   {
+    id: 'schedules',
+    title: 'Scheduled runs',
+    body: `
+**Scheduled runs** fire a prompt on a recurring cadence — a nightly dependency audit, a
+weekly changelog draft, an hourly health check. Open them from the chat header's ⋯ menu (or
+\`/schedules\`).
+
+- **Cadence** — every N minutes (up to 7 days), daily at a time, or weekly on a day — local
+  wall-clock time.
+- **Where runs land** — each schedule gets its own dedicated chat ("Schedule: <name>"),
+  created on first fire, so recurring output never clutters your working chats. Schedules
+  can optionally run in an isolated worktree.
+- **Controls** — each schedule shows its next-run countdown and last-run status, with
+  enable/disable, **Run now**, edit, and delete.
+- **Overlap** — if the schedule's chat is still busy when the next fire comes due, that fire
+  is **skipped** (shown as "skipped"), never queued — a recurring prompt that stacked up
+  behind a long run would replay itself.
+
+Schedules fire only while Yardarm is open; an overdue schedule fires once at launch, then
+re-anchors to its normal cadence.
+
+Not the same as the agent's experimental **schedule tools** (Settings → Preferences): those
+give the agent \`schedule_*\` tools to manage recurring prompts on its own thread, and they
+live inside one agent process — they end when it exits. Scheduled runs are managed by the
+app and survive restarts.
+`
+  },
+  {
     id: 'threads',
     title: 'Threads, forking & split view',
     body: `
@@ -275,6 +315,9 @@ root).
   and authenticated, you can open PRs/MRs from the app; the title is prefilled from your last
   commit. The host is auto-detected from the origin remote; for self-hosted instances, set it
   in Project Settings → General.
+- **Draft with AI** — inside the Create PR/MR dialog, the Draft with AI button has the chat's
+  agent read the branch's commits and diff and write the PR title and description for you.
+  Both fields stay editable, so polish before creating. Needs the chat's agent to be idle.
 `
   },
   {
@@ -515,8 +558,30 @@ demand.
   },
   {
     id: 'knowledge',
-    title: 'Agent knowledge',
+    title: 'Knowledge notes & agent knowledge',
     body: `
+Two distinct systems share the "knowledge" name — one you write, one the agent writes:
+
+### Knowledge notes (you write them)
+
+**Knowledge notes** (Project Settings → Knowledge) are durable, user-authored facts the agent
+should always know about the project — "deploys go through \`make release\`", "never touch
+\`legacy/\`". Each note can be:
+
+- **Pinned** — its full text rides along in the agent's instructions on every run.
+- **Unpinned** — only its title is listed; the agent fetches the body on demand with the
+  auto-approved \`knowledge_note_lookup\` tool, keeping prompts lean.
+
+Notes can be toggled off without deleting, and there's a pinned-size budget so instructions
+stay bounded. Edits apply at the next run — running chats in the project restart.
+
+**Suggested notes** — when you correct the agent or it learns something durable, it may end
+its reply with a suggestion; a card appears under the reply with **Save** (lands in the
+Knowledge tab, unpinned, marked "suggested") and **Dismiss**. On by default — turn off via
+**Suggest knowledge notes** in Settings → Preferences.
+
+### Agent knowledge base (the agent writes it)
+
 With **Knowledge** enabled, the agent builds up durable notes about your project — knowledge
 it captures and reuses across conversations. It's experimental and **off by default**: turn
 it on in Settings → Preferences → **Experimental** (shared with the CLI's "Experimental
@@ -588,13 +653,16 @@ App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
 - **Keyboard** — rebind the app shortcuts (command palette, find, split panes, …). ⌘1–8 tab
   switching is fixed.
 - **Preferences** — agent behavior defaults (auto-approve, sandbox, **confidence ratings** —
-  the colored chip, on by default — and **verify work before finishing**, off by default),
+  the colored chip, on by default — **verify work before finishing**, off by default,
+  **follow-up suggestions** — the next-step chips under replies, on by default — and
+  **suggest knowledge notes** — the save-a-note card, on by default),
   token compression and verbosity steering, the **web-search provider** the agent's search tool uses (Tavily or
   Parallel), **commit attribution** (the co-author trailer on agent-made commits — customize
   or disable it), experimental **cross-agent communication** (lets running agents discover
   and signal each other), experimental **schedule tools** (gives the agent
   \`schedule_create/list/update/resume/run\` to manage recurring prompts on its own thread —
-  schedules live inside the agent process and end with it), experimental **Knowledge** (a
+  schedules live inside the agent process and end with it; distinct from the app-managed
+  **Scheduled runs** in the chat ⋯ menu), experimental **Knowledge** (a
   persistent agent knowledge base + the \`/knowledge\` browser — see the Agent knowledge
   section), an experimental **agent runtime**
   selector (durable/evented — leave on default unless you know you need it; invalid setups
@@ -637,9 +705,11 @@ App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
   logs), and "Run setup again" to redo onboarding.
 
 **Project settings** (gear on the project row) cover per-project hooks, custom slash
-commands, agent instructions, resources, plugins, and workflows — plugins with configuration
-schemas get generated settings forms, **Create plugin** scaffolds a new plugin for you, and
-the Workflows tab (\`/workflows\`) runs and manages the agent's stored workflows.
+commands, agent instructions, **knowledge notes** (see Knowledge notes), resources, plugins,
+and workflows — plugins with configuration schemas get generated settings forms,
+**Create plugin** scaffolds a new plugin for you, and the Workflows tab (\`/workflows\`) runs
+and manages the agent's stored workflows. The General tab also holds the repository host
+override and the **worktree setup commands** (see Projects, chats & worktrees).
 `
   },
   {
