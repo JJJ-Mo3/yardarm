@@ -9,6 +9,7 @@ import { factoryWorkRouter } from './factory-work'
 import { filesRouter } from './files'
 import { gitRouter } from './git'
 import { goalsRouter } from './goals'
+import { knowledgeNotesRouter } from './knowledge-notes'
 import { lspPacksRouter } from './lsp-packs'
 import { mastraSettingsRouter } from './mastra-settings'
 import { mcpRouter } from './mcp'
@@ -34,6 +35,7 @@ export const appRouter = router({
   factoryWork: factoryWorkRouter,
   git: gitRouter,
   goals: goalsRouter,
+  knowledgeNotes: knowledgeNotesRouter,
   lspPacks: lspPacksRouter,
   terminal: terminalRouter,
   files: filesRouter,

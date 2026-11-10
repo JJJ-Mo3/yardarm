@@ -264,6 +264,14 @@ export function PreferencesTab(): React.JSX.Element {
   })
   const verifyEnabled = verifySetting.data === true
 
+  // Suggested-knowledge guidance (app_settings KV, default on); hosts read it
+  // at boot, so changes apply to newly started agent sessions.
+  const suggestKnowledgeSetting = trpc.settings.get.useQuery({ key: 'suggestKnowledge' })
+  const setSuggestKnowledge = trpc.settings.set.useMutation({
+    onSuccess: () => utils.settings.get.invalidate({ key: 'suggestKnowledge' })
+  })
+  const suggestKnowledgeEnabled = suggestKnowledgeSetting.data !== false
+
   // Commit co-author identity (app_settings KV); applied to hosts at boot.
   const coAuthor = trpc.settings.get.useQuery({ key: 'commitCoAuthor' })
   const setCoAuthor = trpc.settings.set.useMutation({
@@ -292,6 +300,7 @@ export function PreferencesTab(): React.JSX.Element {
     setDesktopNotif.error ??
     setConfidence.error ??
     setVerify.error ??
+    setSuggestKnowledge.error ??
     setCoAuthor.error
 
   return (
@@ -500,6 +509,29 @@ export function PreferencesTab(): React.JSX.Element {
               onCheckedChange={(v) => setVerify.mutate({ key: 'verifyWork', value: v })}
             />
             Verify work before finishing
+          </label>
+        </Tip>
+      </div>
+
+      <div className="space-y-3 rounded border border-border p-3">
+        <div>
+          <div className="text-xs font-medium">Suggest knowledge notes</div>
+          <div className="text-[11px] text-muted-foreground">
+            Asks the agent to end a reply with one durable project fact it learned, shown as a
+            save/dismiss card under the message. Saved notes live in Project settings → Knowledge.
+            Applies to newly started agent sessions.
+          </div>
+        </div>
+        <Tip content="Inject the suggested-knowledge guidance into new agent sessions — when off, the agent never proposes notes and no card appears">
+          <label className="flex w-fit items-center gap-2 text-xs">
+            <Switch
+              checked={suggestKnowledgeEnabled}
+              disabled={setSuggestKnowledge.isPending}
+              onCheckedChange={(v) =>
+                setSuggestKnowledge.mutate({ key: 'suggestKnowledge', value: v })
+              }
+            />
+            Suggest knowledge notes
           </label>
         </Tip>
       </div>

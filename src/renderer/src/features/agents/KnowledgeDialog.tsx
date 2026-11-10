@@ -6,8 +6,10 @@
  * knowledge is written by the agent's memory subsystem.
  */
 import React, { useEffect, useState } from 'react'
+import { useSetAtom } from 'jotai'
 import { BookOpen } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
+import { projectSettingsOpenAtom, projectSettingsTabAtom } from '../../lib/atoms'
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
 import {
   Select,
@@ -54,6 +56,8 @@ export function KnowledgeDialog({
 }): React.JSX.Element {
   const [scope, setScope] = useState<KnowledgeScopeLevel>('resource')
   const [selected, setSelected] = useState<string | null>(null)
+  const setProjectSettingsOpen = useSetAtom(projectSettingsOpenAtom)
+  const setProjectSettingsTab = useSetAtom(projectSettingsTabAtom)
 
   const list = trpc.agent.knowledgeList.useQuery(
     { subchatId, scope },
@@ -83,6 +87,23 @@ export function KnowledgeDialog({
           <BookOpen size={14} />
           Knowledge
         </DialogTitle>
+        <div className="text-[11px] text-muted-foreground">
+          This browses the agent&apos;s own memory (captured automatically as it works). For notes
+          you write yourself, use{' '}
+          <Tip content="Open Project settings → Knowledge — user-authored notes the agent always sees">
+            <button
+              onClick={() => {
+                setProjectSettingsTab('knowledge')
+                setProjectSettingsOpen(true)
+                onOpenChange(false)
+              }}
+              className="underline underline-offset-2 hover:text-foreground cursor-pointer"
+            >
+              Knowledge notes
+            </button>
+          </Tip>{' '}
+          in Project settings.
+        </div>
         <div className="flex h-[26rem] gap-3">
           <div className="flex w-56 shrink-0 flex-col gap-2">
             <Tip content="Knowledge scope to browse (organization, resource, or this thread)">

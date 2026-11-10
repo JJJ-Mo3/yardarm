@@ -10,6 +10,8 @@ import {
   Database,
   ExternalLink,
   FileCode2,
+  Lightbulb,
+  Pin,
   Play,
   Puzzle,
   Settings2,
@@ -18,6 +20,12 @@ import {
   Workflow
 } from 'lucide-react'
 import type { PluginConfigOption, RepoHostSetting } from '@shared/ipc-types'
+import {
+  MAX_NOTES,
+  MAX_NOTE_BODY_CHARS,
+  MAX_NOTE_TITLE_CHARS,
+  MAX_PINNED_BYTES
+} from '@shared/knowledge-notes'
 import { trpc } from '../../lib/trpc'
 import { cn, timeAgo } from '../../lib/utils'
 import {
@@ -1377,6 +1385,262 @@ function WorkflowsTab({ subchatId }: { subchatId: string | null }): React.JSX.El
   )
 }
 
+/**
+ * User-authored knowledge notes (distinct from the SDK's experimental
+ * knowledge base, which is agent memory). Pinned note bodies ride in the
+ * system prompt of every run; the rest are listed by title and fetched on
+ * demand via the knowledge_note_lookup tool. Edits apply at the next host
+ * boot, so saving restarts the project's running chats.
+ */
+function KnowledgeTab({
+  projectId,
+  projectPath
+}: {
+  projectId: string
+  projectPath: string
+}): React.JSX.Element {
+  const utils = trpc.useUtils()
+  const confirmDialog = useConfirm()
+  const notes = trpc.knowledgeNotes.list.useQuery({ projectId })
+
+  const [newTitle, setNewTitle] = useState('')
+  const [newBody, setNewBody] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editBody, setEditBody] = useState('')
+
+  const invalidate = (): void => void utils.knowledgeNotes.list.invalidate({ projectId })
+  const create = trpc.knowledgeNotes.create.useMutation({
+    onSuccess: () => {
+      setNewTitle('')
+      setNewBody('')
+      invalidate()
+    }
+  })
+  const update = trpc.knowledgeNotes.update.useMutation({
+    onSuccess: () => {
+      setEditingId(null)
+      invalidate()
+    }
+  })
+  const remove = trpc.knowledgeNotes.delete.useMutation({ onSuccess: invalidate })
+
+  const rows = notes.data ?? []
+  const pinnedBytes = rows
+    .filter((n) => n.pinned && n.enabled)
+    .reduce((sum, n) => sum + new TextEncoder().encode(n.body).length, 0)
+  const mutating = create.isPending || update.isPending || remove.isPending
+  const mutationError = create.error ?? update.error ?? remove.error
+
+  return (
+    <div className="space-y-4">
+      <div className="text-[11px] text-muted-foreground">
+        Durable project facts the agent should always know (conventions, commands, pitfalls). Pinned
+        notes are included in every run&apos;s system prompt; unpinned notes are listed by title and
+        fetched on demand. Changes apply to the next run — running chats in this project restart.
+        Not the same as the agent&apos;s own knowledge base (memory it gathers itself).
+      </div>
+
+      <div className="space-y-2 rounded-md border border-border p-3">
+        <div className="text-xs font-medium">Add note</div>
+        <Input
+          placeholder="Title (e.g. Always use pnpm)"
+          value={newTitle}
+          maxLength={MAX_NOTE_TITLE_CHARS}
+          onChange={(e) => setNewTitle(e.target.value)}
+        />
+        <Textarea
+          placeholder="Note body — one durable, self-contained fact"
+          value={newBody}
+          maxLength={MAX_NOTE_BODY_CHARS}
+          rows={3}
+          onChange={(e) => setNewBody(e.target.value)}
+        />
+        <Tip content="Save this note — it reaches the agent on its next run (running chats in this project restart)">
+          <span className="inline-flex">
+            <Button
+              size="sm"
+              disabled={!newTitle.trim() || !newBody.trim() || mutating}
+              onClick={() =>
+                create.mutate({
+                  projectId,
+                  projectPath,
+                  title: newTitle.trim(),
+                  body: newBody.trim(),
+                  pinned: false,
+                  source: 'user'
+                })
+              }
+            >
+              {create.isPending ? 'Adding…' : 'Add note'}
+            </Button>
+          </span>
+        </Tip>
+      </div>
+
+      {mutationError && (
+        <div className="text-xs text-destructive selectable">{mutationError.message}</div>
+      )}
+
+      {rows.length > 0 && (
+        <div className="text-[11px] text-muted-foreground">
+          {rows.length}/{MAX_NOTES} notes · pinned budget {pinnedBytes}/{MAX_PINNED_BYTES} bytes
+          {pinnedBytes > MAX_PINNED_BYTES
+            ? ' — overflowing pinned notes are demoted to on-demand lookup'
+            : ''}
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {notes.isLoading && <div className="text-xs text-muted-foreground">Loading…</div>}
+        {!notes.isLoading && rows.length === 0 && (
+          <div className="text-xs text-muted-foreground">
+            No notes yet. The agent can also propose notes — look for &ldquo;Suggested
+            knowledge&rdquo; cards after its replies.
+          </div>
+        )}
+        {rows.map((n) =>
+          editingId === n.id ? (
+            <div key={n.id} className="space-y-2 rounded-md border border-border p-3">
+              <Input
+                value={editTitle}
+                maxLength={MAX_NOTE_TITLE_CHARS}
+                onChange={(e) => setEditTitle(e.target.value)}
+              />
+              <Textarea
+                value={editBody}
+                maxLength={MAX_NOTE_BODY_CHARS}
+                rows={4}
+                onChange={(e) => setEditBody(e.target.value)}
+              />
+              <div className="flex gap-2">
+                <Tip content="Save changes — applies to the next run; running chats restart">
+                  <span className="inline-flex">
+                    <Button
+                      size="sm"
+                      disabled={!editTitle.trim() || !editBody.trim() || update.isPending}
+                      onClick={() =>
+                        update.mutate({
+                          id: n.id,
+                          projectPath,
+                          title: editTitle.trim(),
+                          body: editBody.trim(),
+                          pinned: n.pinned,
+                          enabled: n.enabled
+                        })
+                      }
+                    >
+                      {update.isPending ? 'Saving…' : 'Save'}
+                    </Button>
+                  </span>
+                </Tip>
+                <Tip content="Discard these edits">
+                  <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
+                    Cancel
+                  </Button>
+                </Tip>
+              </div>
+            </div>
+          ) : (
+            <div key={n.id} className="space-y-1.5 rounded-md border border-border p-3">
+              <div className="flex items-center gap-2">
+                <button
+                  className="min-w-0 flex-1 truncate text-left text-xs font-medium cursor-pointer"
+                  title={n.title}
+                  onClick={() => {
+                    setEditingId(n.id)
+                    setEditTitle(n.title)
+                    setEditBody(n.body)
+                  }}
+                >
+                  {n.title}
+                </button>
+                {n.source === 'suggested' && (
+                  <span className="shrink-0 rounded bg-accent px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    suggested
+                  </span>
+                )}
+                <Tip
+                  content={
+                    n.pinned
+                      ? 'Pinned: included in every run’s system prompt. Click to unpin (fetched on demand instead)'
+                      : 'Unpinned: listed by title, body fetched on demand. Click to pin into every prompt'
+                  }
+                >
+                  <span className="inline-flex">
+                    <Button
+                      size="icon"
+                      variant={n.pinned ? 'secondary' : 'ghost'}
+                      disabled={mutating}
+                      onClick={() =>
+                        update.mutate({
+                          id: n.id,
+                          projectPath,
+                          title: n.title,
+                          body: n.body,
+                          pinned: !n.pinned,
+                          enabled: n.enabled
+                        })
+                      }
+                    >
+                      <Pin size={13} />
+                    </Button>
+                  </span>
+                </Tip>
+                <Tip
+                  content={
+                    n.enabled ? 'On — the agent sees this note' : 'Off — hidden from the agent'
+                  }
+                >
+                  <span className="inline-flex">
+                    <Switch
+                      checked={n.enabled}
+                      disabled={mutating}
+                      onCheckedChange={(checked) =>
+                        update.mutate({
+                          id: n.id,
+                          projectPath,
+                          title: n.title,
+                          body: n.body,
+                          pinned: n.pinned,
+                          enabled: checked
+                        })
+                      }
+                    />
+                  </span>
+                </Tip>
+                <Tip content="Delete this note permanently">
+                  <span className="inline-flex">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      disabled={mutating}
+                      onClick={() => {
+                        void confirmDialog({
+                          title: 'Delete knowledge note?',
+                          description: `“${n.title}” will be removed. Running chats in this project restart.`,
+                          confirmLabel: 'Delete'
+                        }).then((ok) => {
+                          if (ok) remove.mutate({ id: n.id, projectPath })
+                        })
+                      }}
+                    >
+                      <Trash2 size={13} />
+                    </Button>
+                  </span>
+                </Tip>
+              </div>
+              <div className="line-clamp-2 whitespace-pre-wrap text-[11px] text-muted-foreground selectable">
+                {n.body}
+              </div>
+            </div>
+          )
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function ProjectSettingsDialog({
   projectId,
   projectPath,
@@ -1422,6 +1686,12 @@ export function ProjectSettingsDialog({
       label: 'Instructions',
       icon: <BookOpenText size={13} />,
       tip: 'Project-specific instructions prepended to the agent’s system prompt'
+    },
+    {
+      id: 'knowledge',
+      label: 'Knowledge',
+      icon: <Lightbulb size={13} />,
+      tip: 'Durable project notes for the agent — pinned ones ride in every prompt'
     },
     {
       id: 'resource',
@@ -1479,6 +1749,9 @@ export function ProjectSettingsDialog({
               {tab === 'hooks' && <HooksTab projectPath={projectPath} subchatId={subchatId} />}
               {tab === 'commands' && <CommandsTab projectPath={projectPath} />}
               {tab === 'instructions' && <InstructionsTab projectPath={projectPath} />}
+              {tab === 'knowledge' && projectId && (
+                <KnowledgeTab projectId={projectId} projectPath={projectPath} />
+              )}
               {tab === 'resource' && (
                 <ResourceTab projectPath={projectPath} subchatId={subchatId} />
               )}

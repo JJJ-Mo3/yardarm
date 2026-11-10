@@ -181,6 +181,33 @@ export const schedules = sqliteTable(
   (t) => [index('schedules_project_idx').on(t.projectId)]
 )
 
+/**
+ * Editable knowledge notes (Devin-style "Knowledge"): user-authored,
+ * project-scoped notes injected into agent boots — pinned bodies go into the
+ * system prompt, the rest are fetchable via the knowledge_note_lookup tool
+ * (caps in src/shared/knowledge-notes.ts). Distinct from the SDK's
+ * experimental knowledge base (agent memory).
+ */
+export const knowledgeNotes = sqliteTable(
+  'knowledge_notes',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    body: text('body').notNull(),
+    /** Pinned bodies are inlined into the system prompt (byte-budgeted). */
+    pinned: integer('pinned', { mode: 'boolean' }).notNull().default(false),
+    enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+    /** 'user' (hand-written) | 'suggested' (saved from an agent suggestion). */
+    source: text('source').notNull().default('user'),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull()
+  },
+  (t) => [index('knowledge_notes_project_idx').on(t.projectId)]
+)
+
 export const appSettings = sqliteTable('app_settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull()

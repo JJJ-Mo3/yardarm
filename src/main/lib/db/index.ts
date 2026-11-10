@@ -152,7 +152,20 @@ const MIGRATIONS: string[] = [
      created_at INTEGER NOT NULL,
      updated_at INTEGER NOT NULL
    );
-   CREATE INDEX IF NOT EXISTS schedules_project_idx ON schedules(project_id);`
+   CREATE INDEX IF NOT EXISTS schedules_project_idx ON schedules(project_id);`,
+  // v16 — user-authored knowledge notes (pinned → system prompt; rest → lookup tool)
+  `CREATE TABLE IF NOT EXISTS knowledge_notes (
+     id TEXT PRIMARY KEY,
+     project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+     title TEXT NOT NULL,
+     body TEXT NOT NULL,
+     pinned INTEGER NOT NULL DEFAULT 0,
+     enabled INTEGER NOT NULL DEFAULT 1,
+     source TEXT NOT NULL DEFAULT 'user',
+     created_at INTEGER NOT NULL,
+     updated_at INTEGER NOT NULL
+   );
+   CREATE INDEX IF NOT EXISTS knowledge_notes_project_idx ON knowledge_notes(project_id);`
 ]
 
 export function initDb(): DB {

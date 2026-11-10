@@ -24,6 +24,11 @@ import { computeForkEligible, computeRollbackEligible } from './rollback-eligibi
 import { detectGitActivity } from './git-activity'
 import { GitActivityBadges } from './GitActivityBadges'
 import { stripConfidenceLine } from '../../../../shared/confidence'
+import {
+  parseSuggestedKnowledge,
+  stripSuggestedKnowledgeLine
+} from '../../../../shared/knowledge-notes'
+import { SuggestedKnowledgeCard } from './SuggestedKnowledgeCard'
 import type {
   MessagePart,
   PendingSuspension,
@@ -253,8 +258,9 @@ function Part({
   switch (part.type) {
     case 'text': {
       // Part only renders assistant messages (user bubbles render raw text):
-      // the CONFIDENCE marker line becomes a header/plan chip, so hide it here.
-      const text = stripConfidenceLine(part.text)
+      // the CONFIDENCE marker line becomes a header/plan chip and the
+      // Suggested-knowledge line becomes a save/dismiss card, so hide both.
+      const text = stripSuggestedKnowledgeLine(stripConfidenceLine(part.text))
       if (!text) return null
       return <Markdown text={text} linkifyFileRefs />
     }
@@ -487,6 +493,19 @@ export function MessageList({
   )
   const forkEligible = useStableSet(useMemo(() => computeForkEligible(messages), [messages]))
 
+  // Agent-proposed knowledge note: shown as a save/dismiss card under the
+  // transcript, only while the final message is the assistant's reply and the
+  // run is idle (a queued or streaming follow-up hides it).
+  const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null
+  const suggestedKnowledge = useMemo(() => {
+    if (!lastMessage || lastMessage.role !== 'assistant') return null
+    const text = lastMessage.parts
+      .filter((p) => p.type === 'text')
+      .map((p) => p.text)
+      .join('\n')
+    return parseSuggestedKnowledge(text)
+  }, [lastMessage])
+
   useEffect(() => {
     if (stickToBottom.current) {
       bottomRef.current?.scrollIntoView({ block: 'end' })
@@ -548,6 +567,13 @@ export function MessageList({
           <span className="inline-block h-2 w-2 rounded-full bg-foreground/60 animate-pulse" />
           Working…
         </div>
+      )}
+      {!running && suggestedKnowledge && lastMessage && (
+        <SuggestedKnowledgeCard
+          key={lastMessage.id}
+          messageId={lastMessage.id}
+          suggestion={suggestedKnowledge}
+        />
       )}
       <div ref={bottomRef} />
       <SelectionCopyButton containerRef={containerRef} />

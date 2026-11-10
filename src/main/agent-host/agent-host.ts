@@ -23,6 +23,12 @@ import type {
 import { z } from 'zod'
 import { patchApprovalRunBudget } from './approval-run-budget'
 import { CONFIDENCE_GUIDANCE } from '../../shared/confidence'
+import {
+  buildKnowledgeBlock,
+  KNOWLEDGE_BLOCK_PREFIX,
+  KNOWLEDGE_LOOKUP_TOOL_NAME,
+  SUGGEST_KNOWLEDGE_GUIDANCE
+} from '../../shared/knowledge-notes'
 import { buildVerificationGuidance } from '../../shared/verification'
 import {
   installCoordinatedTokenRefresh,
@@ -804,15 +810,39 @@ async function main(): Promise<void> {
       return header + chunk
     }
   }
-  // Prefer a real Tool instance (marker symbol, validation) built by the
-  // runtime's own createTool; the plain ToolLike object is the fallback. Our
-  // bundled zod schema interops via the Standard Schema interface.
+  // Unpinned knowledge notes: the prompt block lists them by title; the agent
+  // fetches a body on demand with this read-only, auto-approved tool.
+  const knowledgeNotesById = new Map(
+    (boot.knowledgeNotes?.lookup ?? []).map((n) => [n.id, { title: n.title, body: n.body }])
+  )
+  const knowledgeLookupTool = {
+    id: KNOWLEDGE_LOOKUP_TOOL_NAME,
+    description:
+      'Fetch the body of a user-authored Yardarm knowledge note listed in the ' +
+      '"[Yardarm knowledge notes]" section of your instructions (pass the id shown there).',
+    inputSchema: z.object({
+      id: z.string().describe('The note id from the knowledge-notes index')
+    }),
+    execute: ({ id }: { id: string }): string => {
+      const note = knowledgeNotesById.get(id)
+      if (!note) {
+        return `No knowledge note with id "${id}" — check the index in your instructions; the note may have been deleted.`
+      }
+      return `${note.title}\n\n${note.body}`
+    }
+  }
+
+  // Prefer real Tool instances (marker symbol, validation) built by the
+  // runtime's own createTool; the plain ToolLike objects are the fallback.
+  // Our bundled zod schemas interop via the Standard Schema interface.
   let retrievalToolInstance: unknown = retrievalTool
+  let knowledgeLookupToolInstance: unknown = knowledgeLookupTool
   try {
     const toolsMod = await runtimeImport<{ createTool: (cfg: never) => unknown }>(
       '@mastra/core/tools'
     )
     retrievalToolInstance = toolsMod.createTool(retrievalTool as never)
+    knowledgeLookupToolInstance = toolsMod.createTool(knowledgeLookupTool as never)
   } catch (err) {
     post({
       t: 'log',
@@ -851,7 +881,14 @@ async function main(): Promise<void> {
       // guidance; unset fields fall back to mastra-platform[bot].
       coAuthor: boot.coAuthor,
       inputProcessors: [compression.processor as never],
-      extraTools: { [RETRIEVAL_TOOL_NAME]: retrievalToolInstance as never }
+      extraTools: {
+        [RETRIEVAL_TOOL_NAME]: retrievalToolInstance as never,
+        // Only exposed when there are lookup notes — the prompt block that
+        // references the tool is also absent otherwise.
+        ...(knowledgeNotesById.size > 0
+          ? { [KNOWLEDGE_LOOKUP_TOOL_NAME]: knowledgeLookupToolInstance as never }
+          : {})
+      }
     })
   } catch (err) {
     post({
@@ -1331,16 +1368,28 @@ async function main(): Promise<void> {
   }
 
   // Reconcile Yardarm's guidance entries in the plugin-instructions state so
-  // they reach the system prompt. Confidence guidance is removed (not just
-  // not-added) when disabled, so turning the setting off also clears state
-  // persisted by an earlier boot. Re-appending keeps the original order, so
+  // they reach the system prompt. Confidence guidance and the knowledge
+  // entries are removed (not just not-added) when disabled/empty, so turning
+  // a setting off or deleting notes also clears state persisted by an earlier
+  // boot — the knowledge block is matched by its stable prefix because its
+  // contents change with the notes. Re-appending keeps the original order, so
   // an unchanged config never writes.
   try {
     const st = (session.state.get() ?? {}) as { pluginInstructions?: string[] }
     const prev = st.pluginInstructions ?? []
-    const next = prev.filter((entry) => entry !== CONFIDENCE_GUIDANCE)
+    const next = prev.filter(
+      (entry) =>
+        entry !== CONFIDENCE_GUIDANCE &&
+        entry !== SUGGEST_KNOWLEDGE_GUIDANCE &&
+        !entry.startsWith(KNOWLEDGE_BLOCK_PREFIX)
+    )
     if (!next.includes(ASK_USER_GUIDANCE)) next.push(ASK_USER_GUIDANCE)
     if (boot.confidenceGuidance !== false) next.push(CONFIDENCE_GUIDANCE)
+    const knowledgeBlock = boot.knowledgeNotes
+      ? buildKnowledgeBlock(boot.knowledgeNotes.pinned, boot.knowledgeNotes.lookup)
+      : null
+    if (knowledgeBlock) next.push(knowledgeBlock)
+    if (boot.knowledgeNotes?.suggestGuidance) next.push(SUGGEST_KNOWLEDGE_GUIDANCE)
     if (next.length !== prev.length || next.some((entry, i) => entry !== prev[i])) {
       await session.state.set({ pluginInstructions: next } as never)
     }

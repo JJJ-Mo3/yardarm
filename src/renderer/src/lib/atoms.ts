@@ -52,7 +52,14 @@ export const MAX_SPLIT_PANES = 5
 /** Split view: extra, independent chat panes to the right of the primary Chat pane. */
 export const splitPanesAtom = atom<SplitPaneSel[]>([])
 export type ProjectSettingsTab =
-  'general' | 'hooks' | 'commands' | 'instructions' | 'resource' | 'plugins' | 'workflows'
+  | 'general'
+  | 'hooks'
+  | 'commands'
+  | 'instructions'
+  | 'knowledge'
+  | 'resource'
+  | 'plugins'
+  | 'workflows'
 export const projectSettingsOpenAtom = atom(false)
 export const projectSettingsTabAtom = atom<ProjectSettingsTab>('general')
 export const debugEventsAtom = atomWithStorage<boolean>('cz.debugEvents', false)

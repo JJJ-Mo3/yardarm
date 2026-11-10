@@ -3,6 +3,7 @@
  * This file plus agent-host.ts are the only places that need to change when
  * the mastracode SDK changes.
  */
+import type { KnowledgeNoteBoot } from './knowledge-notes'
 
 /** main -> host */
 export type HostCommand =
@@ -797,6 +798,19 @@ export interface HostBootConfig {
    * browser-tools smoke-test sentence.
    */
   verification?: { enabled: boolean; browser: boolean }
+  /**
+   * User-authored knowledge notes for this project
+   * (src/shared/knowledge-notes.ts): pinned bodies are inlined into the
+   * system prompt, lookup notes are listed by title and served on demand by
+   * the auto-approved knowledge_note_lookup extra tool. suggestGuidance asks
+   * the agent for one-line "Suggested knowledge:" proposals (app_settings
+   * `suggestKnowledge`, default on).
+   */
+  knowledgeNotes?: {
+    pinned: KnowledgeNoteBoot[]
+    lookup: KnowledgeNoteBoot[]
+    suggestGuidance: boolean
+  }
   /**
    * Packaged builds only: absolute path to the vendored mastracode runtime
    * (Resources/agent-runtime). The host imports mastracode/@mastra/code-sdk

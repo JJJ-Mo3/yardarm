@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import { app, shell, utilityProcess, type UtilityProcess } from 'electron'
-import { and, eq, desc, isNull, or, sql } from 'drizzle-orm'
+import { and, asc, eq, desc, isNull, or, sql } from 'drizzle-orm'
 import { getDb, schema } from '../db'
 import { notifyAgentEvent } from '../notifications'
 import { captureCheckpoint } from '../git/ops'
@@ -19,6 +19,7 @@ import { isPrefillError } from './prefill-error'
 import { isStallError } from '../../../shared/stall-error'
 import { splitPlanRejectionFeedback } from './plan-rejection'
 import { resolveVerifyWork } from '../../../shared/verification'
+import { planKnowledgeBoot } from '../../../shared/knowledge-notes'
 import { PromptQueue } from './prompt-queue'
 import {
   normalizeCustomProviderModelId,
@@ -507,7 +508,8 @@ export class AgentSessionManager {
       verification: {
         enabled: resolveVerifyWork(subchat.verifyWork, this.readAppSetting('verifyWork')),
         browser: settings.browser?.enabled === true
-      }
+      },
+      knowledgeNotes: this.knowledgeNotesBoot(chat.projectId)
     }
 
     // MCP OAuth tokens are fingerprinted by projectDir (git toplevel of the
@@ -1566,6 +1568,40 @@ export class AgentSessionManager {
     if (typeof name === 'string' && name.trim()) out.name = name.trim()
     if (typeof email === 'string' && email.trim()) out.email = email.trim()
     return out.name || out.email ? out : undefined
+  }
+
+  /**
+   * Enabled knowledge notes for the project, split into prompt-pinned and
+   * lookup sets with the caps applied here (not just in the UI) so any write
+   * path stays bounded. Oldest-first ordering keeps the built block
+   * byte-identical across boots when nothing changed.
+   */
+  private knowledgeNotesBoot(projectId: string): HostBootConfig['knowledgeNotes'] {
+    let rows: { id: string; title: string; body: string; pinned: boolean }[] = []
+    try {
+      rows = getDb()
+        .select({
+          id: schema.knowledgeNotes.id,
+          title: schema.knowledgeNotes.title,
+          body: schema.knowledgeNotes.body,
+          pinned: schema.knowledgeNotes.pinned
+        })
+        .from(schema.knowledgeNotes)
+        .where(
+          and(
+            eq(schema.knowledgeNotes.projectId, projectId),
+            eq(schema.knowledgeNotes.enabled, true)
+          )
+        )
+        .orderBy(asc(schema.knowledgeNotes.createdAt))
+        .all()
+    } catch {}
+    const { pinned, lookup } = planKnowledgeBoot(rows)
+    return {
+      pinned,
+      lookup,
+      suggestGuidance: this.readAppSetting('suggestKnowledge') !== false
+    }
   }
 
   /** Global token-compression settings (app_settings KV); new hosts boot with them. */

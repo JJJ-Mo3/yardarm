@@ -8,9 +8,10 @@ describe('shouldAutoApprove', () => {
     }
   })
 
-  it("matches the SDK's ALWAYS_ALLOW_TOOLS set plus Yardarm's retrieval tool", () => {
+  it("matches the SDK's ALWAYS_ALLOW_TOOLS set plus Yardarm's own tools", () => {
     expect([...AUTO_APPROVE_TOOLS].sort()).toEqual([
       'ask_user',
+      'knowledge_note_lookup',
       'request_access',
       'retrieve_full_output',
       'submit_plan',
