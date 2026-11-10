@@ -167,7 +167,9 @@ const MIGRATIONS: string[] = [
    );
    CREATE INDEX IF NOT EXISTS knowledge_notes_project_idx ON knowledge_notes(project_id);`,
   // v17 — pinned chats (sort to the top of the sidebar)
-  `ALTER TABLE chats ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0;`
+  `ALTER TABLE chats ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0;`,
+  // v18 — knowledge-note trigger keywords (comma-separated; inject on prompt match)
+  `ALTER TABLE knowledge_notes ADD COLUMN triggers TEXT;`
 ]
 
 export function initDb(): DB {

@@ -24,7 +24,8 @@ import {
   MAX_NOTES,
   MAX_NOTE_BODY_CHARS,
   MAX_NOTE_TITLE_CHARS,
-  MAX_PINNED_BYTES
+  MAX_PINNED_BYTES,
+  parseTriggers
 } from '@shared/knowledge-notes'
 import { trpc } from '../../lib/trpc'
 import { cn, timeAgo } from '../../lib/utils'
@@ -1474,15 +1475,18 @@ function KnowledgeTab({
 
   const [newTitle, setNewTitle] = useState('')
   const [newBody, setNewBody] = useState('')
+  const [newTriggers, setNewTriggers] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editBody, setEditBody] = useState('')
+  const [editTriggers, setEditTriggers] = useState('')
 
   const invalidate = (): void => void utils.knowledgeNotes.list.invalidate({ projectId })
   const create = trpc.knowledgeNotes.create.useMutation({
     onSuccess: () => {
       setNewTitle('')
       setNewBody('')
+      setNewTriggers('')
       invalidate()
     }
   })
@@ -1506,8 +1510,10 @@ function KnowledgeTab({
       <div className="text-[11px] text-muted-foreground">
         Durable project facts the agent should always know (conventions, commands, pitfalls). Pinned
         notes are included in every run&apos;s system prompt; unpinned notes are listed by title and
-        fetched on demand. Changes apply to the next run — running chats in this project restart.
-        Not the same as the agent&apos;s own knowledge base (memory it gathers itself).
+        fetched on demand. Unpinned notes can also carry trigger keywords — a prompt mentioning one
+        injects the note into that send. Changes apply to the next run — running chats in this
+        project restart. Not the same as the agent&apos;s own knowledge base (memory it gathers
+        itself).
       </div>
 
       <div className="space-y-2 rounded-md border border-border p-3">
@@ -1525,6 +1531,12 @@ function KnowledgeTab({
           rows={3}
           onChange={(e) => setNewBody(e.target.value)}
         />
+        <Input
+          placeholder="Trigger keywords, comma-separated (optional — e.g. deploy, staging)"
+          value={newTriggers}
+          maxLength={500}
+          onChange={(e) => setNewTriggers(e.target.value)}
+        />
         <Tip content="Save this note — it reaches the agent on its next run (running chats in this project restart)">
           <span className="inline-flex">
             <Button
@@ -1537,7 +1549,8 @@ function KnowledgeTab({
                   title: newTitle.trim(),
                   body: newBody.trim(),
                   pinned: false,
-                  source: 'user'
+                  source: 'user',
+                  triggers: newTriggers.trim() || undefined
                 })
               }
             >
@@ -1582,6 +1595,12 @@ function KnowledgeTab({
                 rows={4}
                 onChange={(e) => setEditBody(e.target.value)}
               />
+              <Input
+                placeholder="Trigger keywords, comma-separated (optional)"
+                value={editTriggers}
+                maxLength={500}
+                onChange={(e) => setEditTriggers(e.target.value)}
+              />
               <div className="flex gap-2">
                 <Tip content="Save changes — applies to the next run; running chats restart">
                   <span className="inline-flex">
@@ -1595,7 +1614,8 @@ function KnowledgeTab({
                           title: editTitle.trim(),
                           body: editBody.trim(),
                           pinned: n.pinned,
-                          enabled: n.enabled
+                          enabled: n.enabled,
+                          triggers: editTriggers.trim() || undefined
                         })
                       }
                     >
@@ -1620,6 +1640,7 @@ function KnowledgeTab({
                     setEditingId(n.id)
                     setEditTitle(n.title)
                     setEditBody(n.body)
+                    setEditTriggers(n.triggers ?? '')
                   }}
                 >
                   {n.title}
@@ -1648,7 +1669,8 @@ function KnowledgeTab({
                           title: n.title,
                           body: n.body,
                           pinned: !n.pinned,
-                          enabled: n.enabled
+                          enabled: n.enabled,
+                          triggers: n.triggers ?? undefined
                         })
                       }
                     >
@@ -1672,7 +1694,8 @@ function KnowledgeTab({
                           title: n.title,
                           body: n.body,
                           pinned: n.pinned,
-                          enabled: checked
+                          enabled: checked,
+                          triggers: n.triggers ?? undefined
                         })
                       }
                     />
@@ -1702,6 +1725,19 @@ function KnowledgeTab({
               <div className="line-clamp-2 whitespace-pre-wrap text-[11px] text-muted-foreground selectable">
                 {n.body}
               </div>
+              {n.triggers && !n.pinned && (
+                <div className="flex flex-wrap gap-1">
+                  {parseTriggers(n.triggers).map((kw) => (
+                    <span
+                      key={kw}
+                      className="rounded bg-accent px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                      title="Trigger keyword — prompts mentioning it inject this note"
+                    >
+                      {kw}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           )
         )}

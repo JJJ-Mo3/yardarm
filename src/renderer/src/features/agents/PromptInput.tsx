@@ -10,6 +10,7 @@ import {
   bytesToBase64,
   classifyAttachment,
   dedupeFilename,
+  encodeBase64Utf8,
   looksLikeTextFile,
   type ComposerAttachment
 } from './attachments'
@@ -42,6 +43,7 @@ export function PromptInput({
   disabled,
   running,
   projectRoot,
+  projectId,
   commands,
   onSend,
   onAbort,
@@ -60,6 +62,8 @@ export function PromptInput({
   disabled: boolean
   running: boolean
   projectRoot: string | null
+  /** Project id backing the knowledge-note ! macros; null disables them. */
+  projectId?: string | null
   commands: SlashCommandEntry[]
   onSend: (content: string, files?: ComposerAttachment[]) => void
   onAbort: () => void
@@ -88,6 +92,8 @@ export function PromptInput({
   const [hint, setHint] = useState<string | null>(null)
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const [mentionIndex, setMentionIndex] = useState(0)
+  const [macroQuery, setMacroQuery] = useState<string | null>(null)
+  const [macroIndex, setMacroIndex] = useState(0)
   const [slashIndex, setSlashIndex] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -97,6 +103,19 @@ export function PromptInput({
     { enabled: mentionQuery !== null && !!projectRoot }
   )
   const files = mentionQuery !== null ? (mentionResults.data ?? []) : []
+
+  // ! macros: typing !query lists this project's knowledge notes by title and
+  // inserts the picked note's body as a text attachment chip.
+  const macroNotes = trpc.knowledgeNotes.list.useQuery(
+    { projectId: projectId ?? '' },
+    { enabled: macroQuery !== null && !!projectId }
+  )
+  const notes =
+    macroQuery !== null
+      ? (macroNotes.data ?? [])
+          .filter((n) => n.enabled && n.title.toLowerCase().includes(macroQuery.toLowerCase()))
+          .slice(0, 8)
+      : []
 
   // Voice dictation (Cloud engine only — recording is independent of runs).
   const utils = trpc.useUtils()
@@ -199,6 +218,10 @@ export function PromptInput({
   }, [mentionQuery])
 
   useEffect(() => {
+    setMacroIndex(0)
+  }, [macroQuery])
+
+  useEffect(() => {
     setSlashIndex(0)
   }, [slashQuery])
 
@@ -206,6 +229,8 @@ export function PromptInput({
     const before = text.slice(0, caret)
     const m = before.match(/(?:^|\s)@([\w./-]*)$/)
     setMentionQuery(m ? m[1] : null)
+    const mk = before.match(/(?:^|\s)!([\w-]*)$/)
+    setMacroQuery(mk ? mk[1] : null)
   }
 
   function insertMention(path: string): void {
@@ -215,6 +240,29 @@ export function PromptInput({
     const before = value.slice(0, caret).replace(/@[\w./-]*$/, `@${path} `)
     setValue(before + value.slice(caret))
     setMentionQuery(null)
+    requestAnimationFrame(() => el.focus())
+  }
+
+  /** Strip the !query token and attach the picked note's body as a chip. */
+  function insertMacro(note: { title: string; body: string }): void {
+    const el = textareaRef.current
+    if (!el) return
+    const caret = el.selectionStart
+    const before = value.slice(0, caret).replace(/![\w-]*$/, '')
+    setValue(before + value.slice(caret))
+    setAttachments((prev) => [
+      ...prev,
+      {
+        data: encodeBase64Utf8(note.body),
+        mediaType: 'text/plain',
+        filename: dedupeFilename(
+          prev.map((a) => a.filename),
+          note.title,
+          'txt'
+        )
+      }
+    ])
+    setMacroQuery(null)
     requestAnimationFrame(() => el.focus())
   }
 
@@ -348,6 +396,7 @@ export function PromptInput({
     setAttachments([])
     setHint(null)
     setMentionQuery(null)
+    setMacroQuery(null)
     if (draftKey) clearDraft(draftKey)
   }
 
@@ -371,6 +420,27 @@ export function PromptInput({
       }
       if (e.key === 'Escape') {
         setMentionQuery(null)
+        return
+      }
+    }
+    if (macroQuery !== null && notes.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setMacroIndex((i) => (i + 1) % notes.length)
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setMacroIndex((i) => (i - 1 + notes.length) % notes.length)
+        return
+      }
+      if (e.key === 'Tab' || e.key === 'Enter') {
+        e.preventDefault()
+        insertMacro(notes[Math.min(macroIndex, notes.length - 1)])
+        return
+      }
+      if (e.key === 'Escape') {
+        setMacroQuery(null)
         return
       }
     }
@@ -438,6 +508,23 @@ export function PromptInput({
             ))}
           </div>
         )}
+      {macroQuery !== null && notes.length > 0 && (
+        <div className="absolute bottom-full left-3 right-3 mb-1 rounded-md border border-border bg-background shadow-lg overflow-hidden z-10">
+          {notes.map((n, i) => (
+            <button
+              key={n.id}
+              onClick={() => insertMacro(n)}
+              className={cn(
+                'flex w-full items-center gap-2 px-2.5 py-1.5 text-left cursor-pointer',
+                i === macroIndex ? 'bg-accent' : 'hover:bg-accent'
+              )}
+            >
+              <span className="shrink-0 truncate text-[12px]">{n.title}</span>
+              <span className="flex-1 truncate text-[11px] text-muted-foreground">{n.body}</span>
+            </button>
+          ))}
+        </div>
+      )}
       {slashMatches.length > 0 && (
         <div className="absolute bottom-full left-3 right-3 mb-1 max-h-72 overflow-y-auto rounded-md border border-border bg-background shadow-lg z-10">
           {slashMatches.map((c, i) => (
@@ -514,7 +601,7 @@ export function PromptInput({
           rows={3}
           value={value}
           disabled={disabled}
-          placeholder="Message the agent… (@ to mention files, / for commands, paste or drag & drop files)"
+          placeholder="Message the agent… (@ to mention files, ! for knowledge notes, / for commands, paste or drag & drop files)"
           onChange={(e) => {
             setValue(e.target.value)
             setHint(null)

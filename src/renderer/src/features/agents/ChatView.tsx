@@ -105,12 +105,15 @@ const THINKING = ['off', 'low', 'medium', 'high', 'xhigh', 'max'] as const
 export function ChatView({
   subchatId,
   projectRoot,
+  projectId = null,
   baseBranch,
   primary = true,
   onForkSubchat
 }: {
   subchatId: string
   projectRoot: string | null
+  /** Project id (feeds the composer's knowledge-note ! macros). */
+  projectId?: string | null
   /** The chat worktree's base branch, if known (feeds the review picker). */
   baseBranch: string | null
   /**
@@ -1301,6 +1304,7 @@ export function ChatView({
           disabled={busy}
           running={state.running}
           projectRoot={projectRoot}
+          projectId={projectId}
           commands={commands}
           onSend={(content, files) => {
             setRollbackNotice(null)

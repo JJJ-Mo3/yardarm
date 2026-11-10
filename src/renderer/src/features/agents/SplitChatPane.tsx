@@ -155,6 +155,7 @@ export function SplitChatPane({
             key={subchatId}
             subchatId={subchatId}
             projectRoot={cwd}
+            projectId={projectId}
             baseBranch={chat.data?.baseBranch ?? null}
             primary={false}
             onForkSubchat={(id) => onChange({ ...pane, subchatId: id })}

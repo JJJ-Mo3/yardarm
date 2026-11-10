@@ -17,6 +17,8 @@ import { publicProcedure, router } from '../trpc'
 
 const titleSchema = z.string().min(1).max(MAX_NOTE_TITLE_CHARS)
 const bodySchema = z.string().min(1).max(MAX_NOTE_BODY_CHARS)
+/** Comma-separated trigger keywords; empty string clears them. */
+const triggersSchema = z.string().max(500).optional()
 
 export const knowledgeNotesRouter = router({
   list: publicProcedure.input(z.object({ projectId: z.string() })).query(({ input }) => {
@@ -36,7 +38,8 @@ export const knowledgeNotesRouter = router({
         title: titleSchema,
         body: bodySchema,
         pinned: z.boolean().default(false),
-        source: z.enum(['user', 'suggested']).default('user')
+        source: z.enum(['user', 'suggested']).default('user'),
+        triggers: triggersSchema
       })
     )
     .mutation(({ input }) => {
@@ -60,6 +63,7 @@ export const knowledgeNotesRouter = router({
         pinned: input.pinned,
         enabled: true,
         source: input.source,
+        triggers: input.triggers?.trim() ? input.triggers.trim() : null,
         createdAt: now,
         updatedAt: now
       }
@@ -76,7 +80,8 @@ export const knowledgeNotesRouter = router({
         title: titleSchema,
         body: bodySchema,
         pinned: z.boolean(),
-        enabled: z.boolean()
+        enabled: z.boolean(),
+        triggers: triggersSchema
       })
     )
     .mutation(({ input }) => {
@@ -93,6 +98,7 @@ export const knowledgeNotesRouter = router({
           body: input.body,
           pinned: input.pinned,
           enabled: input.enabled,
+          triggers: input.triggers?.trim() ? input.triggers.trim() : null,
           updatedAt: Date.now()
         })
         .where(eq(schema.knowledgeNotes.id, input.id))

@@ -1,14 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildKnowledgeBlock,
+  formatTriggeredNotes,
   KNOWLEDGE_BLOCK_PREFIX,
   KNOWLEDGE_LOOKUP_TOOL_NAME,
+  matchTriggeredNotes,
   MAX_NOTE_BODY_CHARS,
   MAX_NOTES,
   MAX_PINNED_BYTES,
+  MAX_TRIGGER_INJECT_BYTES,
   parseSuggestedKnowledge,
+  parseTriggers,
   planKnowledgeBoot,
-  stripSuggestedKnowledgeLine
+  stripSuggestedKnowledgeLine,
+  type TriggerNote
 } from './knowledge-notes'
 
 const note = (
@@ -118,6 +123,88 @@ describe('parseSuggestedKnowledge', () => {
 
   it('returns null when absent', () => {
     expect(parseSuggestedKnowledge('Nothing to see here.')).toBeNull()
+  })
+})
+
+const triggerNote = (id: string, triggers: string | null, pinned = false): TriggerNote => ({
+  id,
+  title: `title ${id}`,
+  body: `body of ${id}`,
+  pinned,
+  triggers
+})
+
+describe('parseTriggers', () => {
+  it('splits, trims, lowercases, and dedupes keywords', () => {
+    expect(parseTriggers(' Deploy, STAGING , deploy,,migrations ')).toEqual([
+      'deploy',
+      'staging',
+      'migrations'
+    ])
+  })
+
+  it('returns an empty list for null or blank input', () => {
+    expect(parseTriggers(null)).toEqual([])
+    expect(parseTriggers('  , ,')).toEqual([])
+  })
+})
+
+describe('matchTriggeredNotes', () => {
+  it('matches whole words case-insensitively', () => {
+    const notes = [triggerNote('a', 'deploy'), triggerNote('b', 'staging')]
+    const hits = matchTriggeredNotes('How do I Deploy this?', notes)
+    expect(hits.map((n) => n.id)).toEqual(['a'])
+  })
+
+  it('does not match keyword substrings', () => {
+    const hits = matchTriggeredNotes('redeployment plan', [triggerNote('a', 'deploy')])
+    expect(hits).toEqual([])
+  })
+
+  it('skips pinned notes and notes without triggers', () => {
+    const notes = [triggerNote('a', 'deploy', true), triggerNote('b', null)]
+    expect(matchTriggeredNotes('deploy now', notes)).toEqual([])
+  })
+
+  it('escapes regex metacharacters in keywords', () => {
+    const hits = matchTriggeredNotes('run foo.bar() today', [triggerNote('a', 'foo.bar()')])
+    expect(hits.map((n) => n.id)).toEqual(['a'])
+    expect(matchTriggeredNotes('fooXbar', [triggerNote('b', 'foo.bar')])).toEqual([])
+  })
+
+  it('caps cumulative injected bytes, preserving input order', () => {
+    // Two max-size bodies fill 8000 of the 8192-byte budget; a 500-byte note
+    // overflows and is skipped, while a tiny later note still fits.
+    const big = 'x'.repeat(MAX_NOTE_BODY_CHARS)
+    const notes: TriggerNote[] = [
+      { ...triggerNote('a', 'deploy'), body: big },
+      { ...triggerNote('b', 'deploy'), body: big },
+      { ...triggerNote('c', 'deploy'), body: 'y'.repeat(500) },
+      { ...triggerNote('d', 'deploy'), body: 'small' }
+    ]
+    expect(2 * big.length + 500).toBeGreaterThan(MAX_TRIGGER_INJECT_BYTES)
+    const hits = matchTriggeredNotes('deploy', notes)
+    expect(hits.map((n) => n.id)).toEqual(['a', 'b', 'd'])
+  })
+
+  it('clamps oversized bodies to the per-note cap', () => {
+    const notes = [{ ...triggerNote('a', 'deploy'), body: 'z'.repeat(MAX_NOTE_BODY_CHARS + 50) }]
+    const hits = matchTriggeredNotes('deploy', notes)
+    expect(hits[0].body.length).toBe(MAX_NOTE_BODY_CHARS)
+  })
+})
+
+describe('formatTriggeredNotes', () => {
+  it('returns null for no matches', () => {
+    expect(formatTriggeredNotes([])).toBeNull()
+  })
+
+  it('lists each note as a title: body line', () => {
+    const text = formatTriggeredNotes([
+      { id: 'a', title: 'Deploys', body: 'Use the deploy script.' }
+    ])
+    expect(text).toContain('Knowledge notes matched by this prompt')
+    expect(text).toContain('- Deploys: Use the deploy script.')
   })
 })
 

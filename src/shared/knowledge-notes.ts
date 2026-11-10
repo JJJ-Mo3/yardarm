@@ -2,7 +2,9 @@
  * Editable knowledge notes: user-authored,
  * project-scoped notes stored in the app DB. Pinned note bodies are inlined
  * into the system prompt via pluginInstructions; the rest are listed by title
- * and fetched on demand through the knowledge_note_lookup extra tool. A
+ * and fetched on demand through the knowledge_note_lookup extra tool. Notes
+ * can also carry trigger keywords that inject them into a send when the
+ * prompt mentions one. A
  * suggestion guidance line asks the agent to propose new notes with a
  * one-line end-of-reply marker the renderer turns into a save/dismiss card.
  * Pure and shared — distinct from the SDK's experimental knowledge base
@@ -101,6 +103,72 @@ function byteLength(text: string): number {
     bytes += cp <= 0x7f ? 1 : cp <= 0x7ff ? 2 : cp <= 0xffff ? 3 : 4
   }
   return bytes
+}
+
+/** Cumulative body budget for notes injected by trigger match on one prompt. */
+export const MAX_TRIGGER_INJECT_BYTES = 8192
+
+/** The fields trigger matching needs from a stored note row. */
+export interface TriggerNote {
+  id: string
+  title: string
+  body: string
+  pinned: boolean
+  triggers: string | null
+}
+
+/** Parse a comma-separated trigger string into lowercased, deduped keywords. */
+export function parseTriggers(raw: string | null | undefined): string[] {
+  if (!raw) return []
+  const seen = new Set<string>()
+  for (const part of raw.split(',')) {
+    const kw = part.trim().toLowerCase()
+    if (kw) seen.add(kw)
+  }
+  return [...seen]
+}
+
+/** Escape a keyword for literal use inside a RegExp. */
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * Notes whose trigger keywords appear (whole-word, case-insensitive) in the
+ * prompt text. Pinned notes are skipped — their bodies are already in the
+ * system prompt — and cumulative injected bytes are capped, preserving input
+ * order.
+ */
+export function matchTriggeredNotes(promptText: string, notes: TriggerNote[]): KnowledgeNoteBoot[] {
+  const matched: KnowledgeNoteBoot[] = []
+  let bytes = 0
+  for (const note of notes) {
+    if (note.pinned) continue
+    const keywords = parseTriggers(note.triggers)
+    if (keywords.length === 0) continue
+    // Word boundaries only apply next to word characters — a \b beside a
+    // symbol like ")" can never match, so edges on non-word chars go bare.
+    const hit = keywords.some((kw) => {
+      const lead = /^\w/.test(kw) ? '\\b' : ''
+      const tail = /\w$/.test(kw) ? '\\b' : ''
+      return new RegExp(`${lead}${escapeRegExp(kw)}${tail}`, 'i').test(promptText)
+    })
+    if (!hit) continue
+    const body = note.body.slice(0, MAX_NOTE_BODY_CHARS)
+    const cost = byteLength(body)
+    if (bytes + cost > MAX_TRIGGER_INJECT_BYTES) continue
+    bytes += cost
+    matched.push({ id: note.id, title: note.title.slice(0, MAX_NOTE_TITLE_CHARS), body })
+  }
+  return matched
+}
+
+/** Render matched notes as a system-reminder body; null when nothing matched. */
+export function formatTriggeredNotes(notes: KnowledgeNoteBoot[]): string | null {
+  if (notes.length === 0) return null
+  const lines = ['Knowledge notes matched by this prompt (user-maintained; follow when relevant):']
+  for (const n of notes) lines.push(`- ${n.title}: ${n.body}`)
+  return lines.join('\n')
 }
 
 /**

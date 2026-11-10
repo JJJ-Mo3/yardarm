@@ -423,6 +423,7 @@ export default function App(): React.JSX.Element {
                         <ChatView
                           subchatId={subchatId}
                           projectRoot={cwd}
+                          projectId={projectId}
                           baseBranch={chat.data?.baseBranch ?? null}
                         />
                       </div>

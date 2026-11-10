@@ -204,6 +204,8 @@ export const knowledgeNotes = sqliteTable(
     enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
     /** 'user' (hand-written) | 'suggested' (saved from an agent suggestion). */
     source: text('source').notNull().default('user'),
+    /** Comma-separated trigger keywords; matching prompts inject the note at send time. */
+    triggers: text('triggers'),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull()
   },

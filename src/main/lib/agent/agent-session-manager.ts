@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import { app, shell, utilityProcess, type UtilityProcess } from 'electron'
-import { and, asc, eq, desc, isNull, or, sql } from 'drizzle-orm'
+import { and, asc, eq, desc, isNotNull, isNull, or, sql } from 'drizzle-orm'
 import { getDb, schema } from '../db'
 import { notifyAgentEvent } from '../notifications'
 import { captureCheckpoint } from '../git/ops'
@@ -19,7 +19,12 @@ import { isPrefillError } from './prefill-error'
 import { isStallError } from '../../../shared/stall-error'
 import { splitPlanRejectionFeedback } from './plan-rejection'
 import { resolveVerifyWork } from '../../../shared/verification'
-import { planKnowledgeBoot } from '../../../shared/knowledge-notes'
+import {
+  formatTriggeredNotes,
+  matchTriggeredNotes,
+  planKnowledgeBoot,
+  type KnowledgeNoteBoot
+} from '../../../shared/knowledge-notes'
 import { PromptQueue } from './prompt-queue'
 import {
   normalizeCustomProviderModelId,
@@ -1156,6 +1161,15 @@ export class AgentSessionManager {
     const idePaths = this.drainIdeEdits(subchatId)
     const ideNote = formatIdeEditNote(idePaths)
     const ideSuffix = ideNote ? `\n\n<system-reminder>\n${ideNote}\n</system-reminder>` : ''
+    // Trigger-matched knowledge notes ride the send as a system reminder.
+    // Marker sends (scheduled runs, reviews, drafts) are app-generated prompts
+    // and must not drag notes in.
+    const triggered =
+      displayKind === 'marker' ? [] : this.matchKnowledgeTriggers(subchatId, displayText ?? content)
+    const triggerNote = formatTriggeredNotes(triggered)
+    const triggerSuffix = triggerNote
+      ? `\n\n<system-reminder>\n${triggerNote}\n</system-reminder>`
+      : ''
     // Each real send re-arms one auto-recovery of each kind.
     this.prefillRetried.delete(subchatId)
     this.stallRetried.delete(subchatId)
@@ -1168,7 +1182,17 @@ export class AgentSessionManager {
     if (idePaths.length) {
       this.insertMarker(subchatId, `Told the agent about IDE edits: ${idePaths.join(', ')}`)
     }
-    this.sendCommand(handle, { t: 'send', text: content + noteSuffix + ideSuffix, files })
+    if (triggered.length) {
+      this.insertMarker(
+        subchatId,
+        `Injected knowledge notes: ${triggered.map((n) => n.title).join(', ')}`
+      )
+    }
+    this.sendCommand(handle, {
+      t: 'send',
+      text: content + noteSuffix + ideSuffix + triggerSuffix,
+      files
+    })
   }
 
   // ---- Prompt queue (send-while-running) ----------------------------------
@@ -1603,6 +1627,56 @@ export class AgentSessionManager {
       pinned,
       lookup,
       suggestGuidance: this.readAppSetting('suggestKnowledge') !== false
+    }
+  }
+
+  /** Project id for a subchat, or null when the rows are gone. */
+  private subchatProjectId(subchatId: string): string | null {
+    const db = getDb()
+    const subchat = db
+      .select({ chatId: schema.subchats.chatId })
+      .from(schema.subchats)
+      .where(eq(schema.subchats.id, subchatId))
+      .get()
+    if (!subchat) return null
+    const chat = db
+      .select({ projectId: schema.chats.projectId })
+      .from(schema.chats)
+      .where(eq(schema.chats.id, subchat.chatId))
+      .get()
+    return chat?.projectId ?? null
+  }
+
+  /**
+   * Enabled knowledge notes whose trigger keywords match the prompt text
+   * (whole-word, case-insensitive; caps in shared/knowledge-notes.ts).
+   * Best-effort — matching failures never block a send.
+   */
+  private matchKnowledgeTriggers(subchatId: string, promptText: string): KnowledgeNoteBoot[] {
+    try {
+      const projectId = this.subchatProjectId(subchatId)
+      if (!projectId) return []
+      const rows = getDb()
+        .select({
+          id: schema.knowledgeNotes.id,
+          title: schema.knowledgeNotes.title,
+          body: schema.knowledgeNotes.body,
+          pinned: schema.knowledgeNotes.pinned,
+          triggers: schema.knowledgeNotes.triggers
+        })
+        .from(schema.knowledgeNotes)
+        .where(
+          and(
+            eq(schema.knowledgeNotes.projectId, projectId),
+            eq(schema.knowledgeNotes.enabled, true),
+            isNotNull(schema.knowledgeNotes.triggers)
+          )
+        )
+        .orderBy(asc(schema.knowledgeNotes.createdAt))
+        .all()
+      return matchTriggeredNotes(promptText, rows)
+    } catch {
+      return []
     }
   }
 
