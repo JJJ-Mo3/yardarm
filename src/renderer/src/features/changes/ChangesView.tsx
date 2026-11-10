@@ -21,12 +21,19 @@ import {
   RefreshCw,
   ScanSearch,
   Sparkles,
+  TextQuote,
   Undo2,
   Upload,
   X
 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
-import { changesListWidthAtom, changesPaneRequestAtom, mainTabAtom } from '../../lib/atoms'
+import {
+  changesListWidthAtom,
+  changesPaneRequestAtom,
+  composerAttachAtom,
+  mainTabAtom
+} from '../../lib/atoms'
+import { encodeBase64Utf8 } from '../agents/attachments'
 import { forgeCopy } from '../../lib/forge-copy'
 import { compareRefAtomFamily } from './compare-ref-atom'
 import { buildLocalReviewPrompt, buildReviewMarker } from '../agents/review-prompts'
@@ -86,6 +93,90 @@ function CommitDiffPanel({
 }): React.JSX.Element {
   const diff = trpc.git.commitFileDiff.useQuery({ cwd, hash, path })
   return <DiffContent diff={diff.data} isLoading={diff.isLoading} />
+}
+
+/**
+ * Floating "Quote" button shown near text selected inside the diff pane:
+ * attaches the selection to the chat composer as a text chip named after the
+ * diffed file and switches to the Chat tab. Fixed-positioned at the
+ * selection's viewport rect and repositioned on scroll via a capturing
+ * listener; mousedown is prevented so clicking the button doesn't collapse
+ * the selection first.
+ */
+function DiffSelectionQuote({
+  containerRef,
+  filePath
+}: {
+  containerRef: React.RefObject<HTMLDivElement | null>
+  filePath: string
+}): React.JSX.Element | null {
+  const [state, setState] = useState<{ x: number; y: number; above: boolean; text: string } | null>(
+    null
+  )
+  const setComposerAttach = useSetAtom(composerAttachAtom)
+  const setMainTab = useSetAtom(mainTabAtom)
+
+  useEffect(() => {
+    const update = (): void => {
+      const sel = window.getSelection()
+      const container = containerRef.current
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0 || !container) {
+        setState(null)
+        return
+      }
+      const range = sel.getRangeAt(0)
+      if (!container.contains(range.commonAncestorContainer)) {
+        setState(null)
+        return
+      }
+      const text = sel.toString()
+      if (!text.trim()) {
+        setState(null)
+        return
+      }
+      const rect = range.getBoundingClientRect()
+      const above = rect.top > 44
+      setState({
+        x: rect.left + rect.width / 2,
+        y: above ? rect.top - 6 : rect.bottom + 6,
+        above,
+        text
+      })
+    }
+    document.addEventListener('selectionchange', update)
+    document.addEventListener('scroll', update, true)
+    return () => {
+      document.removeEventListener('selectionchange', update)
+      document.removeEventListener('scroll', update, true)
+    }
+  }, [containerRef])
+
+  if (!state) return null
+  return (
+    <div
+      className={cn('fixed z-50 -translate-x-1/2', state.above && '-translate-y-full')}
+      style={{ left: state.x, top: state.y }}
+    >
+      <Tip content="Quote the selected diff lines into the chat composer as an attachment">
+        <button
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            setComposerAttach({
+              data: encodeBase64Utf8(state.text),
+              mediaType: 'text/plain',
+              filename: `${filePath} (diff excerpt).txt`
+            })
+            window.getSelection()?.removeAllRanges()
+            setMainTab('chat')
+          }}
+          className="flex items-center gap-1 rounded-md border border-border bg-background px-1.5 py-1 text-[11px] text-muted-foreground shadow-md hover:text-foreground cursor-pointer"
+        >
+          <TextQuote size={12} />
+          Quote
+        </button>
+      </Tip>
+    </div>
+  )
 }
 
 export interface MergeTarget {
@@ -247,6 +338,20 @@ export function ChangesView({
       )
     }
   }, [drafting, draftStream.running, draftStream.messages])
+
+  // Quote-selection support: ref on the diff pane + the file whose diff is
+  // currently shown there (per-pane state differs).
+  const diffRef = useRef<HTMLDivElement | null>(null)
+  const activeDiffPath =
+    pane === 'checkpoints'
+      ? ckA && ckB
+        ? ckFile
+        : null
+      : pane === 'history'
+        ? selectedCommit
+          ? commitFile
+          : null
+        : selected
 
   const files = status.data?.files ?? []
   const branchList = branches.data?.all ?? []
@@ -789,7 +894,7 @@ export function ChangesView({
       </div>
 
       {/* Diff */}
-      <div className="min-w-0 flex-1 overflow-auto">
+      <div ref={diffRef} className="min-w-0 flex-1 overflow-auto">
         {pane === 'checkpoints' && checkpoints ? (
           ckA && ckB && ckFile ? (
             <CheckpointDiffPanel chatId={checkpoints.chatId} a={ckA} b={ckB} path={ckFile} />
@@ -814,6 +919,7 @@ export function ChangesView({
           </div>
         )}
       </div>
+      {activeDiffPath && <DiffSelectionQuote containerRef={diffRef} filePath={activeDiffPath} />}
 
       {/* New branch dialog */}
       <Dialog
