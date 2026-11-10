@@ -509,7 +509,9 @@ export class AgentSessionManager {
         enabled: resolveVerifyWork(subchat.verifyWork, this.readAppSetting('verifyWork')),
         browser: settings.browser?.enabled === true
       },
-      knowledgeNotes: this.knowledgeNotesBoot(chat.projectId)
+      knowledgeNotes: this.knowledgeNotesBoot(chat.projectId),
+      // Follow-up-marker guidance is default-on; app_settings opt-out.
+      followUpSuggestions: this.readAppSetting('followUpSuggestions') !== false
     }
 
     // MCP OAuth tokens are fingerprinted by projectDir (git toplevel of the

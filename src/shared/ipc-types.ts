@@ -812,6 +812,12 @@ export interface HostBootConfig {
     suggestGuidance: boolean
   }
   /**
+   * Inject the "Follow-up:" next-step marker guidance (default on;
+   * app_settings `followUpSuggestions` opt-out). The renderer turns the
+   * markers into composer-prefill chips (src/shared/follow-ups.ts).
+   */
+  followUpSuggestions?: boolean
+  /**
    * Packaged builds only: absolute path to the vendored mastracode runtime
    * (Resources/agent-runtime). The host imports mastracode/@mastra/code-sdk
    * from its node_modules instead of the app's bundled tree.

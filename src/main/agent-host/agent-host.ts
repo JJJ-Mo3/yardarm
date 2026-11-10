@@ -23,6 +23,7 @@ import type {
 import { z } from 'zod'
 import { patchApprovalRunBudget } from './approval-run-budget'
 import { CONFIDENCE_GUIDANCE } from '../../shared/confidence'
+import { FOLLOW_UP_GUIDANCE } from '../../shared/follow-ups'
 import {
   buildKnowledgeBlock,
   KNOWLEDGE_BLOCK_PREFIX,
@@ -1368,7 +1369,7 @@ async function main(): Promise<void> {
   }
 
   // Reconcile Yardarm's guidance entries in the plugin-instructions state so
-  // they reach the system prompt. Confidence guidance and the knowledge
+  // they reach the system prompt. Confidence, follow-up, and knowledge
   // entries are removed (not just not-added) when disabled/empty, so turning
   // a setting off or deleting notes also clears state persisted by an earlier
   // boot — the knowledge block is matched by its stable prefix because its
@@ -1381,6 +1382,7 @@ async function main(): Promise<void> {
       (entry) =>
         entry !== CONFIDENCE_GUIDANCE &&
         entry !== SUGGEST_KNOWLEDGE_GUIDANCE &&
+        entry !== FOLLOW_UP_GUIDANCE &&
         !entry.startsWith(KNOWLEDGE_BLOCK_PREFIX)
     )
     if (!next.includes(ASK_USER_GUIDANCE)) next.push(ASK_USER_GUIDANCE)
@@ -1390,6 +1392,7 @@ async function main(): Promise<void> {
       : null
     if (knowledgeBlock) next.push(knowledgeBlock)
     if (boot.knowledgeNotes?.suggestGuidance) next.push(SUGGEST_KNOWLEDGE_GUIDANCE)
+    if (boot.followUpSuggestions !== false) next.push(FOLLOW_UP_GUIDANCE)
     if (next.length !== prev.length || next.some((entry, i) => entry !== prev[i])) {
       await session.state.set({ pluginInstructions: next } as never)
     }

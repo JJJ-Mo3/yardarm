@@ -28,7 +28,9 @@ import {
   parseSuggestedKnowledge,
   stripSuggestedKnowledgeLine
 } from '../../../../shared/knowledge-notes'
+import { parseFollowUps, stripFollowUpLines } from '../../../../shared/follow-ups'
 import { SuggestedKnowledgeCard } from './SuggestedKnowledgeCard'
+import { FollowUpChips } from './FollowUpChips'
 import type {
   MessagePart,
   PendingSuspension,
@@ -258,9 +260,10 @@ function Part({
   switch (part.type) {
     case 'text': {
       // Part only renders assistant messages (user bubbles render raw text):
-      // the CONFIDENCE marker line becomes a header/plan chip and the
-      // Suggested-knowledge line becomes a save/dismiss card, so hide both.
-      const text = stripSuggestedKnowledgeLine(stripConfidenceLine(part.text))
+      // the CONFIDENCE marker line becomes a header/plan chip, the
+      // Suggested-knowledge line becomes a save/dismiss card, and Follow-up
+      // lines become composer-prefill chips, so hide them all.
+      const text = stripFollowUpLines(stripSuggestedKnowledgeLine(stripConfidenceLine(part.text)))
       if (!text) return null
       return <Markdown text={text} linkifyFileRefs />
     }
@@ -506,6 +509,18 @@ export function MessageList({
     return parseSuggestedKnowledge(text)
   }, [lastMessage])
 
+  // Agent-proposed next steps: chips under the transcript with the same
+  // last-message/idle gating as the knowledge card; clicking prefills the
+  // composer (never auto-sends).
+  const followUps = useMemo(() => {
+    if (!lastMessage || lastMessage.role !== 'assistant') return []
+    const text = lastMessage.parts
+      .filter((p) => p.type === 'text')
+      .map((p) => p.text)
+      .join('\n')
+    return parseFollowUps(text)
+  }, [lastMessage])
+
   useEffect(() => {
     if (stickToBottom.current) {
       bottomRef.current?.scrollIntoView({ block: 'end' })
@@ -574,6 +589,9 @@ export function MessageList({
           messageId={lastMessage.id}
           suggestion={suggestedKnowledge}
         />
+      )}
+      {!running && followUps.length > 0 && lastMessage && (
+        <FollowUpChips messageId={lastMessage.id} followUps={followUps} />
       )}
       <div ref={bottomRef} />
       <SelectionCopyButton containerRef={containerRef} />

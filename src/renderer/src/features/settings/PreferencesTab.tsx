@@ -272,6 +272,14 @@ export function PreferencesTab(): React.JSX.Element {
   })
   const suggestKnowledgeEnabled = suggestKnowledgeSetting.data !== false
 
+  // Follow-up-suggestion guidance (app_settings KV, default on); hosts read
+  // it at boot, so changes apply to newly started agent sessions.
+  const followUpsSetting = trpc.settings.get.useQuery({ key: 'followUpSuggestions' })
+  const setFollowUps = trpc.settings.set.useMutation({
+    onSuccess: () => utils.settings.get.invalidate({ key: 'followUpSuggestions' })
+  })
+  const followUpsEnabled = followUpsSetting.data !== false
+
   // Commit co-author identity (app_settings KV); applied to hosts at boot.
   const coAuthor = trpc.settings.get.useQuery({ key: 'commitCoAuthor' })
   const setCoAuthor = trpc.settings.set.useMutation({
@@ -301,6 +309,7 @@ export function PreferencesTab(): React.JSX.Element {
     setConfidence.error ??
     setVerify.error ??
     setSuggestKnowledge.error ??
+    setFollowUps.error ??
     setCoAuthor.error
 
   return (
@@ -532,6 +541,27 @@ export function PreferencesTab(): React.JSX.Element {
               }
             />
             Suggest knowledge notes
+          </label>
+        </Tip>
+      </div>
+
+      <div className="space-y-3 rounded border border-border p-3">
+        <div>
+          <div className="text-xs font-medium">Follow-up suggestions</div>
+          <div className="text-[11px] text-muted-foreground">
+            Asks the agent to end substantial replies with up to three short next-step suggestions,
+            shown as clickable chips that prefill the composer — nothing is sent until you press
+            send. Applies to newly started agent sessions.
+          </div>
+        </div>
+        <Tip content="Inject the follow-up guidance into new agent sessions — when off, the agent never proposes next steps and no chips appear">
+          <label className="flex w-fit items-center gap-2 text-xs">
+            <Switch
+              checked={followUpsEnabled}
+              disabled={setFollowUps.isPending}
+              onCheckedChange={(v) => setFollowUps.mutate({ key: 'followUpSuggestions', value: v })}
+            />
+            Follow-up suggestions
           </label>
         </Tip>
       </div>
