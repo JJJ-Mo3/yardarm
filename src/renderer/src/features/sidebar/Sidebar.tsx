@@ -25,7 +25,6 @@ import { cn, timeAgo } from '../../lib/utils'
 import {
   addProjectOpenAtom,
   chatStatusesAtom,
-  composerInsertAtom,
   mainTabAtom,
   newChatOpenAtom,
   projectSettingsOpenAtom,
@@ -52,6 +51,7 @@ import { Switch } from '../../components/ui/switch'
 import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { AddProjectDialog } from './AddProjectDialog'
+import { AskDialog } from '../agents/AskDialog'
 import { ChatHoverCard } from './ChatHoverCard'
 import { Logo } from '../../components/Logo'
 
@@ -104,12 +104,12 @@ export function Sidebar(): React.JSX.Element {
   const setSubchatId = useSetAtom(selectedSubchatIdAtom)
   const setSettingsOpen = useSetAtom(settingsOpenAtom)
   const setMainTab = useSetAtom(mainTabAtom)
-  const setComposerInsert = useSetAtom(composerInsertAtom)
   const setTheme = useSetAtom(themeAtom)
   const isDark = useIsDark()
   const setProjectSettingsOpen = useSetAtom(projectSettingsOpenAtom)
   const [newChatOpen, setNewChatOpen] = useAtom(newChatOpenAtom)
   const setAddProjectOpen = useSetAtom(addProjectOpenAtom)
+  const [askOpen, setAskOpen] = useState(false)
   const [newChatTitle, setNewChatTitle] = useState('')
   const [useWorktree, setUseWorktree] = useState(true)
   const [renameTarget, setRenameTarget] = useState<{ id: string; title: string } | null>(null)
@@ -603,9 +603,9 @@ export function Sidebar(): React.JSX.Element {
         </Tip>
         <Tip
           content={
-            chatId
-              ? 'Ask about the codebase — opens the chat composer with /ask (read-only Q&A with clickable citations)'
-              : 'Ask about the codebase — select a chat first'
+            projectId
+              ? 'Ask about the codebase — read-only Q&A that runs in its own chat, with clickable citations'
+              : 'Ask about the codebase — select a project first'
           }
           side="top"
         >
@@ -613,11 +613,8 @@ export function Sidebar(): React.JSX.Element {
             <Button
               variant="ghost"
               size="icon"
-              disabled={!chatId}
-              onClick={() => {
-                setComposerInsert('/ask ')
-                setMainTab('chat')
-              }}
+              disabled={!projectId}
+              onClick={() => setAskOpen(true)}
             >
               <MessageCircleQuestion size={13} />
             </Button>
@@ -739,6 +736,8 @@ export function Sidebar(): React.JSX.Element {
       </Dialog>
 
       <AddProjectDialog />
+
+      {projectId && <AskDialog projectId={projectId} open={askOpen} onOpenChange={setAskOpen} />}
     </div>
   )
 }

@@ -100,7 +100,7 @@ import {
   findCompletedReview,
   parseReviewArgs
 } from './review-prompts'
-import { buildAskMarker, buildAskPrompt } from './ask-prompts'
+import { buildAskMarker, buildAskPrompt } from '@shared/ask-prompts'
 import { MODES, type Mode } from '../../../../shared/ui-message'
 import { latestConfidence } from '../../../../shared/confidence'
 import { ConfidenceChip } from './ConfidenceChip'

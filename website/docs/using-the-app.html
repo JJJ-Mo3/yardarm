@@ -73,7 +73,7 @@
             <li><a href="#token-compression">Token compression</a></li>
             <li><a href="#reviewing-and-shipping">Reviewing &amp; shipping</a></li>
             <li><a href="#agent-code-review">Agent code review</a></li>
-            <li><a href="#codebase-qa">Codebase Q&amp;A (/ask)</a></li>
+            <li><a href="#codebase-qa">Codebase Q&amp;A (Ask)</a></li>
             <li><a href="#repo-wiki">Repo wiki</a></li>
             <li><a href="#checkpoints">Checkpoints &amp; rollback</a></li>
             <li><a href="#goals">Goals</a></li>
@@ -602,15 +602,27 @@
           either form, e.g. <code>/review 42 security</code>.
         </p>
 
-        <h2 id="codebase-qa">Codebase Q&amp;A (/ask)</h2>
+        <h2 id="codebase-qa">Codebase Q&amp;A (Ask)</h2>
         <p>
-          <code>/ask &lt;question&gt;</code> answers questions about the codebase
-          <strong>read-only</strong> — the agent explores but never edits files or runs
-          state-changing commands. Answers cite their sources as clickable
-          <code>path:line</code> references that open the file in the IDE at that line. Great for
-          "where is X handled?" or "how does Y work?" before you start a task. The question-mark
-          button in the sidebar footer jumps to the composer with <code>/ask</code> prefilled.
+          Ask answers questions about the codebase <strong>read-only</strong> — the agent explores
+          but never edits files or runs state-changing commands. Answers cite their sources as
+          clickable <code>path:line</code> references that open the file in the IDE at that line.
+          Great for "where is X handled?" or "how does Y work?" before you start a task.
         </p>
+        <ul>
+          <li>
+            <strong>Ask dialog</strong> — the question-mark button in the sidebar footer (and the
+            Ask button on the Wiki tab) opens a small dialog: type a question and it runs in its own
+            new chat (no worktree — it answers about the project's current state), which opens
+            automatically so you can watch the answer stream in and ask follow-ups there. No chat
+            needs to be selected.
+          </li>
+          <li>
+            <strong>/ask in a chat</strong> — <code>/ask &lt;question&gt;</code> runs the same
+            read-only Q&amp;A inside the current chat, handy when the question relates to work
+            already underway there.
+          </li>
+        </ul>
 
         <h2 id="repo-wiki">Repo wiki</h2>
         <p>

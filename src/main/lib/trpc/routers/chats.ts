@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { and, asc, desc, eq, gte, inArray, isNotNull, lt, sql } from 'drizzle-orm'
 import { z } from 'zod'
+import { buildAskMarker, buildAskPrompt } from '@shared/ask-prompts'
 import { stripSuggestedKnowledgeLine } from '@shared/knowledge-notes'
 import { getDb, maintainDb, schema } from '../../db'
 import { agentSessionManager } from '../../agent/agent-session-manager'
@@ -132,6 +133,31 @@ export const chatsRouter = router({
     )
     .mutation(async ({ input }) => {
       return createChatWithSubchat(input)
+    }),
+
+  /**
+   * Ask-dialog flow: run a read-only codebase question in its own new chat.
+   * No worktree — the answer should reflect the project's current state and
+   * the prompt forbids modifications. The question is dispatched as a marker
+   * message (compact transcript line) and the renderer navigates to the chat
+   * so the answer streams in the normal chat pane with clickable citations.
+   */
+  ask: publicProcedure
+    .input(z.object({ projectId: z.string(), question: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      const chat = await createChatWithSubchat({
+        projectId: input.projectId,
+        title: buildAskMarker(input.question),
+        useWorktree: false
+      })
+      await agentSessionManager.sendOrQueue(
+        chat.subchats[0].id,
+        buildAskPrompt(input.question),
+        undefined,
+        buildAskMarker(input.question),
+        'marker'
+      )
+      return { chatId: chat.id }
     }),
 
   rename: publicProcedure

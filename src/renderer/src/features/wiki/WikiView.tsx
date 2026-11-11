@@ -9,7 +9,14 @@
  */
 import React, { useEffect, useRef, useState } from 'react'
 import { useSetAtom } from 'jotai'
-import { BookText, Loader2, MessageSquare, RefreshCw, Trash2 } from 'lucide-react'
+import {
+  BookText,
+  Loader2,
+  MessageCircleQuestion,
+  MessageSquare,
+  RefreshCw,
+  Trash2
+} from 'lucide-react'
 import { mainTabAtom } from '../../lib/atoms'
 import { trpc } from '../../lib/trpc'
 import { useSelectChat } from '../../lib/use-select-chat'
@@ -17,6 +24,7 @@ import { cn, timeAgo } from '../../lib/utils'
 import { Button } from '../../components/ui/button'
 import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
+import { AskDialog } from '../agents/AskDialog'
 import { Markdown } from '../agents/Markdown'
 
 export function WikiView({ projectId }: { projectId: string }): React.JSX.Element {
@@ -25,6 +33,7 @@ export function WikiView({ projectId }: { projectId: string }): React.JSX.Elemen
   const selectChat = useSelectChat()
   const confirm = useConfirm()
   const [selected, setSelected] = useState<string | null>(null)
+  const [askOpen, setAskOpen] = useState(false)
 
   const pages = trpc.wiki.pages.useQuery({ projectId })
   const meta = trpc.wiki.meta.useQuery({ projectId })
@@ -135,6 +144,12 @@ export function WikiView({ projectId }: { projectId: string }): React.JSX.Elemen
           )}
         </div>
         <div className="flex items-center gap-1.5">
+          <Tip content="Ask about the codebase — read-only Q&A that runs in its own chat, with clickable citations">
+            <Button size="sm" variant="ghost" onClick={() => setAskOpen(true)}>
+              <MessageCircleQuestion size={13} />
+              Ask
+            </Button>
+          </Tip>
           {hasPages && (
             <Tip content="Delete all generated wiki pages for this project">
               <span className="inline-flex">
@@ -248,6 +263,8 @@ export function WikiView({ projectId }: { projectId: string }): React.JSX.Elemen
           </div>
         </div>
       )}
+
+      <AskDialog projectId={projectId} open={askOpen} onOpenChange={setAskOpen} />
     </div>
   )
 }

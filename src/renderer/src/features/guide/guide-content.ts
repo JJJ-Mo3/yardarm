@@ -381,13 +381,19 @@ links between pages.
   many commits behind the wiki is, with a one-click Refresh.
 - \`/wiki\` opens the tab; the trash button deletes all pages (regenerate any time).
 
-### Codebase Q&A (/ask)
+### Codebase Q&A (Ask)
 
-\`/ask <question>\` answers questions about the codebase **read-only** — the agent explores
-but never edits files or runs state-changing commands. Answers cite their sources as
-clickable \`path:line\` references that open the file in the IDE at that line. Great for
-"where is X handled?" or "how does Y work?" before you start a task. The question-mark
-button in the sidebar footer jumps to the composer with \`/ask\` prefilled.
+Ask answers questions about the codebase **read-only** — the agent explores but never edits
+files or runs state-changing commands. Answers cite their sources as clickable \`path:line\`
+references that open the file in the IDE at that line. Great for "where is X handled?" or
+"how does Y work?" before you start a task.
+
+- **Ask dialog** — the question-mark button in the sidebar footer (and the Ask button on the
+  Wiki tab) opens a small dialog: type a question and it runs in its own new chat (no
+  worktree — it answers about the project's current state), which opens automatically so you
+  can watch the answer stream in and ask follow-ups there. No chat needs to be selected.
+- **/ask in a chat** — \`/ask <question>\` runs the same read-only Q&A inside the current
+  chat, handy when the question relates to work already underway there.
 `
   },
   {
