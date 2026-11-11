@@ -59,6 +59,7 @@ export function WikiView({ projectId }: { projectId: string }): React.JSX.Elemen
   const running = status.data?.running ?? false
   const runChatId = status.data?.chatId ?? null
   const waiting = status.data?.waiting ?? false
+  const failure = !running ? (status.data?.error ?? null) : null
 
   // Refresh pages when a run finishes (running → false) or when the status
   // poll recovered leftover staging into the store.
@@ -171,6 +172,22 @@ export function WikiView({ projectId }: { projectId: string }): React.JSX.Elemen
       {generate.error && (
         <div className="border-b border-red-500/30 bg-red-500/10 px-4 py-1.5 text-[11px] text-red-600 dark:text-red-400">
           {generate.error.message}
+        </div>
+      )}
+
+      {failure && (
+        <div className="flex items-center justify-between gap-2 border-b border-red-500/30 bg-red-500/10 px-4 py-1.5">
+          <div className="min-w-0 text-[11px] text-red-600 dark:text-red-400">
+            Wiki generation failed: {failure}
+          </div>
+          <Tip content="Open the wiki-generation chat to see what happened">
+            <span className="inline-flex">
+              <Button size="sm" variant="ghost" disabled={!runChatId} onClick={viewRun}>
+                <MessageSquare size={13} />
+                View run
+              </Button>
+            </span>
+          </Tip>
         </div>
       )}
 

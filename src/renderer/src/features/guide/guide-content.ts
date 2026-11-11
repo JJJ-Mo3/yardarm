@@ -373,7 +373,8 @@ links between pages.
   git-excluded staging folder. The Wiki tab shows progress with a **View run** button to
   watch the run; pages are collected automatically when it finishes. If the agent asks a
   question, the banner turns amber ("waiting for your input") — open the run and answer to
-  continue.
+  continue. If the run fails (for example an expired provider sign-in), a red banner on the
+  Wiki tab shows the error with a View run link.
 - **Storage** — pages live in Yardarm's app data folder, per project — never inside your
   repository, so diffs, reviews, and commits stay clean. (The temporary \`.yardarm-wiki/\`
   staging folder the agent writes to is git-excluded and removed on collection.)

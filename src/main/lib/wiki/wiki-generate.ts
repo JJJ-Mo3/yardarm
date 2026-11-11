@@ -29,6 +29,12 @@ export const WIKI_CHAT_TITLE = 'Repo wiki'
 /** In-flight generation per project (double-start guard + status polling). */
 const inflight = new Map<string, { chatId: string; subchatId: string }>()
 
+/** Why the last generation produced no wiki (per project), for the Wiki tab.
+ * The run happens in a background chat nobody is watching, so run errors
+ * (expired provider sign-in, crashed host, a run that wrote no pages) must
+ * be carried to the status poll or the failure is completely silent. */
+const lastFailure = new Map<string, string>()
+
 function storeDir(projectId: string): string {
   return wikiDir(app.getPath('userData'), projectId)
 }
@@ -128,15 +134,21 @@ export async function startWikiGeneration(projectId: string): Promise<WikiGenera
     return { started: false, chatId: target.chatId }
   }
   await prepareStaging(target.cwd, projectId)
+  lastFailure.delete(projectId)
   // The run happens behind the scenes — nobody is watching the dedicated
   // wiki chat to answer tool approvals, so without auto-approve the first
   // file write would park the run forever. Real consent surfaces (ask_user
   // questions, plan review) still suspend and are reported via status.waiting.
   await agentSessionManager.setYolo(target.subchatId, true)
   // Collect once the run completes; the listener also detaches on host
-  // errors so repeated generations can't accumulate listeners.
+  // errors so repeated generations can't accumulate listeners. Run errors
+  // (e.g. an expired provider sign-in) stream only into the hidden wiki
+  // chat, so remember the latest one for the Wiki tab's failure banner.
+  let lastError: string | null = null
   const off = agentSessionManager.onEvents(target.subchatId, (ev) => {
-    if (ev.type === 'run-finished') {
+    if (ev.type === 'info' && ev.level === 'error') {
+      lastError = ev.text
+    } else if (ev.type === 'run-finished') {
       // A suspended end (the agent asked a question) isn't done: keep the
       // run inflight so the Wiki tab can point the user at the chat; the
       // answered run resumes and finishes with a later run-finished.
@@ -145,12 +157,25 @@ export async function startWikiGeneration(projectId: string): Promise<WikiGenera
       inflight.delete(projectId)
       void collect(projectId, target.cwd)
         .then((collected) => {
-          if (collected) notifyAgentEvent('Repo wiki generated', target.chatId, target.subchatId)
+          if (collected) {
+            lastFailure.delete(projectId)
+            notifyAgentEvent('Repo wiki generated', target.chatId, target.subchatId)
+          } else {
+            lastFailure.set(
+              projectId,
+              lastError ??
+                (ev.reason === 'error'
+                  ? 'The run failed before writing any wiki pages.'
+                  : 'The run finished without writing any wiki pages.')
+            )
+            notifyAgentEvent('Repo wiki generation failed', target.chatId, target.subchatId)
+          }
         })
         .catch((err) => console.error('[wiki] collect failed', projectId, err))
     } else if (ev.type === 'status' && ev.status === 'error') {
       off()
       inflight.delete(projectId)
+      lastFailure.set(projectId, ev.error ?? lastError ?? 'The agent failed to start.')
     }
   })
   inflight.set(projectId, { chatId: target.chatId, subchatId: target.subchatId })
@@ -178,6 +203,8 @@ export interface WikiGenerationStatus {
   collected: boolean
   /** True when the run is parked on a question/approval and needs the user. */
   waiting: boolean
+  /** Why the last generation produced no wiki, when it failed (idle only). */
+  error: string | null
 }
 
 /**
@@ -192,7 +219,8 @@ export async function wikiGenerationStatus(projectId: string): Promise<WikiGener
       running: true,
       chatId: run.chatId,
       collected: false,
-      waiting: agentSessionManager.awaitingUserInput(run.subchatId)
+      waiting: agentSessionManager.awaitingUserInput(run.subchatId),
+      error: null
     }
   }
   const db = getDb()
@@ -201,7 +229,13 @@ export async function wikiGenerationStatus(projectId: string): Promise<WikiGener
     ? db.select().from(schema.chats).where(eq(schema.chats.id, project.wikiChatId)).get()
     : undefined
   if (!chat || chat.archived) {
-    return { running: false, chatId: null, collected: false, waiting: false }
+    return {
+      running: false,
+      chatId: null,
+      collected: false,
+      waiting: false,
+      error: lastFailure.get(projectId) ?? null
+    }
   }
   const cwd = chat.worktreePath ?? project?.path ?? ''
   let collected = false
@@ -217,9 +251,16 @@ export async function wikiGenerationStatus(projectId: string): Promise<WikiGener
   if (!busy && cwd && existsSync(cwd)) {
     try {
       collected = await collect(projectId, cwd)
+      if (collected) lastFailure.delete(projectId)
     } catch {
       // best-effort recovery
     }
   }
-  return { running: false, chatId: chat.id, collected, waiting: false }
+  return {
+    running: false,
+    chatId: chat.id,
+    collected,
+    waiting: false,
+    error: lastFailure.get(projectId) ?? null
+  }
 }
