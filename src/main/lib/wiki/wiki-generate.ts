@@ -128,10 +128,19 @@ export async function startWikiGeneration(projectId: string): Promise<WikiGenera
     return { started: false, chatId: target.chatId }
   }
   await prepareStaging(target.cwd, projectId)
+  // The run happens behind the scenes — nobody is watching the dedicated
+  // wiki chat to answer tool approvals, so without auto-approve the first
+  // file write would park the run forever. Real consent surfaces (ask_user
+  // questions, plan review) still suspend and are reported via status.waiting.
+  await agentSessionManager.setYolo(target.subchatId, true)
   // Collect once the run completes; the listener also detaches on host
   // errors so repeated generations can't accumulate listeners.
   const off = agentSessionManager.onEvents(target.subchatId, (ev) => {
     if (ev.type === 'run-finished') {
+      // A suspended end (the agent asked a question) isn't done: keep the
+      // run inflight so the Wiki tab can point the user at the chat; the
+      // answered run resumes and finishes with a later run-finished.
+      if (ev.reason === 'suspended') return
       off()
       inflight.delete(projectId)
       void collect(projectId, target.cwd)
@@ -167,6 +176,8 @@ export interface WikiGenerationStatus {
   chatId: string | null
   /** True when leftover staging was just recovered into the store. */
   collected: boolean
+  /** True when the run is parked on a question/approval and needs the user. */
+  waiting: boolean
 }
 
 /**
@@ -176,13 +187,22 @@ export interface WikiGenerationStatus {
  */
 export async function wikiGenerationStatus(projectId: string): Promise<WikiGenerationStatus> {
   const run = inflight.get(projectId)
-  if (run) return { running: true, chatId: run.chatId, collected: false }
+  if (run) {
+    return {
+      running: true,
+      chatId: run.chatId,
+      collected: false,
+      waiting: agentSessionManager.awaitingUserInput(run.subchatId)
+    }
+  }
   const db = getDb()
   const project = db.select().from(schema.projects).where(eq(schema.projects.id, projectId)).get()
   const chat = project?.wikiChatId
     ? db.select().from(schema.chats).where(eq(schema.chats.id, project.wikiChatId)).get()
     : undefined
-  if (!chat || chat.archived) return { running: false, chatId: null, collected: false }
+  if (!chat || chat.archived) {
+    return { running: false, chatId: null, collected: false, waiting: false }
+  }
   const cwd = chat.worktreePath ?? project?.path ?? ''
   let collected = false
   const subchat = db
@@ -201,5 +221,5 @@ export async function wikiGenerationStatus(projectId: string): Promise<WikiGener
       // best-effort recovery
     }
   }
-  return { running: false, chatId: chat.id, collected }
+  return { running: false, chatId: chat.id, collected, waiting: false }
 }

@@ -322,6 +322,14 @@ export class AgentSessionManager {
     return this.hosts.get(subchatId)?.translator.running ?? false
   }
 
+  /** Whether the subchat is parked on a pending approval or suspension
+   * (ask_user question, plan review) — i.e. waiting on the user. */
+  awaitingUserInput(subchatId: string): boolean {
+    const t = this.hosts.get(subchatId)?.translator
+    if (!t) return false
+    return t.pendingApprovals.size > 0 || t.pendingSuspensions.size > 0
+  }
+
   /** Whether any subchat has an active agent run (app-quit confirmation). */
   anyRunning(): boolean {
     for (const host of this.hosts.values()) {

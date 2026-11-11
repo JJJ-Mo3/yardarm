@@ -49,6 +49,7 @@ export function WikiView({ projectId }: { projectId: string }): React.JSX.Elemen
 
   const running = status.data?.running ?? false
   const runChatId = status.data?.chatId ?? null
+  const waiting = status.data?.waiting ?? false
 
   // Refresh pages when a run finishes (running → false) or when the status
   // poll recovered leftover staging into the store.
@@ -158,23 +159,39 @@ export function WikiView({ projectId }: { projectId: string }): React.JSX.Elemen
         </div>
       )}
 
-      {running && (
-        <div className="flex items-center justify-between gap-2 border-b border-border bg-accent/40 px-4 py-1.5">
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            <Loader2 size={12} className="animate-spin" />
-            Generating the wiki in this project&apos;s &quot;Repo wiki&quot; chat&hellip; pages
-            appear here when the run finishes.
+      {running &&
+        (waiting ? (
+          <div className="flex items-center justify-between gap-2 border-b border-amber-500/30 bg-amber-500/10 px-4 py-1.5">
+            <div className="flex items-center gap-2 text-[11px] text-amber-600 dark:text-amber-400">
+              <MessageSquare size={12} />
+              The wiki run is waiting for your input — open the chat to answer and it will continue.
+            </div>
+            <Tip content="Open the wiki-generation chat to answer the agent">
+              <span className="inline-flex">
+                <Button size="sm" variant="ghost" disabled={!runChatId} onClick={viewRun}>
+                  <MessageSquare size={13} />
+                  View run
+                </Button>
+              </span>
+            </Tip>
           </div>
-          <Tip content="Open the wiki-generation chat to watch the run">
-            <span className="inline-flex">
-              <Button size="sm" variant="ghost" disabled={!runChatId} onClick={viewRun}>
-                <MessageSquare size={13} />
-                View run
-              </Button>
-            </span>
-          </Tip>
-        </div>
-      )}
+        ) : (
+          <div className="flex items-center justify-between gap-2 border-b border-border bg-accent/40 px-4 py-1.5">
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <Loader2 size={12} className="animate-spin" />
+              Generating the wiki in this project&apos;s &quot;Repo wiki&quot; chat&hellip; pages
+              appear here when the run finishes.
+            </div>
+            <Tip content="Open the wiki-generation chat to watch the run">
+              <span className="inline-flex">
+                <Button size="sm" variant="ghost" disabled={!runChatId} onClick={viewRun}>
+                  <MessageSquare size={13} />
+                  View run
+                </Button>
+              </span>
+            </Tip>
+          </div>
+        ))}
 
       {hasPages && behind !== null && behind > 0 && (
         <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-[11px] text-amber-600 dark:text-amber-400">
