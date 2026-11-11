@@ -10,8 +10,9 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useSetAtom } from 'jotai'
 import { BookText, Loader2, MessageSquare, RefreshCw, Trash2 } from 'lucide-react'
-import { mainTabAtom, selectedChatIdAtom } from '../../lib/atoms'
+import { mainTabAtom } from '../../lib/atoms'
 import { trpc } from '../../lib/trpc'
+import { useSelectChat } from '../../lib/use-select-chat'
 import { cn, timeAgo } from '../../lib/utils'
 import { Button } from '../../components/ui/button'
 import { Tip } from '../../components/ui/tooltip'
@@ -21,7 +22,7 @@ import { Markdown } from '../agents/Markdown'
 export function WikiView({ projectId }: { projectId: string }): React.JSX.Element {
   const utils = trpc.useUtils()
   const setTab = useSetAtom(mainTabAtom)
-  const setSelectedChat = useSetAtom(selectedChatIdAtom)
+  const selectChat = useSelectChat()
   const confirm = useConfirm()
   const [selected, setSelected] = useState<string | null>(null)
 
@@ -70,9 +71,11 @@ export function WikiView({ projectId }: { projectId: string }): React.JSX.Elemen
     }
   }
 
+  // Select both the chat and its first subchat (useSelectChat) — setting
+  // only the chat id leaves the chat pane rendering the previous subchat.
   const viewRun = (): void => {
     if (!runChatId) return
-    setSelectedChat(runChatId)
+    selectChat(runChatId)
     setTab('chat')
   }
 
