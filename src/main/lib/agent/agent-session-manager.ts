@@ -21,6 +21,13 @@ import { isStallError } from '../../../shared/stall-error'
 import { splitPlanRejectionFeedback } from './plan-rejection'
 import { resolveVerifyWork } from '../../../shared/verification'
 import {
+  AUTO_CONTINUE_MAX_ROUNDS,
+  buildTasksContinuePrompt,
+  countUnfinishedTasks,
+  resolveAutoContinue,
+  tasksFingerprint
+} from '../../../shared/auto-continue'
+import {
   formatTriggeredNotes,
   matchTriggeredNotes,
   planKnowledgeBoot,
@@ -176,6 +183,14 @@ export class AgentSessionManager {
    */
   private prefillRetried = new Set<string>()
   private stallRetried = new Set<string>()
+  /**
+   * Tasks auto-continue bookkeeping: rounds dispatched since the last real
+   * user send (budget), and the task-list fingerprint at the last dispatch
+   * (a round that changes nothing stops the loop). Both reset on each real
+   * send so every user prompt re-arms the full budget.
+   */
+  private tasksContinueRounds = new Map<string, number>()
+  private tasksContinueFingerprint = new Map<string, string>()
   /** Pending per-subchat debounce timers for mid-run IDE-note delivery. */
   private ideNoteTimers = new Map<string, NodeJS.Timeout>()
   /**
@@ -596,6 +611,11 @@ export class AgentSessionManager {
           this.hasPendingIdeEdits(subchatId)
         ) {
           this.scheduleIdeNoteDelivery(subchatId)
+        }
+        // Runs after onRunStateChanged(false) — if a stall recovery or a
+        // queued prompt already dispatched, awaitingRunStart makes this skip.
+        if (ev.type === 'run-finished') {
+          this.maybeTasksContinue(subchatId, ev.reason)
         }
       },
       persistMessage: (m, final) => this.persistMessage(subchatId, m, final),
@@ -1179,9 +1199,12 @@ export class AgentSessionManager {
     const triggerSuffix = triggerNote
       ? `\n\n<system-reminder>\n${triggerNote}\n</system-reminder>`
       : ''
-    // Each real send re-arms one auto-recovery of each kind.
+    // Each real send re-arms one auto-recovery of each kind and the full
+    // tasks auto-continue budget.
     this.prefillRetried.delete(subchatId)
     this.stallRetried.delete(subchatId)
+    this.tasksContinueRounds.delete(subchatId)
+    this.tasksContinueFingerprint.delete(subchatId)
     this.recordUserMessage(
       subchatId,
       (displayText ?? content) + attachmentNote,
@@ -1365,6 +1388,57 @@ export class AgentSessionManager {
     })
   }
 
+  /**
+   * Tasks auto-continue (opt-in): when a run ends normally but the agent's
+   * task list still has unfinished items — and nothing is waiting on the
+   * user — send a hidden continue so long task lists keep moving without the
+   * user queueing "continue" prompts by hand. Gated strictly on a 'complete'
+   * run end, so manual stops ('aborted'), errors, stall aborts, and ask_user
+   * gates ('suspended') never trigger it. Budgeted per user prompt and
+   * stopped when a round makes no task progress, so it can never loop
+   * forever. The info markers are the visible transcript record.
+   */
+  private maybeTasksContinue(subchatId: string, reason?: string): void {
+    if (reason !== 'complete') return
+    if (this.isRunning(subchatId) || this.awaitingRunStart.has(subchatId)) return
+    if (this.promptQueue.size(subchatId) > 0) return
+    const handle = this.hosts.get(subchatId)
+    if (!handle || handle.killed) return
+    if (handle.translator.pendingSuspensions.size > 0) return
+    const tasks = handle.translator.tasks
+    const remaining = countUnfinishedTasks(tasks)
+    if (remaining === 0) {
+      this.tasksContinueRounds.delete(subchatId)
+      this.tasksContinueFingerprint.delete(subchatId)
+      return
+    }
+    if (!this.getAutoContinue(subchatId).effective) return
+    const rounds = this.tasksContinueRounds.get(subchatId) ?? 0
+    if (rounds >= AUTO_CONTINUE_MAX_ROUNDS) {
+      this.insertMarker(
+        subchatId,
+        `Auto-continue paused after ${AUTO_CONTINUE_MAX_ROUNDS} rounds — send a message to resume`
+      )
+      return
+    }
+    const fingerprint = tasksFingerprint(tasks)
+    if (rounds > 0 && this.tasksContinueFingerprint.get(subchatId) === fingerprint) {
+      this.insertMarker(
+        subchatId,
+        'Auto-continue stopped — the last round made no task progress. Send a message to resume.'
+      )
+      return
+    }
+    this.tasksContinueRounds.set(subchatId, rounds + 1)
+    this.tasksContinueFingerprint.set(subchatId, fingerprint)
+    this.awaitingRunStart.add(subchatId)
+    this.insertMarker(
+      subchatId,
+      `Auto-continued: ${remaining} task${remaining === 1 ? '' : 's'} still unfinished`
+    )
+    this.sendCommand(handle, { t: 'send', text: buildTasksContinuePrompt(remaining) })
+  }
+
   async approve(
     subchatId: string,
     toolCallId: string,
@@ -1499,6 +1573,39 @@ export class AgentSessionManager {
       enabled: resolveVerifyWork(value, this.readAppSetting('verifyWork')),
       browser
     })
+  }
+
+  /**
+   * Per-subchat tasks auto-continue override plus the resolved effective
+   * value (override wins; otherwise the global app_settings
+   * `autoContinueTasks` opt-in).
+   */
+  getAutoContinue(subchatId: string): {
+    override: boolean | null
+    global: boolean
+    effective: boolean
+  } {
+    const row = getDb()
+      .select({ autoContinue: schema.subchats.autoContinue })
+      .from(schema.subchats)
+      .where(eq(schema.subchats.id, subchatId))
+      .get()
+    const override = row?.autoContinue ?? null
+    const global = this.readAppSetting('autoContinueTasks') === true
+    return { override, global, effective: resolveAutoContinue(override, global) }
+  }
+
+  /**
+   * Persist the per-subchat tasks auto-continue override (null = follow the
+   * global setting). Main-process only — the next run end re-reads it, so no
+   * host command is needed.
+   */
+  setAutoContinue(subchatId: string, value: boolean | null): void {
+    getDb()
+      .update(schema.subchats)
+      .set({ autoContinue: value })
+      .where(eq(schema.subchats.id, subchatId))
+      .run()
   }
 
   /** Global disabled-tool names (app_settings KV); new hosts boot with them. */

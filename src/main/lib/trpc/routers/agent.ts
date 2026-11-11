@@ -207,6 +207,19 @@ export const agentRouter = router({
       return { ok: true }
     }),
 
+  /** Per-subchat tasks auto-continue override + the resolved effective value. */
+  autoContinue: publicProcedure
+    .input(z.object({ subchatId: z.string() }))
+    .query(({ input }) => agentSessionManager.getAutoContinue(input.subchatId)),
+
+  /** Set/clear the per-subchat tasks auto-continue override (null = follow global). */
+  setAutoContinue: publicProcedure
+    .input(z.object({ subchatId: z.string(), value: z.boolean().nullable() }))
+    .mutation(({ input }) => {
+      agentSessionManager.setAutoContinue(input.subchatId, input.value)
+      return { ok: true }
+    }),
+
   /**
    * Global token-compression settings (compression + verbosity steering):
    * persist to app_settings and broadcast to all live hosts in one place so

@@ -264,6 +264,14 @@ export function PreferencesTab(): React.JSX.Element {
   })
   const verifyEnabled = verifySetting.data === true
 
+  // Tasks auto-continue (app_settings KV, opt-in default off); the session
+  // manager reads it at each run end and each chat's ⋯ menu can override it.
+  const autoContinueSetting = trpc.settings.get.useQuery({ key: 'autoContinueTasks' })
+  const setAutoContinue = trpc.settings.set.useMutation({
+    onSuccess: () => utils.settings.get.invalidate({ key: 'autoContinueTasks' })
+  })
+  const autoContinueEnabled = autoContinueSetting.data === true
+
   // Suggested-knowledge guidance (app_settings KV, default on); hosts read it
   // at boot, so changes apply to newly started agent sessions.
   const suggestKnowledgeSetting = trpc.settings.get.useQuery({ key: 'suggestKnowledge' })
@@ -518,6 +526,31 @@ export function PreferencesTab(): React.JSX.Element {
               onCheckedChange={(v) => setVerify.mutate({ key: 'verifyWork', value: v })}
             />
             Verify work before finishing
+          </label>
+        </Tip>
+      </div>
+
+      <div className="space-y-3 rounded border border-border p-3">
+        <div>
+          <div className="text-xs font-medium">Auto-continue unfinished tasks</div>
+          <div className="text-[11px] text-muted-foreground">
+            When a run ends normally but the agent&apos;s task list still has unfinished items,
+            Yardarm automatically sends a hidden &quot;continue&quot; so long task lists keep moving
+            without you re-prompting. Never fires after you press Stop, on errors, or while the
+            agent is waiting on you; stops after 25 rounds per prompt or when a round makes no task
+            progress. Each chat&apos;s ⋯ menu can override it.
+          </div>
+        </div>
+        <Tip content="Resume runs automatically while the task list has unfinished items — stops after 25 rounds or when no progress is made; a per-chat Default/On/Off override lives in the chat's ⋯ menu">
+          <label className="flex w-fit items-center gap-2 text-xs">
+            <Switch
+              checked={autoContinueEnabled}
+              disabled={setAutoContinue.isPending}
+              onCheckedChange={(v) =>
+                setAutoContinue.mutate({ key: 'autoContinueTasks', value: v })
+              }
+            />
+            Auto-continue unfinished tasks
           </label>
         </Tip>
       </div>

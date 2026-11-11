@@ -134,6 +134,8 @@ its reasoning, tool calls, and file edits into the transcript.
 - **The ⋯ menu** — occasional tools live under the ⋯ button: **Code review** (review local
   changes or an open PR/MR), **Verify work** (per-chat Default / On / Off override for the
   self-verification pass — see Confidence & verification),
+  **Auto-continue** (per-chat Default / On / Off override for resuming runs that stop with
+  unfinished tasks — see Auto-continue below),
   **Observational memory** (\`/om\` status and tuning),
   **Scheduled runs** (\`/schedules\` — recurring agent runs, see Scheduled runs below),
   **Workflows** (\`/workflows\` — reusable workflow run-books, see Workflows below),
@@ -145,6 +147,20 @@ its reasoning, tool calls, and file edits into the transcript.
   file manager, or open it in a detected editor or terminal — e.g. VS Code, Cursor, Zed),
   **Export transcript** (download the thread as Markdown), and
   **Context audit** (\`/context\`).
+
+### Auto-continue for long task lists
+
+On long task lists, models sometimes end their turn early with tasks still unfinished —
+normally you'd have to keep sending "continue". **Auto-continue** (opt-in) does that for you:
+when a run ends normally but the agent's task list still has pending or in-progress items,
+Yardarm sends a hidden continue prompt and the run resumes. A small "Auto-continued" line in
+the transcript records each resume.
+
+It never fires when you press Stop, when a run errors, or while the agent is waiting on you
+(a question, plan, or tool approval), and it can't loop forever: it stops after 25 rounds per
+prompt, or as soon as a round finishes without any task-list progress. Enable it globally in
+Settings → Preferences ("Auto-continue unfinished tasks"), or per chat via **Auto-continue**
+in the chat header's ⋯ menu (Default follows the global setting).
 
 ### Models
 

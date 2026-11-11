@@ -142,6 +142,9 @@
             <a href="#agent-code-review">Agent code review</a>),
             <strong>Verify work</strong> (per-chat Default / On / Off override for the
             self-verification pass, see <a href="#confidence">Confidence &amp; verification</a>),
+            <strong>Auto-continue</strong> (per-chat Default / On / Off override for resuming runs
+            that stop with unfinished tasks, see
+            <a href="#auto-continue">Auto-continue for long task lists</a>),
             <strong>Observational memory</strong> (<code>/om</code> status and tuning),
             <strong>Scheduled runs</strong> (<code>/schedules</code> — recurring agent runs, see
             <a href="#schedules">Scheduled runs</a>), <strong>Workflows</strong> (<code
@@ -362,6 +365,28 @@
           Off by default. Enable it globally in Settings → <strong>Preferences</strong>, or per chat
           via <strong>Verify work</strong> in the chat header's ⋯ menu (Default follows the global
           setting). Expect longer, more thorough runs when it's on.
+        </p>
+
+        <h3 id="auto-continue">Auto-continue for long task lists</h3>
+        <p>
+          On long task lists, models sometimes end a turn with items still unfinished — leaving you
+          to type "continue" over and over. Auto-continue does that for you: when a run ends
+          normally but the agent's task list still has pending or in-progress items, Yardarm sends a
+          hidden continue prompt and the run resumes. Each round adds an
+          <em>Auto-continued</em> line to the transcript so you can see it working.
+        </p>
+        <p>
+          It never fires after you press Stop, after an error or stall, or while the agent is
+          waiting on a question or approval — only after a clean finish with work left. Two safeties
+          stop runaway loops: a budget of 25 rounds per prompt (any message from you re-arms it),
+          and a no-progress check — if a round changes nothing on the task list, auto-continue stops
+          and tells you.
+        </p>
+        <p>
+          Off by default. Enable it globally in Settings → <strong>Preferences</strong> (<strong
+            >Auto-continue unfinished tasks</strong
+          >), or per chat via <strong>Auto-continue</strong> in the chat header's ⋯ menu (Default
+          follows the global setting).
         </p>
 
         <h2 id="approvals">Approvals and permissions</h2>

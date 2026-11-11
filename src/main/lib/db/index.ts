@@ -198,7 +198,9 @@ const MIGRATIONS: string[] = [
    ALTER TABLE schedules RENAME COLUMN playbook_id TO workflow_id;`,
   // v22 — dedicated per-project wiki-generation chat (lazily created on first
   // generate; validated at use, so no FK)
-  `ALTER TABLE projects ADD COLUMN wiki_chat_id TEXT;`
+  `ALTER TABLE projects ADD COLUMN wiki_chat_id TEXT;`,
+  // v23 — per-subchat tasks auto-continue override (NULL = follow the global setting)
+  `ALTER TABLE subchats ADD COLUMN auto_continue INTEGER;`
 ]
 
 export function initDb(): DB {

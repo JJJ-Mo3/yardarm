@@ -5,6 +5,7 @@ import {
   Brain,
   CalendarClock,
   Download,
+  FastForward,
   FolderOpen,
   GitPullRequest,
   KeyRound,
@@ -148,6 +149,11 @@ export function ChatView({
   const verifyWork = trpc.agent.verifyWork.useQuery({ subchatId })
   const setVerifyWork = trpc.agent.setVerifyWork.useMutation({
     onSuccess: () => utils.agent.verifyWork.invalidate({ subchatId })
+  })
+  // Per-subchat tasks auto-continue override (⋯ More menu three-state control).
+  const autoContinue = trpc.agent.autoContinue.useQuery({ subchatId })
+  const setAutoContinue = trpc.agent.setAutoContinue.useMutation({
+    onSuccess: () => utils.agent.autoContinue.invalidate({ subchatId })
   })
   const selectedChatId = useAtomValue(selectedChatIdAtom)
   // Repo wiki: /wiki generate kicks off a run in the project's dedicated
@@ -886,7 +892,7 @@ export function ChatView({
               button so they also open here via slash commands. */}
           <Popover open={moreOpen} onOpenChange={setMoreOpen}>
             <Tip
-              content="More tools — code review, memory, PR subscriptions, MCP servers, open folder, export, context audit, scheduled runs, verify work"
+              content="More tools — code review, memory, PR subscriptions, MCP servers, open folder, export, context audit, scheduled runs, verify work, auto-continue"
               side="bottom"
             >
               <PopoverTrigger asChild>
@@ -1060,6 +1066,43 @@ export function ChatView({
                               : 'text-muted-foreground hover:text-foreground'
                           }`}
                           onClick={() => setVerifyWork.mutate({ subchatId, value: opt.value })}
+                        >
+                          {opt.label}
+                        </button>
+                      </Tip>
+                    )
+                  })}
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                <span className="flex items-center gap-2 text-[11px]">
+                  <FastForward size={12} className="shrink-0 text-muted-foreground" />
+                  Auto-continue
+                </span>
+                <div className="flex overflow-hidden rounded border text-[10px]">
+                  {(
+                    [
+                      { label: 'Default', value: null },
+                      { label: 'On', value: true },
+                      { label: 'Off', value: false }
+                    ] as Array<{ label: string; value: boolean | null }>
+                  ).map((opt) => {
+                    const selected = (autoContinue.data?.override ?? null) === opt.value
+                    const tip =
+                      opt.value === null
+                        ? `Follow the global Preferences setting (currently ${autoContinue.data?.global ? 'on' : 'off'})`
+                        : opt.value
+                          ? 'Keep runs going automatically while the task list has unfinished items (this chat only)'
+                          : 'Never auto-continue in this chat'
+                    return (
+                      <Tip key={opt.label} content={tip} side="bottom">
+                        <button
+                          className={`px-1.5 py-0.5 cursor-pointer ${
+                            selected
+                              ? 'bg-secondary text-foreground'
+                              : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                          onClick={() => setAutoContinue.mutate({ subchatId, value: opt.value })}
                         >
                           {opt.label}
                         </button>
