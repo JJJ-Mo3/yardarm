@@ -33,7 +33,8 @@ import {
   selectedSubchatIdAtom,
   settingsOpenAtom,
   themeAtom,
-  unseenChatsAtom
+  unseenChatsAtom,
+  wikiAskOpenAtom
 } from '../../lib/atoms'
 import { useIsDark } from '../../lib/use-dark'
 import { useSelectChat } from '../../lib/use-select-chat'
@@ -51,7 +52,6 @@ import { Switch } from '../../components/ui/switch'
 import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { AddProjectDialog } from './AddProjectDialog'
-import { AskDialog } from '../agents/AskDialog'
 import { ChatHoverCard } from './ChatHoverCard'
 import { Logo } from '../../components/Logo'
 
@@ -109,7 +109,7 @@ export function Sidebar(): React.JSX.Element {
   const setProjectSettingsOpen = useSetAtom(projectSettingsOpenAtom)
   const [newChatOpen, setNewChatOpen] = useAtom(newChatOpenAtom)
   const setAddProjectOpen = useSetAtom(addProjectOpenAtom)
-  const [askOpen, setAskOpen] = useState(false)
+  const setWikiAskOpen = useSetAtom(wikiAskOpenAtom)
   const [newChatTitle, setNewChatTitle] = useState('')
   const [useWorktree, setUseWorktree] = useState(true)
   const [renameTarget, setRenameTarget] = useState<{ id: string; title: string } | null>(null)
@@ -141,6 +141,7 @@ export function Sidebar(): React.JSX.Element {
           status: 'creating',
           archived: false,
           pinned: false,
+          hidden: false,
           sortOrder: null,
           insights: null,
           insightsGeneratedAt: null,
@@ -604,7 +605,7 @@ export function Sidebar(): React.JSX.Element {
         <Tip
           content={
             projectId
-              ? 'Ask about the codebase — read-only Q&A that runs in its own chat, with clickable citations'
+              ? 'Ask about the codebase — opens the wiki with a read-only Q&A side panel'
               : 'Ask about the codebase — select a project first'
           }
           side="top"
@@ -614,7 +615,10 @@ export function Sidebar(): React.JSX.Element {
               variant="ghost"
               size="icon"
               disabled={!projectId}
-              onClick={() => setAskOpen(true)}
+              onClick={() => {
+                setWikiAskOpen(true)
+                setMainTab('wiki')
+              }}
             >
               <MessageCircleQuestion size={13} />
             </Button>
@@ -736,8 +740,6 @@ export function Sidebar(): React.JSX.Element {
       </Dialog>
 
       <AddProjectDialog />
-
-      {projectId && <AskDialog projectId={projectId} open={askOpen} onOpenChange={setAskOpen} />}
     </div>
   )
 }

@@ -200,7 +200,13 @@ const MIGRATIONS: string[] = [
   // generate; validated at use, so no FK)
   `ALTER TABLE projects ADD COLUMN wiki_chat_id TEXT;`,
   // v23 — per-subchat tasks auto-continue override (NULL = follow the global setting)
-  `ALTER TABLE subchats ADD COLUMN auto_continue INTEGER;`
+  `ALTER TABLE subchats ADD COLUMN auto_continue INTEGER;`,
+  // v24 — hidden app-managed chats (Repo wiki + the wiki Ask panel's Q&A chat
+  // live outside the sidebar chat list) + per-project ask chat
+  `ALTER TABLE chats ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0;
+   ALTER TABLE projects ADD COLUMN ask_chat_id TEXT;
+   UPDATE chats SET hidden = 1
+     WHERE id IN (SELECT wiki_chat_id FROM projects WHERE wiki_chat_id IS NOT NULL);`
 ]
 
 export function initDb(): DB {

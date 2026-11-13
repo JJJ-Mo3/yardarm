@@ -21,6 +21,8 @@ export const selectedProjectIdAtom = atomWithStorage<string | null>('cz.selected
 export const selectedChatIdAtom = atom<string | null>(null)
 export const selectedSubchatIdAtom = atom<string | null>(null)
 export const mainTabAtom = atom<MainTab>('chat')
+/** Wiki tab's Ask side panel (codebase Q&A) — also opened by the sidebar Ask button. */
+export const wikiAskOpenAtom = atom(false)
 export const themeAtom = atomWithStorage<Theme>('cz.theme', 'dark')
 export const settingsOpenAtom = atom(false)
 export type SettingsTab =

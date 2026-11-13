@@ -1,7 +1,8 @@
 /**
  * Ask prompt + marker builders: read-only codebase Q&A, shared by the
- * renderer's /ask slash command and the main process's Ask dialog flow
- * (chats.ask — each question runs in its own new chat). The prompt steers
+ * renderer's /ask slash command and the main process's Ask panel flow
+ * (chats.ask — questions run in the project's hidden "Codebase Q&A" chat
+ * behind the wiki tab's side panel). The prompt steers
  * the agent to investigate without modifying anything and to cite every
  * claim as an inline-code `path:line` reference, which the chat markdown
  * linkifies into Files-tab deep links. Sent as a marker message (compact

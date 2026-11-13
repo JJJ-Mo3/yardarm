@@ -368,7 +368,8 @@ links between pages.
 
 - **Generate** — click Generate (or run \`/wiki generate\`): generation runs behind the
   scenes in a dedicated **"Repo wiki"** chat the app creates for the project — no chat
-  selection needed, and your own chats stay untouched. Tool calls in that chat are
+  selection needed, and your own chats stay untouched (the app-managed chat is hidden from
+  the sidebar chat list; View run opens it when needed). Tool calls in that chat are
   auto-approved so the run never stalls waiting for permission; it only writes into the
   git-excluded staging folder. The Wiki tab shows progress with a **View run** button to
   watch the run; pages are collected automatically when it finishes. If the agent asks a
@@ -389,10 +390,12 @@ files or runs state-changing commands. Answers cite their sources as clickable \
 references that open the file in the IDE at that line. Great for "where is X handled?" or
 "how does Y work?" before you start a task.
 
-- **Ask dialog** — the question-mark button in the sidebar footer (and the Ask button on the
-  Wiki tab) opens a small dialog: type a question and it runs in its own new chat (no
-  worktree — it answers about the project's current state), which opens automatically so you
-  can watch the answer stream in and ask follow-ups there. No chat needs to be selected.
+- **Ask panel** — the Ask button on the Wiki tab (and the question-mark button in the
+  sidebar footer, which opens the wiki with the panel) slides out a Q&A panel on the right,
+  so the wiki stays visible and navigable while you ask. Questions run in a hidden,
+  per-project **"Codebase Q&A"** chat (no worktree — it answers about the project's current
+  state); answers stream right in the panel, and follow-up questions share the same context.
+  No chat needs to be selected.
 - **/ask in a chat** — \`/ask <question>\` runs the same read-only Q&A inside the current
   chat, handy when the question relates to work already underway there.
 `

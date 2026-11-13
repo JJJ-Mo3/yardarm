@@ -12,13 +12,38 @@ import { removeWorktree } from '../../git/worktree'
 import { ptyManager } from '../../terminal/pty-manager'
 import { publicProcedure, router } from '../trpc'
 
+const ASK_CHAT_TITLE = 'Codebase Q&A'
+
+/**
+ * Resolve the project's dedicated hidden Ask chat (+ its earliest subchat)
+ * from projects.ask_chat_id, without creating one. Archived/deleted chats
+ * read as missing so the next ask recreates a fresh target.
+ */
+function resolveAskTarget(projectId: string): { chatId: string; subchatId: string } | undefined {
+  const db = getDb()
+  const project = db.select().from(schema.projects).where(eq(schema.projects.id, projectId)).get()
+  if (!project?.askChatId) return undefined
+  const chat = db.select().from(schema.chats).where(eq(schema.chats.id, project.askChatId)).get()
+  if (!chat || chat.archived) return undefined
+  const subchat = db
+    .select()
+    .from(schema.subchats)
+    .where(eq(schema.subchats.chatId, chat.id))
+    .orderBy(asc(schema.subchats.createdAt))
+    .get()
+  if (!subchat) return undefined
+  return { chatId: chat.id, subchatId: subchat.id }
+}
+
 export const chatsRouter = router({
   list: publicProcedure.input(z.object({ projectId: z.string() })).query(({ input }) => {
-    // Pinned chats first, then manually ordered (drag-to-reorder), then by recency.
+    // Pinned chats first, then manually ordered (drag-to-reorder), then by
+    // recency. App-managed background chats (Repo wiki, the Ask panel's Q&A
+    // chat) are hidden — they're reachable from their own surfaces instead.
     return getDb()
       .select()
       .from(schema.chats)
-      .where(eq(schema.chats.projectId, input.projectId))
+      .where(and(eq(schema.chats.projectId, input.projectId), eq(schema.chats.hidden, false)))
       .orderBy(
         desc(schema.chats.pinned),
         sql`${schema.chats.sortOrder} IS NULL`,
@@ -136,28 +161,51 @@ export const chatsRouter = router({
     }),
 
   /**
-   * Ask-dialog flow: run a read-only codebase question in its own new chat.
-   * No worktree — the answer should reflect the project's current state and
-   * the prompt forbids modifications. The question is dispatched as a marker
-   * message (compact transcript line) and the renderer navigates to the chat
-   * so the answer streams in the normal chat pane with clickable citations.
+   * The wiki Ask panel's existing Q&A target, when one exists — the hidden
+   * per-project "Codebase Q&A" chat and its subchat. Never creates; the panel
+   * uses this to stream prior answers before the first question is asked.
+   */
+  askTarget: publicProcedure.input(z.object({ projectId: z.string() })).query(({ input }) => {
+    const target = resolveAskTarget(input.projectId)
+    return target ?? null
+  }),
+
+  /**
+   * Ask-panel flow: run a read-only codebase question in the project's
+   * dedicated hidden "Codebase Q&A" chat (lazily created at the project root,
+   * persisted on projects.ask_chat_id). No worktree — the answer should
+   * reflect the project's current state and the prompt forbids modifications.
+   * The question is dispatched as a marker message (compact transcript line)
+   * and the answer streams into the wiki tab's side panel. Nobody watches the
+   * hidden chat for approvals, so YOLO is forced like the wiki chat's runs.
    */
   ask: publicProcedure
     .input(z.object({ projectId: z.string(), question: z.string().min(1) }))
     .mutation(async ({ input }) => {
-      const chat = await createChatWithSubchat({
-        projectId: input.projectId,
-        title: buildAskMarker(input.question),
-        useWorktree: false
-      })
+      const db = getDb()
+      let target = resolveAskTarget(input.projectId)
+      if (!target) {
+        const created = await createChatWithSubchat({
+          projectId: input.projectId,
+          title: ASK_CHAT_TITLE,
+          useWorktree: false,
+          hidden: true
+        })
+        db.update(schema.projects)
+          .set({ askChatId: created.id, updatedAt: Date.now() })
+          .where(eq(schema.projects.id, input.projectId))
+          .run()
+        target = { chatId: created.id, subchatId: created.subchats[0].id }
+      }
+      await agentSessionManager.setYolo(target.subchatId, true)
       await agentSessionManager.sendOrQueue(
-        chat.subchats[0].id,
+        target.subchatId,
         buildAskPrompt(input.question),
         undefined,
         buildAskMarker(input.question),
         'marker'
       )
-      return { chatId: chat.id }
+      return target
     }),
 
   rename: publicProcedure

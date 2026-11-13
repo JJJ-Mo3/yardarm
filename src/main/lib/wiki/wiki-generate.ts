@@ -84,7 +84,8 @@ async function resolveWikiChat(projectId: string): Promise<WikiTarget> {
   const created = await createChatWithSubchat({
     projectId,
     title: WIKI_CHAT_TITLE,
-    useWorktree: false
+    useWorktree: false,
+    hidden: true
   })
   db.update(schema.projects)
     .set({ wikiChatId: created.id, updatedAt: Date.now() })

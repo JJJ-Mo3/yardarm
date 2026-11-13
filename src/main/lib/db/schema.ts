@@ -10,6 +10,8 @@ export const projects = sqliteTable(
     settings: text('settings'),
     /** Dedicated wiki-generation chat, lazily created on first /wiki generate. */
     wikiChatId: text('wiki_chat_id'),
+    /** Dedicated codebase Q&A chat backing the wiki Ask panel, lazily created. */
+    askChatId: text('ask_chat_id'),
     archived: integer('archived', { mode: 'boolean' }).notNull().default(false),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull()
@@ -32,6 +34,8 @@ export const chats = sqliteTable(
     archived: integer('archived', { mode: 'boolean' }).notNull().default(false),
     /** Pinned chats sort to the top of the sidebar, before manual order. */
     pinned: integer('pinned', { mode: 'boolean' }).notNull().default(false),
+    /** App-managed background chats (Repo wiki, Ask panel) — kept out of chat lists. */
+    hidden: integer('hidden', { mode: 'boolean' }).notNull().default(false),
     /** User-defined sidebar position; NULL rows sort after, by recency. */
     sortOrder: real('sort_order'),
     /** AI-generated session insights (markdown); regenerated on demand. */

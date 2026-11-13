@@ -50,6 +50,7 @@ export interface CreatedChat {
   baseBranch: string
   status: string
   archived: boolean
+  hidden: boolean
   createdAt: number
   updatedAt: number
   subchats: Array<typeof schema.subchats.$inferInsert>
@@ -61,6 +62,8 @@ export async function createChatWithSubchat(input: {
   title: string
   useWorktree: boolean
   baseBranch?: string
+  /** App-managed background chat: kept out of the sidebar chat list. */
+  hidden?: boolean
 }): Promise<CreatedChat> {
   const db = getDb()
   const project = db
@@ -95,6 +98,7 @@ export async function createChatWithSubchat(input: {
     baseBranch: base,
     status: 'active',
     archived: false,
+    hidden: input.hidden === true,
     createdAt: now,
     updatedAt: now
   }

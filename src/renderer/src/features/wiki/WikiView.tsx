@@ -8,7 +8,7 @@
  * Shows a staleness banner when the project HEAD moved since generation.
  */
 import React, { useEffect, useRef, useState } from 'react'
-import { useSetAtom } from 'jotai'
+import { useAtom, useSetAtom } from 'jotai'
 import {
   BookText,
   Loader2,
@@ -17,15 +17,15 @@ import {
   RefreshCw,
   Trash2
 } from 'lucide-react'
-import { mainTabAtom } from '../../lib/atoms'
+import { mainTabAtom, wikiAskOpenAtom } from '../../lib/atoms'
 import { trpc } from '../../lib/trpc'
 import { useSelectChat } from '../../lib/use-select-chat'
 import { cn, timeAgo } from '../../lib/utils'
 import { Button } from '../../components/ui/button'
 import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
-import { AskDialog } from '../agents/AskDialog'
 import { Markdown } from '../agents/Markdown'
+import { AskPanel } from './AskPanel'
 
 export function WikiView({ projectId }: { projectId: string }): React.JSX.Element {
   const utils = trpc.useUtils()
@@ -33,7 +33,8 @@ export function WikiView({ projectId }: { projectId: string }): React.JSX.Elemen
   const selectChat = useSelectChat()
   const confirm = useConfirm()
   const [selected, setSelected] = useState<string | null>(null)
-  const [askOpen, setAskOpen] = useState(false)
+  // Shared atom so the sidebar's Ask button can open this panel from anywhere.
+  const [askOpen, setAskOpen] = useAtom(wikiAskOpenAtom)
 
   const pages = trpc.wiki.pages.useQuery({ projectId })
   const meta = trpc.wiki.meta.useQuery({ projectId })
@@ -133,155 +134,163 @@ export function WikiView({ projectId }: { projectId: string }): React.JSX.Elemen
   )
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center justify-between border-b border-border px-4 py-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <BookText size={14} className="shrink-0 text-muted-foreground" />
-          <span className="text-sm font-medium">Repo wiki</span>
-          {meta.data && (
-            <span className="truncate text-[11px] text-muted-foreground">
-              generated {timeAgo(meta.data.generatedAt)}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Tip content="Ask about the codebase — read-only Q&A that runs in its own chat, with clickable citations">
-            <Button size="sm" variant="ghost" onClick={() => setAskOpen(true)}>
-              <MessageCircleQuestion size={13} />
-              Ask
-            </Button>
-          </Tip>
-          {hasPages && (
-            <Tip content="Delete all generated wiki pages for this project">
-              <span className="inline-flex">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  disabled={remove.isPending}
-                  onClick={() => void onDelete()}
-                >
-                  <Trash2 size={13} />
-                </Button>
+    <div className="flex h-full min-h-0">
+      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+        <div className="flex items-center justify-between border-b border-border px-4 py-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <BookText size={14} className="shrink-0 text-muted-foreground" />
+            <span className="text-sm font-medium">Repo wiki</span>
+            {meta.data && (
+              <span className="truncate text-[11px] text-muted-foreground">
+                generated {timeAgo(meta.data.generatedAt)}
               </span>
-            </Tip>
-          )}
-          {generateButton(hasPages ? 'Refresh' : 'Generate')}
-        </div>
-      </div>
-
-      {generate.error && (
-        <div className="border-b border-red-500/30 bg-red-500/10 px-4 py-1.5 text-[11px] text-red-600 dark:text-red-400">
-          {generate.error.message}
-        </div>
-      )}
-
-      {failure && (
-        <div className="flex items-center justify-between gap-2 border-b border-red-500/30 bg-red-500/10 px-4 py-1.5">
-          <div className="min-w-0 text-[11px] text-red-600 dark:text-red-400">
-            Wiki generation failed: {failure}
-          </div>
-          <Tip content="Open the wiki-generation chat to see what happened">
-            <span className="inline-flex">
-              <Button size="sm" variant="ghost" disabled={!runChatId} onClick={viewRun}>
-                <MessageSquare size={13} />
-                View run
-              </Button>
-            </span>
-          </Tip>
-        </div>
-      )}
-
-      {running &&
-        (waiting ? (
-          <div className="flex items-center justify-between gap-2 border-b border-amber-500/30 bg-amber-500/10 px-4 py-1.5">
-            <div className="flex items-center gap-2 text-[11px] text-amber-600 dark:text-amber-400">
-              <MessageSquare size={12} />
-              The wiki run is waiting for your input — open the chat to answer and it will continue.
-            </div>
-            <Tip content="Open the wiki-generation chat to answer the agent">
-              <span className="inline-flex">
-                <Button size="sm" variant="ghost" disabled={!runChatId} onClick={viewRun}>
-                  <MessageSquare size={13} />
-                  View run
-                </Button>
-              </span>
-            </Tip>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between gap-2 border-b border-border bg-accent/40 px-4 py-1.5">
-            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-              <Loader2 size={12} className="animate-spin" />
-              Generating the wiki in this project&apos;s &quot;Repo wiki&quot; chat&hellip; pages
-              appear here when the run finishes.
-            </div>
-            <Tip content="Open the wiki-generation chat to watch the run">
-              <span className="inline-flex">
-                <Button size="sm" variant="ghost" disabled={!runChatId} onClick={viewRun}>
-                  <MessageSquare size={13} />
-                  View run
-                </Button>
-              </span>
-            </Tip>
-          </div>
-        ))}
-
-      {hasPages && behind !== null && behind > 0 && (
-        <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-[11px] text-amber-600 dark:text-amber-400">
-          This wiki is {behind} commit{behind === 1 ? '' : 's'} behind the repository — refresh it
-          to pick up the latest changes.
-        </div>
-      )}
-
-      {pages.isLoading ? (
-        <div className="flex flex-1 items-center justify-center">
-          <Loader2 size={16} className="animate-spin text-muted-foreground" />
-        </div>
-      ) : !hasPages ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
-          <BookText size={24} className="text-muted-foreground" />
-          <div className="text-sm font-medium">No wiki yet</div>
-          <div className="max-w-sm text-xs text-muted-foreground">
-            Generate an agent-written wiki for this project: an architecture overview with a Mermaid
-            diagram, plus a page per major module with clickable source references. Generation runs
-            behind the scenes in a dedicated chat.
-          </div>
-          {generateButton('Generate wiki')}
-        </div>
-      ) : (
-        <div className="flex min-h-0 flex-1">
-          <div className="w-56 shrink-0 overflow-y-auto border-r border-border py-2">
-            {pages.data?.map((p) => (
-              <Tip key={p.name} content={`Open ${p.name}`} side="right">
-                <button
-                  onClick={() => setSelected(p.name)}
-                  className={cn(
-                    'block w-full cursor-pointer truncate px-3 py-1.5 text-left text-xs',
-                    p.name === pageName
-                      ? 'bg-accent text-foreground'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  {p.title}
-                </button>
-              </Tip>
-            ))}
-          </div>
-          <div
-            className="min-w-0 flex-1 overflow-y-auto px-6 py-4"
-            onClickCapture={onContentClickCapture}
-          >
-            {page.data?.content != null ? (
-              <Markdown text={page.data.content} linkifyFileRefs />
-            ) : page.isLoading ? (
-              <Loader2 size={14} className="animate-spin text-muted-foreground" />
-            ) : (
-              <div className="text-xs text-muted-foreground">Page not found.</div>
             )}
           </div>
+          <div className="flex items-center gap-1.5">
+            <Tip
+              content={
+                askOpen
+                  ? 'Close the Ask panel'
+                  : 'Ask about the codebase — read-only Q&A in a side panel, with clickable citations'
+              }
+            >
+              <Button size="sm" variant="ghost" onClick={() => setAskOpen(!askOpen)}>
+                <MessageCircleQuestion size={13} />
+                Ask
+              </Button>
+            </Tip>
+            {hasPages && (
+              <Tip content="Delete all generated wiki pages for this project">
+                <span className="inline-flex">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    disabled={remove.isPending}
+                    onClick={() => void onDelete()}
+                  >
+                    <Trash2 size={13} />
+                  </Button>
+                </span>
+              </Tip>
+            )}
+            {generateButton(hasPages ? 'Refresh' : 'Generate')}
+          </div>
         </div>
-      )}
 
-      <AskDialog projectId={projectId} open={askOpen} onOpenChange={setAskOpen} />
+        {generate.error && (
+          <div className="border-b border-red-500/30 bg-red-500/10 px-4 py-1.5 text-[11px] text-red-600 dark:text-red-400">
+            {generate.error.message}
+          </div>
+        )}
+
+        {failure && (
+          <div className="flex items-center justify-between gap-2 border-b border-red-500/30 bg-red-500/10 px-4 py-1.5">
+            <div className="min-w-0 text-[11px] text-red-600 dark:text-red-400">
+              Wiki generation failed: {failure}
+            </div>
+            <Tip content="Open the wiki-generation chat to see what happened">
+              <span className="inline-flex">
+                <Button size="sm" variant="ghost" disabled={!runChatId} onClick={viewRun}>
+                  <MessageSquare size={13} />
+                  View run
+                </Button>
+              </span>
+            </Tip>
+          </div>
+        )}
+
+        {running &&
+          (waiting ? (
+            <div className="flex items-center justify-between gap-2 border-b border-amber-500/30 bg-amber-500/10 px-4 py-1.5">
+              <div className="flex items-center gap-2 text-[11px] text-amber-600 dark:text-amber-400">
+                <MessageSquare size={12} />
+                The wiki run is waiting for your input — open the chat to answer and it will
+                continue.
+              </div>
+              <Tip content="Open the wiki-generation chat to answer the agent">
+                <span className="inline-flex">
+                  <Button size="sm" variant="ghost" disabled={!runChatId} onClick={viewRun}>
+                    <MessageSquare size={13} />
+                    View run
+                  </Button>
+                </span>
+              </Tip>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-2 border-b border-border bg-accent/40 px-4 py-1.5">
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                <Loader2 size={12} className="animate-spin" />
+                Generating the wiki in this project&apos;s &quot;Repo wiki&quot; chat&hellip; pages
+                appear here when the run finishes.
+              </div>
+              <Tip content="Open the wiki-generation chat to watch the run">
+                <span className="inline-flex">
+                  <Button size="sm" variant="ghost" disabled={!runChatId} onClick={viewRun}>
+                    <MessageSquare size={13} />
+                    View run
+                  </Button>
+                </span>
+              </Tip>
+            </div>
+          ))}
+
+        {hasPages && behind !== null && behind > 0 && (
+          <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+            This wiki is {behind} commit{behind === 1 ? '' : 's'} behind the repository — refresh it
+            to pick up the latest changes.
+          </div>
+        )}
+
+        {pages.isLoading ? (
+          <div className="flex flex-1 items-center justify-center">
+            <Loader2 size={16} className="animate-spin text-muted-foreground" />
+          </div>
+        ) : !hasPages ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+            <BookText size={24} className="text-muted-foreground" />
+            <div className="text-sm font-medium">No wiki yet</div>
+            <div className="max-w-sm text-xs text-muted-foreground">
+              Generate an agent-written wiki for this project: an architecture overview with a
+              Mermaid diagram, plus a page per major module with clickable source references.
+              Generation runs behind the scenes in a dedicated chat.
+            </div>
+            {generateButton('Generate wiki')}
+          </div>
+        ) : (
+          <div className="flex min-h-0 flex-1">
+            <div className="w-56 shrink-0 overflow-y-auto border-r border-border py-2">
+              {pages.data?.map((p) => (
+                <Tip key={p.name} content={`Open ${p.name}`} side="right">
+                  <button
+                    onClick={() => setSelected(p.name)}
+                    className={cn(
+                      'block w-full cursor-pointer truncate px-3 py-1.5 text-left text-xs',
+                      p.name === pageName
+                        ? 'bg-accent text-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    {p.title}
+                  </button>
+                </Tip>
+              ))}
+            </div>
+            <div
+              className="min-w-0 flex-1 overflow-y-auto px-6 py-4"
+              onClickCapture={onContentClickCapture}
+            >
+              {page.data?.content != null ? (
+                <Markdown text={page.data.content} linkifyFileRefs />
+              ) : page.isLoading ? (
+                <Loader2 size={14} className="animate-spin text-muted-foreground" />
+              ) : (
+                <div className="text-xs text-muted-foreground">Page not found.</div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+      {askOpen && <AskPanel projectId={projectId} onClose={() => setAskOpen(false)} />}
     </div>
   )
 }
