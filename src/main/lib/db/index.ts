@@ -206,7 +206,11 @@ const MIGRATIONS: string[] = [
   `ALTER TABLE chats ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0;
    ALTER TABLE projects ADD COLUMN ask_chat_id TEXT;
    UPDATE chats SET hidden = 1
-     WHERE id IN (SELECT wiki_chat_id FROM projects WHERE wiki_chat_id IS NOT NULL);`
+     WHERE id IN (SELECT wiki_chat_id FROM projects WHERE wiki_chat_id IS NOT NULL);`,
+  // v25 — hide leftover chats from the old Ask dialog flow (one worktree-less
+  // chat per question, titled with the ask marker; replaced by the Ask panel's
+  // single hidden "Codebase Q&A" chat)
+  `UPDATE chats SET hidden = 1 WHERE title LIKE 'Ask: %' AND worktree_path IS NULL;`
 ]
 
 export function initDb(): DB {
