@@ -3,7 +3,10 @@
  * agent.statusAll stream (all subchats, not just the open one), mirrors it
  * into subchatStatusesAtom for the sidebar indicators, and maintains
  * unseenChatsAtom: a chat is flagged when its last run finishes while it
- * isn't selected, and unflagged when the user selects it.
+ * isn't selected, and unflagged when the user selects it. Hidden background
+ * chats (Repo wiki, Codebase Q&A) are never flagged — their results surface
+ * in their own UI and they can't be selected to clear the flag, so flagging
+ * them would pin the dock badge forever.
  */
 import { useCallback, useEffect, useRef } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
@@ -37,7 +40,7 @@ export function useChatStatusTracker(): void {
       }
       const wasRunning = runningByChatRef.current.get(info.chatId) ?? false
       runningByChatRef.current.set(info.chatId, chatRunning)
-      if (wasRunning && !chatRunning && selectedRef.current !== info.chatId) {
+      if (wasRunning && !chatRunning && !info.hidden && selectedRef.current !== info.chatId) {
         setUnseen((prev) => new Set(prev).add(info.chatId))
       }
     },

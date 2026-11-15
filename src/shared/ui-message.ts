@@ -130,6 +130,12 @@ export interface SubchatStatusInfo {
   running: boolean
   /** Pending tool approvals + suspensions (ask_user / plan) awaiting the user. */
   pendingCount: number
+  /**
+   * App-managed background chat (Repo wiki, the Ask panel's Q&A chat): its
+   * results are surfaced by its own UI, so finished runs must not flag the
+   * unseen/dock-badge attention state — the chat can't be selected to clear it.
+   */
+  hidden: boolean
 }
 
 /** A prompt waiting behind the active run (main-process queue, dismissable). */

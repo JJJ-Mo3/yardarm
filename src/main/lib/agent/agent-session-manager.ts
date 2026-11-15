@@ -224,8 +224,8 @@ export class AgentSessionManager {
             ? 'The agent needs your input'
             : null
     if (notifyBody) {
-      const chatId = this.chatIdFor(subchatId)
-      if (chatId) notifyAgentEvent(notifyBody, chatId, subchatId)
+      const info = this.chatInfoFor(subchatId)
+      if (info) notifyAgentEvent(notifyBody, info.chatId, subchatId)
     }
     switch (event.type) {
       case 'run-started':
@@ -249,8 +249,8 @@ export class AgentSessionManager {
 
   /** Broadcasts per-subchat status snapshots to the statusAll subscription. */
   private statusEmitter = new EventEmitter()
-  /** Immutable subchat → chat mapping, cached to avoid a DB hit per event. */
-  private chatIdCache = new Map<string, string>()
+  /** Immutable subchat → chat info (id + hidden flag), cached to avoid a DB hit per event. */
+  private chatInfoCache = new Map<string, { chatId: string; hidden: boolean }>()
   /** Last broadcast per subchat ('running|pendingCount'), to drop no-op emits. */
   private lastStatusKey = new Map<string, string>()
 
@@ -259,17 +259,18 @@ export class AgentSessionManager {
     return () => this.statusEmitter.off('status', listener)
   }
 
-  private chatIdFor(subchatId: string): string | null {
-    const cached = this.chatIdCache.get(subchatId)
+  private chatInfoFor(subchatId: string): { chatId: string; hidden: boolean } | null {
+    const cached = this.chatInfoCache.get(subchatId)
     if (cached) return cached
     const row = getDb()
-      .select({ chatId: schema.subchats.chatId })
+      .select({ chatId: schema.subchats.chatId, hidden: schema.chats.hidden })
       .from(schema.subchats)
+      .innerJoin(schema.chats, eq(schema.chats.id, schema.subchats.chatId))
       .where(eq(schema.subchats.id, subchatId))
       .get()
     if (!row) return null // deleted subchat or the utility host
-    this.chatIdCache.set(subchatId, row.chatId)
-    return row.chatId
+    this.chatInfoCache.set(subchatId, row)
+    return row
   }
 
   private computeStatus(subchatId: string): { running: boolean; pendingCount: number } {
@@ -284,13 +285,19 @@ export class AgentSessionManager {
 
   private broadcastStatus(subchatId: string): void {
     if (subchatId === '__utility__') return
-    const chatId = this.chatIdFor(subchatId)
-    if (!chatId) return
+    const chat = this.chatInfoFor(subchatId)
+    if (!chat) return
     const { running, pendingCount } = this.computeStatus(subchatId)
     const key = `${running}|${pendingCount}`
     if (this.lastStatusKey.get(subchatId) === key) return
     this.lastStatusKey.set(subchatId, key)
-    const info: SubchatStatusInfo = { subchatId, chatId, running, pendingCount }
+    const info: SubchatStatusInfo = {
+      subchatId,
+      chatId: chat.chatId,
+      running,
+      pendingCount,
+      hidden: chat.hidden
+    }
     this.statusEmitter.emit('status', info)
   }
 
@@ -299,9 +306,14 @@ export class AgentSessionManager {
     const out: SubchatStatusInfo[] = []
     for (const subchatId of this.hosts.keys()) {
       if (subchatId === '__utility__') continue
-      const chatId = this.chatIdFor(subchatId)
-      if (!chatId) continue
-      out.push({ subchatId, chatId, ...this.computeStatus(subchatId) })
+      const chat = this.chatInfoFor(subchatId)
+      if (!chat) continue
+      out.push({
+        subchatId,
+        chatId: chat.chatId,
+        hidden: chat.hidden,
+        ...this.computeStatus(subchatId)
+      })
     }
     return out
   }
