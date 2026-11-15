@@ -112,7 +112,7 @@ export function WikiView({ projectId }: { projectId: string }): React.JSX.Elemen
       content={
         running
           ? 'Wiki generation is already running'
-          : 'Generate the wiki behind the scenes in this project\u2019s dedicated "Repo wiki" chat'
+          : 'Generate the wiki in a background agent run — pages appear here when it finishes'
       }
     >
       <span className="inline-flex">
@@ -220,8 +220,8 @@ export function WikiView({ projectId }: { projectId: string }): React.JSX.Elemen
             <div className="flex items-center justify-between gap-2 border-b border-border bg-accent/40 px-4 py-1.5">
               <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                 <Loader2 size={12} className="animate-spin" />
-                Generating the wiki in this project&apos;s &quot;Repo wiki&quot; chat&hellip; pages
-                appear here when the run finishes.
+                Generating the wiki in a background agent run&hellip; pages appear here when the run
+                finishes.
               </div>
               <Tip content="Open the wiki-generation chat to watch the run">
                 <span className="inline-flex">
