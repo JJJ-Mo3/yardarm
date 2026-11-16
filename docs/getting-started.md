@@ -302,7 +302,9 @@ What it does — and, honestly, what it doesn't:
 
 If the agent needs to write somewhere else, it asks with a **sandbox access
 request** card — approving adds that directory to the allowed paths, and the
-grant applies to sandboxed commands immediately, no restart needed.
+grant applies to sandboxed commands immediately, no restart needed. With
+auto-approve (YOLO) on, these requests are granted automatically like any
+other tool call.
 
 The setting persists per chat, and a green shield chip appears in the header
 while it's active (with "no net" when the network is blocked) — click it to

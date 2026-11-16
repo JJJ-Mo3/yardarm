@@ -1342,6 +1342,25 @@ async function main(): Promise<void> {
         post({ t: 'log', level: 'error', msg: `task auto-approve failed: ${String(err)}` })
       }
     }
+    // YOLO (auto-approve) must cover sandbox access too: request_access is an
+    // interactive suspension rather than a tool approval, so the SDK's yolo
+    // handling never answers it and the card would prompt even with
+    // auto-approve on. Grant in-process and skip the event; if the resume
+    // fails, surface the card late rather than hanging the run invisibly.
+    if (
+      ev.type === 'tool_suspended' &&
+      ev.toolName === 'request_access' &&
+      typeof ev.toolCallId === 'string' &&
+      (session.state.get() as { yolo?: unknown } | undefined)?.yolo === true
+    ) {
+      const toolCallId = ev.toolCallId
+      stallTracker.noteGateResponse(toolCallId)
+      session.respondToToolSuspension({ resumeData: 'Yes', toolCallId }).catch((err: unknown) => {
+        post({ t: 'log', level: 'error', msg: `yolo sandbox auto-grant failed: ${String(err)}` })
+        post({ t: 'event', ev: ev as never })
+      })
+      return
+    }
     post({ t: 'event', ev: ev as never })
   })
 
