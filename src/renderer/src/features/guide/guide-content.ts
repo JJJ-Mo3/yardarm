@@ -212,7 +212,10 @@ deny inline.
   still do.
 - **Sandbox** — the header sandbox toggle runs the agent's commands under OS-level isolation
   (per chat, with a global default in Settings → Preferences). Useful when trying untrusted
-  prompts or dependencies.
+  prompts or dependencies. If a sandboxed command needs to write outside the allowed paths,
+  the agent asks with a **sandbox access request** card — approving adds that directory
+  immediately, and with auto-approve on these requests are granted automatically like any
+  other tool call.
 - **Session settings** — \`/sandbox\` opens the session's settings: extra writable paths for
   sandboxed commands, smart editing, completion notifications, and **skip global
   instructions** (leave your \`~/.mastracode\` global agent instructions out of this one
