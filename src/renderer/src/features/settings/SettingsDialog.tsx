@@ -11,6 +11,7 @@ import {
   Keyboard,
   KeyRound,
   Languages,
+  MessagesSquare,
   Mic,
   Palette,
   Plug,
@@ -38,6 +39,7 @@ import { AboutTab } from './AboutTab'
 import { AgentsTab } from './AgentsTab'
 import { BrowserTab } from './BrowserTab'
 import { ConnectorsTab } from './ConnectorsTab'
+import { IntegrationsTab } from './IntegrationsTab'
 import { KeyboardTab } from './KeyboardTab'
 import { LanguagesTab } from './LanguagesTab'
 import { McpTab } from './McpTab'
@@ -356,6 +358,12 @@ export function SettingsDialog(): React.JSX.Element {
       tip: 'One-click connections to GitHub, GitLab, Supabase, Netlify, Vercel, and Sentry'
     },
     {
+      id: 'integrations',
+      label: 'Integrations',
+      icon: <MessagesSquare size={13} />,
+      tip: 'Remote messaging — drive Yardarm from Slack or Discord'
+    },
+    {
       id: 'mcp',
       label: 'MCP Servers',
       icon: <Server size={13} />,
@@ -412,6 +420,7 @@ export function SettingsDialog(): React.JSX.Element {
             {tab === 'voice' && <VoiceTab />}
             {tab === 'browser' && <BrowserTab />}
             {tab === 'connectors' && <ConnectorsTab />}
+            {tab === 'integrations' && <IntegrationsTab />}
             {tab === 'mcp' && <McpTab />}
             {tab === 'agents' && <AgentsTab />}
             {tab === 'languages' && <LanguagesTab />}

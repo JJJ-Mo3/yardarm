@@ -28,6 +28,7 @@ button beside the theme toggle (or `Cmd+8`) opens a built-in guide + FAQ.
 - [Sidebar activity indicators](#sidebar-activity-indicators)
 - [Analytics](#analytics)
 - [Connectors](#connectors)
+- [Remote messaging (Slack / Discord)](#remote-messaging-slack--discord)
 - [Voice dictation](#voice-dictation)
 - [Slash commands](#slash-commands)
 - [Settings reference](#settings-reference)
@@ -647,6 +648,79 @@ The same tab hosts two more integrations:
 - **Observability** (`/observability`) — local tracing of agent runs, with
   optional export to Mastra Cloud.
 
+## Remote messaging (Slack / Discord)
+
+**Settings → Integrations** lets you work with Yardarm away from your desk:
+connect a Slack or Discord bot and drive agent runs from your phone or any
+chat client — send prompts, get the agent's final reply, answer its
+questions, and approve or deny tool calls.
+
+A few things to know up front:
+
+- **The app must be running.** The bots connect outbound from the desktop
+  app (Slack Socket Mode, Discord Gateway) — nothing works while Yardarm is
+  closed. No public URL or webhook is needed.
+- **Access is deny-by-default.** Only the platform user IDs you add to a
+  platform's allowlist can talk to the bot. An empty allowlist refuses
+  everyone, including you — add your own ID first.
+- **Each conversation is bound to one chat.** A Slack channel/DM or Discord
+  channel maps to exactly one project + chat (the "binding"). Plain messages
+  in that conversation go to that chat; the agent's final reply comes back
+  when the run finishes. No streaming — just the answer.
+
+### Slack setup
+
+1. Create a Slack app (api.slack.com/apps) and enable **Socket Mode**; this
+   produces an app-level token (`xapp-…`) with the `connections:write`
+   scope.
+2. Under **OAuth & Permissions**, add bot scopes `chat:write`, `im:history`,
+   and `channels:history`, then install the app to your workspace to get the
+   bot token (`xoxb-…`).
+3. Under **Event Subscriptions**, subscribe to the bot events `message.im`
+   and `message.channels`.
+4. In Yardarm, open Settings → Integrations, paste both tokens, add your
+   Slack member ID to the allowlist, and flip the switch on.
+
+### Discord setup
+
+1. Create an application + bot at discord.com/developers and copy the bot
+   token.
+2. On the Bot page, enable the **Message Content Intent** (privileged) — the
+   bot cannot read messages without it; Yardarm detects this and shows a
+   hint if it's missing.
+3. Invite the bot to your server via OAuth2 → URL Generator (scope `bot`,
+   permissions to read/send messages).
+4. Paste the token in Settings → Integrations, add your Discord user ID
+   (enable Developer Mode in Discord to copy it), and enable the platform.
+
+### Bot commands
+
+The first word of a message is checked against the command list; anything
+else is sent to the bound chat as a prompt.
+
+| Command                  | What it does                                      |
+| ------------------------ | ------------------------------------------------- |
+| `help`                   | list the commands                                 |
+| `projects`               | list your projects                                |
+| `chats <project>`        | list chats in a project (name substring is fine)  |
+| `use <project> <chat>`   | bind this conversation to that chat               |
+| `new <project> [title…]` | create a fresh chat (own worktree) and bind to it |
+| `status`                 | bound target, running state, pending approvals    |
+| `unbind`                 | remove this conversation's binding                |
+| `approve` / `yes`        | approve the oldest pending tool approval          |
+| `deny [reason…]` / `no`  | decline it (the reason is passed to the agent)    |
+
+When a run needs a tool approval or the agent asks a question, the bot
+relays it to every bound conversation. Questions are answered by simply
+replying; approvals are only ever resolved by an explicit `approve` or
+`deny` — a queued follow-up prompt never implicitly approves anything. If
+you handle the request in the app instead, the bot says so.
+
+Long replies are split into numbered chunks to fit each platform's message
+limits, and markdown is converted to the platform's dialect automatically.
+Bindings can be reviewed and deleted at the bottom of Settings →
+Integrations; deleting a bound chat in the app removes its bindings too.
+
 ## Voice dictation
 
 Yardarm can transcribe your voice straight into the composer using a cloud
@@ -710,20 +784,21 @@ to the CLI tab.
 
 Open with `Cmd+,` (`Ctrl+,`).
 
-| Tab             | What's there                                                                                                                                                                                              |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Appearance**  | light / dark / system theme (also togglable from the sidebar footer)                                                                                                                                      |
-| **Preferences** | default auto-approve (yolo), CLI theme, default thinking level, tool-output previews, new-chat sandbox defaults, token compression + verbosity steering, per-tool toggles to disable built-in agent tools |
-| **API Keys**    | provider API keys (stored in mastracode's `auth.json`) or environment-variable references (never stored)                                                                                                  |
-| **Models**      | default model per mode, subagent, goal judge, and memory role; default thinking level per mode; model packs with pack tuning (per-mode overrides, fallback pack, preferred account per model)             |
-| **Providers**   | OAuth logins (Claude / Codex / Copilot), Ollama detection, custom local providers                                                                                                                         |
-| **Voice**       | dictation engine, STT provider and model                                                                                                                                                                  |
-| **Browser**     | browser-automation settings for web tools: viewport size and, for the Stagehand provider, the model that drives page interactions                                                                         |
-| **Connectors**  | one-click OAuth sign-ins for GitHub, GitLab, Supabase, Netlify, Vercel, and Sentry (see [Connectors](#connectors)), plus GitHub signals (`/github`) and Observability (`/observability`)                  |
-| **MCP Servers** | Model Context Protocol servers — global by default, or project-specific via the scope toggle + project picker, with live status (see below)                                                               |
-| **Agents**      | custom subagents — global by default, or project-specific via the scope toggle + project picker (see below)                                                                                               |
-| **Languages**   | optional language-server downloads for IDE diagnostics — Web (HTML/CSS/JSON), YAML, Python, and ERB packs with per-pack download / update / remove                                                        |
-| **About**       | versions, runtime boot status, global CLI install + update, app updates, storage pruning (`/prune`), re-run setup                                                                                         |
+| Tab              | What's there                                                                                                                                                                                              |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Appearance**   | light / dark / system theme (also togglable from the sidebar footer)                                                                                                                                      |
+| **Preferences**  | default auto-approve (yolo), CLI theme, default thinking level, tool-output previews, new-chat sandbox defaults, token compression + verbosity steering, per-tool toggles to disable built-in agent tools |
+| **API Keys**     | provider API keys (stored in mastracode's `auth.json`) or environment-variable references (never stored)                                                                                                  |
+| **Models**       | default model per mode, subagent, goal judge, and memory role; default thinking level per mode; model packs with pack tuning (per-mode overrides, fallback pack, preferred account per model)             |
+| **Providers**    | OAuth logins (Claude / Codex / Copilot), Ollama detection, custom local providers                                                                                                                         |
+| **Voice**        | dictation engine, STT provider and model                                                                                                                                                                  |
+| **Browser**      | browser-automation settings for web tools: viewport size and, for the Stagehand provider, the model that drives page interactions                                                                         |
+| **Connectors**   | one-click OAuth sign-ins for GitHub, GitLab, Supabase, Netlify, Vercel, and Sentry (see [Connectors](#connectors)), plus GitHub signals (`/github`) and Observability (`/observability`)                  |
+| **Integrations** | Slack / Discord remote messaging bots — tokens, per-platform allowlists, connection status, and conversation bindings (see [Remote messaging](#remote-messaging-slack--discord))                          |
+| **MCP Servers**  | Model Context Protocol servers — global by default, or project-specific via the scope toggle + project picker, with live status (see below)                                                               |
+| **Agents**       | custom subagents — global by default, or project-specific via the scope toggle + project picker (see below)                                                                                               |
+| **Languages**    | optional language-server downloads for IDE diagnostics — Web (HTML/CSS/JSON), YAML, Python, and ERB packs with per-pack download / update / remove                                                        |
+| **About**        | versions, runtime boot status, global CLI install + update, app updates, storage pruning (`/prune`), re-run setup                                                                                         |
 
 Everything you change here is written to mastracode's own config files
 (atomically, preserving keys the app doesn't know about), so the CLI picks up

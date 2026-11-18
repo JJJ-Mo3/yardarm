@@ -135,6 +135,16 @@ No accounts or login — everything runs locally against mastracode's own config
   `src/main/lib/db/project-settings.ts`, spread into both the agent-host spawn and pty
   creation — after provider keys, never overriding PATH or YARDARM_BOOT), and the
   `YARDARM_BOOT` payload itself. Project env edits restart the project's active agents.
+- Remote messaging integrations (Slack Socket Mode / Discord Gateway bots,
+  `src/main/lib/integrations/`): the manager singleton is started fire-and-forget from
+  `src/main/index.ts` (`startIntegrations()` after `startScheduler()`, stopper in before-quit) —
+  connect failures surface as status, never into startup. Bot tokens are stored write-only in
+  app_settings via Electron `safeStorage` (`enc:`+base64 ciphertext, `plain:` fallback;
+  `integrations/secrets.ts`) — the renderer only ever sees is-set booleans. Conversation→chat
+  bindings live in the `integration_bindings` table (cascade-deleted with their chat); the
+  non-secret config (enabled + user-ID allowlists, default deny) is one `integrations.config`
+  app_settings JSON blob. Approvals are only resolved by explicit `approve`/`deny` commands —
+  plain text answers ask_user suspensions or queues a prompt, never approves.
 - `session.model.switch(modelId)` takes a positional string since SDK 1.18 (was an object) and
   is per-thread (persists to thread metadata) — concurrent chats on different models stay
   independent.

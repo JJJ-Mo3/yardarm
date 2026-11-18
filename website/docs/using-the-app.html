@@ -82,6 +82,7 @@
             <li><a href="#session-insights">Session insights</a></li>
             <li><a href="#knowledge">Knowledge notes &amp; agent knowledge</a></li>
             <li><a href="#threads">Threads, forking, split view</a></li>
+            <li><a href="#remote-messaging">Remote messaging</a></li>
           </ul>
         </nav>
       </aside>
@@ -969,6 +970,57 @@
           also has its own add/close buttons and chat picker. Useful for watching one agent work
           while briefing another. <kbd>Cmd+P</kbd> and other global shortcuts stay with the left
           (primary) pane.
+        </p>
+
+        <h2 id="remote-messaging">Remote messaging (Slack / Discord)</h2>
+        <p>
+          <strong>Settings → Integrations</strong> connects Slack and Discord bots so you can work
+          with Yardarm away from your desk: send prompts from your phone or any chat client, get the
+          agent's final reply, answer its questions, and approve or deny tool calls. Both bots
+          connect outbound from the desktop app (Slack Socket Mode, Discord Gateway), so no public
+          URL is needed — but <strong>the app must be running</strong> for any of it to work. Token
+          and setup details live on the
+          <a href="configuration.html#integrations">Configuration page</a>.
+        </p>
+        <p>
+          Access is <strong>deny-by-default</strong>: only the platform user IDs on a platform's
+          allowlist can talk to the bot, and an empty allowlist refuses everyone — add your own ID
+          first. Each external conversation (a Slack channel or DM, a Discord channel) is
+          <strong>bound to one project + chat</strong>; plain messages go to that chat as prompts
+          and the agent's final reply comes back when the run finishes, split into numbered chunks
+          to fit the platform's message limits (no token streaming).
+        </p>
+        <p>
+          The first word of a message is checked against the bot commands; anything else is sent to
+          the bound chat as a prompt:
+        </p>
+        <ul>
+          <li><code>help</code> — list the commands</li>
+          <li>
+            <code>projects</code> / <code>chats &lt;project&gt;</code> — browse your projects and
+            chats (name substrings are fine)
+          </li>
+          <li>
+            <code>use &lt;project&gt; &lt;chat&gt;</code> — bind this conversation to that chat
+          </li>
+          <li>
+            <code>new &lt;project&gt; [title…]</code> — create a fresh chat (own worktree) and bind
+            to it
+          </li>
+          <li><code>status</code> — bound target, running state, pending approvals/questions</li>
+          <li><code>unbind</code> — remove this conversation's binding</li>
+          <li>
+            <code>approve</code> / <code>deny [reason…]</code> — resolve the oldest pending tool
+            approval (the reason is passed to the agent)
+          </li>
+        </ul>
+        <p>
+          When a run hits a tool approval or the agent asks a question, the bot relays it to every
+          bound conversation. Questions are answered by simply replying; approvals are only ever
+          resolved by an explicit <code>approve</code> or <code>deny</code> — a queued follow-up
+          prompt never implicitly approves anything, and requests you handle in the app are marked
+          as handled. Bindings are listed (and deletable) at the bottom of Settings → Integrations;
+          deleting a bound chat in the app removes its bindings automatically.
         </p>
 
         <nav class="docs-footer-nav" aria-label="Docs pages">

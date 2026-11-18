@@ -695,6 +695,52 @@ approval flow as built-in tools.
 `
   },
   {
+    id: 'remote',
+    title: 'Remote messaging (Slack / Discord)',
+    body: `
+**Settings → Integrations** connects Slack and Discord bots so you can work with Yardarm away
+from your desk: send prompts from your phone or any chat client, get the agent's final reply,
+answer its questions, and approve or deny tool calls.
+
+- **The app must be running.** Both bots connect outbound from the desktop app (Slack Socket
+  Mode, Discord Gateway) — no public URL or webhook, and nothing works while Yardarm is closed.
+- **Access is deny-by-default.** Only platform user IDs on that platform's allowlist can talk
+  to the bot; an empty allowlist refuses everyone, so add your own ID first.
+- **Each conversation is bound to one chat.** A Slack channel/DM or Discord channel maps to one
+  project + chat. Plain messages go to that chat as prompts; the final reply comes back when
+  the run finishes (chunked to the platform's message limits — no streaming).
+
+### Bot commands
+
+The first word of a message is checked against the commands; anything else is a prompt.
+
+- \`help\` — list the commands
+- \`projects\` / \`chats <project>\` — browse your projects and chats
+- \`use <project> <chat>\` — bind this conversation (name substrings are fine)
+- \`new <project> [title…]\` — create a fresh chat (own worktree) and bind to it
+- \`status\` — bound target, running state, pending approvals/questions
+- \`unbind\` — remove the binding
+- \`approve\` / \`deny [reason…]\` — resolve the oldest pending tool approval
+
+Tool approvals and agent questions are relayed to every bound conversation. Questions are
+answered by simply replying; approvals are only resolved by an explicit \`approve\` or
+\`deny\` — a follow-up prompt never implicitly approves anything. Requests you handle in the
+app are marked as handled remotely too.
+
+### Setup in one minute
+
+- **Slack**: create a Socket Mode app → app token (\`xapp-…\`, scope \`connections:write\`) +
+  bot token (\`xoxb-…\`, scopes \`chat:write\`, \`im:history\`, \`channels:history\`) + bot
+  events \`message.im\` and \`message.channels\`. Paste both tokens in Settings → Integrations.
+- **Discord**: create a bot, enable the **Message Content Intent** (privileged — Yardarm shows
+  a hint if it's missing), invite it to your server, paste the token.
+
+Bindings are listed at the bottom of the tab and can be deleted there; deleting a bound chat
+in the app removes its bindings automatically. Tokens are stored encrypted with your OS
+keychain and never shown again after saving.
+`
+  },
+  {
     id: 'analytics',
     title: 'Analytics & token compression',
     body: `
@@ -761,6 +807,9 @@ App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
   **GitHub signals** (experimental PR awareness via the \`gh\` CLI — enables per-thread PR
   subscriptions, see Threads) and **Observability** (local tracing / Mastra Cloud).
   \`/observability\` jumps straight there.
+- **Integrations** — Slack / Discord remote messaging bots: tokens (stored encrypted),
+  per-platform user-ID allowlists, live connection status, and conversation bindings (see the
+  Remote messaging section).
 - **MCP Servers** — MCP server lists and live status, global or per-project (scope toggle +
   project picker). Project scope adds per-server **Enabled / Disabled / Inherit** overrides
   on top of the global default, and a global kill switch state is surfaced when active.
@@ -866,6 +915,14 @@ network connection.
 
 Yes. Each chat (and each thread) runs independently — use split view or multiple chats to
 parallelize.
+
+### Can I use Yardarm from my phone?
+
+Yes — via the Slack and Discord bots (Settings → Integrations; see the Remote messaging
+section). Bind a conversation to a chat, then send prompts, answer agent questions, and
+approve tool calls from any Slack or Discord client. The desktop app must stay running — the
+bots connect outbound from it. WhatsApp isn't supported yet: it requires an inbound webhook
+that a local desktop app can't receive.
 
 ### Why does the Factory Work tab ask me to sign in — or say I need an organization?
 

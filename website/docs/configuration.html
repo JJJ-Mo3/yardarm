@@ -67,6 +67,7 @@
           <ul class="toc">
             <li><a href="#slash-commands">Slash commands</a></li>
             <li><a href="#settings-reference">Settings reference</a></li>
+            <li><a href="#integrations">Remote messaging integrations</a></li>
             <li><a href="#mcp-servers">MCP servers</a></li>
             <li><a href="#custom-subagents">Custom subagents</a></li>
             <li><a href="#per-project">Per-project configuration</a></li>
@@ -304,6 +305,14 @@
               </td>
             </tr>
             <tr>
+              <td><strong>Integrations</strong></td>
+              <td>
+                Slack / Discord remote messaging bots — tokens (stored encrypted), per-platform
+                user-ID allowlists, live connection status, and conversation bindings (see
+                <a href="#integrations">below</a>)
+              </td>
+            </tr>
+            <tr>
               <td><strong>MCP Servers</strong></td>
               <td>
                 Model Context Protocol servers — global by default, or project-specific via the
@@ -333,6 +342,60 @@
             </tr>
           </tbody>
         </table>
+
+        <h2 id="integrations">Remote messaging integrations (Settings → Integrations)</h2>
+        <p>
+          Connect Slack and Discord bots to drive Yardarm remotely — prompts, final replies, agent
+          questions, and tool approvals from any chat client. Both bots connect outbound from the
+          desktop app (Slack Socket Mode, Discord Gateway), so no public URL or webhook is needed,
+          and nothing works while the app is closed. The commands and binding model are covered in
+          <a href="using-the-app.html#remote-messaging">Using the app</a>.
+        </p>
+        <p><strong>Slack setup</strong></p>
+        <ol>
+          <li>
+            Create a Slack app and enable <strong>Socket Mode</strong>; this produces an app-level
+            token (<code>xapp-…</code>) with the <code>connections:write</code> scope.
+          </li>
+          <li>
+            Under OAuth &amp; Permissions, add the bot scopes <code>chat:write</code>,
+            <code>im:history</code>, and <code>channels:history</code>, then install the app to your
+            workspace to get the bot token (<code>xoxb-…</code>).
+          </li>
+          <li>
+            Under Event Subscriptions, subscribe to the bot events <code>message.im</code> and
+            <code>message.channels</code>.
+          </li>
+          <li>
+            In Settings → Integrations, paste both tokens, add your Slack member ID to the
+            allowlist, and enable the platform.
+          </li>
+        </ol>
+        <p><strong>Discord setup</strong></p>
+        <ol>
+          <li>
+            Create an application + bot in the Discord developer portal and copy the bot token.
+          </li>
+          <li>
+            On the Bot page, enable the <strong>Message Content Intent</strong> (privileged) — the
+            bot cannot read messages without it; Yardarm detects this and shows a hint if it's
+            missing.
+          </li>
+          <li>
+            Invite the bot to your server via OAuth2 → URL Generator (scope <code>bot</code>,
+            permissions to read and send messages).
+          </li>
+          <li>
+            Paste the token in Settings → Integrations and add your Discord user ID to the allowlist
+            (enable Developer Mode in Discord to copy it).
+          </li>
+        </ol>
+        <p>
+          Tokens are stored encrypted with your OS keychain and are write-only — the app shows
+          whether a token is set, never its value. Allowlists are deny-by-default: an empty list
+          refuses everyone. The tab shows live per-platform connection status with a Reconnect
+          button, and the conversation bindings table at the bottom lets you remove any binding.
+        </p>
 
         <h2 id="mcp-servers">MCP servers (Settings → MCP Servers)</h2>
         <p>

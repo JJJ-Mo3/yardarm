@@ -210,7 +210,23 @@ const MIGRATIONS: string[] = [
   // v25 — hide leftover chats from the old Ask dialog flow (one worktree-less
   // chat per question, titled with the ask marker; replaced by the Ask panel's
   // single hidden "Codebase Q&A" chat)
-  `UPDATE chats SET hidden = 1 WHERE title LIKE 'Ask: %' AND worktree_path IS NULL;`
+  `UPDATE chats SET hidden = 1 WHERE title LIKE 'Ask: %' AND worktree_path IS NULL;`,
+  // v26 — remote messaging integrations: sticky per-conversation bindings
+  // (Slack channel/DM or Discord channel → one project+chat target)
+  `CREATE TABLE IF NOT EXISTS integration_bindings (
+     id TEXT PRIMARY KEY,
+     platform TEXT NOT NULL,
+     conversation_id TEXT NOT NULL,
+     project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+     chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+     subchat_id TEXT NOT NULL REFERENCES subchats(id) ON DELETE CASCADE,
+     created_at INTEGER NOT NULL,
+     updated_at INTEGER NOT NULL
+   );
+   CREATE UNIQUE INDEX IF NOT EXISTS integration_bindings_conv_idx
+     ON integration_bindings(platform, conversation_id);
+   CREATE INDEX IF NOT EXISTS integration_bindings_subchat_idx
+     ON integration_bindings(subchat_id);`
 ]
 
 export function initDb(): DB {

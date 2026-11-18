@@ -255,6 +255,38 @@ export const knowledgeNotes = sqliteTable(
   (t) => [index('knowledge_notes_project_idx').on(t.projectId)]
 )
 
+/**
+ * Remote messaging integration bindings: one row binds an external
+ * conversation (Slack channel/DM, Discord channel) to a project+chat target.
+ * Bindings are set via bot commands (`use`, `new`) and cascade away with
+ * their project/chat/subchat.
+ */
+export const integrationBindings = sqliteTable(
+  'integration_bindings',
+  {
+    id: text('id').primaryKey(),
+    /** 'slack' | 'discord' (plain TEXT so future platforms need no migration). */
+    platform: text('platform').notNull(),
+    /** Slack channel/DM id or Discord channel id. */
+    conversationId: text('conversation_id').notNull(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    chatId: text('chat_id')
+      .notNull()
+      .references(() => chats.id, { onDelete: 'cascade' }),
+    subchatId: text('subchat_id')
+      .notNull()
+      .references(() => subchats.id, { onDelete: 'cascade' }),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull()
+  },
+  (t) => [
+    uniqueIndex('integration_bindings_conv_idx').on(t.platform, t.conversationId),
+    index('integration_bindings_subchat_idx').on(t.subchatId)
+  ]
+)
+
 export const appSettings = sqliteTable('app_settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull()

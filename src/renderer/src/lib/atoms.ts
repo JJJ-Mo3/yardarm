@@ -35,6 +35,7 @@ export type SettingsTab =
   | 'voice'
   | 'browser'
   | 'connectors'
+  | 'integrations'
   | 'mcp'
   | 'agents'
   | 'languages'
