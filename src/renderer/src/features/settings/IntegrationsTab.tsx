@@ -6,7 +6,7 @@
  * conversation-binding table shared by both platforms.
  */
 import React, { useEffect, useState } from 'react'
-import { ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, RefreshCw, Trash2 } from 'lucide-react'
 import type {
   IntegrationPlatform,
   IntegrationSecretKey,
@@ -158,20 +158,22 @@ function PlatformCard({
           {STATE_LABEL[st.state]}
           {st.detail ? ` — ${st.detail}` : ''}
         </span>
-        <Tip content="Disconnect and reconnect this platform">
+        <Tip content="Drop and re-establish this connection">
           <span className="inline-flex">
             <Button
               size="sm"
-              variant="ghost"
-              disabled={reconnect.isPending}
+              variant="outline"
+              disabled={reconnect.isPending || !cfg.enabled}
               onClick={() => reconnect.mutate({ platform })}
             >
+              <RefreshCw size={12} />
               Reconnect
             </Button>
           </span>
         </Tip>
         <Tip content={`Turn the ${title} bot connection on or off`}>
-          <span className="inline-flex">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="text-[11px] text-muted-foreground">Enabled</span>
             <Switch checked={cfg.enabled} onCheckedChange={(enabled) => saveConfig({ enabled })} />
           </span>
         </Tip>
