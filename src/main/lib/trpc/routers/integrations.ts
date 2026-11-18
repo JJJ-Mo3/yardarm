@@ -20,6 +20,7 @@ const platformSchema = z.enum(['slack', 'discord'])
 
 const platformConfigSchema = z.object({
   enabled: z.boolean(),
+  allowAllUsers: z.boolean(),
   allowedUserIds: z.array(z.string())
 })
 

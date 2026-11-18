@@ -660,9 +660,11 @@ A few things to know up front:
 - **The app must be running.** The bots connect outbound from the desktop
   app (Slack Socket Mode, Discord Gateway) — nothing works while Yardarm is
   closed. No public URL or webhook is needed.
-- **Access is deny-by-default.** Only the platform user IDs you add to a
-  platform's allowlist can talk to the bot. An empty allowlist refuses
-  everyone, including you — add your own ID first.
+- **Access is deny-by-default.** Each platform has an Access setting:
+  **Allowlisted users only** (the default — only the platform user IDs you
+  add can talk to the bot, and an empty allowlist refuses everyone,
+  including you) or **All users** (anyone who can message the bot may drive
+  Yardarm — only use this in a workspace or server you fully trust).
 - **Each conversation is bound to one chat.** A Slack channel/DM or Discord
   channel maps to exactly one project + chat (the "binding"). Plain messages
   in that conversation go to that chat; the agent's final reply comes back

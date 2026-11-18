@@ -13,6 +13,8 @@ export const INTEGRATION_PLATFORMS: IntegrationPlatform[] = ['slack', 'discord']
 /** Non-secret per-platform settings, stored as one app_settings JSON blob. */
 export interface PlatformConfig {
   enabled: boolean
+  /** When true, every platform user may talk to the bot (allowlist ignored). */
+  allowAllUsers: boolean
   /** Platform user ids allowed to talk to the bot. Empty = deny everyone. */
   allowedUserIds: string[]
 }
@@ -23,8 +25,8 @@ export interface IntegrationsConfig {
 }
 
 export const DEFAULT_INTEGRATIONS_CONFIG: IntegrationsConfig = {
-  slack: { enabled: false, allowedUserIds: [] },
-  discord: { enabled: false, allowedUserIds: [] }
+  slack: { enabled: false, allowAllUsers: false, allowedUserIds: [] },
+  discord: { enabled: false, allowAllUsers: false, allowedUserIds: [] }
 }
 
 /** Secret slots, stored write-only via safeStorage; renderer only sees booleans. */

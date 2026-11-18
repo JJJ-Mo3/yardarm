@@ -983,12 +983,14 @@
           <a href="configuration.html#integrations">Configuration page</a>.
         </p>
         <p>
-          Access is <strong>deny-by-default</strong>: only the platform user IDs on a platform's
-          allowlist can talk to the bot, and an empty allowlist refuses everyone — add your own ID
-          first. Each external conversation (a Slack channel or DM, a Discord channel) is
-          <strong>bound to one project + chat</strong>; plain messages go to that chat as prompts
-          and the agent's final reply comes back when the run finishes, split into numbered chunks
-          to fit the platform's message limits (no token streaming).
+          Access is <strong>deny-by-default</strong>: each platform's Access setting is either
+          <strong>Allowlisted users only</strong> (the default — only the user IDs you add can talk
+          to the bot, and an empty allowlist refuses everyone, so add your own ID first) or
+          <strong>All users</strong> (anyone who can message the bot may drive Yardarm — only for
+          workspaces or servers you fully trust). Each external conversation (a Slack channel or DM,
+          a Discord channel) is <strong>bound to one project + chat</strong>; plain messages go to
+          that chat as prompts and the agent's final reply comes back when the run finishes, split
+          into numbered chunks to fit the platform's message limits (no token streaming).
         </p>
         <p>
           The first word of a message is checked against the bot commands; anything else is sent to

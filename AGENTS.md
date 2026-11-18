@@ -142,8 +142,8 @@ No accounts or login — everything runs locally against mastracode's own config
   app_settings via Electron `safeStorage` (`enc:`+base64 ciphertext, `plain:` fallback;
   `integrations/secrets.ts`) — the renderer only ever sees is-set booleans. Conversation→chat
   bindings live in the `integration_bindings` table (cascade-deleted with their chat); the
-  non-secret config (enabled + user-ID allowlists, default deny) is one `integrations.config`
-  app_settings JSON blob. Approvals are only resolved by explicit `approve`/`deny` commands —
+  non-secret config (enabled + access mode: user-ID allowlist or opt-in allow-all, default
+  allowlist/deny) is one `integrations.config` app_settings JSON blob. Approvals are only resolved by explicit `approve`/`deny` commands —
   plain text answers ask_user suspensions or queues a prompt, never approves.
 - `session.model.switch(modelId)` takes a positional string since SDK 1.18 (was an object) and
   is per-thread (persists to thread metadata) — concurrent chats on different models stay

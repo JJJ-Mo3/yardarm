@@ -1,9 +1,9 @@
 /**
  * Settings → Integrations: remote messaging via Slack (Socket Mode) and
  * Discord (Gateway). Per-platform cards with enable switch, write-only bot
- * tokens (the renderer only ever sees set/not-set booleans), a user-id
- * allowlist, live connection status, and a collapsible setup guide; plus the
- * conversation-binding table shared by both platforms.
+ * tokens (the renderer only ever sees set/not-set booleans), an access mode
+ * (user-id allowlist or allow-all), live connection status, and a collapsible
+ * setup guide; plus the conversation-binding table shared by both platforms.
  */
 import React, { useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight, RefreshCw, Trash2 } from 'lucide-react'
@@ -17,6 +17,13 @@ import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '../../components/ui/select'
 import { Switch } from '../../components/ui/switch'
 import { Tip } from '../../components/ui/tooltip'
 
@@ -183,43 +190,70 @@ function PlatformCard({
         <SecretField key={f.secretKey} {...f} />
       ))}
 
-      <div className="flex items-start gap-2">
-        <span className="w-24 shrink-0 pt-1 text-[11px] text-muted-foreground">Allowed users</span>
-        <div className="min-w-0 flex-1 space-y-1">
-          <Tip
-            content={`${title} user ids allowed to talk to the bot — one per line. Empty = nobody.`}
-          >
-            <textarea
-              value={allowlist}
-              onChange={(e) => {
-                setAllowlist(e.target.value)
-                setAllowlistDirty(true)
-              }}
-              rows={3}
-              spellCheck={false}
-              placeholder="One user id per line"
-              className="w-full rounded-md border border-border bg-background px-2 py-1 font-mono text-[11px]"
-            />
+      <div className="flex items-center gap-2">
+        <span className="w-24 shrink-0 text-[11px] text-muted-foreground">Access</span>
+        <Select
+          value={cfg.allowAllUsers ? 'all' : 'allowlist'}
+          onValueChange={(v) => saveConfig({ allowAllUsers: v === 'all' })}
+        >
+          <Tip content="Who may talk to the bot: only allowlisted user ids, or every user who can message it">
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
           </Tip>
-          <div className="flex items-center gap-2">
-            <Tip content="Save the allowlist (applies immediately)">
-              <span className="inline-flex">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={!allowlistDirty}
-                  onClick={saveAllowlist}
-                >
-                  Save allowlist
-                </Button>
-              </span>
+          <SelectContent>
+            <SelectItem value="allowlist">Allowlisted users only</SelectItem>
+            <SelectItem value="all">All users</SelectItem>
+          </SelectContent>
+        </Select>
+        {cfg.allowAllUsers && (
+          <span className="text-[11px] text-amber-600 dark:text-amber-500">
+            Anyone who can message the bot can drive this machine.
+          </span>
+        )}
+      </div>
+
+      {!cfg.allowAllUsers && (
+        <div className="flex items-start gap-2">
+          <span className="w-24 shrink-0 pt-1 text-[11px] text-muted-foreground">
+            Allowed users
+          </span>
+          <div className="min-w-0 flex-1 space-y-1">
+            <Tip
+              content={`${title} user ids allowed to talk to the bot — one per line. Empty = nobody.`}
+            >
+              <textarea
+                value={allowlist}
+                onChange={(e) => {
+                  setAllowlist(e.target.value)
+                  setAllowlistDirty(true)
+                }}
+                rows={3}
+                spellCheck={false}
+                placeholder="One user id per line"
+                className="w-full rounded-md border border-border bg-background px-2 py-1 font-mono text-[11px]"
+              />
             </Tip>
-            <span className="text-[11px] text-muted-foreground">
-              Empty list = nobody can use the bot.
-            </span>
+            <div className="flex items-center gap-2">
+              <Tip content="Save the allowlist (applies immediately)">
+                <span className="inline-flex">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!allowlistDirty}
+                    onClick={saveAllowlist}
+                  >
+                    Save allowlist
+                  </Button>
+                </span>
+              </Tip>
+              <span className="text-[11px] text-muted-foreground">
+                Empty list = nobody can use the bot.
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <Tip content={guideOpen ? 'Hide the setup guide' : 'Show the step-by-step setup guide'}>
         <button

@@ -92,7 +92,7 @@ class IntegrationsManager {
 
   private isAllowed(platform: IntegrationPlatform, userId: string): boolean {
     const cfg = readIntegrationsConfig()[platform]
-    return cfg.enabled && cfg.allowedUserIds.includes(userId)
+    return cfg.enabled && (cfg.allowAllUsers || cfg.allowedUserIds.includes(userId))
   }
 
   private async send(

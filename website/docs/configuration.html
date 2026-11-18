@@ -392,9 +392,12 @@
         </ol>
         <p>
           Tokens are stored encrypted with your OS keychain and are write-only — the app shows
-          whether a token is set, never its value. Allowlists are deny-by-default: an empty list
-          refuses everyone. The tab shows live per-platform connection status with a Reconnect
-          button, and the conversation bindings table at the bottom lets you remove any binding.
+          whether a token is set, never its value. Access is deny-by-default: each platform is set
+          to either <strong>Allowlisted users only</strong> (the default — an empty list refuses
+          everyone) or <strong>All users</strong>, which lets anyone who can message the bot drive
+          Yardarm and should only be used in a workspace or server you fully trust. The tab shows
+          live per-platform connection status with a Reconnect button, and the conversation bindings
+          table at the bottom lets you remove any binding.
         </p>
 
         <h2 id="mcp-servers">MCP servers (Settings → MCP Servers)</h2>
