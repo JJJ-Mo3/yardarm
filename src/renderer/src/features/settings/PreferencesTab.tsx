@@ -491,9 +491,9 @@ export function PreferencesTab(): React.JSX.Element {
         <div>
           <div className="text-xs font-medium">Confidence ratings</div>
           <div className="text-[11px] text-muted-foreground">
-            Asks the agent to rate how confident it is in a new task (green / yellow / red, shown as
-            a chip in the chat header and on plan cards) and to ask clarifying questions first when
-            it isn&apos;t green. Applies to newly started agent sessions.
+            Asks the agent to rate how confident it is in each new task (green / yellow / red, shown
+            as a chip on the rated reply and on plan cards) and to ask clarifying questions first
+            when it isn&apos;t green. Applies to newly started agent sessions.
           </div>
         </div>
         <Tip content="Inject the confidence-marker guidance into new agent sessions — when off, the agent is never asked to rate its confidence and no chip appears">

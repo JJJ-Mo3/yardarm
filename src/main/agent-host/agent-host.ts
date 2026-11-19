@@ -22,7 +22,7 @@ import type {
 } from '../../shared/ipc-types'
 import { z } from 'zod'
 import { patchApprovalRunBudget } from './approval-run-budget'
-import { CONFIDENCE_GUIDANCE } from '../../shared/confidence'
+import { CONFIDENCE_GUIDANCE, CONFIDENCE_GUIDANCE_PREFIX } from '../../shared/confidence'
 import { FOLLOW_UP_GUIDANCE } from '../../shared/follow-ups'
 import {
   buildKnowledgeBlock,
@@ -1399,7 +1399,9 @@ async function main(): Promise<void> {
     const prev = st.pluginInstructions ?? []
     const next = prev.filter(
       (entry) =>
-        entry !== CONFIDENCE_GUIDANCE &&
+        // Prefix match (not exact): clears older wordings of the guidance
+        // persisted by previous app versions.
+        !entry.startsWith(CONFIDENCE_GUIDANCE_PREFIX) &&
         entry !== SUGGEST_KNOWLEDGE_GUIDANCE &&
         entry !== FOLLOW_UP_GUIDANCE &&
         !entry.startsWith(KNOWLEDGE_BLOCK_PREFIX)

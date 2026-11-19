@@ -1,7 +1,7 @@
 /**
- * Header/plan-card chip for the agent's self-reported confidence marker
- * (CONFIDENCE: green|yellow|red — reason). Renders nothing when no marker
- * has been emitted; the reason lives in the tooltip.
+ * Chip for the agent's self-reported confidence marker
+ * (CONFIDENCE: green|yellow|red — reason), rendered inline on the assistant
+ * reply that emitted it and on plan cards; the reason lives in the tooltip.
  */
 import React from 'react'
 import { Gauge } from 'lucide-react'
@@ -31,7 +31,7 @@ export function ConfidenceChip({
   const { level, reason } = confidence
   return (
     <Tip
-      content={`Agent confidence: ${level}${reason ? ` — ${reason}` : ''} (${LEVEL_HINTS[level]})`}
+      content={`Agent confidence for this task: ${level}${reason ? ` — ${reason}` : ''} (${LEVEL_HINTS[level]})`}
       side="bottom"
     >
       <span

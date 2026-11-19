@@ -23,7 +23,8 @@ import { SandboxAccessCard, SandboxAccessAnswered } from './SandboxAccessCard'
 import { computeForkEligible, computeRollbackEligible } from './rollback-eligibility'
 import { detectGitActivity } from './git-activity'
 import { GitActivityBadges } from './GitActivityBadges'
-import { stripConfidenceLine } from '../../../../shared/confidence'
+import { parseConfidenceMarker, stripConfidenceLine } from '../../../../shared/confidence'
+import { ConfidenceChip } from './ConfidenceChip'
 import {
   parseSuggestedKnowledge,
   stripSuggestedKnowledgeLine
@@ -260,12 +261,18 @@ function Part({
   switch (part.type) {
     case 'text': {
       // Part only renders assistant messages (user bubbles render raw text):
-      // the CONFIDENCE marker line becomes a header/plan chip, the
+      // the CONFIDENCE marker line becomes an inline chip on this reply, the
       // Suggested-knowledge line becomes a save/dismiss card, and Follow-up
       // lines become composer-prefill chips, so hide them all.
+      const confidence = parseConfidenceMarker(part.text)
       const text = stripFollowUpLines(stripSuggestedKnowledgeLine(stripConfidenceLine(part.text)))
-      if (!text) return null
-      return <Markdown text={text} linkifyFileRefs />
+      if (!text && !confidence) return null
+      return (
+        <>
+          {confidence && <ConfidenceChip confidence={confidence} className="my-0.5" />}
+          {text && <Markdown text={text} linkifyFileRefs />}
+        </>
+      )
     }
     case 'reasoning':
       return <ReasoningBlock text={part.text} />

@@ -229,9 +229,10 @@ deny inline.
 ### Confidence ratings
 
 When the agent takes on a task it states how confident it is that it understood the request
-and can deliver: a green / yellow / red **confidence chip** appears in the chat header and on
-plan cards, with the agent's reasoning in the tooltip. On yellow or red the agent asks
-clarifying questions before diving in rather than guessing.
+and can deliver: a green / yellow / red **confidence chip** appears inline on the reply that
+rated the task (and on plan cards), with the agent's reasoning in the tooltip. The agent rates
+every new task you give it, so each chip scores exactly the task it sits next to. On yellow or
+red the agent asks clarifying questions before diving in rather than guessing.
 
 Ratings are on by default and can be turned off in Settings → Preferences. They rely on the
 model following instructions — if a model doesn't emit a rating, the chip simply doesn't

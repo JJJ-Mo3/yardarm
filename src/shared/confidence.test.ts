@@ -1,16 +1,11 @@
-/** Tests for the confidence marker parser and transcript helpers. */
+/** Tests for the confidence marker parser and guidance constants. */
 import { describe, expect, it } from 'vitest'
 import {
-  latestConfidence,
   parseConfidenceMarker,
   stripConfidenceLine,
-  CONFIDENCE_GUIDANCE
+  CONFIDENCE_GUIDANCE,
+  CONFIDENCE_GUIDANCE_PREFIX
 } from './confidence'
-import type { StoredMessage } from './ui-message'
-
-function assistant(text: string, id = 'a1'): StoredMessage {
-  return { id, role: 'assistant', parts: [{ type: 'text', text }], createdAt: 1 }
-}
 
 describe('parseConfidenceMarker', () => {
   it('parses the canonical em-dash form', () => {
@@ -90,37 +85,15 @@ describe('stripConfidenceLine', () => {
   })
 })
 
-describe('latestConfidence', () => {
-  it('returns null for an empty or markerless transcript', () => {
-    expect(latestConfidence([])).toBeNull()
-    expect(latestConfidence([assistant('no marker')])).toBeNull()
-  })
-
-  it('returns the last marker across the transcript', () => {
-    const messages: StoredMessage[] = [
-      assistant('CONFIDENCE: red — just started', 'a1'),
-      { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'clarified' }], createdAt: 2 },
-      assistant('CONFIDENCE: green — all clear now', 'a2')
-    ]
-    expect(latestConfidence(messages)).toEqual({ level: 'green', reason: 'all clear now' })
-  })
-
-  it('ignores markers in user messages', () => {
-    const messages: StoredMessage[] = [
-      {
-        id: 'u1',
-        role: 'user',
-        parts: [{ type: 'text', text: 'CONFIDENCE: red — spoofed' }],
-        createdAt: 1
-      }
-    ]
-    expect(latestConfidence(messages)).toBeNull()
-  })
-})
-
 describe('CONFIDENCE_GUIDANCE', () => {
   it('describes the exact marker shape the parser accepts', () => {
     expect(CONFIDENCE_GUIDANCE).toContain('CONFIDENCE: green|yellow|red')
     expect(parseConfidenceMarker('CONFIDENCE: green — example')).not.toBeNull()
+  })
+
+  it('starts with the stable prefix used for reconciliation', () => {
+    // The agent host removes stale persisted guidance by this prefix;
+    // rewording the guidance must never break the prefix match.
+    expect(CONFIDENCE_GUIDANCE.startsWith(CONFIDENCE_GUIDANCE_PREFIX)).toBe(true)
   })
 })
