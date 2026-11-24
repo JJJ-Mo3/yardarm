@@ -49,6 +49,7 @@ import { ChatView } from './features/agents/ChatView'
 import { CommandPalette } from './features/agents/CommandPalette'
 import { ChatSearchDialog } from './features/agents/ChatSearchDialog'
 import { InboxDialog } from './features/agents/InboxDialog'
+import { CompareDialog } from './features/agents/CompareDialog'
 import { subchatTabTip } from './features/agents/fork-tab'
 import { SplitChatPane } from './features/agents/SplitChatPane'
 import { useChatStatusTracker } from './features/agents/use-chat-status-tracker'
@@ -586,6 +587,7 @@ export default function App(): React.JSX.Element {
       <CommandPalette />
       <ChatSearchDialog />
       <InboxDialog />
+      <CompareDialog />
       <QuickFileOpen root={cwd} />
       <SettingsDialog />
       <ProjectSettingsDialog

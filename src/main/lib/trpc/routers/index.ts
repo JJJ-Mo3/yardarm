@@ -3,6 +3,7 @@ import { agentRouter } from './agent'
 import { analyticsRouter } from './analytics'
 import { chatsRouter } from './chats'
 import { checkpointsRouter } from './checkpoints'
+import { compareRouter } from './compare'
 import { externalRouter } from './external'
 import { factoryRouter } from './factory'
 import { factoryWorkRouter } from './factory-work'
@@ -34,6 +35,7 @@ export const appRouter = router({
   agent: agentRouter,
   analytics: analyticsRouter,
   checkpoints: checkpointsRouter,
+  compare: compareRouter,
   external: externalRouter,
   factory: factoryRouter,
   factoryWork: factoryWorkRouter,

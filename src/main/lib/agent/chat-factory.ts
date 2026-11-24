@@ -144,6 +144,12 @@ export async function createChatWithSubchat(input: {
    * new `yardarm/…` branch from the base (requires a git project).
    */
   prCheckout?: PrCheckout
+  /** Model the first subchat boots with (hosts apply subchats.model_id at boot). */
+  modelId?: string
+  /** Comparison this chat belongs to (/compare) — see chats.compare_group_id. */
+  compareGroupId?: string
+  /** Chat this hidden side-question helper answers about — see chats.side_of_chat_id. */
+  sideOfChatId?: string
 }): Promise<CreatedChat> {
   const db = getDb()
   const project = db
@@ -199,6 +205,8 @@ export async function createChatWithSubchat(input: {
     status: 'active',
     archived: false,
     hidden: input.hidden === true,
+    compareGroupId: input.compareGroupId ?? null,
+    sideOfChatId: input.sideOfChatId ?? null,
     createdAt: now,
     updatedAt: now
   }
@@ -210,7 +218,7 @@ export async function createChatWithSubchat(input: {
     chatId,
     mastraThreadId: null,
     mode: 'build',
-    modelId: null,
+    modelId: input.modelId ?? null,
     thinkingLevel: null,
     fullSandbox: sandbox.enabled,
     sandboxNetwork: sandbox.allowNetwork,

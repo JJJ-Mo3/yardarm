@@ -11,6 +11,7 @@ import {
   BookText,
   ChartColumn,
   Columns2,
+  Columns3,
   Factory,
   FileCode2,
   FileSearch,
@@ -29,6 +30,7 @@ import { trpc } from '../../lib/trpc'
 import {
   chatSearchAtom,
   commandPaletteOpenAtom,
+  compareAtom,
   inboxOpenAtom,
   mainTabAtom,
   MAX_SPLIT_PANES,
@@ -93,6 +95,7 @@ export function CommandPalette(): React.JSX.Element {
   const setSettingsTab = useSetAtom(settingsTabAtom)
   const setChatSearch = useSetAtom(chatSearchAtom)
   const setInboxOpen = useSetAtom(inboxOpenAtom)
+  const setCompare = useSetAtom(compareAtom)
   const selectChat = useSelectChat()
   const shortcutOverrides = useAtomValue(shortcutOverridesAtom)
   const commands = useSlashCommands(open ? subchatId : null)
@@ -142,6 +145,17 @@ export function CommandPalette(): React.JSX.Element {
       keywords: 'find messages full text history',
       onSelect: () => setChatSearch({ open: true, query: '' })
     })
+    if (projectId) {
+      list.push({
+        id: 'compare-models',
+        group: 'Across chats',
+        label: 'Compare models…',
+        icon: <Columns3 size={13} />,
+        detail: 'One prompt, 2–4 models, side by side',
+        keywords: 'compare models side by side worktree',
+        onSelect: () => setCompare({ open: true, prompt: '' })
+      })
+    }
     for (const t of TABS) {
       list.push({
         id: `tab:${t.id}`,
@@ -222,6 +236,8 @@ export function CommandPalette(): React.JSX.Element {
     setSettingsOpen,
     setChatSearch,
     setInboxOpen,
+    setCompare,
+    projectId,
     selectChat,
     shortcutOverrides
   ])

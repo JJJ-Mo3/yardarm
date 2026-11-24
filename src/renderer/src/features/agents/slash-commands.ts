@@ -105,6 +105,12 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
     kind: 'builtin'
   },
   {
+    name: 'compare',
+    description: 'Run one prompt with 2–4 models side by side, each in its own worktree chat',
+    args: '[prompt]',
+    kind: 'builtin'
+  },
+  {
     name: 'inbox',
     description: 'Chats across all projects that need you or are still running',
     kind: 'builtin'

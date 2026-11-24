@@ -97,6 +97,10 @@ export const composerAttachAtom = atom<ComposerAttachment | ComposerAttachment[]
 export const changesPaneRequestAtom = atom<'changes' | 'history' | 'checkpoints' | null>(null)
 /** Global Cmd+K command palette. */
 export const commandPaletteOpenAtom = atom(false)
+/** Compare-models dialog; `prompt` seeds the input when opened by `/compare <prompt>`. */
+export const compareAtom = atom<{ open: boolean; prompt: string }>({ open: false, prompt: '' })
+/** Models picked in the last comparison, offered again next time. */
+export const compareModelsAtom = atomWithStorage<string[]>('cz.compareModels', [])
 /** Inbox dialog: chats across all projects that need attention or are running. */
 export const inboxOpenAtom = atom(false)
 /** Cross-chat search dialog; `query` seeds the input when opened by `/search <text>`. */

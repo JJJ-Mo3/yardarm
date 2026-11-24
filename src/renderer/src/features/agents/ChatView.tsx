@@ -25,6 +25,7 @@ import {
 import { trpc } from '../../lib/trpc'
 import {
   chatSearchAtom,
+  compareAtom,
   composerAttachAtom,
   composerInsertAtom,
   debugEventsAtom,
@@ -85,6 +86,7 @@ import { WorkflowsDialog } from '../workflows/WorkflowsDialog'
 import { buildDraftWorkflowPrompt } from '../workflows/input-schema'
 import { DetailsPanel } from './details/DetailsPanel'
 import { GoalBanner } from './GoalBanner'
+import { CompareKeepBar } from './CompareKeepBar'
 import { TaskChecklist } from './TaskChecklist'
 import { GoalPanel } from './GoalPanel'
 import { OmStatusPopover } from './OmStatusPopover'
@@ -403,6 +405,7 @@ export function ChatView({
   }, [primary, messageJump, subchatId, setMessageJump])
   const setChatSearch = useSetAtom(chatSearchAtom)
   const setInboxOpen = useSetAtom(inboxOpenAtom)
+  const setCompare = useSetAtom(compareAtom)
 
   const meta = state.meta
   const busy = send.isPending
@@ -650,6 +653,10 @@ export function ChatView({
       }
       case 'inbox':
         setInboxOpen(true)
+        return
+      case 'compare':
+        if (!projectId) return 'Open a project first — compared chats are created in it.'
+        setCompare({ open: true, prompt: args.trim() })
         return
       case 'search':
         setChatSearch({ open: true, query: args.trim() })
@@ -1239,6 +1246,8 @@ export function ChatView({
           />
           <Badge>{state.status}</Badge>
         </div>
+
+        <CompareKeepBar subchatId={subchatId} />
 
         <GoalBanner subchatId={subchatId} live={state.goal} running={state.running} />
 
