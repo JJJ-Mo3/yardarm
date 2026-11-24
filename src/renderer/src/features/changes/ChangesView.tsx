@@ -878,8 +878,8 @@ export function ChangesView({
               ))}
             </div>
             <div className="border-t border-border p-2 text-[11px] text-muted-foreground">
-              Read-only compare against {compareRef}. Clear the comparison to stage, discard, or
-              commit.
+              Comparing against {compareRef}. You can comment on lines and revert individual changes
+              here; clear the comparison to stage, discard, or commit.
             </div>
           </>
         )}
