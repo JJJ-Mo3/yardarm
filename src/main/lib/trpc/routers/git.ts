@@ -1,7 +1,7 @@
 /**
  * Git router for the Changes tab: status and diffs, stage/unstage/discard,
- * commit/push/pull, branches, merge into base, commit history, and PR/MR
- * operations through the gh / glab CLIs.
+ * commit/push/pull, branches, merge into base, commit history, per-hunk
+ * revert, and PR/MR operations through the gh / glab CLIs.
  */
 import { z } from 'zod'
 import {
@@ -13,6 +13,7 @@ import {
   diffNameStatus,
   discardFiles,
   fileDiff,
+  fileHunks,
   gitLog,
   gitStatus,
   listBranches,
@@ -20,12 +21,14 @@ import {
   mergeIntoBase,
   pull,
   push,
+  revertHunk,
   stageFiles,
   stashPush,
   unstageFiles
 } from '../../git/ops'
 import { forgeCreatePr, forgeInfo, forgeListPrs, forgePrForBranch } from '../../git/forge'
 import { prCommentsForBranch } from '../../git/gh'
+import { assertKnownRoot } from '../../known-roots'
 import { publicProcedure, router } from '../trpc'
 
 const cwdInput = z.object({ cwd: z.string() })
@@ -36,6 +39,30 @@ export const gitRouter = router({
   fileDiff: publicProcedure
     .input(cwdInput.extend({ path: z.string(), baseRef: z.string().optional() }))
     .query(({ input }) => fileDiff(input.cwd, input.path, input.baseRef)),
+
+  /** Individually revertable hunks of the diff `fileDiff` shows (empty when none). */
+  fileHunks: publicProcedure
+    .input(cwdInput.extend({ path: z.string().min(1), baseRef: z.string().optional() }))
+    .query(({ input }) => fileHunks(assertKnownRoot(input.cwd), input.path, input.baseRef)),
+
+  /** Discard one hunk of a file's working-tree changes. */
+  revertHunk: publicProcedure
+    .input(
+      cwdInput.extend({
+        path: z.string().min(1),
+        index: z.number().int().min(0),
+        hash: z.string().min(1).max(64),
+        baseRef: z.string().optional()
+      })
+    )
+    .mutation(async ({ input }) => {
+      await revertHunk(assertKnownRoot(input.cwd), input.path, {
+        index: input.index,
+        hash: input.hash,
+        baseRef: input.baseRef
+      })
+      return { ok: true }
+    }),
 
   stage: publicProcedure
     .input(cwdInput.extend({ paths: z.array(z.string()).min(1) }))

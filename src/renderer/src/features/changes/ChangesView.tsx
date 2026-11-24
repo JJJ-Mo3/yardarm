@@ -6,20 +6,28 @@
  * the base branch at the project root, a read-only compare mode that
  * diffs the working tree against the merge-base with another branch,
  * and a checkpoint manager pane (named + auto snapshots, A/B compare).
+ *
+ * The working-tree diff doubles as a review surface: draft line comments
+ * (collected per chat, sent to the agent as one prompt) and per-hunk
+ * revert.
  */
 import React, { useEffect, useRef, useState } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
 import {
+  ChevronDown,
+  ChevronRight,
   Download,
   GitBranchPlus,
   GitCommitHorizontal,
   GitCompareArrows,
   GitMerge,
   GitPullRequestArrow,
+  MessageSquarePlus,
   Minus,
   Plus,
   RefreshCw,
   ScanSearch,
+  Send,
   Sparkles,
   TextQuote,
   Undo2,
@@ -31,6 +39,7 @@ import {
   changesListWidthAtom,
   changesPaneRequestAtom,
   composerAttachAtom,
+  composerInsertAtom,
   mainTabAtom
 } from '../../lib/atoms'
 import { encodeBase64Utf8 } from '../agents/attachments'
@@ -60,7 +69,16 @@ import { Switch } from '../../components/ui/switch'
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
 import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
-import { DiffContent } from './diff-content'
+import { DiffContent, selectionLineRange, type RevertableHunk } from './diff-content'
+import { reviewCommentsAtomFamily } from './review-comments-atom'
+import {
+  buildReviewCommentsPrompt,
+  extractLines,
+  lineLabel,
+  sortComments,
+  type LineRange,
+  type ReviewComment
+} from './review-comments'
 import { CheckpointDiffPanel, CheckpointsList, type SnapshotSel } from './CheckpointsPane'
 
 function statusColor(status: string): string {
@@ -70,17 +88,88 @@ function statusColor(status: string): string {
   return 'text-amber-600 dark:text-amber-500'
 }
 
+const NO_HUNKS: RevertableHunk[] = []
+
+/**
+ * Working-tree diff of one file with the review affordances: draft line
+ * comments and per-hunk revert (confirmed, then applied in the main process).
+ */
 function FileDiffPanel({
   cwd,
   path,
-  baseRef
+  baseRef,
+  comments,
+  onCommentsChange,
+  rangeRequest,
+  onRangeRequestHandled,
+  onChanged
 }: {
   cwd: string
   path: string
   baseRef?: string
+  /** Every draft comment of the chat (all files). */
+  comments: ReviewComment[]
+  onCommentsChange: (update: (prev: ReviewComment[]) => ReviewComment[]) => void
+  rangeRequest: (LineRange & { nonce: number }) | null
+  onRangeRequestHandled: () => void
+  /** Called after a hunk was reverted so status and diffs refresh. */
+  onChanged: () => void
 }): React.JSX.Element {
+  const confirmDialog = useConfirm()
   const diff = trpc.git.fileDiff.useQuery({ cwd, path, baseRef })
-  return <DiffContent diff={diff.data} isLoading={diff.isLoading} />
+  const hunks = trpc.git.fileHunks.useQuery({ cwd, path, baseRef })
+  const revert = trpc.git.revertHunk.useMutation({ onSettled: onChanged })
+  const fileComments = React.useMemo(
+    () => comments.filter((c) => c.path === path),
+    [comments, path]
+  )
+
+  const addComment = (range: LineRange, text: string): void => {
+    const content = range.side === 'old' ? diff.data?.oldContent : diff.data?.newContent
+    onCommentsChange((prev) => [
+      ...prev,
+      {
+        ...range,
+        id: crypto.randomUUID(),
+        path,
+        code: extractLines(content ?? '', range.startLine, range.endLine),
+        text
+      }
+    ])
+  }
+  const revertHunk = (hunk: RevertableHunk): void => {
+    void confirmDialog({
+      title: 'Revert this change?',
+      description: `This discards one change in ${path} (+${hunk.added} −${hunk.removed}) from the working tree. The rest of the file is kept. This cannot be undone.`,
+      confirmLabel: 'Revert'
+    }).then((ok) => {
+      if (ok) revert.mutate({ cwd, path, index: hunk.index, hash: hunk.hash, baseRef })
+    })
+  }
+
+  return (
+    <>
+      {revert.error && (
+        <div className="border-b border-border px-3 py-1.5 text-xs text-destructive selectable">
+          {revert.error.message}
+        </div>
+      )}
+      <DiffContent
+        diff={diff.data}
+        isLoading={diff.isLoading}
+        review={{
+          comments: fileComments,
+          onAddComment: addComment,
+          onRemoveComment: (id) => onCommentsChange((prev) => prev.filter((c) => c.id !== id)),
+          hunks: hunks.data ?? NO_HUNKS,
+          onRevertHunk: revertHunk,
+          revertPending: revert.isPending,
+          rangeRequest,
+          onRangeRequestHandled
+        }}
+      />
+    </>
+  )
 }
 
 function CommitDiffPanel({
@@ -102,18 +191,26 @@ function CommitDiffPanel({
  * diffed file and switches to the Chat tab. Fixed-positioned at the
  * selection's viewport rect and repositioned on scroll via a capturing
  * listener; mousedown is prevented so clicking the button doesn't collapse
- * the selection first.
+ * the selection first. When `onComment` is given (working-tree diffs) a
+ * second "Comment" button starts a draft review comment on the selected
+ * line range.
  */
 function DiffSelectionQuote({
   containerRef,
-  filePath
+  filePath,
+  onComment
 }: {
   containerRef: React.RefObject<HTMLDivElement | null>
   filePath: string
+  onComment?: (range: LineRange) => void
 }): React.JSX.Element | null {
-  const [state, setState] = useState<{ x: number; y: number; above: boolean; text: string } | null>(
-    null
-  )
+  const [state, setState] = useState<{
+    x: number
+    y: number
+    above: boolean
+    text: string
+    lines: LineRange | null
+  } | null>(null)
   const setComposerAttach = useSetAtom(composerAttachAtom)
   const setMainTab = useSetAtom(mainTabAtom)
 
@@ -141,7 +238,8 @@ function DiffSelectionQuote({
         x: rect.left + rect.width / 2,
         y: above ? rect.top - 6 : rect.bottom + 6,
         above,
-        text
+        text,
+        lines: selectionLineRange(range)
       })
     }
     document.addEventListener('selectionchange', update)
@@ -155,7 +253,10 @@ function DiffSelectionQuote({
   if (!state) return null
   return (
     <div
-      className={cn('fixed z-50 -translate-x-1/2', state.above && '-translate-y-full')}
+      className={cn(
+        'fixed z-50 flex -translate-x-1/2 items-center gap-1',
+        state.above && '-translate-y-full'
+      )}
       style={{ left: state.x, top: state.y }}
     >
       <Tip content="Quote the selected diff lines into the chat composer as an attachment">
@@ -176,6 +277,23 @@ function DiffSelectionQuote({
           Quote
         </button>
       </Tip>
+      {onComment && state.lines && (
+        <Tip
+          content={`Write a draft review comment on ${lineLabel(state.lines)} — drafts are sent to the agent together`}
+        >
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              if (state.lines) onComment(state.lines)
+              window.getSelection()?.removeAllRanges()
+            }}
+            className="flex items-center gap-1 rounded-md border border-border bg-background px-1.5 py-1 text-[11px] text-muted-foreground shadow-md hover:text-foreground cursor-pointer"
+          >
+            <MessageSquarePlus size={12} />
+            Comment
+          </button>
+        </Tip>
+      )}
     </div>
   )
 }
@@ -202,6 +320,11 @@ export function ChangesView({
   const utils = trpc.useUtils()
   const confirmDialog = useConfirm()
   const setMainTab = useSetAtom(mainTabAtom)
+  const setComposerInsert = useSetAtom(composerInsertAtom)
+  // Draft review comments: per chat, in memory, across files/panes/tabs.
+  const [comments, setComments] = useAtom(reviewCommentsAtomFamily(checkpoints?.chatId ?? cwd))
+  const [commentsOpen, setCommentsOpen] = useState(false)
+  const [rangeRequest, setRangeRequest] = useState<(LineRange & { nonce: number }) | null>(null)
   const sendReview = trpc.agent.send.useMutation()
   const status = trpc.git.status.useQuery({ cwd }, { refetchInterval: 4000 })
   const branches = trpc.git.branches.useQuery({ cwd }, { staleTime: 10_000 })
@@ -267,6 +390,7 @@ export function ChangesView({
   const invalidate = (): void => {
     utils.git.status.invalidate({ cwd })
     utils.git.fileDiff.invalidate()
+    utils.git.fileHunks.invalidate()
     utils.git.branches.invalidate({ cwd })
     utils.git.log.invalidate({ cwd })
     utils.git.mergeBase.invalidate({ cwd })
@@ -353,6 +477,12 @@ export function ChangesView({
           ? commitFile
           : null
         : selected
+
+  /** Prefill the chat composer (never auto-sends) and show the chat. */
+  const prefillComposer = (text: string): void => {
+    setComposerInsert(text)
+    setMainTab('chat')
+  }
 
   const files = status.data?.files ?? []
   const branchList = branches.data?.all ?? []
@@ -929,33 +1059,144 @@ export function ChangesView({
         )}
       </div>
 
-      {/* Diff */}
-      <div ref={diffRef} className="min-w-0 flex-1 overflow-auto">
-        {pane === 'checkpoints' && checkpoints ? (
-          ckA && ckB && ckFile ? (
-            <CheckpointDiffPanel chatId={checkpoints.chatId} a={ckA} b={ckB} path={ckFile} />
-          ) : (
-            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-              Select two checkpoints (A and B), then a file
+      {/* Diff (with the draft review comments bar on top) */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {comments.length > 0 && (
+          <div className="shrink-0 border-b border-border bg-accent/30 text-[11px]">
+            <div className="flex items-center gap-2 px-2 py-1">
+              <Tip content="Draft review comments on this chat's changes — show or hide the list">
+                <button
+                  aria-expanded={commentsOpen}
+                  onClick={() => setCommentsOpen((v) => !v)}
+                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-1 text-left font-medium"
+                >
+                  {commentsOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                  Review comments ({comments.length})
+                </button>
+              </Tip>
+              <Tip content="Remove every draft review comment">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    void confirmDialog({
+                      title: 'Clear all review comments?',
+                      description: `${comments.length} draft ${comments.length === 1 ? 'comment' : 'comments'} will be removed.`,
+                      confirmLabel: 'Clear all'
+                    }).then((ok) => {
+                      if (ok) setComments([])
+                    })
+                  }}
+                >
+                  Clear all
+                </Button>
+              </Tip>
+              <Tip
+                content={
+                  review
+                    ? 'Put every comment — file, lines, quoted code and your note — into the chat composer as one prompt (not sent until you send it)'
+                    : 'Open a chat to send review comments to its agent'
+                }
+              >
+                <span className="inline-flex">
+                  <Button
+                    size="sm"
+                    disabled={!review}
+                    onClick={() => {
+                      prefillComposer(buildReviewCommentsPrompt(comments))
+                      setComments([])
+                      setCommentsOpen(false)
+                    }}
+                  >
+                    <Send size={13} />
+                    Send to agent
+                  </Button>
+                </span>
+              </Tip>
             </div>
-          )
-        ) : pane === 'history' ? (
-          selectedCommit && commitFile ? (
-            <CommitDiffPanel cwd={cwd} hash={selectedCommit} path={commitFile} />
-          ) : (
-            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-              Select a commit, then a file
-            </div>
-          )
-        ) : selected ? (
-          <FileDiffPanel cwd={cwd} path={selected} baseRef={compareBase ?? undefined} />
-        ) : (
-          <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-            Select a file to view its diff
+            {commentsOpen && (
+              <div className="max-h-40 space-y-0.5 overflow-y-auto px-2 pb-1.5">
+                {sortComments(comments).map((c) => (
+                  <div key={c.id} className="flex items-start gap-1.5">
+                    <Tip content="Show this file's diff">
+                      <button
+                        onClick={() => {
+                          setPane('changes')
+                          setSelectedCommit(null)
+                          setCommitFile(null)
+                          setSelected(c.path)
+                        }}
+                        className="min-w-0 flex-1 cursor-pointer text-left hover:text-primary"
+                      >
+                        <span className="font-mono text-[10px] text-muted-foreground">
+                          {c.path} · {lineLabel(c)}
+                        </span>
+                        <span className="block truncate">{c.text}</span>
+                      </button>
+                    </Tip>
+                    <Tip content="Remove this draft comment">
+                      <button
+                        aria-label="Remove comment"
+                        onClick={() => setComments((prev) => prev.filter((x) => x.id !== c.id))}
+                        className="mt-0.5 shrink-0 cursor-pointer text-muted-foreground hover:text-destructive"
+                      >
+                        <X size={11} />
+                      </button>
+                    </Tip>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
+        <div ref={diffRef} className="min-h-0 min-w-0 flex-1 overflow-auto">
+          {pane === 'checkpoints' && checkpoints ? (
+            ckA && ckB && ckFile ? (
+              <CheckpointDiffPanel chatId={checkpoints.chatId} a={ckA} b={ckB} path={ckFile} />
+            ) : (
+              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                Select two checkpoints (A and B), then a file
+              </div>
+            )
+          ) : pane === 'history' ? (
+            selectedCommit && commitFile ? (
+              <CommitDiffPanel cwd={cwd} hash={selectedCommit} path={commitFile} />
+            ) : (
+              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                Select a commit, then a file
+              </div>
+            )
+          ) : selected ? (
+            <FileDiffPanel
+              // Remount per file: a revert error must not carry over to the next diff.
+              key={selected}
+              cwd={cwd}
+              path={selected}
+              baseRef={compareBase ?? undefined}
+              comments={comments}
+              onCommentsChange={setComments}
+              rangeRequest={rangeRequest}
+              onRangeRequestHandled={() => setRangeRequest(null)}
+              onChanged={invalidate}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+              Select a file to view its diff
+            </div>
+          )}
+        </div>
       </div>
-      {activeDiffPath && <DiffSelectionQuote containerRef={diffRef} filePath={activeDiffPath} />}
+      {activeDiffPath && (
+        <DiffSelectionQuote
+          containerRef={diffRef}
+          filePath={activeDiffPath}
+          onComment={
+            pane === 'changes'
+              ? (range) => setRangeRequest({ ...range, nonce: Date.now() })
+              : undefined
+          }
+        />
+      )}
 
       {/* New branch dialog */}
       <Dialog

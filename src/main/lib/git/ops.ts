@@ -2,11 +2,21 @@
  * Git operations for the Changes view and git client: status vs base,
  * per-file diffs, stage/unstage/discard, commit, push, pull, branches,
  * merging a worktree branch into the base branch at the project root,
- * commit history (per-commit files + diffs), and checkpoints (HEAD sha
- * capture / hard reset for rollback).
+ * commit history (per-commit files + diffs), per-hunk revert, and
+ * checkpoints (HEAD sha capture / hard reset for rollback).
  */
 import { simpleGit } from 'simple-git'
+import { spawn } from 'node:child_process'
 import { assertSafeRef, resolveInside } from './safe-ref'
+import {
+  buildSingleHunkPatch,
+  describeHunks,
+  hunkHash,
+  isRevertablePatch,
+  parseFilePatch,
+  type HunkInfo,
+  type ParsedFilePatch
+} from './hunk-patch'
 import { randomUUID } from 'crypto'
 import { rm } from 'fs/promises'
 import os from 'os'
@@ -65,6 +75,103 @@ export async function fileDiff(cwd: string, filePath: string, baseRef?: string):
     // deleted file
   }
   return { path: filePath, oldContent, newContent, binary }
+}
+
+/**
+ * Run git with an argv array (never a shell), optionally feeding stdin.
+ * Output is decoded as latin1 so patch bytes survive a round trip unchanged.
+ */
+function runGitRaw(cwd: string, args: string[], stdin?: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn('git', args, { cwd, stdio: ['pipe', 'pipe', 'pipe'] })
+    const out: Buffer[] = []
+    const errOut: Buffer[] = []
+    child.stdout.on('data', (d: Buffer) => out.push(d))
+    child.stderr.on('data', (d: Buffer) => errOut.push(d))
+    child.on('error', reject)
+    child.on('close', (code) => {
+      if (code === 0) resolve(Buffer.concat(out).toString('latin1'))
+      else reject(new Error(Buffer.concat(errOut).toString('utf8').trim() || `git exited ${code}`))
+    })
+    child.stdin.on('error', () => {})
+    child.stdin.end(stdin === undefined ? undefined : Buffer.from(stdin, 'latin1'))
+  })
+}
+
+/** The parsed worktree-vs-ref diff of one file (the diff the Changes view shows). */
+async function readFilePatch(
+  cwd: string,
+  filePath: string,
+  baseRef?: string
+): Promise<ParsedFilePatch> {
+  const ref = assertSafeRef(baseRef ?? 'HEAD')
+  resolveInside(cwd, filePath)
+  const out = await runGitRaw(cwd, [
+    '--literal-pathspecs',
+    'diff',
+    '--no-ext-diff',
+    '--no-color',
+    '--no-textconv',
+    '--no-renames',
+    '--relative',
+    '--src-prefix=a/',
+    '--dst-prefix=b/',
+    ref,
+    '--',
+    filePath
+  ])
+  return parseFilePatch(out)
+}
+
+/**
+ * Hunks of one file's worktree-vs-ref diff that can be reverted individually.
+ * Empty for untracked/new files, binary files and unreadable diffs.
+ */
+export async function fileHunks(
+  cwd: string,
+  filePath: string,
+  baseRef?: string
+): Promise<HunkInfo[]> {
+  try {
+    const patch = await readFilePatch(cwd, filePath, baseRef)
+    return isRevertablePatch(patch) ? describeHunks(patch) : []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Discard one hunk of a file's worktree changes: rebuild the diff the view
+ * showed, cut out that hunk, and apply it in reverse to the working tree.
+ * `hash` must match the hunk's current content, so a view that went stale
+ * can never revert a different change. When the view compares against HEAD
+ * the reverse is also applied to the index where it fits (the change was
+ * staged), so a reverted hunk does not linger as a staged change; against
+ * any other base only the working tree is touched.
+ */
+export async function revertHunk(
+  cwd: string,
+  filePath: string,
+  opts: { index: number; hash: string; baseRef?: string }
+): Promise<void> {
+  const patch = await readFilePatch(cwd, filePath, opts.baseRef)
+  if (!isRevertablePatch(patch)) throw new Error('This file has no change that can be reverted')
+  const hunk = patch.hunks[opts.index]
+  const single = buildSingleHunkPatch(patch, opts.index)
+  if (!hunk || !single || hunkHash(hunk) !== opts.hash) {
+    throw new Error('The file changed since this diff was shown — refresh and try again')
+  }
+  const apply = ['apply', '-R', '--whitespace=nowarn']
+  try {
+    await runGitRaw(cwd, [...apply, '-'], single)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    throw new Error(`Could not revert this change: ${msg}`)
+  }
+  if (!opts.baseRef) {
+    // Best-effort: fails cleanly (and changes nothing) when the hunk isn't staged.
+    await runGitRaw(cwd, [...apply, '--cached', '-'], single).catch(() => {})
+  }
 }
 
 export async function stageFiles(cwd: string, paths: string[]): Promise<void> {
