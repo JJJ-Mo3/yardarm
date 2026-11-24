@@ -11,8 +11,24 @@ import type { RepoHostSetting, RepoProvider } from '../../../shared/ipc-types'
 import { getDb, schema } from '../db'
 import { parseProjectSettings } from '../db/project-settings'
 import { detectForgeFromRemoteUrl } from './forge-detect'
-import { createPr, ghPath, listPrs, prForBranch, type PrSummary } from './gh'
-import { createMr, glabPath, listMrs, mrForBranch } from './glab'
+import type { MergeMethod, PrChecks } from '../../../shared/pr-checks'
+import {
+  createPr,
+  enablePrAutoMerge,
+  ghPath,
+  listPrs,
+  prChecksForBranch,
+  prForBranch,
+  type PrSummary
+} from './gh'
+import {
+  createMr,
+  enableMrAutoMerge,
+  glabPath,
+  listMrs,
+  mrChecksForBranch,
+  mrForBranch
+} from './glab'
 
 export { detectForgeFromRemoteUrl } from './forge-detect'
 
@@ -108,4 +124,28 @@ export async function forgeCreatePr(
 ): Promise<{ url: string }> {
   const provider = await requireProvider(cwd)
   return provider === 'gitlab' ? createMr(cwd, opts) : createPr(cwd, opts)
+}
+
+/**
+ * CI checks for the branch's open PR/MR, or null when there is none — also
+ * null (rather than an error) when no provider or CLI is available, so the
+ * details panel simply shows nothing.
+ */
+export async function forgePrChecks(cwd: string): Promise<PrChecks | null> {
+  const info = await forgeInfo(cwd)
+  if (!info.provider || !info.cliAvailable) return null
+  return info.provider === 'gitlab' ? mrChecksForBranch(cwd) : prChecksForBranch(cwd)
+}
+
+/**
+ * Enable auto-merge on the branch's PR/MR. `method` is the merge method
+ * chosen for GitHub; null on GitLab, which uses the project default.
+ */
+export async function forgeEnableAutoMerge(cwd: string): Promise<{ method: MergeMethod | null }> {
+  const provider = await requireProvider(cwd)
+  if (provider === 'gitlab') {
+    await enableMrAutoMerge(cwd)
+    return { method: null }
+  }
+  return enablePrAutoMerge(cwd)
 }

@@ -1,7 +1,8 @@
 /**
  * Git router for the Changes tab: status and diffs, stage/unstage/discard,
  * commit/push/pull, branches, merge into base, commit history, per-hunk
- * revert, and PR/MR operations through the gh / glab CLIs.
+ * revert, and PR/MR operations (create, comments, CI checks, auto-merge)
+ * through the gh / glab CLIs.
  */
 import { z } from 'zod'
 import {
@@ -27,8 +28,15 @@ import {
   stashPush,
   unstageFiles
 } from '../../git/ops'
-import { forgeCreatePr, forgeInfo, forgeListPrs, forgePrForBranch } from '../../git/forge'
-import { prCommentsForBranch } from '../../git/gh'
+import {
+  forgeCreatePr,
+  forgeEnableAutoMerge,
+  forgeInfo,
+  forgeListPrs,
+  forgePrChecks,
+  forgePrForBranch
+} from '../../git/forge'
+import { failedRunLogs, prCommentsForBranch } from '../../git/gh'
 import { assertKnownRoot } from '../../known-roots'
 import { publicProcedure, router } from '../trpc'
 
@@ -179,6 +187,24 @@ export const gitRouter = router({
       throw err
     }
   }),
+
+  /**
+   * CI checks for the open PR/MR of the branch at cwd; null when there is no
+   * open PR/MR, no recognized host, or the host's CLI is missing.
+   */
+  prChecks: publicProcedure
+    .input(cwdInput)
+    .query(({ input }) => forgePrChecks(assertKnownRoot(input.cwd))),
+
+  /** Failed-log tail excerpts for GitHub Actions runs (best-effort, may be empty). */
+  failedCheckLogs: publicProcedure
+    .input(cwdInput.extend({ runIds: z.array(z.string().regex(/^\d+$/)).max(3) }))
+    .mutation(({ input }) => failedRunLogs(assertKnownRoot(input.cwd), input.runIds)),
+
+  /** Enable auto-merge on the branch's PR/MR (rejects with the CLI's message). */
+  enableAutoMerge: publicProcedure
+    .input(cwdInput)
+    .mutation(({ input }) => forgeEnableAutoMerge(assertKnownRoot(input.cwd))),
 
   /**
    * Merge a worktree branch into the base branch at the project root. A

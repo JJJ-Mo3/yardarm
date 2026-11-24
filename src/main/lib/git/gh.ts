@@ -1,11 +1,19 @@
 /**
  * GitHub CLI (`gh`) integration: PR listing/creation for the Changes view and
- * review picker. The binary path is resolved through a shell (see cli-path.ts)
+ * review picker, plus CI check status, failed-log excerpts and auto-merge for
+ * the details panel. The binary path is resolved through a shell (see cli-path.ts)
  * and then invoked directly — never via a shell — so user-provided
  * titles/bodies can't inject commands.
  */
 import { execFile } from 'node:child_process'
 import { cliEnv, makeCliResolver } from './cli-path'
+import {
+  excerptFailedLog,
+  parseGhChecks,
+  pickMergeMethod,
+  type MergeMethod,
+  type PrChecks
+} from '../../../shared/pr-checks'
 
 /** Absolute path to `gh`, or null if not installed. Hits are cached; misses retry. */
 export const ghPath = makeCliResolver('gh')
@@ -164,4 +172,109 @@ export async function createPr(
       else resolve({ url: stdout.trim().split('\n').pop()?.trim() ?? '' })
     })
   })
+}
+
+const GH_MISSING = 'GitHub CLI (gh) not found — install it from https://cli.github.com'
+
+/** Run gh and resolve with its outcome and output instead of rejecting. */
+function runGh(
+  gh: string,
+  args: string[],
+  cwd: string,
+  timeout = 30_000
+): Promise<{ ok: boolean; stdout: string; stderr: string }> {
+  return new Promise((resolve) => {
+    execFile(
+      gh,
+      args,
+      { cwd, timeout, env: cliEnv(), maxBuffer: 32 * 1024 * 1024 },
+      (err, stdout, stderr) => {
+        resolve({ ok: !err, stdout, stderr: stderr.trim() || (err ? err.message : '') })
+      }
+    )
+  })
+}
+
+/**
+ * CI checks of the OPEN PR for the branch checked out at cwd; null when the
+ * branch has no open PR. `gh pr checks` exits non-zero while checks are
+ * failing or pending but still prints the JSON, so stdout decides.
+ */
+export async function prChecksForBranch(cwd: string): Promise<PrChecks | null> {
+  const gh = await ghPath()
+  if (!gh) throw new Error(GH_MISSING)
+  const view = await runGh(
+    gh,
+    ['pr', 'view', '--json', 'number,title,url,state,autoMergeRequest'],
+    cwd
+  )
+  if (!view.ok) {
+    if (/no pull requests? found/i.test(view.stderr)) return null
+    throw new Error(view.stderr)
+  }
+  let pr: { number: number; title: string; url: string; state?: string; autoMergeRequest?: unknown }
+  try {
+    pr = JSON.parse(view.stdout)
+  } catch {
+    throw new Error('Unexpected gh pr view output')
+  }
+  if (pr.state !== 'OPEN') return null
+  const res = await runGh(gh, ['pr', 'checks', '--json', 'name,state,bucket,link,workflow'], cwd)
+  let checks = parseGhChecks(res.stdout)
+  if (!checks) {
+    if (res.ok || /no checks reported/i.test(res.stderr)) checks = []
+    else throw new Error(res.stderr || 'Unexpected gh pr checks output')
+  }
+  return {
+    number: pr.number,
+    title: pr.title,
+    url: pr.url,
+    autoMerge: !!pr.autoMergeRequest,
+    checks
+  }
+}
+
+/**
+ * Tail excerpts of the failed step logs for the given Actions run ids.
+ * Best-effort: runs whose logs can't be fetched quickly are skipped.
+ */
+export async function failedRunLogs(
+  cwd: string,
+  runIds: string[]
+): Promise<Array<{ runId: string; excerpt: string }>> {
+  const gh = await ghPath()
+  if (!gh) return []
+  const results = await Promise.all(
+    runIds
+      .filter((id) => /^\d+$/.test(id))
+      .map(async (runId) => {
+        const res = await runGh(gh, ['run', 'view', runId, '--log-failed'], cwd, 20_000)
+        return { runId, excerpt: res.ok ? excerptFailedLog(res.stdout) : '' }
+      })
+  )
+  return results.filter((r) => r.excerpt !== '')
+}
+
+/**
+ * Enable auto-merge for the branch's PR using the repo's default merge
+ * method. Rejects with gh's own message (e.g. when auto-merge is not enabled
+ * for the repository).
+ */
+export async function enablePrAutoMerge(cwd: string): Promise<{ method: MergeMethod }> {
+  const gh = await ghPath()
+  if (!gh) throw new Error(GH_MISSING)
+  const repo = await runGh(
+    gh,
+    [
+      'repo',
+      'view',
+      '--json',
+      'viewerDefaultMergeMethod,mergeCommitAllowed,squashMergeAllowed,rebaseMergeAllowed'
+    ],
+    cwd
+  )
+  const method = pickMergeMethod(repo.ok ? repo.stdout : '')
+  const res = await runGh(gh, ['pr', 'merge', '--auto', `--${method}`], cwd, 60_000)
+  if (!res.ok) throw new Error(res.stderr || 'gh pr merge failed')
+  return { method }
 }

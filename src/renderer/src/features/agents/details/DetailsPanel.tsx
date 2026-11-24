@@ -1,18 +1,27 @@
 /**
  * Right-hand details side panel for the primary chat pane: uncommitted
- * worktree changes, the agent's live task list, the latest submitted plan,
- * and the session timeline. Width is drag-resizable (clamped 240–480px)
+ * worktree changes, the branch's PR/MR conversation and CI checks, the
+ * agent's live task list, the latest submitted plan, and the session timeline. Width is drag-resizable (clamped 240–480px)
  * and persisted.
  */
 import React, { useRef } from 'react'
 import { useAtom } from 'jotai'
-import { FileDiff, GitPullRequest, History, ListTodo, ScrollText, X } from 'lucide-react'
+import {
+  CircleCheck,
+  FileDiff,
+  GitPullRequest,
+  History,
+  ListTodo,
+  ScrollText,
+  X
+} from 'lucide-react'
 import { detailsWidthAtom } from '../../../lib/atoms'
 import { Tip } from '../../../components/ui/tooltip'
 import { ChangedFilesWidget } from './ChangedFilesWidget'
 import { TasksWidget } from './TasksWidget'
 import { PlanWidget } from './PlanWidget'
 import { PrCommentsWidget } from './PrCommentsWidget'
+import { PrChecksWidget } from './PrChecksWidget'
 import { TimelineWidget } from './TimelineWidget'
 import type { StoredMessage, TaskItem } from '../../../../../shared/ui-message'
 
@@ -105,6 +114,13 @@ export function DetailsPanel({
             </Section>
           )}
         </PrCommentsWidget>
+        <PrChecksWidget cwd={cwd}>
+          {(content, title) => (
+            <Section icon={<CircleCheck size={11} />} title={title}>
+              {content}
+            </Section>
+          )}
+        </PrChecksWidget>
         <Section icon={<ListTodo size={11} />} title="Tasks">
           <TasksWidget tasks={tasks} />
         </Section>

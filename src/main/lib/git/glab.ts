@@ -1,5 +1,6 @@
 /**
- * GitLab CLI (`glab`) integration: MR listing/creation, mirroring gh.ts. The
+ * GitLab CLI (`glab`) integration: MR listing/creation, pipeline job status
+ * and auto-merge, mirroring gh.ts. The
  * binary path is resolved through a shell (see cli-path.ts) and then invoked
  * directly — never via a shell — so user-provided titles/bodies can't inject
  * commands. MRs are mapped onto the shared PrSummary shape (`number` = MR iid).
@@ -7,6 +8,12 @@
 import { execFile } from 'node:child_process'
 import { cliEnv, makeCliResolver } from './cli-path'
 import type { PrSummary } from './gh'
+import {
+  gitlabPipelineCheck,
+  parseGitlabJobs,
+  parseGitlabMr,
+  type PrChecks
+} from '../../../shared/pr-checks'
 
 /** Absolute path to `glab`, or null if not installed. Hits are cached; misses retry. */
 export const glabPath = makeCliResolver('glab')
@@ -97,4 +104,65 @@ export async function createMr(
       resolve({ url: urls?.[urls.length - 1] ?? '' })
     })
   })
+}
+
+/** Run glab and resolve with its outcome and output instead of rejecting. */
+function runGlab(
+  glab: string,
+  args: string[],
+  cwd: string,
+  timeout = 30_000
+): Promise<{ ok: boolean; stdout: string; stderr: string }> {
+  return new Promise((resolve) => {
+    execFile(
+      glab,
+      args,
+      { cwd, timeout, env: cliEnv(), maxBuffer: 32 * 1024 * 1024 },
+      (err, stdout, stderr) => {
+        resolve({ ok: !err, stdout, stderr: stderr.trim() || (err ? err.message : '') })
+      }
+    )
+  })
+}
+
+/**
+ * CI jobs of the head pipeline of the OPEN MR for the branch checked out at
+ * cwd; null when the branch has no open MR. Jobs come from the pipeline-jobs
+ * REST endpoint via `glab api`; when that fails the pipeline itself is shown
+ * as a single row.
+ */
+export async function mrChecksForBranch(cwd: string): Promise<PrChecks | null> {
+  const glab = await glabPath()
+  if (!glab) throw new Error(NOT_INSTALLED)
+  const view = await runGlab(glab, ['mr', 'view', '--output', 'json'], cwd)
+  if (!view.ok) {
+    if (/no open merge request/i.test(view.stderr)) return null
+    throw new Error(view.stderr)
+  }
+  const mr = parseGitlabMr(view.stdout)
+  if (!mr) throw new Error('Unexpected glab mr view output')
+  if (!mr.open) return null
+  let checks: PrChecks['checks'] = []
+  if (mr.pipeline) {
+    // `:id` is glab's placeholder for the current project; fork MRs name theirs.
+    const project = mr.pipeline.projectId ?? ':id'
+    const jobs = await runGlab(
+      glab,
+      ['api', `projects/${project}/pipelines/${mr.pipeline.id}/jobs?per_page=100`],
+      cwd
+    )
+    checks = (jobs.ok ? parseGitlabJobs(jobs.stdout) : null) ?? [gitlabPipelineCheck(mr.pipeline)]
+  }
+  return { number: mr.number, title: mr.title, url: mr.url, autoMerge: mr.autoMerge, checks }
+}
+
+/**
+ * Set the branch's MR to merge automatically once its pipeline succeeds
+ * (project default merge method). Rejects with glab's own message.
+ */
+export async function enableMrAutoMerge(cwd: string): Promise<void> {
+  const glab = await glabPath()
+  if (!glab) throw new Error(NOT_INSTALLED)
+  const res = await runGlab(glab, ['mr', 'merge', '--auto-merge', '--yes'], cwd, 60_000)
+  if (!res.ok) throw new Error(res.stderr || 'glab mr merge failed')
 }
