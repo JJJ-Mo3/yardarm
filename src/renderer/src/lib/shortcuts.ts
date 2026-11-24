@@ -142,10 +142,13 @@ export function useAppShortcuts(): void {
           setSplitPanes((panes) => panes.slice(0, -1))
           break
         case 'inbox':
+          // Like the palette: a focused editor that claimed the key keeps it.
+          if (e.defaultPrevented) break
           e.preventDefault()
           setInboxOpen(true)
           break
         case 'searchChats':
+          if (e.defaultPrevented) break
           e.preventDefault()
           setChatSearch({ open: true, query: '' })
           break
