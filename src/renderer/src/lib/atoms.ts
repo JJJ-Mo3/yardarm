@@ -82,8 +82,11 @@ export type FileOpenRequest = { path: string; line?: number }
 export const fileOpenRequestAtom = atom<FileOpenRequest | null>(null)
 /** One-shot text inserted into the primary chat composer (e.g. "@path " from the Files tree). */
 export const composerInsertAtom = atom<string | null>(null)
-/** One-shot attachment appended to the primary composer (e.g. a quoted transcript selection). */
-export const composerAttachAtom = atom<ComposerAttachment | null>(null)
+/**
+ * One-shot attachment(s) appended to the primary composer (e.g. a quoted transcript
+ * selection, or a Preview element pick's description + screenshot as an array).
+ */
+export const composerAttachAtom = atom<ComposerAttachment | ComposerAttachment[] | null>(null)
 /** Pane the Changes tab should switch to on next render (deep links; cleared on use). */
 export const changesPaneRequestAtom = atom<'changes' | 'history' | 'checkpoints' | null>(null)
 /** Global Cmd+K command palette. */

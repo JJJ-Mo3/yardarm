@@ -4,25 +4,43 @@
  * everything else opens in the system browser). URLs are auto-detected from
  * the chat/project terminals' scrollback via terminal.detectUrls and offered
  * as one-click chips; the URL bar accepts loopback http(s) URLs only.
+ *
+ * "Screenshot to chat" and "Pick element" hand the previewed page to the chat
+ * composer as attachments (never auto-sent). Both run in the main process
+ * (trpc `preview.*`) against the guest's webContents id — the webview itself
+ * gets no preload and no extra privileges.
  */
 import React, { useEffect, useRef, useState } from 'react'
+import { useAtomValue, useSetAtom } from 'jotai'
 import {
   ArrowLeft,
   ArrowRight,
+  Camera,
   ExternalLink,
   Globe,
+  MousePointerClick,
   Play,
   RotateCw,
   Square,
   Wrench
 } from 'lucide-react'
 import { isLocalhostHttpUrl, normalizeLocalhostUrl } from '@shared/localhost-url'
+import { composerAttachAtom, mainTabAtom, selectedChatIdAtom } from '../../lib/atoms'
+import { encodeBase64Utf8, type ComposerAttachment } from '../agents/attachments'
 import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Tip } from '../../components/ui/tooltip'
 import type { WebviewElement } from './webview'
+
+/** Why a pick ended without a selection, when that is worth telling the user. */
+const PICK_CANCEL_NOTICE: Record<string, string | undefined> = {
+  navigated: 'Element pick cancelled: the page navigated.',
+  gone: 'Element pick cancelled: the previewed page went away.',
+  timeout: 'Element pick timed out. Nothing was attached.',
+  invalid: 'The page returned an unexpected result. Nothing was attached.'
+}
 
 export function PreviewView({
   terminalIds,
@@ -61,6 +79,22 @@ export function PreviewView({
   // effect below.
   const openExternal = trpc.system.openExternal.useMutation()
   const devTools = trpc.system.previewDevTools.useMutation()
+
+  // Screenshot / element pick → composer attachments. They need a chat to
+  // land in (the composer only exists on a chat), and switch to the Chat tab
+  // afterwards like the other "send to composer" actions.
+  const chatId = useAtomValue(selectedChatIdAtom)
+  const setComposerAttach = useSetAtom(composerAttachAtom)
+  const setMainTab = useSetAtom(mainTabAtom)
+  const capture = trpc.preview.capture.useMutation()
+  const pick = trpc.preview.pickElement.useMutation()
+  const cancelPick = trpc.preview.cancelPick.useMutation()
+  const [picking, setPicking] = useState(false)
+  const [pickNotice, setPickNotice] = useState<string | null>(null)
+  /** Guest the running pick was started on (cancel must target the same one). */
+  const pickPageIdRef = useRef<number | null>(null)
+  /** Bumped on every start and on context change, so stale results are dropped. */
+  const attachRunRef = useRef(0)
 
   const detected = trpc.terminal.detectUrls.useQuery(
     { ids: terminalIds },
@@ -126,8 +160,43 @@ export function PreviewView({
     setLoadFailed(null)
     openExternal.reset()
     devTools.reset()
+    // An in-flight capture or pick belongs to the previous chat: drop its
+    // result (run counter) and stop the picker in the page.
+    attachRunRef.current++
+    stopPicking()
+    pickPageIdRef.current = null
+    setPicking(false)
+    setPickNotice(null)
+    capture.reset()
+    pick.reset()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [devTerminalId])
+
+  // Unmount: don't leave a picker running in a page nobody can see.
+  useEffect(() => {
+    // The counter is a plain value, not a DOM ref: bumping it at cleanup time
+    // is the point (a result arriving after unmount must not be attached).
+    const runs = attachRunRef
+    return () => {
+      runs.current++
+      stopPicking()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Esc cancels a pick. The picker handles Esc itself while the page has
+  // focus; this covers focus being anywhere in the app window instead.
+  useEffect(() => {
+    if (!picking) return
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      stopPicking()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [picking])
 
   const navigate = (raw: string): void => {
     const candidate = /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `http://${raw}`
@@ -251,6 +320,94 @@ export function PreviewView({
     } catch {}
   }
 
+  /** The guest's webContents id, or null while the webview isn't attached. */
+  const guestId = (): number | null => {
+    try {
+      return webviewRef.current?.getWebContentsId() ?? null
+    } catch {
+      return null
+    }
+  }
+
+  // Function declaration (hoisted): the reset/unmount/Esc effects above call it.
+  function stopPicking(): void {
+    const id = pickPageIdRef.current
+    if (id !== null) cancelPick.mutate({ pageWebContentsId: id })
+  }
+
+  const screenshotToChat = async (): Promise<void> => {
+    const id = guestId()
+    if (id === null) return
+    const run = ++attachRunRef.current
+    setPickNotice(null)
+    pick.reset()
+    try {
+      const image = await capture.mutateAsync({ pageWebContentsId: id })
+      if (run !== attachRunRef.current) return
+      setComposerAttach({
+        data: image.data,
+        mediaType: image.mediaType,
+        filename: `preview-screenshot.${image.mediaType === 'image/png' ? 'png' : 'jpg'}`
+      })
+      setMainTab('chat')
+    } catch {
+      // Shown through capture.error below.
+    }
+  }
+
+  const startPicking = async (): Promise<void> => {
+    const id = guestId()
+    if (id === null) return
+    const run = ++attachRunRef.current
+    pickPageIdRef.current = id
+    setPicking(true)
+    setPickNotice(null)
+    capture.reset()
+    // Focus the page so Esc reaches the picker without an extra click.
+    call((wv) => wv.focus())
+    try {
+      const result = await pick.mutateAsync({ pageWebContentsId: id })
+      if (run !== attachRunRef.current) return
+      if (result.status === 'cancelled') {
+        setPickNotice(PICK_CANCEL_NOTICE[result.reason] ?? null)
+        return
+      }
+      const attachments: ComposerAttachment[] = [
+        {
+          data: encodeBase64Utf8(result.text),
+          mediaType: 'text/plain',
+          filename: 'preview-element.txt'
+        }
+      ]
+      if (result.image) {
+        attachments.push({
+          data: result.image.data,
+          mediaType: result.image.mediaType,
+          filename: `preview-element.${result.image.mediaType === 'image/png' ? 'png' : 'jpg'}`
+        })
+      } else {
+        setPickNotice(
+          `Attached ${result.label} without a screenshot: the element could not be captured.`
+        )
+      }
+      setComposerAttach(attachments)
+      setMainTab('chat')
+    } catch {
+      // Shown through pick.error below.
+    } finally {
+      if (run === attachRunRef.current) {
+        pickPageIdRef.current = null
+        setPicking(false)
+      }
+    }
+  }
+
+  const attachBlocked = !mounted
+    ? ' (load a page first)'
+    : !chatId
+      ? ' (open a chat first: attachments go to its composer)'
+      : ''
+
   return (
     <div className="flex h-full flex-col">
       {/* Toolbar */}
@@ -314,6 +471,46 @@ export function PreviewView({
         </form>
         <Tip
           content={
+            picking
+              ? 'Finish or cancel the element pick first'
+              : `Capture the visible page and attach the image to the chat composer${attachBlocked}`
+          }
+        >
+          <span className="inline-flex">
+            <Button
+              aria-label="Screenshot to chat"
+              size="icon"
+              variant="ghost"
+              disabled={!mounted || !chatId || picking || capture.isPending}
+              onClick={() => void screenshotToChat()}
+            >
+              <Camera size={13} />
+            </Button>
+          </span>
+        </Tip>
+        <Tip
+          content={
+            picking
+              ? 'Cancel picking (Esc)'
+              : `Pick element: click an element in the page to attach its selector, styles, HTML and a cropped screenshot to the chat composer${attachBlocked}`
+          }
+        >
+          <span className="inline-flex">
+            <Button
+              aria-label={picking ? 'Cancel element pick' : 'Pick element'}
+              aria-pressed={picking}
+              size="icon"
+              variant="ghost"
+              disabled={!mounted || !chatId || capture.isPending}
+              className={cn(picking && 'bg-accent text-foreground')}
+              onClick={() => (picking ? stopPicking() : void startPicking())}
+            >
+              <MousePointerClick size={13} />
+            </Button>
+          </span>
+        </Tip>
+        <Tip
+          content={
             devToolsOpen
               ? 'Close the DevTools pane'
               : mounted
@@ -364,6 +561,35 @@ export function PreviewView({
           {devTools.error
             ? `DevTools failed: ${devTools.error.message}`
             : `Open in browser failed: ${openExternal.error?.message}`}
+        </div>
+      )}
+
+      {/* Element pick in progress: say what to do and offer a way out. */}
+      {picking && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-border bg-accent/40 px-3 py-1.5 text-xs">
+          <MousePointerClick size={12} className="shrink-0" />
+          <span className="min-w-0 flex-1">
+            Pick element: hover to highlight, click to attach it to the chat. Esc cancels.
+          </span>
+          <Tip content="Stop picking without attaching anything">
+            <Button size="sm" variant="outline" className="h-6 text-xs" onClick={stopPicking}>
+              Cancel
+            </Button>
+          </Tip>
+        </div>
+      )}
+      {(capture.error || pick.error || cancelPick.error) && (
+        <div className="shrink-0 border-b border-border bg-destructive/10 px-3 py-1.5 text-xs text-destructive selectable">
+          {capture.error
+            ? `Screenshot failed: ${capture.error.message}`
+            : pick.error
+              ? `Pick element failed: ${pick.error.message}`
+              : `Cancelling the pick failed: ${cancelPick.error?.message}`}
+        </div>
+      )}
+      {pickNotice && !picking && (
+        <div className="shrink-0 border-b border-border px-3 py-1.5 text-xs text-muted-foreground selectable">
+          {pickNotice}
         </div>
       )}
 

@@ -97,7 +97,7 @@ export function PromptInput({
   insert?: string | null
   onInsertConsumed?: () => void
   /** One-shot attachment appended as a chip (e.g. a quoted transcript selection). */
-  attach?: ComposerAttachment | null
+  attach?: ComposerAttachment | ComposerAttachment[] | null
   onAttachConsumed?: () => void
   /** Current goal status ('active' | 'paused' | 'done') for the Goal button chip; null = no goal. */
   goalStatus?: string | null
@@ -200,22 +200,24 @@ export function PromptInput({
   // a deduped filename and hand focus to the textarea.
   useEffect(() => {
     if (attach) {
+      const incoming = Array.isArray(attach) ? attach : [attach]
       setAttachments((prev) => {
-        const name = attach.filename ?? 'quoted-text.txt'
-        const dot = name.lastIndexOf('.')
-        const base = dot > 0 ? name.slice(0, dot) : name
-        const ext = dot > 0 ? name.slice(dot + 1) : 'txt'
-        return [
-          ...prev,
-          {
-            ...attach,
+        const next = [...prev]
+        for (const item of incoming) {
+          const name = item.filename ?? 'quoted-text.txt'
+          const dot = name.lastIndexOf('.')
+          const base = dot > 0 ? name.slice(0, dot) : name
+          const ext = dot > 0 ? name.slice(dot + 1) : 'txt'
+          next.push({
+            ...item,
             filename: dedupeFilename(
-              prev.map((a) => a.filename),
+              next.map((a) => a.filename),
               base,
               ext
             )
-          }
-        ]
+          })
+        }
+        return next
       })
       requestAnimationFrame(() => textareaRef.current?.focus())
       onAttachConsumed?.()
