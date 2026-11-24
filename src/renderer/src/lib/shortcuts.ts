@@ -15,6 +15,7 @@ import { trpc } from './trpc'
 import {
   chatSearchAtom,
   commandPaletteOpenAtom,
+  inboxOpenAtom,
   mainTabAtom,
   MAX_SPLIT_PANES,
   newChatOpenAtom,
@@ -74,6 +75,7 @@ export function useAppShortcuts(): void {
   const setQuickOpen = useSetAtom(quickOpenAtom)
   const setSplitPanes = useSetAtom(splitPanesAtom)
   const setChatSearch = useSetAtom(chatSearchAtom)
+  const setInboxOpen = useSetAtom(inboxOpenAtom)
   const overrides = useAtomValue(shortcutOverridesAtom)
 
   // Effective combo → action map ('find' is dispatched by its owning views).
@@ -139,6 +141,10 @@ export function useAppShortcuts(): void {
           e.preventDefault()
           setSplitPanes((panes) => panes.slice(0, -1))
           break
+        case 'inbox':
+          e.preventDefault()
+          setInboxOpen(true)
+          break
         case 'searchChats':
           e.preventDefault()
           setChatSearch({ open: true, query: '' })
@@ -156,6 +162,7 @@ export function useAppShortcuts(): void {
     setPaletteOpen,
     setQuickOpen,
     setSplitPanes,
-    setChatSearch
+    setChatSearch,
+    setInboxOpen
   ])
 }

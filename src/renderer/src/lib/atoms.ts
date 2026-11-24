@@ -97,6 +97,8 @@ export const composerAttachAtom = atom<ComposerAttachment | ComposerAttachment[]
 export const changesPaneRequestAtom = atom<'changes' | 'history' | 'checkpoints' | null>(null)
 /** Global Cmd+K command palette. */
 export const commandPaletteOpenAtom = atom(false)
+/** Inbox dialog: chats across all projects that need attention or are running. */
+export const inboxOpenAtom = atom(false)
 /** Cross-chat search dialog; `query` seeds the input when opened by `/search <text>`. */
 export const chatSearchAtom = atom<{ open: boolean; query: string }>({ open: false, query: '' })
 /**
@@ -124,6 +126,17 @@ export const activeTerminalIdAtom = atom<string | null>(null)
 export const subchatStatusesAtom = atom<Map<string, SubchatStatusInfo>>(new Map())
 /** Chats whose last run finished while the chat wasn't selected (sidebar blue dot). */
 export const unseenChatsAtom = atom<Set<string>>(new Set<string>())
+/**
+ * Chats waiting on the user right now: pending approvals/questions (visible
+ * chats only) plus finished-but-not-viewed ones — the sidebar Inbox badge.
+ */
+export const inboxAttentionCountAtom = atom((get) => {
+  const chats = new Set<string>(get(unseenChatsAtom))
+  for (const s of get(subchatStatusesAtom).values()) {
+    if (!s.hidden && s.pendingCount > 0) chats.add(s.chatId)
+  }
+  return chats.size
+})
 /** Per-chat aggregate across its subchats: any running / any awaiting user input. */
 export const chatStatusesAtom = atom((get) => {
   const agg = new Map<string, { running: boolean; awaiting: boolean }>()

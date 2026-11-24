@@ -12,6 +12,7 @@ import {
   CircleHelp,
   Folder,
   FolderGit2,
+  Inbox,
   Loader2,
   MessageCircleQuestion,
   MessageSquarePlus,
@@ -30,6 +31,8 @@ import {
   addProjectOpenAtom,
   chatStatusesAtom,
   deepLinkPrefillAtom,
+  inboxAttentionCountAtom,
+  inboxOpenAtom,
   mainTabAtom,
   newChatOpenAtom,
   projectSettingsOpenAtom,
@@ -130,6 +133,8 @@ export function Sidebar(): React.JSX.Element {
   const [newChatOpen, setNewChatOpen] = useAtom(newChatOpenAtom)
   const setAddProjectOpen = useSetAtom(addProjectOpenAtom)
   const setWikiAskOpen = useSetAtom(wikiAskOpenAtom)
+  const setInboxOpen = useSetAtom(inboxOpenAtom)
+  const inboxCount = useAtomValue(inboxAttentionCountAtom)
   const [newChatTitle, setNewChatTitle] = useState('')
   // Prompt from a yardarm://new link: previewed in the new-chat dialog and
   // saved as the new chat's unsent composer draft on Create — never sent.
@@ -741,6 +746,29 @@ export function Sidebar(): React.JSX.Element {
           >
             <Settings size={13} />
             Settings
+          </Button>
+        </Tip>
+        <Tip
+          content={
+            inboxCount > 0
+              ? `Inbox — ${inboxCount} chat${inboxCount === 1 ? '' : 's'} waiting on you across all projects`
+              : 'Inbox — chats across all projects that need you or are still running'
+          }
+          side="top"
+        >
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative"
+            aria-label={inboxCount > 0 ? `Inbox (${inboxCount} waiting)` : 'Inbox'}
+            onClick={() => setInboxOpen(true)}
+          >
+            <Inbox size={13} />
+            {inboxCount > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 min-w-3.5 rounded-full bg-amber-500 px-0.5 text-center text-[9px] font-medium leading-3.5 text-black">
+                {inboxCount > 9 ? '9+' : inboxCount}
+              </span>
+            )}
           </Button>
         </Tip>
         <Tip

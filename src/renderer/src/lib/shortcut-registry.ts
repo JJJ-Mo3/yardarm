@@ -21,6 +21,7 @@ export type ShortcutActionId =
   | 'splitClose'
   | 'find'
   | 'searchChats'
+  | 'inbox'
 
 export type ShortcutOverrides = Partial<Record<ShortcutActionId, string>>
 
@@ -39,6 +40,7 @@ export const SHORTCUT_DEFS: ShortcutDef[] = [
   { id: 'quickOpen', label: 'Quick file open', group: 'General', defaultCombo: 'mod+o' },
   { id: 'threadSwitcher', label: 'Thread switcher', group: 'General', defaultCombo: 'mod+p' },
   { id: 'settings', label: 'Settings', group: 'General', defaultCombo: 'mod+,' },
+  { id: 'inbox', label: 'Inbox', group: 'General', defaultCombo: 'mod+i' },
   { id: 'toggleTerminal', label: 'Toggle terminal tab', group: 'Tabs', defaultCombo: 'mod+j' },
   { id: 'splitAdd', label: 'Add split chat pane', group: 'Split view', defaultCombo: 'mod+\\' },
   {

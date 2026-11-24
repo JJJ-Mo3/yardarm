@@ -16,6 +16,13 @@ import { captureCheckpoint } from '../git/ops'
 import { EventTranslator } from './event-translator'
 import { addIdeEditPath, parseIdeEditPaths, formatIdeEditNote } from './ide-edit-notes'
 import { indexMessage } from '../db/message-search'
+import {
+  summarizeSuspension,
+  summarizeToolArgs,
+  type InboxLiveEntry,
+  type InboxSnapshot,
+  type InboxUnseenEntry
+} from '../../../shared/inbox'
 import { clampMessageForStorage } from './message-clamp'
 import { isPrefillError } from './prefill-error'
 import { isStallError } from '../../../shared/stall-error'
@@ -235,6 +242,21 @@ export class AgentSessionManager {
       const info = this.chatInfoFor(subchatId)
       if (info) notifyAgentEvent(notifyBody, info.chatId, subchatId)
     }
+    // Inbox ages: when each run started/finished and each gate first appeared.
+    const now = Date.now()
+    if (event.type === 'run-started') {
+      this.runStartedAt.set(subchatId, now)
+    } else if (event.type === 'run-finished') {
+      this.runFinishedAt.set(subchatId, now)
+    } else if (event.type === 'approval-request') {
+      const key = `${subchatId}:${event.approval.toolCallId}`
+      if (!this.gateSince.has(key)) this.gateSince.set(key, now)
+    } else if (event.type === 'suspension-request') {
+      const key = `${subchatId}:${event.suspension.toolCallId}`
+      if (!this.gateSince.has(key)) this.gateSince.set(key, now)
+    } else if (event.type === 'approval-resolved' || event.type === 'suspension-resolved') {
+      this.gateSince.delete(`${subchatId}:${event.toolCallId}`)
+    }
     switch (event.type) {
       case 'run-started':
       case 'run-finished':
@@ -324,6 +346,94 @@ export class AgentSessionManager {
       })
     }
     return out
+  }
+
+  /** First-seen time per pending gate (`subchatId:toolCallId`), for inbox ages. */
+  private gateSince = new Map<string, number>()
+  /** Start of the current/last run and end of the last run, per subchat. */
+  private runStartedAt = new Map<string, number>()
+  private runFinishedAt = new Map<string, number>()
+
+  /**
+   * Inbox data: what the live agent hosts actually know right now — running
+   * state plus pending approvals and questions — joined with chat and project
+   * titles. Chats without a live host are never reported as anything (no
+   * state is invented for them); the renderer's own "finished — not viewed"
+   * flags are passed in only to resolve their titles and finish times.
+   * Hidden app-managed chats are skipped.
+   */
+  inboxSnapshot(unseenChatIds: string[]): InboxSnapshot {
+    const db = getDb()
+    const titles = (
+      chatId: string
+    ): { chatTitle: string; projectId: string; projectName: string; updatedAt: number } | null => {
+      const row = db
+        .select({
+          chatTitle: schema.chats.title,
+          hidden: schema.chats.hidden,
+          updatedAt: schema.chats.updatedAt,
+          projectId: schema.projects.id,
+          projectName: schema.projects.name
+        })
+        .from(schema.chats)
+        .innerJoin(schema.projects, eq(schema.projects.id, schema.chats.projectId))
+        .where(eq(schema.chats.id, chatId))
+        .get()
+      if (!row || row.hidden) return null
+      return row
+    }
+    const now = Date.now()
+    const live: InboxLiveEntry[] = []
+    for (const [subchatId, host] of this.hosts) {
+      if (subchatId === '__utility__' || host.killed) continue
+      const t = host.translator
+      if (!t.running && t.pendingApprovals.size === 0 && t.pendingSuspensions.size === 0) continue
+      const chat = this.chatInfoFor(subchatId)
+      if (!chat || chat.hidden) continue
+      const info = titles(chat.chatId)
+      if (!info) continue
+      live.push({
+        subchatId,
+        chatId: chat.chatId,
+        chatTitle: info.chatTitle,
+        projectId: info.projectId,
+        projectName: info.projectName,
+        running: t.running,
+        runningSince: t.running ? (this.runStartedAt.get(subchatId) ?? now) : null,
+        approvals: [...t.pendingApprovals.values()].map((a) => ({
+          toolCallId: a.toolCallId,
+          toolName: a.toolName,
+          // Compact summary only — full arguments can be large.
+          args: summarizeToolArgs(a.args, 300),
+          since: this.gateSince.get(`${subchatId}:${a.toolCallId}`) ?? now
+        })),
+        questions: [...t.pendingSuspensions.values()].map((s) => ({
+          toolCallId: s.toolCallId,
+          toolName: s.toolName,
+          summary: summarizeSuspension(s.toolName, s.suspendPayload ?? s.args),
+          since: this.gateSince.get(`${subchatId}:${s.toolCallId}`) ?? now
+        }))
+      })
+    }
+    const unseen: InboxUnseenEntry[] = []
+    for (const chatId of new Set(unseenChatIds)) {
+      const info = titles(chatId)
+      if (!info) continue
+      let finishedAt = 0
+      for (const [subchatId, at] of this.runFinishedAt) {
+        if (this.chatInfoCache.get(subchatId)?.chatId === chatId) {
+          finishedAt = Math.max(finishedAt, at)
+        }
+      }
+      unseen.push({
+        chatId,
+        chatTitle: info.chatTitle,
+        projectId: info.projectId,
+        projectName: info.projectName,
+        finishedAt: finishedAt || info.updatedAt
+      })
+    }
+    return { live, unseen }
   }
 
   /**

@@ -30,6 +30,7 @@ import {
   debugEventsAtom,
   detailsOpenAtom,
   helpOpenAtom,
+  inboxOpenAtom,
   mainTabAtom,
   messageJumpAtom,
   onboardingForceOpenAtom,
@@ -380,6 +381,7 @@ export function ChatView({
     setMessageJump(null)
   }, [primary, messageJump, subchatId, setMessageJump])
   const setChatSearch = useSetAtom(chatSearchAtom)
+  const setInboxOpen = useSetAtom(inboxOpenAtom)
 
   const meta = state.meta
   const busy = send.isPending
@@ -594,6 +596,9 @@ export function ChatView({
         setMainTab('wiki')
         return
       }
+      case 'inbox':
+        setInboxOpen(true)
+        return
       case 'search':
         setChatSearch({ open: true, query: args.trim() })
         return

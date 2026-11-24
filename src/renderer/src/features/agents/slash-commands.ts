@@ -105,6 +105,11 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
     kind: 'builtin'
   },
   {
+    name: 'inbox',
+    description: 'Chats across all projects that need you or are still running',
+    kind: 'builtin'
+  },
+  {
     name: 'search',
     description: 'Search message text across all chats and projects',
     args: '[query]',

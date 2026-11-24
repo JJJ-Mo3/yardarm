@@ -16,6 +16,7 @@ import {
   FileSearch,
   GitCompare,
   Globe,
+  Inbox,
   MessageSquare,
   MessagesSquare,
   Search,
@@ -28,6 +29,7 @@ import { trpc } from '../../lib/trpc'
 import {
   chatSearchAtom,
   commandPaletteOpenAtom,
+  inboxOpenAtom,
   mainTabAtom,
   MAX_SPLIT_PANES,
   quickOpenAtom,
@@ -90,6 +92,7 @@ export function CommandPalette(): React.JSX.Element {
   const setSettingsOpen = useSetAtom(settingsOpenAtom)
   const setSettingsTab = useSetAtom(settingsTabAtom)
   const setChatSearch = useSetAtom(chatSearchAtom)
+  const setInboxOpen = useSetAtom(inboxOpenAtom)
   const selectChat = useSelectChat()
   const shortcutOverrides = useAtomValue(shortcutOverridesAtom)
   const commands = useSlashCommands(open ? subchatId : null)
@@ -121,6 +124,15 @@ export function CommandPalette(): React.JSX.Element {
       }
     }
     // App-wide actions that work without an open chat.
+    list.push({
+      id: 'inbox',
+      group: 'Across chats',
+      label: 'Open inbox',
+      icon: <Inbox size={13} />,
+      detail: comboLabel(resolveCombo('inbox', shortcutOverrides), isMac),
+      keywords: 'approvals questions running finished attention',
+      onSelect: () => setInboxOpen(true)
+    })
     list.push({
       id: 'search-chats',
       group: 'Across chats',
@@ -209,6 +221,7 @@ export function CommandPalette(): React.JSX.Element {
     setSettingsTab,
     setSettingsOpen,
     setChatSearch,
+    setInboxOpen,
     selectChat,
     shortcutOverrides
   ])

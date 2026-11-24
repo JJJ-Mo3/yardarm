@@ -66,6 +66,16 @@ export const agentRouter = router({
     })
   }),
 
+  /**
+   * Inbox data across all projects: running state and pending approvals /
+   * questions of every live agent host, plus titles for the chats the
+   * renderer flagged as finished-but-not-viewed. Nothing is reported for
+   * chats whose host is not running in this session.
+   */
+  inbox: publicProcedure
+    .input(z.object({ unseenChatIds: z.array(z.string()).max(500).default([]) }))
+    .query(({ input }) => agentSessionManager.inboxSnapshot(input.unseenChatIds)),
+
   /** Fired when a desktop notification is clicked; the renderer selects the chat. */
   focusRequests: publicProcedure.subscription(() => {
     return observable<FocusChatRequest>((emit) => {
