@@ -881,6 +881,10 @@ async function main(): Promise<void> {
       // Commit co-author identity for the SDK's (unconditional) commit
       // guidance; unset fields fall back to mastra-platform[bot].
       coAuthor: boot.coAuthor,
+      // Yardarm's plan approval switches to Build mode and runs once; it does
+      // not start a goal (the SDK default since 1.19), so the plan-mode prompt
+      // must not promise one.
+      planApprovalStartsGoal: false,
       inputProcessors: [compression.processor as never],
       extraTools: {
         [RETRIEVAL_TOOL_NAME]: retrievalToolInstance as never,
@@ -1028,7 +1032,13 @@ async function main(): Promise<void> {
       toolNames: p.toolNames,
       skillCount: p.skillPaths?.length ?? 0,
       commandCount: p.commandPaths?.length ?? 0,
-      error: p.error,
+      // A failed reload keeps the previously loaded version running (SDK
+      // 1.19.1+) and records why in reloadError — surface it the same way.
+      error:
+        p.error ??
+        (p.reloadError
+          ? `Reload failed — still running the previously loaded version: ${p.reloadError}`
+          : undefined),
       // Plain JSON data declared by the plugin (MastraCodePluginConfigSchema)
       // — safe to send over the wire as-is.
       configSchema: p.configSchema,
@@ -2483,7 +2493,8 @@ async function main(): Promise<void> {
             await respond(cmd.reqId, async () => {
               authStorage.reload()
               // API keys live under the `apikey:` prefix in auth.json.
-              authStorage.remove(`apikey:${cmd.provider}`)
+              // Also undoes the env-var export, so the key stops authenticating now.
+              authStorage.removeStoredApiKey(cmd.provider)
               bustModelCache()
               return null
             })

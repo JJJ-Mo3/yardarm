@@ -20,8 +20,8 @@ const SUBAGENT_TYPES = ['explore', 'plan', 'general'] as const
 
 /** Mirrors vendored @mastra/code-sdk dist/agents/modes/{build,plan,explore}.js defaultModelId. */
 const BUILTIN_MODE_DEFAULTS: Record<string, string> = {
-  build: 'openai/gpt-5.5',
-  plan: 'openai/gpt-5.5',
+  build: 'openai/gpt-5.6-sol',
+  plan: 'openai/gpt-5.6-sol',
   fast: 'openai/gpt-5.4-mini'
 }
 

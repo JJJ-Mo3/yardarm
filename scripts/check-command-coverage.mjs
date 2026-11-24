@@ -10,7 +10,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// Canonical command list from the mastracode TUI registry (v0.49).
+// Canonical command list from the mastracode TUI registry (v0.50).
 // `/commands` was removed upstream but stays a Yardarm builtin (custom .md
 // command management); `plan`/`build`/`fast`/`skill` are Yardarm conveniences.
 // `/memory`, `/knowledge`, `/context`, `/ctx`, `/prune` were dropped from the

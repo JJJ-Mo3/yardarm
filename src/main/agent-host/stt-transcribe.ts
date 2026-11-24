@@ -1,7 +1,8 @@
 /**
  * Pure helpers for cloud speech-to-text transcription in the agent host.
- * mastracode's own voice/transcribe module is bundled inside its TUI and not
- * importable, so this replicates the CLI's contract: the provider env-var map,
+ * The SDK's own voice/transcribe module loads per-provider voice packages
+ * that the bundled runtime does not stage, so this speaks the providers' HTTP
+ * APIs directly and replicates the CLI's contract: the provider env-var map,
  * env-then-stored-key resolution, and the HTTP shapes of the STT endpoints
  * listed in @mastra/code-sdk/voice/stt-registry.
  */
@@ -14,7 +15,8 @@ export const STT_PROVIDER_ENV_VARS: Record<string, string> = {
   'alibaba-cn': 'DASHSCOPE_API_KEY',
   scaleway: 'SCALEWAY_API_KEY',
   nvidia: 'NVIDIA_API_KEY',
-  nearai: 'NEAR_AI_API_KEY',
+  nearai: 'NEARAI_API_KEY',
+  mistral: 'MISTRAL_API_KEY',
   evroc: 'EVROC_API_KEY',
   deepgram: 'DEEPGRAM_API_KEY'
 }
@@ -53,7 +55,11 @@ export interface SttRequestSpec {
 
 /** Build the HTTP request shape for a registry entry (pure — no fetch, no FormData). */
 export function buildSttRequest(
-  entry: { resolver: 'openai' | 'openai-compatible' | 'deepgram'; model: string; baseURL?: string },
+  entry: {
+    resolver: 'openai' | 'openai-compatible' | 'deepgram' | 'mistral'
+    model: string
+    baseURL?: string
+  },
   mimeType: string,
   apiKey: string
 ): SttRequestSpec {
@@ -69,7 +75,10 @@ export function buildSttRequest(
       bodyKind: 'raw'
     }
   }
-  const base = entry.baseURL ?? 'https://api.openai.com/v1'
+  // Mistral's transcription endpoint is OpenAI-shaped (multipart in, { text } out).
+  const base =
+    entry.baseURL ??
+    (entry.resolver === 'mistral' ? 'https://api.mistral.ai/v1' : 'https://api.openai.com/v1')
   return {
     url: `${base.replace(/\/$/, '')}/audio/transcriptions`,
     // Content-Type is set by FormData (multipart boundary).

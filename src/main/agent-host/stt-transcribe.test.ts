@@ -19,7 +19,8 @@ describe('STT_PROVIDER_ENV_VARS', () => {
       'alibaba-cn': 'DASHSCOPE_API_KEY',
       scaleway: 'SCALEWAY_API_KEY',
       nvidia: 'NVIDIA_API_KEY',
-      nearai: 'NEAR_AI_API_KEY',
+      nearai: 'NEARAI_API_KEY',
+      mistral: 'MISTRAL_API_KEY',
       evroc: 'EVROC_API_KEY',
       deepgram: 'DEEPGRAM_API_KEY'
     })
@@ -153,5 +154,18 @@ describe('httpErrorMessage', () => {
 
   it('omits the colon when the body is empty', () => {
     expect(httpErrorMessage('deepgram', 503, '  ')).toBe('deepgram transcription failed (HTTP 503)')
+  })
+})
+
+describe('buildSttRequest — mistral', () => {
+  it('posts multipart to the Mistral transcription endpoint, never to OpenAI', () => {
+    const spec = buildSttRequest(
+      { resolver: 'mistral', model: 'voxtral-mini-latest' },
+      'audio/webm',
+      'k'
+    )
+    expect(spec.url).toBe('https://api.mistral.ai/v1/audio/transcriptions')
+    expect(spec.headers.Authorization).toBe('Bearer k')
+    expect(spec.bodyKind).toBe('multipart')
   })
 })
