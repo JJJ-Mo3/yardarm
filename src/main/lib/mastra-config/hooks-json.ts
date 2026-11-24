@@ -6,6 +6,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { mastraConfigDir } from './mcp-json'
+import { queuedForFile, writeJsonAtomic } from './atomic-json'
 
 /** Mirror of the SDK's HookEventName union (hooks/types). */
 export const HOOK_EVENTS = [
@@ -83,8 +84,5 @@ export function validateHooksJson(config: unknown): asserts config is HooksJson 
 export async function writeHooksJson(config: unknown, projectPath?: string): Promise<void> {
   validateHooksJson(config)
   const file = hooksJsonPath(projectPath)
-  await fs.mkdir(path.dirname(file), { recursive: true })
-  const tmp = `${file}.tmp-${process.pid}`
-  await fs.writeFile(tmp, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 })
-  await fs.rename(tmp, file)
+  await queuedForFile(file, () => writeJsonAtomic(file, config, 0o600))
 }

@@ -100,7 +100,8 @@ export class PtyManager {
       session.emitter.emit('data', data)
     })
     proc.onExit(({ exitCode }) => {
-      if (session.buffer) {
+      const superseded = this.sessions.has(id) && this.sessions.get(id) !== session
+      if (session.buffer && !superseded) {
         this.finished.set(id, { buffer: session.buffer, code: exitCode })
         while (this.finished.size > MAX_FINISHED) {
           const oldest = this.finished.keys().next().value
@@ -109,7 +110,9 @@ export class PtyManager {
         }
       }
       session.emitter.emit('exit', exitCode)
-      this.sessions.delete(id)
+      // kill() + create() can reuse an id before this fires; only untrack the
+      // session if it is still the one this process belongs to.
+      if (this.sessions.get(id) === session) this.sessions.delete(id)
     })
     this.sessions.set(id, session)
   }

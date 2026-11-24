@@ -289,16 +289,6 @@ export const agentRouter = router({
       return { ok: true }
     }),
 
-  start: publicProcedure.input(z.object({ subchatId: z.string() })).mutation(async ({ input }) => {
-    await agentSessionManager.ensureHost(input.subchatId)
-    return { ok: true }
-  }),
-
-  stop: publicProcedure.input(z.object({ subchatId: z.string() })).mutation(({ input }) => {
-    agentSessionManager.stopHost(input.subchatId)
-    return { ok: true }
-  }),
-
   listModels: publicProcedure
     .input(z.object({ subchatId: z.string().optional() }).optional())
     .query(async ({ input }) => {

@@ -171,6 +171,12 @@ export class AgentSessionManager {
    */
   private awaitingRunStart = new Set<string>()
   /**
+   * Subchats with a direct send in flight (checkpoint capture + host boot can
+   * take seconds). Concurrent sendOrQueue calls must queue behind it instead
+   * of also sending directly — released when the dispatch settles.
+   */
+  private dispatchingDirect = new Set<string>()
+  /**
    * Subchats whose current run errored recoverably (provider prefill
    * rejection, or a stall-watchdog abort) and the reason, so run end can
    * dispatch the matching auto-continue.
@@ -1300,10 +1306,18 @@ export class AgentSessionManager {
     const busy =
       this.isRunning(subchatId) ||
       this.awaitingRunStart.has(subchatId) ||
+      this.dispatchingDirect.has(subchatId) ||
       this.promptQueue.size(subchatId) > 0
     if (!busy) {
-      const checkpointRef = await this.captureSendCheckpoint(subchatId)
-      await this.sendMessage(subchatId, content, checkpointRef, displayText, files, displayKind)
+      // Taken synchronously: a second caller (double submit, remote prompt,
+      // schedule tick) arriving during the awaits below queues instead.
+      this.dispatchingDirect.add(subchatId)
+      try {
+        const checkpointRef = await this.captureSendCheckpoint(subchatId)
+        await this.sendMessage(subchatId, content, checkpointRef, displayText, files, displayKind)
+      } finally {
+        this.dispatchingDirect.delete(subchatId)
+      }
       return
     }
     this.promptQueue.enqueue(subchatId, content, files, displayText, displayKind)
@@ -3058,6 +3072,19 @@ export class AgentSessionManager {
     this.clearIdeNoteTimer(subchatId)
     this.writeBuffer.flush(subchatId)
     this.pruneEmitter(subchatId)
+    // A host still booting is not in `hosts` yet; without waiting, the boot
+    // would finish after this returns and leave a process running for a chat
+    // (and working tree) the caller is about to delete or rewrite.
+    const booting = this.bootingHosts.get(subchatId)
+    if (booting) {
+      await Promise.race([
+        booting.then(
+          () => {},
+          () => {}
+        ),
+        new Promise<void>((resolve) => setTimeout(resolve, 10_000))
+      ])
+    }
     const handle = this.hosts.get(subchatId)
     this.hosts.delete(subchatId)
     if (!handle || handle.killed) return

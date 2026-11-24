@@ -63,6 +63,8 @@ class IntegrationsManager {
   })
 
   private adapters = new Map<IntegrationPlatform, IntegrationAdapter>()
+  /** Tail of each platform's in-flight (re)start chain. */
+  private starting = new Map<IntegrationPlatform, Promise<void>>()
   private statusMap: IntegrationStatusMap = {
     slack: { state: 'disconnected' },
     discord: { state: 'disconnected' }
@@ -161,7 +163,17 @@ class IntegrationsManager {
   }
 
   /** (Re)start one platform from current config + secrets. */
-  async startPlatform(platform: IntegrationPlatform): Promise<void> {
+  startPlatform(platform: IntegrationPlatform): Promise<void> {
+    // One (re)start at a time per platform: two overlapping calls would each
+    // build an adapter and the first would stay connected, never disconnected.
+    const run = (this.starting.get(platform) ?? Promise.resolve())
+      .catch(() => {})
+      .then(() => this.startPlatformNow(platform))
+    this.starting.set(platform, run)
+    return run
+  }
+
+  private async startPlatformNow(platform: IntegrationPlatform): Promise<void> {
     await this.stopPlatform(platform)
     if (this.stopped) return
     if (!readIntegrationsConfig()[platform].enabled) return

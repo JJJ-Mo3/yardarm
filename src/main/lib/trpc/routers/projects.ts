@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { BrowserWindow, dialog } from 'electron'
+import { app, BrowserWindow, dialog } from 'electron'
 import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm'
 import { simpleGit } from 'simple-git'
 import { z } from 'zod'
@@ -18,6 +18,7 @@ import {
   removeWorktree
 } from '../../git/worktree'
 import { isSafeToDeleteDir } from '../../system/safe-delete-dir'
+import { wikiDir } from '../../wiki/wiki-fs'
 import { ptyManager } from '../../terminal/pty-manager'
 import { publicProcedure, router } from '../trpc'
 
@@ -232,6 +233,14 @@ export const projectsRouter = router({
       }
 
       db.delete(schema.projects).where(eq(schema.projects.id, project.id)).run()
+      // Per-project app data outside the repo: the generated wiki and the
+      // (now empty) worktrees folder. Best-effort.
+      const userData = app.getPath('userData')
+      await rm(wikiDir(userData, project.id), { recursive: true, force: true }).catch(() => {})
+      await rm(path.join(userData, 'worktrees', project.id), {
+        recursive: true,
+        force: true
+      }).catch(() => {})
       return { ok: true }
     }),
 

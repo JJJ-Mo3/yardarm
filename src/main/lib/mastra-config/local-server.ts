@@ -42,7 +42,9 @@ export async function ollamaInstallStatus(): Promise<OllamaInstallStatus> {
  */
 export function startOllama(): void {
   if (process.platform === 'darwin' && existsSync(OLLAMA_APP)) {
-    spawn('open', ['-a', 'Ollama'], { stdio: 'ignore' }).unref()
+    const opener = spawn('open', ['-a', 'Ollama'], { stdio: 'ignore' })
+    opener.on('error', () => {})
+    opener.unref()
     return
   }
   const child = spawn('ollama', ['serve'], {

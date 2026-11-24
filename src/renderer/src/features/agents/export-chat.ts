@@ -3,6 +3,7 @@
  * calls become one-line blockquotes, and the result downloads as a .md file.
  */
 
+import { stripAgentMarkers } from '../../../../shared/agent-markers'
 import type { StoredMessage } from '../../../../shared/ui-message'
 
 export function exportChatMarkdown(messages: StoredMessage[], title: string): string {
@@ -11,9 +12,12 @@ export function exportChatMarkdown(messages: StoredMessage[], title: string): st
     lines.push(m.role === 'user' ? '## User' : '## Assistant', '')
     for (const part of m.parts) {
       switch (part.type) {
-        case 'text':
-          if (part.text.trim()) lines.push(part.text.trim(), '')
+        case 'text': {
+          // Assistant marker lines are UI chips in the app, not transcript prose.
+          const text = (m.role === 'assistant' ? stripAgentMarkers(part.text) : part.text).trim()
+          if (text) lines.push(text, '')
           break
+        }
         case 'reasoning':
           if (part.text.trim()) lines.push('> _Thinking_', ...quote(part.text), '')
           break

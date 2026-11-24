@@ -250,8 +250,14 @@ export function initDb(): DB {
 
   const current = sqlite.pragma('user_version', { simple: true }) as number
   for (let v = current; v < MIGRATIONS.length; v++) {
-    sqlite.exec(MIGRATIONS[v])
-    sqlite.pragma(`user_version = ${v + 1}`)
+    // One transaction per step: a multi-statement migration that fails
+    // partway rolls back whole, instead of leaving half its columns behind
+    // and failing with "duplicate column" on every later boot.
+    const conn = sqlite
+    conn.transaction(() => {
+      conn.exec(MIGRATIONS[v])
+      conn.pragma(`user_version = ${v + 1}`)
+    })()
   }
 
   db = drizzle(sqlite, { schema })

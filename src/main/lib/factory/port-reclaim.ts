@@ -147,9 +147,10 @@ export async function reclaimPort(port: number, opts?: ReclaimOptions): Promise<
     const commands = await commandsForPids(pids)
     for (const pid of pids) {
       const command = commands.get(pid) ?? ''
-      if (command && !isReclaimableCommand(command)) {
+      // An unidentifiable process is never killed — only known dev servers.
+      if (!command || !isReclaimableCommand(command)) {
         throw new Error(
-          `Port ${port} is in use by another process (pid ${pid}: ${command}) — stop it or change PORT in .env`
+          `Port ${port} is in use by another process (pid ${pid}${command ? `: ${command}` : ''}) — stop it or change PORT in .env`
         )
       }
       try {

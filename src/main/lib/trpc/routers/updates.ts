@@ -23,6 +23,7 @@ export const updatesRouter = router({
   openRelease: publicProcedure.mutation(async () => {
     const url =
       updateManager.getStatus().releaseUrl ?? 'https://github.com/JJJ-Mo3/yardarm/releases'
+    if (!url.startsWith('https://')) throw new Error('Unexpected release URL')
     await shell.openExternal(url)
     return { ok: true }
   }),

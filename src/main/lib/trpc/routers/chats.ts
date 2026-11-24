@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs'
 import { and, asc, desc, eq, gte, inArray, isNotNull, lt, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { buildAskMarker, buildAskPrompt } from '@shared/ask-prompts'
-import { stripSuggestedKnowledgeLine } from '@shared/knowledge-notes'
+import { stripAgentMarkers } from '@shared/agent-markers'
 import { getDb, maintainDb, schema } from '../../db'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import { createChatWithSubchat, sandboxDefaults, yoloDefault } from '../../agent/chat-factory'
@@ -134,7 +134,7 @@ export const chatsRouter = router({
           .join('\n')
           .trim()
         if (text) {
-          const cleaned = stripSuggestedKnowledgeLine(text).trim()
+          const cleaned = stripAgentMarkers(text).trim()
           lastAssistantSnippet = cleaned.length > 280 ? `${cleaned.slice(0, 280)}…` : cleaned
         }
       } catch {}

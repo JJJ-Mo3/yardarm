@@ -26,16 +26,14 @@ export const settingsRouter = router({
     return row ? parseSetting(row.value) : null
   }),
 
-  getAll: publicProcedure.query(() => {
-    const rows = getDb().select().from(schema.appSettings).all()
-    const out: Record<string, unknown> = {}
-    for (const r of rows) out[r.key] = parseSetting(r.value)
-    return out
-  }),
-
   set: publicProcedure
     .input(z.object({ key: z.string(), value: z.unknown() }))
     .mutation(({ input }) => {
+      // Bot tokens are write-only through the integrations router; a generic
+      // set must never be able to clobber or replace them.
+      if (input.key.startsWith('integrations.secret.')) {
+        throw new Error('This setting cannot be changed here')
+      }
       const db = getDb()
       const value = JSON.stringify(input.value ?? null)
       const existing = db

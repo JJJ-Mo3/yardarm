@@ -7,6 +7,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { app } from 'electron'
 import { simpleGit } from 'simple-git'
+import { writeJsonAtomic } from '../mastra-config/atomic-json'
 import { getLoginPath } from '../system/login-path'
 
 export interface WorktreeInfo {
@@ -147,11 +148,8 @@ export async function writeSetupCommands(projectPath: string, commands: string[]
     } catch {}
     return
   }
-  await fs.mkdir(path.dirname(file), { recursive: true })
   // Atomic replace so a crash mid-write can't leave a truncated config.
-  const tmp = `${file}.tmp-${Date.now()}`
-  await fs.writeFile(tmp, JSON.stringify(config, null, 2) + '\n', 'utf8')
-  await fs.rename(tmp, file)
+  await writeJsonAtomic(file, config)
 }
 
 /**

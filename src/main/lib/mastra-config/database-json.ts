@@ -5,7 +5,9 @@
  */
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { queuedForFile, writeJsonAtomic } from './atomic-json'
 import { mastraConfigDir } from './mcp-json'
+import { readJsonForUpdate } from './settings-json'
 
 export interface DatabaseJson {
   resourceId?: string
@@ -36,11 +38,10 @@ export async function writeResourceId(
   projectPath?: string
 ): Promise<void> {
   const file = databaseJsonPath(projectPath)
-  const { config } = await readDatabaseJson(projectPath)
-  if (resourceId === null) delete config.resourceId
-  else config.resourceId = resourceId
-  await fs.mkdir(path.dirname(file), { recursive: true })
-  const tmp = `${file}.tmp-${process.pid}`
-  await fs.writeFile(tmp, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 })
-  await fs.rename(tmp, file)
+  await queuedForFile(file, async () => {
+    const config = await readJsonForUpdate<DatabaseJson>(file)
+    if (resourceId === null) delete config.resourceId
+    else config.resourceId = resourceId
+    await writeJsonAtomic(file, config, 0o600)
+  })
 }

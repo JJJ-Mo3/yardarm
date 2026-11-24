@@ -4,6 +4,7 @@
  * to each platform's dialect (Slack mrkdwn vs Discord markdown), and building
  * the relayed approval/question messages.
  */
+import { stripAgentMarkers } from '../../../shared/agent-markers'
 import type { IntegrationPlatform } from '../../../shared/integrations'
 import type { StoredMessage } from '../../../shared/ui-message'
 
@@ -12,11 +13,14 @@ export function extractFinalText(messages: StoredMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i]
     if (msg.role !== 'assistant') continue
-    const text = msg.parts
-      .map((p) => (p.type === 'text' && !p.marker ? p.text : ''))
-      .filter(Boolean)
-      .join('\n')
-      .trim()
+    // Marker lines (confidence, suggested note, follow-ups) are UI chips in
+    // the app; remotely they would arrive as raw protocol text.
+    const text = stripAgentMarkers(
+      msg.parts
+        .map((p) => (p.type === 'text' && !p.marker ? p.text : ''))
+        .filter(Boolean)
+        .join('\n')
+    ).trim()
     if (text) return text
   }
   return ''
