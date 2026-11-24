@@ -5,6 +5,7 @@
  */
 import { EventEmitter } from 'node:events'
 import { randomUUID } from 'node:crypto'
+import { existsSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { app, shell, utilityProcess, type UtilityProcess } from 'electron'
@@ -635,7 +636,7 @@ export class AgentSessionManager {
       .get()
     if (!project) throw new Error(`Project not found: ${chat.projectId}`)
 
-    const cwd = chat.worktreePath ?? project.path
+    const cwd = this.chatWorkingDir(chat, project.path)
     const settings = await readSettings()
     // Stored ids may predate catalog-id normalization (gateway-prefixed custom
     // provider ids the SDK can't resolve) — normalize before handing to the host.
@@ -1198,7 +1199,13 @@ export class AgentSessionManager {
       .where(
         or(
           eq(schema.chats.worktreePath, root),
-          and(isNull(schema.chats.worktreePath), eq(schema.projects.path, root))
+          // Side-question helpers have no worktree but don't run at the
+          // project root either — they never receive IDE-edit notes.
+          and(
+            isNull(schema.chats.worktreePath),
+            isNull(schema.chats.sideOfChatId),
+            eq(schema.projects.path, root)
+          )
         )
       )
       .all()
@@ -1378,8 +1385,29 @@ export class AgentSessionManager {
 
   // ---- Prompt queue (send-while-running) ----------------------------------
 
-  /** Working directory for a subchat (worktree > project path), or null. */
-  private subchatCwd(subchatId: string): string | null {
+  /**
+   * Where a chat's agent runs: its own worktree, else the project root. A
+   * side-question helper chat (chats.side_of_chat_id) has no worktree of its
+   * own and runs in the working directory of the chat it answers about.
+   */
+  private chatWorkingDir(
+    chat: { worktreePath: string | null; sideOfChatId: string | null },
+    projectPath: string
+  ): string {
+    if (chat.worktreePath) return chat.worktreePath
+    if (chat.sideOfChatId) {
+      const parent = getDb()
+        .select({ worktreePath: schema.chats.worktreePath })
+        .from(schema.chats)
+        .where(eq(schema.chats.id, chat.sideOfChatId))
+        .get()
+      if (parent?.worktreePath && existsSync(parent.worktreePath)) return parent.worktreePath
+    }
+    return projectPath
+  }
+
+  /** Working directory for a subchat and whether it is a side-question helper. */
+  private subchatDirs(subchatId: string): { cwd: string; sideHelper: boolean } | null {
     const db = getDb()
     const subchat = db
       .select({ chatId: schema.subchats.chatId })
@@ -1388,25 +1416,31 @@ export class AgentSessionManager {
       .get()
     if (!subchat) return null
     const chat = db
-      .select({ worktreePath: schema.chats.worktreePath, projectId: schema.chats.projectId })
+      .select({
+        worktreePath: schema.chats.worktreePath,
+        projectId: schema.chats.projectId,
+        sideOfChatId: schema.chats.sideOfChatId
+      })
       .from(schema.chats)
       .where(eq(schema.chats.id, subchat.chatId))
       .get()
     if (!chat) return null
-    if (chat.worktreePath) return chat.worktreePath
     const project = db
       .select({ path: schema.projects.path })
       .from(schema.projects)
       .where(eq(schema.projects.id, chat.projectId))
       .get()
-    return project?.path ?? null
+    if (!project) return null
+    return { cwd: this.chatWorkingDir(chat, project.path), sideHelper: !!chat.sideOfChatId }
   }
 
   /** Rollback checkpoint captured at actual send time (not enqueue time). */
   private async captureSendCheckpoint(subchatId: string): Promise<string | undefined> {
-    const cwd = this.subchatCwd(subchatId)
-    if (!cwd) return undefined
-    return (await captureCheckpoint(cwd)) ?? undefined
+    const dirs = this.subchatDirs(subchatId)
+    // Side-question helpers are read-only and share the main chat's working
+    // directory — they never snapshot it.
+    if (!dirs || dirs.sideHelper) return undefined
+    return (await captureCheckpoint(dirs.cwd)) ?? undefined
   }
 
   private emitQueuedPrompts(subchatId: string): void {

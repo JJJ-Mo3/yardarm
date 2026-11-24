@@ -21,6 +21,7 @@ import { projectsRouter } from './projects'
 import { schedulesRouter } from './schedules'
 import { searchRouter } from './search'
 import { settingsRouter } from './settings'
+import { sideQuestionRouter } from './side-question'
 import { systemRouter } from './system'
 import { terminalRouter } from './terminal'
 import { updatesRouter } from './updates'
@@ -47,6 +48,7 @@ export const appRouter = router({
   terminal: terminalRouter,
   files: filesRouter,
   settings: settingsRouter,
+  sideQuestion: sideQuestionRouter,
   mastraSettings: mastraSettingsRouter,
   mcp: mcpRouter,
   preview: previewRouter,

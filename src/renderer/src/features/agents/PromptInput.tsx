@@ -3,7 +3,18 @@
  * macros, attachments, voice input, the Goal button, and send/stop.
  */
 import React, { useEffect, useRef, useState } from 'react'
-import { ArrowUp, FileText, Loader2, Mic, Paperclip, Square, Target, X, Zap } from 'lucide-react'
+import {
+  ArrowUp,
+  FileText,
+  Loader2,
+  MessageCircleQuestion,
+  Mic,
+  Paperclip,
+  Square,
+  Target,
+  X,
+  Zap
+} from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { Tip } from '../../components/ui/tooltip'
 import { trpc } from '../../lib/trpc'
@@ -78,7 +89,9 @@ export function PromptInput({
   onAttachConsumed,
   goalStatus,
   goalOpen,
-  onToggleGoal
+  onToggleGoal,
+  sideOpen,
+  onToggleSide
 }: {
   disabled: boolean
   running: boolean
@@ -114,6 +127,10 @@ export function PromptInput({
   goalOpen?: boolean
   /** Toggles the inline goal panel; the Goal button renders only when provided. */
   onToggleGoal?: () => void
+  /** Whether the side-question panel (/btw) is open. */
+  sideOpen?: boolean
+  /** Toggles the side-question panel; the button renders only when provided. */
+  onToggleSide?: () => void
 }): React.JSX.Element {
   const [value, setValue] = useState('')
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([])
@@ -699,6 +716,23 @@ export function PromptInput({
               >
                 <Target size={11} />
                 {goalStatus ? `goal: ${goalStatus}` : 'goal'}
+              </button>
+            </Tip>
+          )}
+          {onToggleSide && (
+            <Tip content="Side question — ask something quick about this chat in a side panel, without adding to its thread or interrupting the agent (/btw)">
+              <button
+                onClick={onToggleSide}
+                aria-pressed={sideOpen === true}
+                className={cn(
+                  'flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-[11px] cursor-pointer',
+                  sideOpen
+                    ? 'border-border bg-accent text-foreground'
+                    : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
+                )}
+              >
+                <MessageCircleQuestion size={11} />
+                btw
               </button>
             </Tip>
           )}

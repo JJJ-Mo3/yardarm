@@ -433,8 +433,16 @@ export const chatsRouter = router({
       .from(schema.subchats)
       .where(eq(schema.subchats.chatId, chat.id))
       .all()
+    // Side-question helper chats (/btw) run in this chat's working directory
+    // and are cascade-deleted with it — stop their agents first too.
+    const helperSubchats = db
+      .select({ id: schema.subchats.id })
+      .from(schema.subchats)
+      .innerJoin(schema.chats, eq(schema.chats.id, schema.subchats.chatId))
+      .where(eq(schema.chats.sideOfChatId, chat.id))
+      .all()
     await Promise.all(
-      subchats.map(async (sc) => {
+      [...subchats, ...helperSubchats].map(async (sc) => {
         await agentSessionManager.stopHostAndWait(sc.id)
         agentSessionManager.clearIdeEdits(sc.id)
       })

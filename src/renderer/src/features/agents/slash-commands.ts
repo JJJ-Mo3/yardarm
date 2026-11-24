@@ -105,6 +105,12 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
     kind: 'builtin'
   },
   {
+    name: 'btw',
+    description: 'Ask a quick side question about this chat without adding to its thread',
+    args: '[question]',
+    kind: 'builtin'
+  },
+  {
     name: 'compare',
     description: 'Run one prompt with 2–4 models side by side, each in its own worktree chat',
     args: '[prompt]',

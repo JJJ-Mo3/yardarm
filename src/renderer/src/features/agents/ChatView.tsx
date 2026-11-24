@@ -87,6 +87,7 @@ import { buildDraftWorkflowPrompt } from '../workflows/input-schema'
 import { DetailsPanel } from './details/DetailsPanel'
 import { GoalBanner } from './GoalBanner'
 import { CompareKeepBar } from './CompareKeepBar'
+import { SideQuestionPanel } from './SideQuestionPanel'
 import { TaskChecklist } from './TaskChecklist'
 import { GoalPanel } from './GoalPanel'
 import { OmStatusPopover } from './OmStatusPopover'
@@ -406,6 +407,15 @@ export function ChatView({
   const setChatSearch = useSetAtom(chatSearchAtom)
   const setInboxOpen = useSetAtom(inboxOpenAtom)
   const setCompare = useSetAtom(compareAtom)
+  // Side-question panel (/btw): per pane, closed again when the pane switches
+  // conversations. `sideAsk` hands a question typed after /btw to the panel.
+  const [sideOpen, setSideOpen] = useState(false)
+  const [sideAsk, setSideAsk] = useState<{ text: string; seq: number } | null>(null)
+  const sideSeq = useRef(0)
+  useEffect(() => {
+    setSideOpen(false)
+    setSideAsk(null)
+  }, [subchatId])
 
   const meta = state.meta
   const busy = send.isPending
@@ -654,6 +664,12 @@ export function ChatView({
       case 'inbox':
         setInboxOpen(true)
         return
+      case 'btw': {
+        const question = args.trim()
+        if (question) setSideAsk({ text: question, seq: ++sideSeq.current })
+        setSideOpen(true)
+        return
+      }
       case 'compare':
         if (!projectId) return 'Open a project first — compared chats are created in it.'
         setCompare({ open: true, prompt: args.trim() })
@@ -1486,6 +1502,8 @@ export function ChatView({
           goalStatus={goalQuery.data?.status ?? null}
           goalOpen={goalOpen}
           onToggleGoal={() => setGoalOpen((v) => !v)}
+          sideOpen={sideOpen}
+          onToggleSide={() => setSideOpen((v) => !v)}
         />
         {primary && <HelpDialog commands={commands} />}
         <PermissionsDialog
@@ -1526,6 +1544,14 @@ export function ChatView({
           />
         )}
       </div>
+      {sideOpen && (
+        <SideQuestionPanel
+          subchatId={subchatId}
+          ask={sideAsk}
+          onAskConsumed={() => setSideAsk(null)}
+          onClose={() => setSideOpen(false)}
+        />
+      )}
       {primary && detailsOpen && (
         <DetailsPanel
           cwd={projectRoot}
