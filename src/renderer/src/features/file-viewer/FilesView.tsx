@@ -10,7 +10,10 @@
  * tab/chat switches. Language-server diagnostics for the active file —
  * fetched from the chat's agent host, or the shared utility host when no
  * chat is selected, on open/typing (debounced, unsaved buffer)/save/external
- * change — feed Monaco markers and a collapsible problems panel.
+ * change — feed Monaco markers and a collapsible problems panel. Image files
+ * open as an image preview, and Markdown / CSV / TSV / SVG text tabs offer a
+ * read-only alternate view (FilePreviews.tsx) layered over the still-mounted
+ * editor.
  */
 import React, { useEffect, useRef, useState } from 'react'
 import Editor, { type OnMount } from '@monaco-editor/react'
@@ -32,6 +35,7 @@ import {
 import { useAtom, useSetAtom } from 'jotai'
 import type { LspDiagnosticInfo, LspDiagnosticsResult } from '@shared/ipc-types'
 import { LSP_PACKS } from '@shared/lsp-packs'
+import { imageMimeForPath } from '@shared/image-preview'
 import '../../lib/monaco-setup'
 import { trpc } from '../../lib/trpc'
 import { modLabel } from '../../lib/shortcuts'
@@ -52,6 +56,14 @@ import {
   setDirty,
   type TabsState
 } from './editor-tabs'
+import { altViewKindFor, delimiterFor } from './delimited-parse'
+import {
+  DelimitedTableView,
+  DiskImagePreview,
+  MarkdownPreview,
+  SvgTextPreview,
+  ViewToggle
+} from './FilePreviews'
 
 function languageFor(path: string): string | undefined {
   const ext = path.split('.').pop()?.toLowerCase()
@@ -273,6 +285,41 @@ export function FilesView({
     })
   }
 
+  // Alternate read-only views (Markdown preview, CSV/TSV table, SVG image)
+  // for text tabs, keyed by root + path. A present entry means the alternate
+  // view is showing; its value is the editor buffer captured when the view
+  // was switched on, so unsaved edits are previewed. The editor stays mounted
+  // (hidden) underneath — the buffer, dirty state and save flow are untouched.
+  const [altViews, setAltViews] = useState<Record<string, string>>({})
+  const altKeyFor = (path: string): string => `${root}\n${path}`
+  const altKind = activeTab?.kind === 'text' ? altViewKindFor(activeTab.path) : null
+  const altCaptured = activeTab && altKind ? altViews[altKeyFor(activeTab.path)] : undefined
+  const altOn = altCaptured !== undefined
+  // The hidden editor can't be typed in, so a dirty buffer still equals the
+  // capture; a clean one follows the disk baseline (agent edits show up live).
+  const altText = activeTab && altOn ? (activeTab.dirty ? altCaptured : activeTab.savedContent) : ''
+  const clearAltView = (path: string): void => {
+    const key = altKeyFor(path)
+    setAltViews((prev) => {
+      if (!(key in prev)) return prev
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+  }
+  const setAltOn = (on: boolean): void => {
+    if (!activeTab) return
+    if (!on) {
+      clearAltView(activeTab.path)
+      return
+    }
+    const buffer = editorRef.current?.getModel()?.getValue() ?? activeTab.savedContent
+    setAltViews((prev) => ({ ...prev, [altKeyFor(activeTab.path)]: buffer }))
+  }
+  // Binary (or too-large) files with an image extension get an image preview.
+  const imageTab =
+    activeTab !== null && activeTab.kind !== 'text' && imageMimeForPath(activeTab.path) !== null
+
   const openFile = async (path: string): Promise<void> => {
     if (state.tabs.some((t) => t.path === path)) {
       update((s) => activateTab(s, path))
@@ -304,6 +351,8 @@ export function FilesView({
   useEffect(() => {
     if (!fileOpenRequest) return
     void openFile(fileOpenRequest.path)
+    // A line reveal needs the editor, not a preview/table over it.
+    if (fileOpenRequest.line) clearAltView(fileOpenRequest.path)
     setPendingReveal(
       fileOpenRequest.line ? { path: fileOpenRequest.path, line: fileOpenRequest.line } : null
     )
@@ -434,6 +483,7 @@ export function FilesView({
       if (!ok) return
     }
     update((s) => closeTab(s, path))
+    clearAltView(path)
   }
 
   // Watch the active file for external changes (usually the agent). Clean
@@ -637,7 +687,8 @@ export function FilesView({
                 </div>
               ))}
             </div>
-            <div className="px-1.5">
+            <div className="flex items-center gap-1.5 px-1.5">
+              {altKind && <ViewToggle kind={altKind} altOn={altOn} onChange={setAltOn} />}
               <Tip content={`Save the active file to disk (${modLabel('S')})`}>
                 <span className="inline-flex">
                   <Button
@@ -671,7 +722,9 @@ export function FilesView({
         )}
         <div className="min-h-0 flex-1">
           {activeTab ? (
-            activeTab.kind === 'binary' ? (
+            imageTab ? (
+              <DiskImagePreview key={activeTab.path} root={root} path={activeTab.path} />
+            ) : activeTab.kind === 'binary' ? (
               <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
                 Binary file
               </div>
@@ -680,34 +733,51 @@ export function FilesView({
                 File too large to edit
               </div>
             ) : (
-              <Editor
-                height="100%"
-                path={`${root}/${activeTab.path}`}
-                defaultLanguage={languageFor(activeTab.path)}
-                defaultValue={activeTab.savedContent}
-                theme={isDark ? 'vs-dark' : 'vs'}
-                onMount={handleMount}
-                onChange={(v) => {
-                  const val = v ?? ''
-                  const path = activeTab.path
-                  update((s) => {
-                    const tab = s.tabs.find((t) => t.path === path)
-                    if (!tab) return s
-                    return setDirty(s, tab.path, val !== tab.savedContent)
-                  })
-                  // Re-diagnose the unsaved buffer once typing pauses.
-                  if (diagDebounce.current) clearTimeout(diagDebounce.current)
-                  diagDebounce.current = setTimeout(() => {
-                    void refreshDiagnostics(path, val)
-                  }, 800)
-                }}
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 12,
-                  scrollBeyondLastLine: false,
-                  renderWhitespace: 'none'
-                }}
-              />
+              <>
+                {/* Hidden, never unmounted, while an alternate view shows: the
+                    Monaco model holds the (possibly unsaved) buffer. */}
+                <div className={cn('h-full', altOn && 'hidden')}>
+                  <Editor
+                    height="100%"
+                    path={`${root}/${activeTab.path}`}
+                    defaultLanguage={languageFor(activeTab.path)}
+                    defaultValue={activeTab.savedContent}
+                    theme={isDark ? 'vs-dark' : 'vs'}
+                    // Opening an image/binary tab unmounts the editor; without
+                    // this the wrapper disposes the current model and a dirty
+                    // buffer's unsaved text is lost with it.
+                    keepCurrentModel
+                    onMount={handleMount}
+                    onChange={(v) => {
+                      const val = v ?? ''
+                      const path = activeTab.path
+                      update((s) => {
+                        const tab = s.tabs.find((t) => t.path === path)
+                        if (!tab) return s
+                        return setDirty(s, tab.path, val !== tab.savedContent)
+                      })
+                      // Re-diagnose the unsaved buffer once typing pauses.
+                      if (diagDebounce.current) clearTimeout(diagDebounce.current)
+                      diagDebounce.current = setTimeout(() => {
+                        void refreshDiagnostics(path, val)
+                      }, 800)
+                    }}
+                    options={{
+                      minimap: { enabled: false },
+                      fontSize: 12,
+                      scrollBeyondLastLine: false,
+                      renderWhitespace: 'none'
+                    }}
+                  />
+                </div>
+                {altOn && altKind === 'markdown' && <MarkdownPreview text={altText} />}
+                {altOn && altKind === 'table' && (
+                  <DelimitedTableView text={altText} delimiter={delimiterFor(activeTab.path)} />
+                )}
+                {altOn && altKind === 'image' && (
+                  <SvgTextPreview text={altText} path={activeTab.path} />
+                )}
+              </>
             )
           ) : (
             <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
@@ -715,7 +785,7 @@ export function FilesView({
             </div>
           )}
         </div>
-        {activeTab?.kind === 'text' && (
+        {activeTab?.kind === 'text' && !altOn && (
           <div className="shrink-0 border-t border-border">
             <div className="flex h-7 items-center gap-1 px-1.5">
               <Tip content={problemsOpen ? 'Hide the problems list' : 'Show the problems list'}>

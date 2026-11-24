@@ -1,6 +1,6 @@
 /**
- * Files router backing the IDE tab and @-mentions: directory tree, file read and
- * conflict-checked write, file listing/search, and language-server diagnostics.
+ * Files router backing the IDE tab and @-mentions: directory tree, file read
+ * (text, plus size-capped image previews) and conflict-checked write, file listing/search, and language-server diagnostics.
  * Every path is confined to a known project folder or chat worktree.
  */
 import type { Dirent } from 'node:fs'
@@ -8,6 +8,11 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { simpleGit } from 'simple-git'
 import { z } from 'zod'
+import {
+  imageMimeForPath,
+  matchesImageSignature,
+  MAX_IMAGE_PREVIEW_BYTES
+} from '../../../../shared/image-preview'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import { resolveInside } from '../../git/safe-ref'
 import { assertKnownRoot } from '../../known-roots'
@@ -142,6 +147,43 @@ export const filesRouter = router({
         tooLarge: false,
         binary: false,
         mtimeMs
+      }
+    }),
+
+  /**
+   * IDE image preview: returns a `data:` URL for a known image type only
+   * (by extension, confirmed by a content sniff), capped at
+   * MAX_IMAGE_PREVIEW_BYTES. The path is confined like every other read, and
+   * additionally may not follow a symlink out of the root. The renderer shows
+   * the URL in an `<img>` — SVG is never inlined into the DOM.
+   */
+  readImage: publicProcedure
+    .input(z.object({ root: z.string(), path: z.string() }))
+    .query(async ({ input }) => {
+      const mime = imageMimeForPath(input.path)
+      if (!mime) throw new Error('Not a previewable image type')
+      const abs = resolveWithin(input.root, input.path)
+      await assertRealPathInside(input.root, abs)
+      const stat = await fs.stat(abs)
+      if (!stat.isFile()) throw new Error('Not a file')
+      const base = { path: input.path, mime, size: stat.size, mtimeMs: stat.mtimeMs }
+      if (stat.size > MAX_IMAGE_PREVIEW_BYTES) {
+        return { ...base, dataUrl: null, tooLarge: true, invalid: false }
+      }
+      const buf = await fs.readFile(abs)
+      // Re-check after the read: the file may have grown since the stat.
+      if (buf.length > MAX_IMAGE_PREVIEW_BYTES) {
+        return { ...base, size: buf.length, dataUrl: null, tooLarge: true, invalid: false }
+      }
+      if (!matchesImageSignature(mime, buf)) {
+        return { ...base, dataUrl: null, tooLarge: false, invalid: true }
+      }
+      return {
+        ...base,
+        size: buf.length,
+        dataUrl: `data:${mime};base64,${buf.toString('base64')}`,
+        tooLarge: false,
+        invalid: false
       }
     }),
 
