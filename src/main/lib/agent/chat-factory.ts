@@ -9,6 +9,7 @@ import { CHAT_PORT_ENV, CHAT_PORT_RANGE_END_ENV, withChatPortEnv } from '@shared
 import { getDb, schema } from '../db'
 import { isSetupTrusted, projectEnvRecord } from '../db/project-settings'
 import { copyUntrackedFiles, type CopyReport } from '../git/copy-untracked'
+import { createPrWorktree, type PrCheckout } from '../git/pr-worktree'
 import {
   createWorktree,
   ensureBaseCommit,
@@ -138,6 +139,11 @@ export async function createChatWithSubchat(input: {
   baseBranch?: string
   /** App-managed background chat: kept out of the sidebar chat list. */
   hidden?: boolean
+  /**
+   * Check out an existing pull/merge request's head instead of branching a
+   * new `yardarm/…` branch from the base (requires a git project).
+   */
+  prCheckout?: PrCheckout
 }): Promise<CreatedChat> {
   const db = getDb()
   const project = db
@@ -154,12 +160,18 @@ export async function createChatWithSubchat(input: {
   let branch: string | null = null
   let pending: WorktreeConfig = { setup: [], copyFiles: [], teardown: [] }
   let copyCapped = false
+  const wantsWorktree = input.useWorktree || input.prCheckout !== undefined
+  const isRepo = wantsWorktree && (await isGitRepo(project.path))
+  // A PR chat without a worktree would have nowhere to put the PR's code.
+  if (input.prCheckout && !isRepo) throw new Error('This project is not a git repository')
   // Worktrees need a base commit; bootstrap one for repos with an unborn
   // HEAD so isolation works even for freshly-initialized projects. Only
   // non-git project dirs fall back to running at the project root.
-  if (input.useWorktree && (await isGitRepo(project.path))) {
+  if (isRepo) {
     await ensureBaseCommit(project.path)
-    const wt = await createWorktree(project.id, project.path, chatId, input.title, base)
+    const wt = input.prCheckout
+      ? await createPrWorktree(project.id, project.path, chatId, input.prCheckout)
+      : await createWorktree(project.id, project.path, chatId, input.title, base)
     worktreePath = wt.worktreePath
     branch = wt.branch
     // The config comes from a repo file, so files are copied and commands run

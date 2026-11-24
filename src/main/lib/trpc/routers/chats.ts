@@ -20,12 +20,42 @@ import {
 } from '../../agent/chat-factory'
 import { checkpointStashSha, deleteCheckpointRefs, restoreCheckpoint } from '../../git/ops'
 import { trustSetupCommands } from '../../db/project-settings'
+import { forgeInfo } from '../../git/forge'
+import { buildIssuePrompt, issueChatTitle, prChatTitle } from '../../git/issue-parse'
+import { getIssue, getPrHead, listIssues } from '../../git/issues'
 import { worktreeConfigHash } from '../../git/setup-hash'
 import { readWorktreeConfig, removeWorktree } from '../../git/worktree'
 import { ptyManager } from '../../terminal/pty-manager'
 import { publicProcedure, router } from '../trpc'
 
 const ASK_CHAT_TITLE = 'Codebase Q&A'
+
+/**
+ * The project row plus its repo host, for the issue/PR chat starters. The
+ * path comes from the DB (never the renderer); throws a user-facing message
+ * when there is no GitHub/GitLab remote or its CLI is missing.
+ */
+async function requireForgeProject(projectId: string): Promise<{
+  project: typeof schema.projects.$inferSelect
+  provider: 'github' | 'gitlab'
+}> {
+  const project = getDb()
+    .select()
+    .from(schema.projects)
+    .where(eq(schema.projects.id, projectId))
+    .get()
+  if (!project) throw new Error('Project not found')
+  const info = await forgeInfo(project.path)
+  if (!info.provider) {
+    throw new Error(
+      'No GitHub or GitLab origin remote detected — set the repository host in Project Settings'
+    )
+  }
+  if (!info.cliAvailable) {
+    throw new Error(`The ${info.cliName} CLI is not installed or not on your PATH`)
+  }
+  return { project, provider: info.provider }
+}
 
 /**
  * Resolve the project's dedicated hidden Ask chat (+ its earliest subchat)
@@ -171,6 +201,70 @@ export const chatsRouter = router({
     )
     .mutation(async ({ input }) => {
       return createChatWithSubchat(input)
+    }),
+
+  /**
+   * Open issues of the project's GitHub/GitLab repo, for the new-chat
+   * dialog's "From issue or PR" list (open PRs/MRs come from git.listPrs).
+   */
+  listIssues: publicProcedure
+    .input(
+      z.object({ projectId: z.string(), limit: z.number().int().positive().max(100).default(50) })
+    )
+    .query(async ({ input }) => {
+      const { project, provider } = await requireForgeProject(input.projectId)
+      return listIssues(project.path, provider, input.limit)
+    }),
+
+  /**
+   * Create a chat titled from an issue. Returns the chat plus `prefill` — a
+   * prompt with the issue number, title, URL and body for the composer. It is
+   * never sent automatically: the body is third-party text the user reviews.
+   */
+  createFromIssue: publicProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        number: z.number().int().positive(),
+        useWorktree: z.boolean().default(true)
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { project, provider } = await requireForgeProject(input.projectId)
+      const issue = await getIssue(project.path, provider, input.number)
+      const created = await createChatWithSubchat({
+        projectId: project.id,
+        title: issueChatTitle(issue),
+        useWorktree: input.useWorktree
+      })
+      return { ...created, prefill: buildIssuePrompt(issue) }
+    }),
+
+  /**
+   * Create a chat whose worktree is the head of an open pull/merge request
+   * (always a worktree — the PR's code must not replace the project's
+   * checkout). The branch details are looked up here, never taken from the
+   * renderer.
+   */
+  createFromPr: publicProcedure
+    .input(z.object({ projectId: z.string(), number: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      const { project, provider } = await requireForgeProject(input.projectId)
+      const pr = await getPrHead(project.path, provider, input.number)
+      const baseBranch = pr.baseRefName ?? project.defaultBranch ?? 'main'
+      return createChatWithSubchat({
+        projectId: project.id,
+        title: prChatTitle(provider, pr),
+        useWorktree: true,
+        baseBranch,
+        prCheckout: {
+          provider,
+          number: pr.number,
+          headRefName: pr.headRefName,
+          crossRepo: pr.crossRepo,
+          baseBranch
+        }
+      })
     }),
 
   /**

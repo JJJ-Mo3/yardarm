@@ -58,7 +58,12 @@ import { Switch } from '../../components/ui/switch'
 import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { AddProjectDialog } from './AddProjectDialog'
-import { describePendingSetup, hasPendingSetup } from './new-chat-sources'
+import { IssuePrPicker } from './IssuePrPicker'
+import {
+  describePendingSetup,
+  hasPendingSetup,
+  type PendingWorktreeSetup
+} from './new-chat-sources'
 import { ChatHoverCard } from './ChatHoverCard'
 import { Logo } from '../../components/Logo'
 
@@ -130,6 +135,7 @@ export function Sidebar(): React.JSX.Element {
   // saved as the new chat's unsent composer draft on Create — never sent.
   const [deepLinkPrefill, setDeepLinkPrefill] = useAtom(deepLinkPrefillAtom)
   const [useWorktree, setUseWorktree] = useState(true)
+  const [newChatMode, setNewChatMode] = useState<'topic' | 'source'>('topic')
   const [renameTarget, setRenameTarget] = useState<{ id: string; title: string } | null>(null)
   const [renameTitle, setRenameTitle] = useState('')
   const [archivedOpen, setArchivedOpen] = useState(false)
@@ -140,6 +146,16 @@ export function Sidebar(): React.JSX.Element {
   const utils = trpc.useUtils()
   const projects = trpc.projects.list.useQuery()
   const chats = trpc.chats.list.useQuery({ projectId: projectId ?? '' }, { enabled: !!projectId })
+  // "From issue or PR" is offered only when the project has a GitHub/GitLab
+  // remote and that host's CLI is installed.
+  const selectedProjectPath = projects.data?.find((p) => p.id === projectId)?.path ?? null
+  const forge = trpc.git.forgeInfo.useQuery(
+    { cwd: selectedProjectPath ?? '' },
+    { enabled: newChatOpen && !!selectedProjectPath }
+  )
+  const sourceProvider = forge.data?.cliAvailable ? forge.data.provider : null
+  // Never strand the dialog in source mode for a project that has no forge.
+  const chatMode = sourceProvider ? newChatMode : 'topic'
 
   const createChat = trpc.chats.create.useMutation({
     // Optimistic sidebar row: chat creation can take a moment (worktree
@@ -186,37 +202,10 @@ export function Sidebar(): React.JSX.Element {
             : c
         )
       )
-      // A deep link's prompt becomes the new chat's composer draft (the
-      // composer loads its draft by subchat id on mount) — written before the
-      // chat is selected, and only if the dialog it belongs to is still open.
-      const firstSubchatId = chat.subchats[0]?.id
-      if (deepLinkPrefill && firstSubchatId) saveDraft(firstSubchatId, deepLinkPrefill)
+      // A deep link's prompt becomes the new chat's composer draft — only if
+      // the dialog it belongs to is still open. Never sent automatically.
+      afterChatCreated(chat, deepLinkPrefill ?? undefined)
       setDeepLinkPrefill(null)
-      setChatId(chat.id)
-      setSubchatId(chat.subchats[0]?.id ?? null)
-      setNewChatOpen(false)
-      setNewChatTitle('')
-      if (chat.copyCapped) copyCapNotice()
-      // The setup comes from a repo file, so it was skipped unless already
-      // approved — ask once, then apply it to this chat's worktree.
-      if (hasPendingSetup(chat)) {
-        void confirmDialog({
-          title: 'Approve worktree setup?',
-          description: describePendingSetup(chat),
-          confirmLabel: 'Approve and run',
-          cancelLabel: 'Skip',
-          destructive: false
-        }).then((ok) => {
-          if (ok) {
-            approveSetup.mutate({
-              chatId: chat.id,
-              commands: chat.pendingSetupCommands,
-              copyFiles: chat.pendingCopyFiles,
-              teardown: chat.pendingTeardownCommands
-            })
-          }
-        })
-      }
     },
     onSettled: () => utils.chats.list.invalidate()
   })
@@ -243,6 +232,59 @@ export function Sidebar(): React.JSX.Element {
         destructive: false
       })
     }
+  })
+  /**
+   * Shared tail of every chat-creation path: select the chat, optionally
+   * prefill its composer (as a draft — never sent), and ask about worktree
+   * setup that was skipped because it is not approved yet.
+   */
+  const afterChatCreated = (
+    chat: PendingWorktreeSetup & {
+      id: string
+      subchats: Array<{ id: string }>
+      copyCapped: boolean
+    },
+    prefill?: string
+  ): void => {
+    const firstSubchat = chat.subchats[0]?.id ?? null
+    // The composer restores its draft when it binds to the subchat.
+    if (prefill && firstSubchat) saveDraft(firstSubchat, prefill)
+    setChatId(chat.id)
+    setSubchatId(firstSubchat)
+    setNewChatOpen(false)
+    setNewChatTitle('')
+    setNewChatMode('topic')
+    if (chat.copyCapped) copyCapNotice()
+    // The setup comes from a repo file, so it was skipped unless already
+    // approved — ask once, then apply it to this chat's worktree.
+    if (hasPendingSetup(chat)) {
+      void confirmDialog({
+        title: 'Approve worktree setup?',
+        description: describePendingSetup(chat),
+        confirmLabel: 'Approve and run',
+        cancelLabel: 'Skip',
+        destructive: false
+      }).then((ok) => {
+        if (ok) {
+          approveSetup.mutate({
+            chatId: chat.id,
+            commands: chat.pendingSetupCommands,
+            copyFiles: chat.pendingCopyFiles,
+            teardown: chat.pendingTeardownCommands
+          })
+        }
+      })
+    }
+  }
+  // "From issue or PR": no optimistic row (the title is only known once the
+  // issue/PR has been looked up), so the dialog shows the pending state.
+  const createFromIssue = trpc.chats.createFromIssue.useMutation({
+    onSuccess: (chat) => afterChatCreated(chat, chat.prefill),
+    onSettled: () => utils.chats.list.invalidate()
+  })
+  const createFromPr = trpc.chats.createFromPr.useMutation({
+    onSuccess: (chat) => afterChatCreated(chat),
+    onSettled: () => utils.chats.list.invalidate()
   })
   const deleteChat = trpc.chats.delete.useMutation({
     onSuccess: () => utils.chats.list.invalidate()
@@ -765,18 +807,76 @@ export function Sidebar(): React.JSX.Element {
             // Fresh form next time: drop the typed title and any stale error.
             setNewChatTitle('')
             setDeepLinkPrefill(null)
+            setNewChatMode('topic')
             createChat.reset()
+            createFromIssue.reset()
+            createFromPr.reset()
           }
         }}
       >
         <DialogContent>
-          <DialogTitle>Chat Topic</DialogTitle>
+          <DialogTitle>
+            {chatMode === 'source' ? 'Chat from issue or PR' : 'Chat Topic'}
+          </DialogTitle>
           <div className="space-y-3">
-            <div className="text-[11px] text-muted-foreground">
-              Name the topic for this chat — you&apos;ll send messages to the agent after it&apos;s
-              created.
-            </div>
-            {deepLinkPrefill && (
+            {sourceProvider && (
+              <div className="flex gap-1">
+                <Tip content="Name a topic and start an empty chat">
+                  <Button
+                    size="sm"
+                    variant={chatMode === 'topic' ? 'secondary' : 'ghost'}
+                    aria-pressed={chatMode === 'topic'}
+                    onClick={() => setNewChatMode('topic')}
+                  >
+                    New topic
+                  </Button>
+                </Tip>
+                <Tip
+                  content={
+                    sourceProvider === 'gitlab'
+                      ? 'Start from an open GitLab issue (prefills the message box with its details) or merge request (works on its branch)'
+                      : 'Start from an open GitHub issue (prefills the message box with its details) or pull request (works on its branch)'
+                  }
+                >
+                  <Button
+                    size="sm"
+                    variant={chatMode === 'source' ? 'secondary' : 'ghost'}
+                    aria-pressed={chatMode === 'source'}
+                    onClick={() => setNewChatMode('source')}
+                  >
+                    From issue or PR
+                  </Button>
+                </Tip>
+              </div>
+            )}
+            {chatMode === 'source' && sourceProvider && projectId && selectedProjectPath && (
+              <IssuePrPicker
+                projectId={projectId}
+                projectPath={selectedProjectPath}
+                provider={sourceProvider}
+                busy={createFromIssue.isPending || createFromPr.isPending}
+                onPickIssue={(number) => {
+                  createFromPr.reset()
+                  createFromIssue.mutate({ projectId, number, useWorktree })
+                }}
+                onPickPr={(number) => {
+                  createFromIssue.reset()
+                  createFromPr.mutate({ projectId, number })
+                }}
+              />
+            )}
+            {chatMode === 'source' && (createFromIssue.error || createFromPr.error) && (
+              <div className="text-xs text-destructive selectable">
+                {createFromIssue.error?.message ?? createFromPr.error?.message}
+              </div>
+            )}
+            {chatMode === 'topic' && (
+              <div className="text-[11px] text-muted-foreground">
+                Name the topic for this chat — you&apos;ll send messages to the agent after
+                it&apos;s created.
+              </div>
+            )}
+            {chatMode === 'topic' && deepLinkPrefill && (
               <div className="space-y-1 rounded border border-border p-2">
                 <div className="text-[11px] text-muted-foreground">
                   Opened from a link. This prompt will be placed in the new chat&apos;s message box
@@ -787,28 +887,36 @@ export function Sidebar(): React.JSX.Element {
                 </div>
               </div>
             )}
-            <Input
-              autoFocus
-              placeholder="What are you working on?"
-              value={newChatTitle}
-              onChange={(e) => setNewChatTitle(e.target.value)}
-              onKeyDown={(e) => {
-                // isPending guard: a rapid double-Enter must not create two chats.
-                if (
-                  e.key === 'Enter' &&
-                  newChatTitle.trim() &&
-                  projectId &&
-                  !createChat.isPending
-                ) {
-                  createChat.mutate({
-                    projectId,
-                    title: newChatTitle.trim(),
-                    useWorktree
-                  })
-                }
-              }}
-            />
-            <Tip content="Runs the chat on its own branch in a separate working copy, so the agent's edits never touch your checked-out files until you merge">
+            {chatMode === 'topic' && (
+              <Input
+                autoFocus
+                placeholder="What are you working on?"
+                value={newChatTitle}
+                onChange={(e) => setNewChatTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  // isPending guard: a rapid double-Enter must not create two chats.
+                  if (
+                    e.key === 'Enter' &&
+                    newChatTitle.trim() &&
+                    projectId &&
+                    !createChat.isPending
+                  ) {
+                    createChat.mutate({
+                      projectId,
+                      title: newChatTitle.trim(),
+                      useWorktree
+                    })
+                  }
+                }}
+              />
+            )}
+            <Tip
+              content={
+                chatMode === 'source'
+                  ? "Applies to chats started from an issue: runs the chat on its own branch in a separate working copy. A pull request always gets its own worktree on the request's branch"
+                  : "Runs the chat on its own branch in a separate working copy, so the agent's edits never touch your checked-out files until you merge"
+              }
+            >
               <label className="flex w-fit items-center gap-2 text-xs text-muted-foreground">
                 <Switch checked={useWorktree} onCheckedChange={setUseWorktree} />
                 Isolate in a git worktree
@@ -826,21 +934,23 @@ export function Sidebar(): React.JSX.Element {
                   Cancel
                 </Button>
               </Tip>
-              <Tip content="Create the chat with this topic">
-                <span className="inline-flex">
-                  <Button
-                    disabled={!newChatTitle.trim() || !projectId || createChat.isPending}
-                    onClick={() =>
-                      projectId &&
-                      createChat.mutate({ projectId, title: newChatTitle.trim(), useWorktree })
-                    }
-                  >
-                    {createChat.isPending ? 'Creating…' : 'Create'}
-                  </Button>
-                </span>
-              </Tip>
+              {chatMode === 'topic' && (
+                <Tip content="Create the chat with this topic">
+                  <span className="inline-flex">
+                    <Button
+                      disabled={!newChatTitle.trim() || !projectId || createChat.isPending}
+                      onClick={() =>
+                        projectId &&
+                        createChat.mutate({ projectId, title: newChatTitle.trim(), useWorktree })
+                      }
+                    >
+                      {createChat.isPending ? 'Creating…' : 'Create'}
+                    </Button>
+                  </span>
+                </Tip>
+              )}
             </div>
-            {createChat.error && (
+            {chatMode === 'topic' && createChat.error && (
               <div className="text-xs text-destructive selectable">{createChat.error.message}</div>
             )}
           </div>
