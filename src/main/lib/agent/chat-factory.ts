@@ -5,7 +5,14 @@
 import { randomUUID } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { getDb, schema } from '../db'
-import { createWorktree, ensureBaseCommit, isGitRepo } from '../git/worktree'
+import { isSetupTrusted } from '../db/project-settings'
+import {
+  createWorktree,
+  ensureBaseCommit,
+  isGitRepo,
+  readSetupCommands,
+  runSetupCommands
+} from '../git/worktree'
 import { readSettings } from '../mastra-config/settings-json'
 
 /**
@@ -54,6 +61,12 @@ export interface CreatedChat {
   createdAt: number
   updatedAt: number
   subchats: Array<typeof schema.subchats.$inferInsert>
+  /**
+   * Worktree setup commands that were NOT run because the user has not
+   * approved them yet (empty when none or already trusted). Not persisted —
+   * interactive callers prompt and call chats.approveSetup.
+   */
+  pendingSetupCommands: string[]
 }
 
 /** Create a chat (± its own worktree) and its first subchat. */
@@ -78,6 +91,7 @@ export async function createChatWithSubchat(input: {
 
   let worktreePath: string | null = null
   let branch: string | null = null
+  let pendingSetupCommands: string[] = []
   // Worktrees need a base commit; bootstrap one for repos with an unborn
   // HEAD so isolation works even for freshly-initialized projects. Only
   // non-git project dirs fall back to running at the project root.
@@ -86,6 +100,13 @@ export async function createChatWithSubchat(input: {
     const wt = await createWorktree(project.id, project.path, chatId, input.title, base)
     worktreePath = wt.worktreePath
     branch = wt.branch
+    // Setup commands come from a repo file, so they only run once the user
+    // approved this exact list; otherwise they are skipped and reported.
+    const commands = await readSetupCommands(project.path)
+    if (commands.length > 0) {
+      if (isSetupTrusted(project.id, commands)) await runSetupCommands(wt.worktreePath, commands)
+      else pendingSetupCommands = commands
+    }
   }
 
   const now = Date.now()
@@ -120,5 +141,5 @@ export async function createChatWithSubchat(input: {
   }
   db.insert(schema.subchats).values(subchat).run()
 
-  return { ...chat, subchats: [subchat] }
+  return { ...chat, subchats: [subchat], pendingSetupCommands }
 }

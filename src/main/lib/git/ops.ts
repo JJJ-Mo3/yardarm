@@ -6,6 +6,7 @@
  * capture / hard reset for rollback).
  */
 import { simpleGit } from 'simple-git'
+import { assertSafeRef, resolveInside } from './safe-ref'
 import { randomUUID } from 'crypto'
 import { rm } from 'fs/promises'
 import os from 'os'
@@ -46,7 +47,7 @@ export interface FileDiff {
 /** Diff of one file: worktree contents vs a base ref (or HEAD). */
 export async function fileDiff(cwd: string, filePath: string, baseRef?: string): Promise<FileDiff> {
   const git = simpleGit(cwd)
-  const ref = baseRef ?? 'HEAD'
+  const ref = assertSafeRef(baseRef ?? 'HEAD')
   let oldContent = ''
   try {
     oldContent = await git.show([`${ref}:${filePath}`])
@@ -57,8 +58,7 @@ export async function fileDiff(cwd: string, filePath: string, baseRef?: string):
   let binary = false
   try {
     const fs = await import('node:fs/promises')
-    const path = await import('node:path')
-    const buf = await fs.readFile(path.join(cwd, filePath))
+    const buf = await fs.readFile(resolveInside(cwd, filePath))
     if (buf.includes(0)) binary = true
     else newContent = buf.toString('utf8')
   } catch {
@@ -113,6 +113,7 @@ export async function listBranches(cwd: string): Promise<{ current: string; all:
 }
 
 export async function checkoutBranch(cwd: string, branch: string): Promise<void> {
+  assertSafeRef(branch)
   await simpleGit(cwd).checkout(branch)
 }
 
@@ -123,6 +124,7 @@ export async function stashPush(cwd: string, message: string): Promise<void> {
 
 /** Create a new branch from HEAD and switch to it. */
 export async function createBranch(cwd: string, branch: string): Promise<void> {
+  assertSafeRef(branch)
   await simpleGit(cwd).checkoutLocalBranch(branch)
 }
 
@@ -174,6 +176,8 @@ export async function mergeIntoBase(
   baseBranch: string,
   opts: { squash: boolean; message?: string }
 ): Promise<{ sha: string }> {
+  assertSafeRef(branch)
+  assertSafeRef(baseBranch)
   const git = simpleGit(projectPath)
   const s = await git.status()
   if (s.current !== baseBranch) {
@@ -235,6 +239,7 @@ export function parseNameStatus(out: string): CommitFileChange[] {
 
 /** Files changed by a commit (first parent for merges; handles root commits). */
 export async function commitFiles(cwd: string, hash: string): Promise<CommitFileChange[]> {
+  assertSafeRef(hash)
   const out = await simpleGit(cwd).raw([
     'show',
     hash,
@@ -253,6 +258,7 @@ export async function commitFileDiff(
   hash: string,
   filePath: string
 ): Promise<FileDiff> {
+  assertSafeRef(hash)
   const git = simpleGit(cwd)
   let oldContent = ''
   try {
@@ -274,7 +280,7 @@ export async function commitFileDiff(
 /** Merge base of a ref and HEAD (null when the ref is unknown/unrelated). */
 export async function mergeBase(cwd: string, ref: string): Promise<string | null> {
   try {
-    return (await simpleGit(cwd).raw(['merge-base', ref, 'HEAD'])).trim() || null
+    return (await simpleGit(cwd).raw(['merge-base', assertSafeRef(ref), 'HEAD'])).trim() || null
   } catch {
     return null
   }
@@ -282,7 +288,7 @@ export async function mergeBase(cwd: string, ref: string): Promise<string | null
 
 /** Files changed between a base ref and the worktree (`git diff --name-status`). */
 export async function diffNameStatus(cwd: string, baseRef: string): Promise<CommitFileChange[]> {
-  const out = await simpleGit(cwd).raw(['diff', '--name-status', baseRef])
+  const out = await simpleGit(cwd).raw(['diff', '--name-status', assertSafeRef(baseRef)])
   return parseNameStatus(out)
 }
 
@@ -364,7 +370,12 @@ export async function diffRefs(
   refA: string,
   refB: string
 ): Promise<CommitFileChange[]> {
-  const out = await simpleGit(cwd).raw(['diff', '--name-status', refA, refB])
+  const out = await simpleGit(cwd).raw([
+    'diff',
+    '--name-status',
+    assertSafeRef(refA),
+    assertSafeRef(refB)
+  ])
   return parseNameStatus(out)
 }
 
@@ -375,6 +386,8 @@ export async function refFileDiff(
   refB: string,
   filePath: string
 ): Promise<FileDiff> {
+  assertSafeRef(refA)
+  assertSafeRef(refB)
   const git = simpleGit(cwd)
   let oldContent = ''
   try {
@@ -430,6 +443,8 @@ export async function restoreCheckpoint(
   checkpointRef: string
 ): Promise<{ warning: string | null; changedFiles: string[] }> {
   const { head, stash } = JSON.parse(checkpointRef) as { head: string; stash: string | null }
+  assertSafeRef(head)
+  if (stash) assertSafeRef(stash)
   const git = simpleGit(cwd)
   // Measured before the reset: tracked files differing from the checkpoint
   // head plus untracked files (which `clean -fd` removes). Best-effort.

@@ -8,7 +8,9 @@ import { getDb, maintainDb, schema } from '../../db'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import { createChatWithSubchat, sandboxDefaults, yoloDefault } from '../../agent/chat-factory'
 import { checkpointStashSha, deleteCheckpointRefs, restoreCheckpoint } from '../../git/ops'
-import { removeWorktree } from '../../git/worktree'
+import { trustSetupCommands } from '../../db/project-settings'
+import { setupCommandsHash } from '../../git/setup-hash'
+import { readSetupCommands, removeWorktree, runSetupCommands } from '../../git/worktree'
 import { ptyManager } from '../../terminal/pty-manager'
 import { publicProcedure, router } from '../trpc'
 
@@ -158,6 +160,34 @@ export const chatsRouter = router({
     )
     .mutation(async ({ input }) => {
       return createChatWithSubchat(input)
+    }),
+
+  /**
+   * Approve the project's worktree setup commands and run them in this chat's
+   * worktree. `commands` is the list the user was shown: it must still match
+   * the repo file, so a change between prompt and click is never approved.
+   */
+  approveSetup: publicProcedure
+    .input(z.object({ chatId: z.string(), commands: z.array(z.string()).min(1) }))
+    .mutation(async ({ input }) => {
+      const db = getDb()
+      const chat = db.select().from(schema.chats).where(eq(schema.chats.id, input.chatId)).get()
+      if (!chat) throw new Error('Chat not found')
+      const project = db
+        .select()
+        .from(schema.projects)
+        .where(eq(schema.projects.id, chat.projectId))
+        .get()
+      if (!project) throw new Error('Project not found')
+      const current = await readSetupCommands(project.path)
+      if (setupCommandsHash(current) !== setupCommandsHash(input.commands)) {
+        throw new Error('The setup commands changed — review them again before approving.')
+      }
+      trustSetupCommands(project.id, current)
+      if (chat.worktreePath && existsSync(chat.worktreePath)) {
+        await runSetupCommands(chat.worktreePath, current)
+      }
+      return { ok: true }
     }),
 
   /**

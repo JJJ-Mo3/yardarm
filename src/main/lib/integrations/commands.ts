@@ -13,8 +13,8 @@ export type Command =
   | { kind: 'new'; project: string; title?: string }
   | { kind: 'status' }
   | { kind: 'unbind' }
-  | { kind: 'approve' }
-  | { kind: 'deny'; reason?: string }
+  | { kind: 'approve'; index?: number }
+  | { kind: 'deny'; index?: number; reason?: string }
   | { kind: 'prompt'; text: string }
 
 export const HELP_TEXT = [
@@ -26,8 +26,9 @@ export const HELP_TEXT = [
   'new <project> [title] — create a chat (own worktree) and bind to it',
   'status — bound target, run state, pending approvals/questions',
   'unbind — remove this conversation\u2019s binding',
-  'approve (or yes) — approve the oldest pending tool call',
-  'deny [reason] (or no) — decline it, optionally with feedback'
+  'approve (or yes) — approve the pending tool call',
+  'deny [reason] (or no) — decline it, optionally with feedback',
+  'approve <n> / deny <n> [reason] — pick one when several are pending'
 ].join('\n')
 
 export function parseCommand(input: string): Command {
@@ -60,9 +61,12 @@ export function parseCommand(input: string): Command {
     case 'unbind':
       return { kind: 'unbind' }
     case 'approve':
-      return { kind: 'approve' }
-    case 'deny':
-      return { kind: 'deny', reason: rest.length > 0 ? rest.join(' ') : undefined }
+      return { kind: 'approve', index: leadingIndex(rest) }
+    case 'deny': {
+      const index = leadingIndex(rest)
+      const reason = index === undefined ? rest : rest.slice(1)
+      return { kind: 'deny', index, reason: reason.length > 0 ? reason.join(' ') : undefined }
+    }
     // Bare yes/no only — "yes, let's try X" must stay a prompt/answer, never
     // an implicit approval of a pending tool call.
     case 'yes':
@@ -74,4 +78,28 @@ export function parseCommand(input: string): Command {
     default:
       return { kind: 'prompt', text }
   }
+}
+
+/** A leading 1-based list number ("approve 2"), if the first token is one. */
+function leadingIndex(tokens: string[]): number | undefined {
+  if (tokens.length === 0 || !/^\d{1,3}$/.test(tokens[0])) return undefined
+  return parseInt(tokens[0], 10)
+}
+
+/**
+ * Choose which pending approval an approve/deny reply refers to. A bare reply
+ * is only unambiguous when exactly one is pending; with several the user must
+ * name one by its list number, so a reply never lands on a different tool call
+ * than the one they meant.
+ */
+export function pickPending<T>(
+  pending: T[],
+  index: number | undefined
+): { ok: T } | { error: 'none' | 'ambiguous' | 'range' } {
+  if (pending.length === 0) return { error: 'none' }
+  if (index === undefined) {
+    return pending.length === 1 ? { ok: pending[0] } : { error: 'ambiguous' }
+  }
+  const item = pending[index - 1]
+  return item === undefined ? { error: 'range' } : { ok: item }
 }

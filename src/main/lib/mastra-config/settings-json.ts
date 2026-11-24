@@ -49,6 +49,31 @@ export async function readSettings(): Promise<MastraSettings> {
   }
 }
 
+/**
+ * Read for a write: a missing file is an empty config, but an unparseable one
+ * must fail the write — treating it as {} would replace the user's (and the
+ * CLI's) whole file with only the key being changed.
+ */
+export async function readJsonForUpdate<T extends object>(file: string): Promise<T> {
+  let raw: string
+  try {
+    raw = await fs.readFile(file, 'utf8')
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return {} as T
+    throw err
+  }
+  if (raw.trim() === '') return {} as T
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as T
+  } catch {
+    // fall through to the shared error below
+  }
+  throw new Error(
+    `${file} is not valid JSON, so the change was not saved. Fix or remove the file and try again.`
+  )
+}
+
 let writeQueue: Promise<unknown> = Promise.resolve()
 
 /**
@@ -57,7 +82,7 @@ let writeQueue: Promise<unknown> = Promise.resolve()
  */
 export function updateSettings(mutate: (s: MastraSettings) => void): Promise<MastraSettings> {
   const task = writeQueue.then(async () => {
-    const settings = await readSettings()
+    const settings = await readJsonForUpdate<MastraSettings>(settingsJsonPath())
     mutate(settings)
     const file = settingsJsonPath()
     await fs.mkdir(path.dirname(file), { recursive: true })

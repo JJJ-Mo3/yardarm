@@ -172,8 +172,36 @@ export function Sidebar(): React.JSX.Element {
       setSubchatId(chat.subchats[0]?.id ?? null)
       setNewChatOpen(false)
       setNewChatTitle('')
+      // Setup commands come from a repo file, so they were skipped unless
+      // already approved — ask once, then run them in this chat's worktree.
+      const pending = chat.pendingSetupCommands
+      if (pending.length > 0) {
+        void confirmDialog({
+          title: 'Run worktree setup commands?',
+          description:
+            'This project defines setup commands in .yardarm/worktree.json. They have not been ' +
+            'approved yet (or changed since), so they were not run:\n\n' +
+            pending.join('\n') +
+            '\n\nApprove to run them now and in future worktrees of this project.',
+          confirmLabel: 'Approve and run',
+          cancelLabel: 'Skip',
+          destructive: false
+        }).then((ok) => {
+          if (ok) approveSetup.mutate({ chatId: chat.id, commands: pending })
+        })
+      }
     },
     onSettled: () => utils.chats.list.invalidate()
+  })
+  const approveSetup = trpc.chats.approveSetup.useMutation({
+    onError: (err) => {
+      void confirmDialog({
+        title: 'Setup commands were not run',
+        description: err.message,
+        confirmLabel: 'OK',
+        destructive: false
+      })
+    }
   })
   const deleteChat = trpc.chats.delete.useMutation({
     onSuccess: () => utils.chats.list.invalidate()

@@ -11,9 +11,10 @@ import { createChatWithSubchat } from '../agent/chat-factory'
 import type { IntegrationPlatform } from '../../../shared/integrations'
 import type { AgentUIEvent, PendingApproval, PendingSuspension } from '../../../shared/ui-message'
 import type { InboundMessage } from './types'
-import { HELP_TEXT, parseCommand, type Command } from './commands'
+import { HELP_TEXT, parseCommand, pickPending, type Command } from './commands'
 import { chunkMessage } from './chunk'
 import {
+  compactArgs,
   extractFinalText,
   formatApprovalMessage,
   formatForPlatform,
@@ -53,6 +54,8 @@ const NO_BINDING_HINT =
 export class IntegrationsCore {
   /** LRU-ish set of `platform:messageId` for duplicate-delivery suppression. */
   private seen = new Set<string>()
+  /** platform:conversation:user keys already told they are not allowed. */
+  private deniedNotified = new Set<string>()
   /** Targeted onEvents subscriptions, bound subchats only. */
   private subscriptions = new Map<string, () => void>()
   /** Relayed-but-unresolved approval/suspension tool calls, per subchat. */
@@ -193,6 +196,15 @@ export class IntegrationsCore {
       this.deliver(msg.platform, msg.conversationId, text)
 
     if (!this.deps.isAllowed(msg.platform, msg.userId)) {
+      // Say it once per user per conversation, then stay silent: in a shared
+      // channel the bot would otherwise answer every message from everyone.
+      const key = `${msg.platform}:${msg.conversationId}:${msg.userId}`
+      if (this.deniedNotified.has(key)) return
+      this.deniedNotified.add(key)
+      if (this.deniedNotified.size > DEDUPE_CAP) {
+        const oldest = this.deniedNotified.values().next().value
+        if (oldest) this.deniedNotified.delete(oldest)
+      }
       await reply(
         `Access denied: user ${msg.userId} is not on the ${PLATFORM_LABEL[msg.platform]} ` +
           'allowlist. Add this id in Yardarm under Settings → Integrations.'
@@ -275,7 +287,12 @@ export class IntegrationsCore {
           subchatId: created.subchats[0].id
         })
         this.rebuildSubscriptions()
-        await reply(`Created "${title}" in ${project.ok.name} and bound this conversation to it.`)
+        await reply(
+          `Created "${title}" in ${project.ok.name} and bound this conversation to it.` +
+            (created.pendingSetupCommands.length > 0
+              ? ' Its worktree setup commands were skipped because they have not been approved — approve them in the Yardarm app (Project Settings).'
+              : '')
+        )
         return
       }
       case 'status': {
@@ -308,23 +325,45 @@ export class IntegrationsCore {
         const binding = getBinding(msg.platform, msg.conversationId)
         if (!binding) return reply(NO_BINDING_HINT)
         const { approvals } = pendingFor(binding.subchatId)
-        if (approvals.length === 0) return reply('No pending approvals.')
-        const oldest = approvals[0]
+        const picked = pickPending(approvals, command.index)
+        if ('error' in picked) {
+          if (picked.error === 'none') return reply('No pending approvals.')
+          const list = approvals
+            .map(
+              (a, i) =>
+                `${i + 1}. \`${a.toolName}\` ${compactArgs(a.args).replace(/\s+/g, ' ').slice(0, 120)}`
+            )
+            .join('\n')
+          return reply(
+            (picked.error === 'ambiguous'
+              ? 'Several approvals are pending — say which one:'
+              : `There is no approval number ${command.index}. Pending:`) +
+              `\n${list}\nReply "approve <n>" or "deny <n> [reason]".`
+          )
+        }
+        const target = picked.ok
+        // Never resolve a tool call this conversation was not shown: relay it
+        // now and make the user answer again with the details in front of them.
+        const relayed = this.relayedFor(binding.subchatId)
+        if (!relayed.has(target.toolCallId)) {
+          relayed.add(target.toolCallId)
+          return reply(formatApprovalMessage(target.toolName, target.args))
+        }
         try {
-          this.resolvedRemotely.add(oldest.toolCallId)
+          this.resolvedRemotely.add(target.toolCallId)
           await agentSessionManager.approve(
             binding.subchatId,
-            oldest.toolCallId,
+            target.toolCallId,
             command.kind === 'approve' ? 'approve' : 'decline',
             command.kind === 'deny' ? command.reason : undefined
           )
           await reply(
             command.kind === 'approve'
-              ? `Approved ${oldest.toolName}.`
-              : `Declined ${oldest.toolName}.`
+              ? `Approved ${target.toolName}.`
+              : `Declined ${target.toolName}.`
           )
         } catch {
-          this.resolvedRemotely.delete(oldest.toolCallId)
+          this.resolvedRemotely.delete(target.toolCallId)
           await reply('That approval was already handled.')
         }
         return

@@ -4,7 +4,9 @@
  * live plugin info. (mcp.json is handled by the existing mcp router with
  * projectPath.)
  */
+import nodePath from 'node:path'
 import { shell } from 'electron'
+import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import {
@@ -25,10 +27,25 @@ import { DEFAULT_AGENTS, installDefaultAgents } from '../../mastra-config/defaul
 import { readDatabaseJson, writeResourceId } from '../../mastra-config/database-json'
 import { readInstructions, writeInstructions } from '../../mastra-config/agent-instructions'
 import { HOOK_EVENTS, readHooksJson, writeHooksJson } from '../../mastra-config/hooks-json'
+import { getDb, schema } from '../../db'
+import { isSetupTrusted, trustSetupCommands } from '../../db/project-settings'
+import { setupCommandsHash } from '../../git/setup-hash'
 import { readSetupCommands, writeSetupCommands } from '../../git/worktree'
 import { publicProcedure, router } from '../trpc'
 
 const scopeInput = z.object({ projectPath: z.string().optional() })
+
+const OPENABLE_EXTENSIONS = new Set(['.md', '.json', '.yaml', '.yml', '.txt'])
+
+/** The project row id for a project root path (setup-command trust is per project). */
+function projectIdForPath(projectPath: string): string | null {
+  const row = getDb()
+    .select({ id: schema.projects.id })
+    .from(schema.projects)
+    .where(eq(schema.projects.path, projectPath))
+    .get()
+  return row?.id ?? null
+}
 
 const agentScopeInput = z.object({
   scope: z.enum(['global', 'project']),
@@ -198,6 +215,11 @@ export const projectConfigRouter = router({
   openInEditor: publicProcedure
     .input(z.object({ path: z.string().min(1) }))
     .mutation(async ({ input }) => {
+      // shell.openPath launches whatever the OS associates with the file, so
+      // only plain config/text files may be opened — never apps or scripts.
+      if (!OPENABLE_EXTENSIONS.has(nodePath.extname(input.path).toLowerCase())) {
+        throw new Error('Only markdown, JSON, YAML and text files can be opened')
+      }
       const error = await shell.openPath(input.path)
       if (error) throw new Error(error)
       return { ok: true }
@@ -224,17 +246,40 @@ export const projectConfigRouter = router({
   worktreeSetupGet: publicProcedure
     .input(z.object({ projectPath: z.string() }))
     .query(async ({ input }) => {
-      return { commands: await readSetupCommands(input.projectPath) }
+      const commands = await readSetupCommands(input.projectPath)
+      const projectId = projectIdForPath(input.projectPath)
+      // Commands only run once approved; a change made outside the app
+      // (pull, agent edit) shows up here as untrusted.
+      const trusted =
+        commands.length === 0 || (projectId !== null && isSetupTrusted(projectId, commands))
+      return { commands, trusted }
     }),
 
-  /** Persist setup commands; applies to worktrees created from now on. */
+  /** Persist setup commands (saving them from the app approves them). */
   worktreeSetupSet: publicProcedure
     .input(z.object({ projectPath: z.string(), commands: z.array(z.string()) }))
     .mutation(async ({ input }) => {
-      await writeSetupCommands(
-        input.projectPath,
-        input.commands.map((c) => c.trim()).filter((c) => c.length > 0)
-      )
+      const commands = input.commands.map((c) => c.trim()).filter((c) => c.length > 0)
+      await writeSetupCommands(input.projectPath, commands)
+      const projectId = projectIdForPath(input.projectPath)
+      if (projectId) trustSetupCommands(projectId, commands)
+      return { ok: true }
+    }),
+
+  /**
+   * Approve setup commands that changed outside the app. `commands` is the
+   * list the user reviewed; it must still match the repo file.
+   */
+  worktreeSetupApprove: publicProcedure
+    .input(z.object({ projectPath: z.string(), commands: z.array(z.string()).min(1) }))
+    .mutation(async ({ input }) => {
+      const projectId = projectIdForPath(input.projectPath)
+      if (!projectId) throw new Error('Project not found')
+      const current = await readSetupCommands(input.projectPath)
+      if (setupCommandsHash(current) !== setupCommandsHash(input.commands)) {
+        throw new Error('The setup commands changed — review them again before approving.')
+      }
+      trustSetupCommands(projectId, current)
       return { ok: true }
     }),
 

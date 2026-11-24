@@ -22,8 +22,19 @@ export interface WikiMetaResult {
   behind: number | null
 }
 
+/**
+ * The wiki store for a project. The id is joined into a filesystem path (and
+ * `remove` deletes that directory recursively), so it must name a real
+ * project — never an arbitrary string such as "../..".
+ */
 function storeDir(projectId: string): string {
-  return wikiDir(app.getPath('userData'), projectId)
+  const project = getDb()
+    .select({ id: schema.projects.id })
+    .from(schema.projects)
+    .where(eq(schema.projects.id, projectId))
+    .get()
+  if (!project) throw new Error('Project not found')
+  return wikiDir(app.getPath('userData'), project.id)
 }
 
 export const wikiRouter = router({

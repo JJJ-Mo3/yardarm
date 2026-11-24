@@ -481,6 +481,10 @@ function WorktreeSetupCard({ projectPath }: { projectPath: string }): React.JSX.
       utils.projectConfig.worktreeSetupGet.invalidate({ projectPath })
     }
   })
+  const approve = trpc.projectConfig.worktreeSetupApprove.useMutation({
+    onSuccess: () => utils.projectConfig.worktreeSetupGet.invalidate({ projectPath })
+  })
+  const needsApproval = setup.data !== undefined && !setup.data.trusted && !dirty
 
   return (
     <div className="space-y-2 rounded-md border border-border p-3">
@@ -488,8 +492,35 @@ function WorktreeSetupCard({ projectPath }: { projectPath: string }): React.JSX.
       <div className="text-[11px] text-muted-foreground">
         Shell commands run in every new chat worktree right after it is created — one per line (e.g.{' '}
         <code>npm install</code>). Each gets 5 minutes and failures are logged but don&apos;t block
-        the chat. Saved to <code>.yardarm/worktree.json</code> in the repo.
+        the chat. Saved to <code>.yardarm/worktree.json</code> in the repo. Because that file can
+        change with a pull or an agent edit, commands only run after you approve them; saving here
+        approves them.
       </div>
+      {needsApproval && (
+        <div className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-[11px]">
+          <span className="flex-1">
+            These commands were changed outside Yardarm and will not run until you approve them.
+            Review them below first.
+          </span>
+          <Tip content="Approve exactly the commands shown below — they will run in new chat worktrees from now on">
+            <span className="inline-flex">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={approve.isPending}
+                onClick={() =>
+                  setup.data && approve.mutate({ projectPath, commands: setup.data.commands })
+                }
+              >
+                {approve.isPending ? 'Approving…' : 'Approve'}
+              </Button>
+            </span>
+          </Tip>
+        </div>
+      )}
+      {approve.error && (
+        <div className="text-xs text-destructive selectable">{approve.error.message}</div>
+      )}
       <Textarea
         rows={3}
         value={text}

@@ -21,6 +21,7 @@ import {
   type ExternalApp
 } from '../../../../shared/external-apps'
 import { getLoginPath } from '../../system/login-path'
+import { assertKnownRoot } from '../../known-roots'
 import { publicProcedure, router } from '../trpc'
 
 let detected: DetectedExternalApp[] | null = null
@@ -101,6 +102,8 @@ function launchDetached(bin: string, args: string[], cwd?: string): void {
   } else {
     child = spawn(bin, args, { detached: true, stdio: 'ignore', cwd })
   }
+  // A missing binary emits 'error' asynchronously; unhandled it would crash main.
+  child.on('error', (err) => console.error(`[external] failed to launch ${bin}`, err))
   child.unref()
 }
 
@@ -131,6 +134,8 @@ export const externalRouter = router({
     .input(z.object({ app: externalAppSchema, path: z.string().min(1) }))
     .mutation(({ input }) => {
       if (!existsSync(input.path)) throw new Error(`Folder no longer exists: ${input.path}`)
+      // Only project folders and chat worktrees can be handed to other apps.
+      assertKnownRoot(input.path)
       if (input.app === 'finder') {
         shell.showItemInFolder(input.path)
         return { ok: true }

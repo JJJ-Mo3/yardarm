@@ -1,6 +1,6 @@
 /** Tests for the remote messaging command parser. */
 import { describe, expect, it } from 'vitest'
-import { parseCommand } from './commands'
+import { parseCommand, pickPending } from './commands'
 
 describe('parseCommand', () => {
   it('parses bare commands case-insensitively', () => {
@@ -78,5 +78,32 @@ describe('parseCommand', () => {
       kind: 'prompt',
       text: 'helpme understand this'
     })
+  })
+})
+
+describe('numbered approve/deny', () => {
+  it('parses a leading list number', () => {
+    expect(parseCommand('approve 2')).toEqual({ kind: 'approve', index: 2 })
+    expect(parseCommand('deny 3 too risky')).toEqual({
+      kind: 'deny',
+      index: 3,
+      reason: 'too risky'
+    })
+    expect(parseCommand('deny 3')).toEqual({ kind: 'deny', index: 3, reason: undefined })
+    expect(parseCommand('deny 2fast')).toEqual({ kind: 'deny', reason: '2fast' })
+  })
+})
+
+describe('pickPending', () => {
+  it('resolves a bare reply only when exactly one is pending', () => {
+    expect(pickPending([], undefined)).toEqual({ error: 'none' })
+    expect(pickPending(['a'], undefined)).toEqual({ ok: 'a' })
+    expect(pickPending(['a', 'b'], undefined)).toEqual({ error: 'ambiguous' })
+  })
+
+  it('resolves by 1-based number and rejects out-of-range numbers', () => {
+    expect(pickPending(['a', 'b'], 2)).toEqual({ ok: 'b' })
+    expect(pickPending(['a', 'b'], 0)).toEqual({ error: 'range' })
+    expect(pickPending(['a', 'b'], 3)).toEqual({ error: 'range' })
   })
 })

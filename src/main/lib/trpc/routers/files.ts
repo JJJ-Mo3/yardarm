@@ -4,6 +4,8 @@ import path from 'node:path'
 import { simpleGit } from 'simple-git'
 import { z } from 'zod'
 import { agentSessionManager } from '../../agent/agent-session-manager'
+import { resolveInside } from '../../git/safe-ref'
+import { assertKnownRoot } from '../../known-roots'
 import { publicProcedure, router } from '../trpc'
 
 const IGNORED = new Set([
@@ -76,12 +78,30 @@ async function listAllFiles(
   return acc
 }
 
+/**
+ * Resolve a renderer-supplied path: the root must be a project folder or chat
+ * worktree the app knows, and the path must stay inside it.
+ */
 function resolveWithin(root: string, relPath: string): string {
-  const abs = path.resolve(root, relPath)
-  if (abs !== root && !abs.startsWith(root + path.sep)) {
+  return resolveInside(assertKnownRoot(root), relPath)
+}
+
+/**
+ * Writes also follow symlinks, so check where the path really lands: a link
+ * inside the tree that points outside it (e.g. at a shell rc file) must not be
+ * writable through the editor. New files are checked via their parent.
+ */
+async function assertRealPathInside(root: string, abs: string): Promise<void> {
+  const realRoot = await fs.realpath(path.resolve(root))
+  let real: string
+  try {
+    real = await fs.realpath(abs)
+  } catch {
+    real = path.join(await fs.realpath(path.dirname(abs)), path.basename(abs))
+  }
+  if (real !== realRoot && !real.startsWith(realRoot + path.sep)) {
     throw new Error('Path escapes project root')
   }
-  return abs
 }
 
 export const filesRouter = router({
@@ -138,6 +158,7 @@ export const filesRouter = router({
     )
     .mutation(async ({ input }) => {
       const abs = resolveWithin(input.root, input.path)
+      await assertRealPathInside(input.root, abs)
       if (input.baseMtimeMs !== undefined) {
         let diskMtimeMs: number | null = null
         try {
@@ -182,7 +203,7 @@ export const filesRouter = router({
    */
   list: publicProcedure.input(z.object({ root: z.string() })).query(async ({ input }) => {
     try {
-      const out = await simpleGit(input.root).raw([
+      const out = await simpleGit(assertKnownRoot(input.root)).raw([
         'ls-files',
         '--cached',
         '--others',
@@ -193,7 +214,7 @@ export const filesRouter = router({
     } catch {
       // not a git repo (or git unavailable) — use the walker below
     }
-    return listAllFiles(input.root)
+    return listAllFiles(assertKnownRoot(input.root))
   }),
 
   /** Substring/fuzzy filename search for @-mentions. */
@@ -202,7 +223,7 @@ export const filesRouter = router({
       z.object({ root: z.string(), query: z.string(), limit: z.number().int().max(50).default(20) })
     )
     .query(async ({ input }) => {
-      const all = await listAllFiles(input.root)
+      const all = await listAllFiles(assertKnownRoot(input.root))
       const q = input.query.toLowerCase()
       if (!q) return all.slice(0, input.limit)
       const scored: Array<{ p: string; score: number }> = []

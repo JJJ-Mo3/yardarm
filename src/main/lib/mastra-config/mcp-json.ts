@@ -5,6 +5,7 @@
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { readJsonForUpdate } from './settings-json'
 
 export function mastraConfigDir(): string {
   return path.join(os.homedir(), '.mastracode')
@@ -55,7 +56,7 @@ export function writeMcpServers(
   projectPath?: string
 ): Promise<void> {
   const task = writeQueue.then(async () => {
-    const existing = await readMcpJson(projectPath)
+    const existing = await readJsonForUpdate<McpJson>(mcpJsonPath(projectPath))
     await writeMcpJsonFile({ ...existing, mcpServers: servers }, projectPath)
   })
   writeQueue = task.catch(() => {})
@@ -71,7 +72,7 @@ export function updateMcpServers(
   projectPath?: string
 ): Promise<Record<string, McpServerConfig>> {
   const task = writeQueue.then(async () => {
-    const existing = await readMcpJson(projectPath)
+    const existing = await readJsonForUpdate<McpJson>(mcpJsonPath(projectPath))
     const servers = existing.mcpServers ?? {}
     mutate(servers)
     await writeMcpJsonFile({ ...existing, mcpServers: servers }, projectPath)

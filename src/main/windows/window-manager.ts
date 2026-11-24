@@ -79,6 +79,8 @@ export function createWindow(): BrowserWindow {
     guest.on('will-redirect', applyNavPolicy)
   })
 
+  installPermissionPolicy()
+
   ipcHandler?.attachWindow(win)
 
   // Renderer crash recovery: after long sessions the renderer process can die
@@ -108,7 +110,9 @@ export function createWindow(): BrowserWindow {
   })
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http://') || url.startsWith('https://')) shell.openExternal(url)
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      shell.openExternal(url).catch(() => {})
+    }
     return { action: 'deny' }
   })
 
@@ -131,4 +135,38 @@ export function createWindow(): BrowserWindow {
   }
 
   return win
+}
+
+/** Permissions the app's own UI uses (voice input, clipboard, notifications). */
+const APP_PERMISSIONS = new Set([
+  'media',
+  'clipboard-read',
+  'clipboard-sanitized-write',
+  'notifications',
+  'fullscreen'
+])
+/** The Factory dashboard only needs copy-to-clipboard. */
+const FACTORY_PERMISSIONS = new Set(['clipboard-sanitized-write'])
+const NO_PERMISSIONS = new Set<string>()
+
+let permissionPolicyInstalled = false
+
+/**
+ * Electron grants every permission request by default. Preview pages are
+ * arbitrary (often agent-written) localhost code, so their partition gets
+ * nothing — otherwise the microphone grant the app holds for voice input
+ * would be usable by any previewed page. Installed once, for all windows.
+ */
+function installPermissionPolicy(): void {
+  if (permissionPolicyInstalled) return
+  permissionPolicyInstalled = true
+  const apply = (target: Electron.Session, allowed: Set<string>): void => {
+    target.setPermissionRequestHandler((_wc, permission, callback) => {
+      callback(allowed.has(permission))
+    })
+    target.setPermissionCheckHandler((_wc, permission) => allowed.has(permission))
+  }
+  apply(session.defaultSession, APP_PERMISSIONS)
+  apply(session.fromPartition('preview'), NO_PERMISSIONS)
+  apply(session.fromPartition('persist:factory'), FACTORY_PERMISSIONS)
 }

@@ -5,6 +5,7 @@
  */
 import { eq } from 'drizzle-orm'
 import type { RepoHostSetting } from '../../../shared/ipc-types'
+import { setupCommandsHash } from '../git/setup-hash'
 import { getDb, schema } from './index'
 
 /** One per-project environment variable (Project Settings → Environment). */
@@ -29,6 +30,8 @@ export interface ProjectSettings {
   envVars?: ProjectEnvVar[]
   /** Reviewer personas selectable when starting a review. */
   reviewers?: ReviewerPersona[]
+  /** Hash of the worktree setup commands the user approved (see setup-hash.ts). */
+  trustedSetupHash?: string
   [key: string]: unknown
 }
 
@@ -104,4 +107,34 @@ export function projectEnvRecord(projectId: string): Record<string, string> {
     out[v.key] = v.value
   }
   return out
+}
+
+/**
+ * True when the user approved exactly these worktree setup commands for the
+ * project. The commands come from a repo file, so they never run unapproved.
+ */
+export function isSetupTrusted(projectId: string, commands: string[]): boolean {
+  const project = getDb()
+    .select({ settings: schema.projects.settings })
+    .from(schema.projects)
+    .where(eq(schema.projects.id, projectId))
+    .get()
+  const trusted = parseProjectSettings(project?.settings ?? null).trustedSetupHash
+  return typeof trusted === 'string' && trusted === setupCommandsHash(commands)
+}
+
+/** Record the user's approval of these setup commands (an empty list clears it). */
+export function trustSetupCommands(projectId: string, commands: string[]): void {
+  const db = getDb()
+  const project = db.select().from(schema.projects).where(eq(schema.projects.id, projectId)).get()
+  if (!project) throw new Error('Project not found')
+  // Read-modify-write the JSON blob so unknown keys are preserved.
+  const settings = parseProjectSettings(project.settings)
+  if (commands.length > 0) settings.trustedSetupHash = setupCommandsHash(commands)
+  else delete settings.trustedSetupHash
+  const serialized = Object.keys(settings).length > 0 ? JSON.stringify(settings) : null
+  db.update(schema.projects)
+    .set({ settings: serialized, updatedAt: Date.now() })
+    .where(eq(schema.projects.id, projectId))
+    .run()
 }

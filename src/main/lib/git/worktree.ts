@@ -114,7 +114,9 @@ export async function readSetupCommands(projectPath: string): Promise<string[]> 
   try {
     const raw = await fs.readFile(path.join(projectPath, '.yardarm', 'worktree.json'), 'utf8')
     const parsed = JSON.parse(raw) as { 'setup-worktree'?: string[] }
-    if (Array.isArray(parsed['setup-worktree'])) return parsed['setup-worktree']
+    if (Array.isArray(parsed['setup-worktree'])) {
+      return parsed['setup-worktree'].filter((c): c is string => typeof c === 'string')
+    }
   } catch {
     // missing or invalid — skip
   }
@@ -152,6 +154,28 @@ export async function writeSetupCommands(projectPath: string, commands: string[]
   await fs.rename(tmp, file)
 }
 
+/**
+ * Run setup commands in a worktree, best-effort (npm install etc.). Callers
+ * must only pass commands the user approved (isSetupTrusted) — they execute
+ * through a shell, outside any agent sandbox.
+ */
+export async function runSetupCommands(worktreePath: string, commands: string[]): Promise<void> {
+  if (commands.length === 0) return
+  const { exec } = await import('node:child_process')
+  const { promisify } = await import('node:util')
+  const execAsync = promisify(exec)
+  // Login-shell PATH so npm/pnpm etc. resolve in the packaged app.
+  const env = { ...process.env, PATH: getLoginPath() ?? process.env.PATH }
+  for (const cmd of commands) {
+    try {
+      await execAsync(cmd, { cwd: worktreePath, timeout: 300_000, env })
+    } catch (err) {
+      console.error(`[worktree] setup command failed: ${cmd}`, err)
+    }
+  }
+}
+
+/** Create the chat's worktree. Setup commands are the caller's job (trust-gated). */
 export async function createWorktree(
   projectId: string,
   projectPath: string,
@@ -173,23 +197,6 @@ export async function createWorktree(
   }
 
   await git.raw(['worktree', 'add', '-b', branch, worktreePath, baseRef])
-
-  // Run setup commands best-effort (npm install etc.).
-  const commands = await readSetupCommands(projectPath)
-  if (commands.length > 0) {
-    const { exec } = await import('node:child_process')
-    const { promisify } = await import('node:util')
-    const execAsync = promisify(exec)
-    // Login-shell PATH so npm/pnpm etc. resolve in the packaged app.
-    const env = { ...process.env, PATH: getLoginPath() ?? process.env.PATH }
-    for (const cmd of commands) {
-      try {
-        await execAsync(cmd, { cwd: worktreePath, timeout: 300_000, env })
-      } catch (err) {
-        console.error(`[worktree] setup command failed: ${cmd}`, err)
-      }
-    }
-  }
 
   return { worktreePath, branch, baseBranch }
 }
