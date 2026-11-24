@@ -103,6 +103,8 @@ import type {
   SessionStatePatch,
   SkillInfo,
   SlashCommandInfo,
+  SteerHoldReason,
+  SteerResult,
   SttModelInfo,
   ThreadInfo,
   ToolCategoryTools,
@@ -1446,6 +1448,91 @@ export class AgentSessionManager {
     // Idle kick: if the queue was stranded (host crash, failed flush), this
     // enqueue is the moment it resumes — head first, order preserved.
     this.maybeFlushQueue(subchatId)
+  }
+
+  /**
+   * "Send now": deliver a prompt onto the ACTIVE run so the agent reads it at
+   * its next step, instead of waiting for the run to finish. Either an
+   * already-queued prompt (`queuedId`, removed from the queue on delivery) or
+   * fresh composer text. Never used while a tool approval or question is
+   * pending — the SDK declines a parked approval when a user message arrives
+   * — and never starts a run: when nothing is running a queued item simply
+   * stays queued and composer text takes the normal send-or-queue path
+   * (`queued: true`). The host re-checks every gate against its live session
+   * state in the same tick as the send.
+   */
+  async sendNow(
+    subchatId: string,
+    input:
+      { queuedId: string } | { content: string; files?: FileAttachment[]; displayText?: string }
+  ): Promise<SteerResult & { queued?: boolean }> {
+    const fallback = async (
+      reason: SteerHoldReason
+    ): Promise<SteerResult & { queued?: boolean }> => {
+      if ('queuedId' in input) return { delivered: false, reason }
+      await this.sendOrQueue(subchatId, input.content, input.files, input.displayText)
+      return { delivered: false, reason, queued: true }
+    }
+    const host = this.hosts.get(subchatId)
+    if (!host || host.killed || host.status !== 'ready' || !host.translator.running) {
+      return fallback('idle')
+    }
+    if (host.translator.pendingApprovals.size > 0) return fallback('approval')
+
+    // Take a queued item out first so a run ending mid-request can't also
+    // flush it; it goes back to its old position if delivery is refused.
+    const taken = 'queuedId' in input ? this.promptQueue.take(subchatId, input.queuedId) : null
+    if ('queuedId' in input && !taken) return { delivered: false, reason: 'idle' }
+    const text = taken ? taken.item.text : (input as { content: string }).content
+    const files = taken ? taken.item.files : (input as { files?: FileAttachment[] }).files
+    const displayText = taken
+      ? taken.item.displayText
+      : (input as { displayText?: string }).displayText
+    const marker = taken?.item.displayKind === 'marker'
+    const putBack = (): void => {
+      if (taken) {
+        this.promptQueue.insertAt(subchatId, taken.index, taken.item)
+        this.emitQueuedPrompts(subchatId)
+      }
+    }
+    if (taken) this.emitQueuedPrompts(subchatId)
+
+    // Registered before the request so the run-stream echo of this message is
+    // recognized as our own send (and not recorded twice).
+    this.noteSentPrompt(subchatId, text)
+    let res: SteerResult
+    try {
+      res = await this.request<SteerResult>(host, {
+        t: 'steer',
+        reqId: randomUUID(),
+        text,
+        files
+      })
+    } catch (err) {
+      this.consumeSentPrompt(subchatId, text)
+      putBack()
+      throw err
+    }
+    if (!res.delivered) {
+      this.consumeSentPrompt(subchatId, text)
+      putBack()
+      return taken ? res : fallback(res.reason ?? 'idle')
+    }
+    // A real user send: re-arm the per-prompt recovery and auto-continue budgets.
+    this.prefillRetried.delete(subchatId)
+    this.stallRetried.delete(subchatId)
+    this.tasksContinueRounds.delete(subchatId)
+    this.tasksContinueFingerprint.delete(subchatId)
+    const attachmentNote = files?.length
+      ? `\n\n[${files.length} file${files.length === 1 ? '' : 's'} attached]`
+      : ''
+    // No rollback checkpoint: the worktree is mid-edit by the running turn.
+    this.recordUserMessage(subchatId, (displayText ?? text) + attachmentNote, undefined, marker)
+    this.insertMarker(
+      subchatId,
+      'Sent to the running agent mid-run — it reads this at its next step'
+    )
+    return { delivered: true }
   }
 
   dismissQueuedPrompt(subchatId: string, id: string): void {

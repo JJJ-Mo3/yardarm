@@ -54,6 +54,26 @@ describe('PromptQueue', () => {
     expect(q.list('a').map((i) => i.text)).toEqual(['two', 'three', 'one'])
   })
 
+  it('take removes one item and insertAt restores its position', () => {
+    const q = new PromptQueue()
+    q.enqueue('a', 'one')
+    const two = q.enqueue('a', 'two')
+    q.enqueue('a', 'three')
+    const taken = q.take('a', two.id)
+    expect(taken).toMatchObject({ index: 1, item: { text: 'two' } })
+    expect(q.list('a').map((i) => i.text)).toEqual(['one', 'three'])
+    expect(q.take('a', two.id)).toBeUndefined()
+    expect(q.take('missing', two.id)).toBeUndefined()
+    if (taken) q.insertAt('a', taken.index, taken.item)
+    expect(q.list('a').map((i) => i.text)).toEqual(['one', 'two', 'three'])
+    // The queue may have drained meanwhile — the index is clamped.
+    const head = q.take('a', q.list('a')[0].id)
+    q.shift('a')
+    q.shift('a')
+    if (head) q.insertAt('a', 5, head.item)
+    expect(q.list('a').map((i) => i.text)).toEqual(['one'])
+  })
+
   it('list exposes counts, never file payloads', () => {
     const q = new PromptQueue()
     q.enqueue('a', 'with files', [

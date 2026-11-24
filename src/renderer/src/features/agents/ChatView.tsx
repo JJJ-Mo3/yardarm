@@ -94,7 +94,7 @@ import { ReviewPopover } from './ReviewPopover'
 import { ReviewFollowupBar } from './ReviewFollowupBar'
 import { paletteDispatchAtom, useSlashCommands, type SlashCommandEntry } from './slash-commands'
 import { buildReportIssuePrompt } from './report-issue-prompt'
-import { buildAttachmentPrompt, classifyAttachment } from './attachments'
+import { buildAttachmentPrompt, classifyAttachment, type ComposerAttachment } from './attachments'
 import { downloadChatMarkdown } from './export-chat'
 import {
   buildLocalReviewPrompt,
@@ -140,6 +140,27 @@ export function ChatView({
   const utils = trpc.useUtils()
 
   const send = trpc.agent.send.useMutation()
+  // "Send now": deliver a prompt onto the active run. When the main process
+  // could not (run just ended, a gate appeared), say what happened instead.
+  const sendNow = trpc.agent.sendNow.useMutation({
+    onSuccess: (res) => {
+      if (res.delivered) return
+      const why =
+        res.reason === 'approval'
+          ? 'a tool approval is pending'
+          : res.reason === 'suspension'
+            ? 'the agent is waiting for your answer'
+            : res.reason === 'aborting'
+              ? 'the run is being stopped'
+              : 'no run is active anymore'
+      setRollbackNotice({
+        text: res.queued
+          ? `Not delivered mid-run (${why}) — the message was sent the normal way instead.`
+          : `Not delivered mid-run (${why}) — the message is still queued.`,
+        warn: true
+      })
+    }
+  })
   const dismissQueued = trpc.agent.dismissQueued.useMutation()
   const reorderQueued = trpc.agent.reorderQueued.useMutation()
   const updateQueued = trpc.agent.updateQueued.useMutation()
@@ -386,6 +407,36 @@ export function ChatView({
   const meta = state.meta
   const busy = send.isPending
 
+  // "Send now" is never offered while a tool approval or question is pending:
+  // a user message arriving mid-run would decline the parked tool call.
+  const sendNowBlocked = !state.running
+    ? 'Send now is available while the agent is running'
+    : state.approvals.length > 0
+      ? 'Answer the pending tool approval first — sending now would decline it'
+      : state.suspensions.length > 0
+        ? 'Answer the agent’s pending question first'
+        : null
+
+  /**
+   * Composer text + attachments → send payload. Text-like attachments are
+   * inlined into the prompt (providers only accept images/PDFs as native file
+   * parts); displayText keeps the transcript bubble clean.
+   */
+  const buildSendPayload = (
+    content: string,
+    files?: ComposerAttachment[]
+  ): { content: string; displayText?: string; files?: ComposerAttachment[] } => {
+    const texts = files?.filter((f) => classifyAttachment(f.mediaType, f.filename) === 'text') ?? []
+    if (texts.length === 0) return { content, files }
+    const native = files?.filter((f) => classifyAttachment(f.mediaType, f.filename) !== 'text')
+    const built = buildAttachmentPrompt(content, texts)
+    return {
+      content: built.content,
+      displayText: built.displayText,
+      files: native?.length ? native : undefined
+    }
+  }
+
   /** Send an expanded prompt with a compact transcript marker instead of a user bubble. */
   const sendMarked = (content: string, marker: string): void => {
     send.mutate({ subchatId, content, displayText: marker, displayKind: 'marker' })
@@ -418,6 +469,7 @@ export function ChatView({
   const actionMutations: Array<[string, { error: { message: string } | null; reset: () => void }]> =
     [
       ['send', send],
+      ['send now', sendNow],
       ['dismiss', dismissQueued],
       ['reorder', reorderQueued],
       ['edit queued', updateQueued],
@@ -1380,6 +1432,9 @@ export function ChatView({
           onDismiss={(id) => dismissQueued.mutate({ subchatId, id })}
           onReorder={(id, beforeId) => reorderQueued.mutate({ subchatId, id, beforeId })}
           onEdit={(id, text) => updateQueued.mutate({ subchatId, id, text })}
+          onSendNow={(id) => sendNow.mutate({ subchatId, queuedId: id })}
+          sendNowBlocked={sendNowBlocked}
+          sendNowPending={sendNow.isPending}
         />
 
         {goalOpen && (
@@ -1401,28 +1456,15 @@ export function ChatView({
           commands={commands}
           onSend={(content, files) => {
             setRollbackNotice(null)
-            // Text-like attachments are inlined into the prompt (providers only
-            // accept images/PDFs as native file parts); displayText keeps the
-            // transcript bubble clean. The main process queues this behind an
-            // active run (dismissable, flushed in order on run end) or sends
-            // immediately when idle.
-            const texts =
-              files?.filter((f) => classifyAttachment(f.mediaType, f.filename) === 'text') ?? []
-            if (texts.length === 0) {
-              send.mutate({ subchatId, content, files })
-              return
-            }
-            const native = files?.filter(
-              (f) => classifyAttachment(f.mediaType, f.filename) !== 'text'
-            )
-            const built = buildAttachmentPrompt(content, texts)
-            send.mutate({
-              subchatId,
-              content: built.content,
-              displayText: built.displayText,
-              files: native?.length ? native : undefined
-            })
+            // The main process queues this behind an active run (dismissable,
+            // flushed in order on run end) or sends immediately when idle.
+            send.mutate({ subchatId, ...buildSendPayload(content, files) })
           }}
+          onSendNow={(content, files) => {
+            setRollbackNotice(null)
+            sendNow.mutate({ subchatId, ...buildSendPayload(content, files) })
+          }}
+          sendNowBlocked={sendNowBlocked}
           onAbort={() => abort.mutate({ subchatId })}
           onSlashCommand={handleSlashCommand}
           draftKey={subchatId}

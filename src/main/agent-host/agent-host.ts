@@ -1659,6 +1659,44 @@ async function main(): Promise<void> {
               return { delivered: true, mode: 'persisted' }
             })
             break
+          case 'steer':
+            await respond(cmd.reqId, async () => {
+              // Same holds as ideNote: a user message sent mid-run declines a
+              // parked tool approval ("interrupted by user message"), drains
+              // into a follow-up run past a suspension, and is parked until
+              // the stream idles while an abort is in flight.
+              const ds = session.displayState.get()
+              if (session.run.isAbortRequested()) return { delivered: false, reason: 'aborting' }
+              if (ds.pendingApprovals.size > 0) return { delivered: false, reason: 'approval' }
+              if (ds.pendingSuspensions.size > 0) return { delivered: false, reason: 'suspension' }
+              // Session.sendSignal's own active-branch condition, checked in
+              // the same synchronous tick as the send below — otherwise the
+              // SDK would start a NEW run instead of joining the active one.
+              const running =
+                session.run.getRunId() !== null &&
+                session.stream.activeRunId() !== null &&
+                session.run.isRunning()
+              if (!running) return { delivered: false, reason: 'idle' }
+              // Session.sendMessage → sendSignal({ type: 'user' }) marks the
+              // signal `delivery: 'while-active'` and dispatches it onto the
+              // active run. Not awaited: admission is decided synchronously
+              // above, and a late failure surfaces as an error event exactly
+              // like a normal send.
+              session.sendMessage({ content: cmd.text, files: cmd.files }).catch((err: unknown) => {
+                post({ t: 'log', level: 'error', msg: `steer sendMessage failed: ${String(err)}` })
+                post({
+                  t: 'event',
+                  ev: { type: 'error', error: { message: String(err) } }
+                })
+              })
+              post({
+                t: 'log',
+                level: 'info',
+                msg: `user message steered mid-run (${cmd.text.length} chars)`
+              })
+              return { delivered: true }
+            })
+            break
           case 'setMode':
             try {
               await session.mode.switch({ modeId: cmd.mode })

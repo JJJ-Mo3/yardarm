@@ -64,6 +64,14 @@ export type HostCommand =
    * approval/suspension/abort is parked or no thread exists yet.
    */
   | { t: 'ideNote'; reqId: string; text: string }
+  /**
+   * "Send now": deliver a user message onto the ACTIVE run so the agent reads
+   * it at its next step (the SDK joins a message sent mid-run to the running
+   * turn as a while-active user signal). Responds with a SteerResult;
+   * delivered: false — nothing sent — when no run is active or a tool
+   * approval / suspension / abort is parked (sending would decline the gate).
+   */
+  | { t: 'steer'; reqId: string; text: string; files?: FileAttachment[] }
   | { t: 'getPermissions'; reqId: string }
   | {
       t: 'setPermission'
@@ -350,6 +358,15 @@ export interface IdeNoteResult {
   /** 'mid-run' = signalled onto the live run; 'persisted' = written into thread memory. */
   mode?: 'mid-run' | 'persisted'
   reason?: 'idle' | 'approval' | 'suspension' | 'aborting'
+}
+
+/** Why a "Send now" (mid-run steer) was not delivered. */
+export type SteerHoldReason = 'idle' | 'approval' | 'suspension' | 'aborting'
+
+/** Result of a steer command. */
+export interface SteerResult {
+  delivered: boolean
+  reason?: SteerHoldReason
 }
 
 /** A mastracode thread as listed for the Threads UI. */

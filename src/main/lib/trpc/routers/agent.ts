@@ -117,6 +117,46 @@ export const agentRouter = router({
       return { ok: true }
     }),
 
+  /**
+   * "Send now": deliver a queued prompt (by id) or fresh composer text onto
+   * the active run so the agent reads it at its next step. Returns
+   * delivered: false with a reason when it could not (no active run, pending
+   * approval or question, abort in flight); composer text is then queued or
+   * sent normally (`queued: true`) and a queued prompt stays queued.
+   */
+  sendNow: publicProcedure
+    .input(
+      z
+        .object({
+          subchatId: z.string(),
+          queuedId: z.string().optional(),
+          content: z.string().min(1).optional(),
+          displayText: z.string().optional(),
+          files: z
+            .array(
+              z.object({
+                data: z.string().min(1),
+                mediaType: z.string().min(1),
+                filename: z.string().optional()
+              })
+            )
+            .optional()
+        })
+        .refine((v) => (v.queuedId === undefined) !== (v.content === undefined), {
+          message: 'Provide exactly one of queuedId or content'
+        })
+    )
+    .mutation(async ({ input }) => {
+      if (input.queuedId !== undefined) {
+        return agentSessionManager.sendNow(input.subchatId, { queuedId: input.queuedId })
+      }
+      return agentSessionManager.sendNow(input.subchatId, {
+        content: input.content ?? '',
+        files: input.files,
+        displayText: input.displayText
+      })
+    }),
+
   /** Remove a queued prompt before it sends. */
   dismissQueued: publicProcedure
     .input(z.object({ subchatId: z.string(), id: z.string() }))

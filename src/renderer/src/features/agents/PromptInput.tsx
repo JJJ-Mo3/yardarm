@@ -3,7 +3,7 @@
  * macros, attachments, voice input, the Goal button, and send/stop.
  */
 import React, { useEffect, useRef, useState } from 'react'
-import { ArrowUp, FileText, Loader2, Mic, Paperclip, Square, Target, X } from 'lucide-react'
+import { ArrowUp, FileText, Loader2, Mic, Paperclip, Square, Target, X, Zap } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { Tip } from '../../components/ui/tooltip'
 import { trpc } from '../../lib/trpc'
@@ -65,6 +65,8 @@ export function PromptInput({
   projectId,
   commands,
   onSend,
+  onSendNow,
+  sendNowBlocked,
   onAbort,
   onSlashCommand,
   draftKey,
@@ -85,6 +87,13 @@ export function PromptInput({
   projectId?: string | null
   commands: SlashCommandEntry[]
   onSend: (content: string, files?: ComposerAttachment[]) => void
+  /**
+   * Deliver the message to the running agent mid-run instead of queueing it;
+   * the "Send now" button renders (while a run is active) only when provided.
+   */
+  onSendNow?: (content: string, files?: ComposerAttachment[]) => void
+  /** Why "Send now" is unavailable right now (shown as its tooltip), or null. */
+  sendNowBlocked?: string | null
   onAbort: () => void
   /** Handle a slash command; return a string to show as an inline hint. */
   onSlashCommand: (entry: SlashCommandEntry, args: string) => string | void
@@ -398,7 +407,7 @@ export function PromptInput({
     if (converted.length > 0) setAttachments((prev) => [...prev, ...converted])
   }
 
-  function submit(): void {
+  function submit(now = false): void {
     const content = value.trim()
     if (!content && attachments.length === 0) return
     if (content.startsWith('/')) {
@@ -412,7 +421,8 @@ export function PromptInput({
       runSlash(entry, m?.[2]?.trim() ?? '')
       return
     }
-    onSend(content || 'See the attached file(s).', attachments.length ? attachments : undefined)
+    const deliver = now && onSendNow ? onSendNow : onSend
+    deliver(content || 'See the attached file(s).', attachments.length ? attachments : undefined)
     setValue('')
     setAttachments([])
     setHint(null)
@@ -753,24 +763,51 @@ export function PromptInput({
                 </Button>
               </Tip>
             ) : (
-              <Tip
-                content={
-                  running
-                    ? 'Queue this message — it will be sent after the current run finishes'
-                    : 'Send the message to the agent (Enter)'
-                }
-              >
-                <span className="inline-flex">
-                  <Button
-                    size="icon"
-                    aria-label={running ? 'Queue message' : 'Send message'}
-                    disabled={disabled || (!value.trim() && attachments.length === 0)}
-                    onClick={submit}
+              <>
+                {running && onSendNow && (
+                  <Tip
+                    content={
+                      sendNowBlocked ??
+                      'Send now — deliver this message to the running agent mid-run; it reads it at its next step instead of after the run'
+                    }
                   >
-                    <ArrowUp size={14} />
-                  </Button>
-                </span>
-              </Tip>
+                    <span className="inline-flex">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        aria-label="Send now, mid-run"
+                        disabled={
+                          disabled ||
+                          !!sendNowBlocked ||
+                          (!value.trim() && attachments.length === 0) ||
+                          value.trim().startsWith('/')
+                        }
+                        onClick={() => submit(true)}
+                      >
+                        <Zap size={14} />
+                      </Button>
+                    </span>
+                  </Tip>
+                )}
+                <Tip
+                  content={
+                    running
+                      ? 'Queue this message — it will be sent after the current run finishes'
+                      : 'Send the message to the agent (Enter)'
+                  }
+                >
+                  <span className="inline-flex">
+                    <Button
+                      size="icon"
+                      aria-label={running ? 'Queue message' : 'Send message'}
+                      disabled={disabled || (!value.trim() && attachments.length === 0)}
+                      onClick={() => submit()}
+                    >
+                      <ArrowUp size={14} />
+                    </Button>
+                  </span>
+                </Tip>
+              </>
             )}
           </div>
         </div>

@@ -2,10 +2,11 @@
  * Dismissable list of prompts queued behind the active run, rendered above
  * the composer. Items live in the main process and are sent one at a time,
  * in order, as each run finishes; rows can be drag-reordered, copied,
- * dismissed, and — for plain prompts — edited inline before they send.
+ * dismissed, and — for plain prompts — edited inline before they send. "Send
+ * now" delivers one to the running agent mid-run instead of waiting.
  */
 import React, { useState } from 'react'
-import { Check, Copy, GripVertical, Pencil } from 'lucide-react'
+import { Check, Copy, GripVertical, Pencil, Zap } from 'lucide-react'
 import type { QueuedPromptInfo } from '../../../../shared/ui-message'
 import { cn } from '../../lib/utils'
 import { Tip } from '../../components/ui/tooltip'
@@ -16,12 +17,20 @@ export function QueuedPrompts({
   items,
   onDismiss,
   onReorder,
-  onEdit
+  onEdit,
+  onSendNow,
+  sendNowBlocked,
+  sendNowPending
 }: {
   items: QueuedPromptInfo[]
   onDismiss: (id: string) => void
   onReorder: (id: string, beforeId?: string) => void
   onEdit: (id: string, text: string) => void
+  /** Deliver a queued prompt to the running agent mid-run; omit to hide the action. */
+  onSendNow?: (id: string) => void
+  /** Why "Send now" is unavailable right now (shown as its tooltip), or null. */
+  sendNowBlocked?: string | null
+  sendNowPending?: boolean
 }): React.JSX.Element | null {
   const [dragOverId, setDragOverId] = useState<string | 'end' | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -137,6 +146,26 @@ export function QueuedPrompts({
                   <span className="shrink-0 text-muted-foreground">
                     {item.fileCount} file{item.fileCount === 1 ? '' : 's'}
                   </span>
+                )}
+                {onSendNow && (
+                  <Tip
+                    content={
+                      sendNowBlocked ??
+                      'Send now — deliver this message to the running agent mid-run; it reads it at its next step instead of after the run'
+                    }
+                  >
+                    <span className="inline-flex shrink-0">
+                      <button
+                        aria-label="Send queued message now"
+                        disabled={!!sendNowBlocked || sendNowPending}
+                        className="flex cursor-pointer items-center gap-1 rounded border border-sky-500/40 px-1.5 py-0.5 text-[10px] text-sky-500 hover:bg-sky-500/10 disabled:cursor-default disabled:opacity-40"
+                        onClick={() => onSendNow(item.id)}
+                      >
+                        <Zap size={10} />
+                        Send now
+                      </button>
+                    </span>
+                  </Tip>
                 )}
                 <Tip content="Copy this queued message's text">
                   <button

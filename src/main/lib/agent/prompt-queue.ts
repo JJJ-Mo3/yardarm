@@ -73,6 +73,25 @@ export class PromptQueue {
     return true
   }
 
+  /**
+   * Remove one item by id and return it with its position, so a caller that
+   * delivers it another way (mid-run "Send now") can put it back on failure.
+   */
+  take(subchatId: string, id: string): { item: QueuedPrompt; index: number } | undefined {
+    const items = this.queues.get(subchatId)
+    if (!items) return undefined
+    const index = items.findIndex((i) => i.id === id)
+    if (index < 0) return undefined
+    const [item] = items.splice(index, 1)
+    return { item, index }
+  }
+
+  /** Put an item back at (or as near as possible to) its former position. */
+  insertAt(subchatId: string, index: number, item: QueuedPrompt): void {
+    const items = this.itemsFor(subchatId)
+    items.splice(Math.max(0, Math.min(index, items.length)), 0, item)
+  }
+
   /** Take the head item off the queue (next to send), if any. */
   shift(subchatId: string): QueuedPrompt | undefined {
     return this.queues.get(subchatId)?.shift()
