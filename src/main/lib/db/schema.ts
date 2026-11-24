@@ -1,3 +1,7 @@
+/**
+ * Drizzle table definitions for the app database. Must stay in step with the
+ * MIGRATIONS in ./index.ts — the migrations create the tables, this file types them.
+ */
 import { sqliteTable, text, integer, real, uniqueIndex, index } from 'drizzle-orm/sqlite-core'
 
 export const projects = sqliteTable(

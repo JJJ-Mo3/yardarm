@@ -1,3 +1,8 @@
+/**
+ * Git router for the Changes tab: status and diffs, stage/unstage/discard,
+ * commit/push/pull, branches, merge into base, commit history, and PR/MR
+ * operations through the gh / glab CLIs.
+ */
 import { z } from 'zod'
 import {
   checkoutBranch,

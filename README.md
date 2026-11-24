@@ -159,7 +159,7 @@ Yardarm puts a desktop workspace around the agent:
 - **Review and ship in one place** — side-by-side Monaco diffs of exactly
   what the agent changed, staging, commit, and push (with `gh` for GitHub
   PR flows or `glab` for GitLab MRs), plus a real terminal and a light IDE
-  scoped to the chat's worktree. A **review** button in the chat header has
+  scoped to the chat's worktree. **Code review** in the chat header's ⋯ menu has
   the agent code-review the chat's changes or any open PR/MR, with
   one-click follow-ups to post the findings as comments or turn them into a
   plan.
@@ -219,7 +219,7 @@ Yardarm puts a desktop workspace around the agent:
   toward it immediately, and past goals stay browsable in the panel's
   evaluation history with per-iteration pass/fail results and the judge's
   reasoning
-- Agent code review from the **review** button in the header: review the
+- Agent code review from **Code review** in the chat header's ⋯ menu: review the
   chat's local changes against their base branch, or pick any open PR/MR
   from a `gh`/`glab`-powered list, optionally with a focus. Reviews run
   silently — the transcript shows a compact "Review: …" marker line instead
@@ -228,11 +228,32 @@ Yardarm puts a desktop workspace around the agent:
   them (`/review` does the same from the keyboard)
 - Observational Memory status (`/om`) showing observer/reflector activity
   and token budgets
-- Workflows (`/workflows`): ask the agent to save a repeatable multi-step
-  process as a stored workflow, then list, run (with optional JSON input,
-  showing per-step results), view/edit each workflow's JSON definition
-  (validated on save), and delete workflows from Project Settings →
-  Workflows — stored workflows are shared with the CLI
+- Workflow definitions: ask the agent to save a repeatable multi-step
+  process as a stored workflow definition, then list, run (with optional
+  JSON input, showing per-step results), view/edit each definition's JSON
+  (validated on save), and delete them from Project Settings → Workflow
+  definitions — definitions are shared with the CLI. The Workflows library
+  (`/workflows`) wraps definitions as app-managed run-books with input
+  forms and scheduling
+- Knowledge notes (Project Settings → Knowledge notes): durable,
+  user-authored facts about the project — pinned notes are always in the
+  agent's context, the rest are looked up by title, and notes with trigger
+  keywords are injected when a prompt mentions them. Separate from the
+  experimental agent knowledge base (`/knowledge`), which the agent
+  maintains itself
+- Scheduled runs (`/schedules`): app-managed recurring prompts or workflows
+  per project that survive restarts
+- Repo wiki and Ask: generate a browsable, agent-written wiki of the
+  codebase, and ask read-only questions about the project from the Wiki
+  tab (`/wiki`, `/ask`)
+- Remote messaging: drive a chat from Slack or Discord — send prompts,
+  answer the agent's questions, and approve or deny tool calls with
+  explicit `approve` / `deny` commands (Settings → Integrations; user-ID
+  allowlist by default)
+- Agent self-checks: a green/yellow/red confidence chip on each rated
+  reply, an optional verify-work pass before finishing, auto-continue for
+  unfinished task lists, and next-step follow-up chips under replies — each
+  with its own toggle in Settings → Preferences
 - Threads (`/threads`): switch, rename, clone, delete, open in a new subchat,
   with per-thread token usage in the cost popover (`/cost`) — new threads
   name themselves automatically after your first message
@@ -302,7 +323,7 @@ Yardarm puts a desktop workspace around the agent:
 - Projects sidebar with chats (drag to reorder; unordered chats sort by
   recency); each chat runs in an isolated git worktree by
   default (branch prefix `yardarm/`), with optional per-repo setup commands
-  from `.yardarm/worktree.json`
+  from `.yardarm/worktree.json` (run only after you approve them)
 - Changes view with side-by-side Monaco diffs, staging, commit, and push
   (the file list is drag-resizable), a compare switcher to diff the
   worktree against any branch (merge-base based, read-only), and a branch
@@ -364,7 +385,7 @@ Yardarm puts a desktop workspace around the agent:
 - Per-tool toggles in Settings → Preferences to disable built-in agent
   tools you never want used, grouped by category
 - More agent preferences: the web-search provider the agent's search tool
-  uses (Tavily or Parallel), commit attribution (customize or disable the
+  uses (Tavily or Parallel), commit attribution (customize the
   co-author trailer on agent-made commits), and experimental cross-agent
   communication (running agents can discover and signal each other)
 
@@ -421,8 +442,8 @@ Yardarm puts a desktop workspace around the agent:
   commands, agent instructions, memory `resourceId`, installed
   skills/plugins, and stored workflows — plugins that declare a config
   schema get a generated settings form, a **Create plugin** button
-  scaffolds a new plugin (global or project scope), and the Workflows tab
-  (`/workflows`) lists, runs, and deletes the agent's chat-built workflows
+  scaffolds a new plugin (global or project scope), and the Workflow definitions tab
+  lists, runs, and deletes the agent's chat-built workflow definitions
 - Adding a project offers to write agent instructions (`AGENTS.md`) so the
   agent knows the project's conventions from the first prompt
 - Edits are atomic, preserve unknown keys, and restart affected agent
@@ -495,6 +516,12 @@ codegen), put commands in `.yardarm/worktree.json`:
 { "setup-worktree": ["pnpm install"] }
 ```
 
+Setup commands only run after you approve them: the file lives in the repo, so a pull or an
+agent edit can change it. Saving them in Project Settings → General approves them; otherwise
+Yardarm shows the commands and asks once when you create a chat, and asks again whenever they
+change. Chats created by scheduled runs or remote messages never approve — they skip unapproved
+commands.
+
 **Checkpoints.** Every user message pins a snapshot as a git ref. Use the
 message menu to roll back — both the conversation and the working tree are
 restored. The checkpoint manager in the Changes tab lists every checkpoint,
@@ -512,7 +539,7 @@ read-only look at how far the work has drifted. Switching branches with
 uncommitted changes asks first — stash and switch, switch anyway, or
 cancel — and the file list column is drag-resizable.
 
-**Review.** The **review** button in the chat header (next to the goal chip)
+**Review.** **Code review** in the chat header's ⋯ menu
 asks the agent for a thorough code review — of the chat's local changes
 against their base branch, or of any open PR/MR picked from a
 `gh`/`glab`-powered list, with an optional focus. The review runs without
@@ -524,7 +551,7 @@ out, the follow-up bar says so and offers a one-click nudge to make it
 share the findings. `/review changes`, `/review <pr-number>`, and
 `/review` (list open PRs/MRs) do the same from the keyboard.
 
-**Goals.** Click the **goal** chip (or `/goal`) to give the agent an
+**Goals.** Click the **Goal** button in the composer (or `/goal`) to give the agent an
 objective; a judge model evaluates each run and the agent keeps going until
 the goal is met. Setting a goal can start a run immediately, and the chip
 stays color-coded with the goal's status (blue active, amber paused, green

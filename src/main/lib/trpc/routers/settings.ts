@@ -1,3 +1,7 @@
+/**
+ * Settings router: app_settings key/value access, provider API keys (stored
+ * values and env-var references), and provider OAuth sign-in flows.
+ */
 import { observable } from '@trpc/server/observable'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'

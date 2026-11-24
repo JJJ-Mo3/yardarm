@@ -1,3 +1,8 @@
+/**
+ * Files router backing the IDE tab and @-mentions: directory tree, file read and
+ * conflict-checked write, file listing/search, and language-server diagnostics.
+ * Every path is confined to a known project folder or chat worktree.
+ */
 import type { Dirent } from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'

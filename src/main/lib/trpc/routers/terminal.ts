@@ -1,3 +1,7 @@
+/**
+ * Terminal router: pty lifecycle (create, stream, write, resize, kill) plus the
+ * Preview tab's dev-server helpers (dev command detection, start, URL detection).
+ */
 import { observable } from '@trpc/server/observable'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'

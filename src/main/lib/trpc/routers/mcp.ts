@@ -1,3 +1,7 @@
+/**
+ * MCP router: read/write mcp.json servers (global or per project), connection
+ * status, enable/disable, reconnect, and OAuth authentication of MCP servers.
+ */
 import { z } from 'zod'
 import { observable } from '@trpc/server/observable'
 import {

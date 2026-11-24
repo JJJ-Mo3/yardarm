@@ -96,7 +96,12 @@
           in every newly created worktree right after it's checked out — one command per line, e.g.
           <code>npm install</code>, so new chats start with dependencies ready. Each command gets 5
           minutes and failures are logged but never block the chat. They're saved to
-          <code>.yardarm/worktree.json</code> in the repo, so the whole team shares them.
+          <code>.yardarm/worktree.json</code> in the repo, so the whole team shares them. Setup
+          commands only run after you approve them, because the file lives in the repo and a pull or
+          an agent edit can change it. Saving them in Project Settings → General approves them;
+          otherwise Yardarm shows the commands and asks once when you create a chat, and again
+          whenever they change. Chats created by scheduled runs or remote messages skip unapproved
+          commands.
         </p>
 
         <h2 id="terminal">Terminal</h2>

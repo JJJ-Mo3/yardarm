@@ -1014,8 +1014,9 @@
           <li><code>status</code> — bound target, running state, pending approvals/questions</li>
           <li><code>unbind</code> — remove this conversation's binding</li>
           <li>
-            <code>approve</code> / <code>deny [reason…]</code> — resolve the oldest pending tool
-            approval (the reason is passed to the agent)
+            <code>approve</code> / <code>deny [reason…]</code> — resolve the pending tool approval
+            (the reason is passed to the agent); when several are pending the bot lists them and you
+            pick one with <code>approve &lt;n&gt;</code> / <code>deny &lt;n&gt; [reason…]</code>
           </li>
         </ul>
         <p>

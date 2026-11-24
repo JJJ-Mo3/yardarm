@@ -297,6 +297,11 @@ pnpm package     # unpacked app bundle, e.g. dist/mac-arm64/Yardarm.app</code></
             If your project needs setup in a fresh checkout (dependency installs, codegen), put
             commands in <code>.yardarm/worktree.json</code> at the repo root:
             <pre><code>{ "setup-worktree": ["pnpm install"] }</code></pre>
+            Setup commands only run after you approve them, because the file lives in the repo and a
+            pull or an agent edit can change it. Saving them in Project Settings → General approves
+            them; otherwise Yardarm shows the commands and asks once when you create a chat, and
+            again whenever they change. Chats created by scheduled runs or remote messages skip
+            unapproved commands.
           </li>
           <li>
             When the work is done, merge or PR the <code>yardarm/…</code> branch from the

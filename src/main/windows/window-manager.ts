@@ -1,3 +1,8 @@
+/**
+ * Main window creation and hardening: sandboxed webPreferences, navigation
+ * and window-open policy, webview (preview / Factory) attach rules, the
+ * session permission policy, and renderer crash recovery.
+ */
 import path from 'node:path'
 import { BrowserWindow, session, shell } from 'electron'
 import type { createIPCHandler } from 'trpc-electron/main'

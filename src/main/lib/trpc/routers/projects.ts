@@ -1,3 +1,8 @@
+/**
+ * Projects router: add/clone/create projects, list and reorder them, per-project
+ * settings (repo host, env vars, reviewer personas), and removal with cleanup of
+ * the project's chats, worktrees, checkpoints and app data.
+ */
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { rm } from 'node:fs/promises'

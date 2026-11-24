@@ -1,3 +1,7 @@
+/**
+ * System router: runtime preflight, mastracode CLI detection/installation,
+ * storage info, dock badge, opening external http(s) links, and preview DevTools.
+ */
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'

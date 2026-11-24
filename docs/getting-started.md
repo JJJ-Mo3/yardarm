@@ -179,6 +179,12 @@ A few notes on worktrees:
   { "setup-worktree": ["pnpm install"] }
   ```
 
+  Setup commands only run after you approve them, because the file lives in
+  the repo and a pull or an agent edit can change it. Saving them in Project
+  Settings → General approves them; otherwise Yardarm shows the commands and
+  asks once when you create a chat, and again whenever they change. Chats
+  created by scheduled runs or remote messages skip unapproved commands.
+
 - When the work is done, merge or PR the `yardarm/…` branch from the
   **Changes** tab (see [Reviewing and shipping changes](#reviewing-and-shipping-changes)).
 
@@ -200,12 +206,15 @@ A few notes on worktrees:
   While it's on, a green shield chip appears next to the switch — click it
   to configure network access and allowed paths. See
   [Full sandbox](#full-sandbox-os-isolation).
-- **goal** chip — set an objective the agent works toward across runs. The
-  chip is color-coded once a goal is set: blue while active, amber when
-  paused, green when done. See
-  [Goals](#goals-let-the-agent-run-to-completion).
-- **review** chip — have the agent code-review this chat's changes or an
-  open PR. See [Agent code review](#agent-code-review).
+- **⋯ menu** — occasional tools, including **Code review** (have the agent
+  code-review this chat's changes or an open PR; see
+  [Agent code review](#agent-code-review)).
+
+The **Goal** button lives in the composer rather than the header — set an
+objective the agent works toward across runs. It is color-coded once a goal
+is set: blue while active, amber when paused, green when done. See
+[Goals](#goals-let-the-agent-run-to-completion).
+
 - **Threads** (`Cmd+P`) — switch, rename, clone, or delete conversation
   threads. See [Threads and subchats](#threads-and-subchats).
 
@@ -375,7 +384,7 @@ merge it.
 
 ### Agent code review
 
-Click the **review** button in the chat header (next to the goal chip) to
+Choose **Code review** from the chat header's ⋯ menu (or run `/review`) to
 open the review picker:
 
 - **Review local changes** — reviews the branch's committed work against
@@ -445,9 +454,23 @@ created yourself — in one list. From there you can:
 Checkpoints are ordinary git refs inside the repository — they never leave
 your machine and don't appear on your branches.
 
+## More to explore
+
+A few features are covered in depth in the in-app **Guide** tab and on the
+[website docs](https://yardarmdev.com/docs/using-the-app.html) rather than
+here:
+
+- **Knowledge notes** (Project Settings → Knowledge notes) — durable facts
+  you write for the agent; distinct from the experimental agent knowledge
+  base (`/knowledge`) that the agent maintains itself.
+- **Scheduled runs** (`/schedules`) — recurring prompts or workflows per
+  project, managed by the app and kept across restarts.
+- **Repo wiki and Ask** (`/wiki`, `/ask`) — an agent-written wiki of the
+  codebase plus read-only questions about the project.
+
 ## Goals: let the agent run to completion
 
-For bigger objectives, click the **goal** chip in the header (or use
+For bigger objectives, click the **Goal** button in the composer (or use
 `/goal`) and describe the outcome you want. The agent keeps working across
 runs until an independent **judge model** agrees the goal is met — not just
 until the agent claims it is.
@@ -481,8 +504,8 @@ ask it to **save the process as a workflow**. The agent builds the workflow
 in chat, and it's stored with the project's agent data (shared with the
 `mastracode` CLI).
 
-Manage stored workflows in **Project Settings → Workflows** (or run
-`/workflows`): the tab lists each workflow with its description and lets you
+Manage stored workflow definitions in **Project Settings → Workflow
+definitions**: the tab lists each definition with its description and lets you
 
 - **Run** one on demand — optionally with a JSON input for workflows that
   take parameters — and watch per-step results appear as it executes,
@@ -700,17 +723,18 @@ A few things to know up front:
 The first word of a message is checked against the command list; anything
 else is sent to the bound chat as a prompt.
 
-| Command                  | What it does                                      |
-| ------------------------ | ------------------------------------------------- |
-| `help`                   | list the commands                                 |
-| `projects`               | list your projects                                |
-| `chats <project>`        | list chats in a project (name substring is fine)  |
-| `use <project> <chat>`   | bind this conversation to that chat               |
-| `new <project> [title…]` | create a fresh chat (own worktree) and bind to it |
-| `status`                 | bound target, running state, pending approvals    |
-| `unbind`                 | remove this conversation's binding                |
-| `approve` / `yes`        | approve the oldest pending tool approval          |
-| `deny [reason…]` / `no`  | decline it (the reason is passed to the agent)    |
+| Command                              | What it does                                      |
+| ------------------------------------ | ------------------------------------------------- |
+| `help`                               | list the commands                                 |
+| `projects`                           | list your projects                                |
+| `chats <project>`                    | list chats in a project (name substring is fine)  |
+| `use <project> <chat>`               | bind this conversation to that chat               |
+| `new <project> [title…]`             | create a fresh chat (own worktree) and bind to it |
+| `status`                             | bound target, running state, pending approvals    |
+| `unbind`                             | remove this conversation's binding                |
+| `approve` / `yes`                    | approve the pending tool approval                 |
+| `deny [reason…]` / `no`              | decline it (the reason is passed to the agent)    |
+| `approve <n>` / `deny <n> [reason…]` | pick one when several approvals are pending       |
 
 When a run needs a tool approval or the agent asks a question, the bot
 relays it to every bound conversation. Questions are answered by simply

@@ -1,3 +1,8 @@
+/**
+ * Agent router: the renderer's interface to a subchat's agent session — event
+ * stream, sending and queueing prompts, approvals and suspensions, mode/model/
+ * thinking state, goals, threads, and the other host commands.
+ */
 import { observable } from '@trpc/server/observable'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'

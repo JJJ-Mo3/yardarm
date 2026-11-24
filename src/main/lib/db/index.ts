@@ -1,3 +1,8 @@
+/**
+ * App database (yardarm.db in Electron userData): opens better-sqlite3, applies
+ * the raw-SQL MIGRATIONS keyed by `pragma user_version`, and exposes the drizzle
+ * handle plus storage maintenance. Append new migrations; never edit old ones.
+ */
 import Database from 'better-sqlite3'
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { app } from 'electron'

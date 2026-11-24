@@ -25,8 +25,8 @@ No accounts or login — everything runs locally against mastracode's own config
 - `src/preload/index.ts` — sandboxed; `trpc-electron` is bundled in (it cannot `require()`
   external modules).
 - `src/renderer/src/` — React 19 UI. Feature folders under `features/<domain>/` (agents,
-  analytics, changes, file-viewer, guide, preview, settings, sidebar, terminal,
-  onboarding, project-settings, boot).
+  analytics, boot, changes, factory, file-viewer, guide, onboarding, preview,
+  project-settings, schedules, settings, sidebar, terminal, wiki, workflows).
   Shared shadcn-style primitives in `components/ui/`; `lib/utils.ts` has `cn()` and `timeAgo()`.
 - `src/shared/` — types shared across processes (`ipc-types.ts`, `ui-message.ts`,
   `mastra-settings.ts`). Path aliases: `@shared` (all processes), `@` (renderer only).
@@ -159,6 +159,23 @@ No accounts or login — everything runs locally against mastracode's own config
   pins (vitest tripwire in `src/shared/lsp-packs.test.ts`); `scripts/build-lsp-packs.mjs`
   builds the per-pack release zips; the 4 pack packages must never be re-added to
   build-agent-runtime.mjs's deps list.
+- Renderer-supplied paths and refs are untrusted: filesystem roots must pass `assertKnownRoot`
+  (`src/main/lib/known-roots.ts` — project folders and chat worktrees only), relative paths go
+  through `resolveInside`, and git revisions through `assertSafeRef`
+  (`src/main/lib/git/safe-ref.ts`) so a ref can never be parsed as an option.
+- Worktree setup commands (`.yardarm/worktree.json`) are trust-gated: the file lives in the repo,
+  so `createChatWithSubchat` runs them only when their hash matches the project's approved
+  `trustedSetupHash` (`setup-hash.ts`, `isSetupTrusted`). Saving from Project Settings approves;
+  interactive chat creation prompts (`chats.approveSetup`); scheduled, wiki and remote-created
+  chats never approve and skip them.
+- Writes to config files shared with the CLI must read with `readJsonForUpdate` (a parse error
+  rejects the write instead of replacing the file with `{}`) and land through
+  `queuedForFile` + `writeJsonAtomic` (`src/main/lib/mastra-config/atomic-json.ts`).
+- Electron grants permission requests by default; `installPermissionPolicy`
+  (`src/main/windows/window-manager.ts`) allowlists the app window and denies the preview
+  partition everything. A new webview partition needs an entry there.
+- Reply text shown outside the transcript (remote messages, sidebar snippets, exports) goes
+  through `stripAgentMarkers` (`src/shared/agent-markers.ts`).
 - Native modules (better-sqlite3, node-pty) are `asarUnpack`ed — see `electron-builder.yml`.
 - Each chat can run in its own git worktree under Electron userData
   (`worktrees/<projectId>/<chatId>`, branch prefix `yardarm/`); rollback checkpoints are stored

@@ -1,3 +1,8 @@
+/**
+ * Chats router: chat and subchat CRUD, worktree-backed chat creation (and
+ * approval of worktree setup commands), archive/pin/reorder, rollback to
+ * checkpoints, the hidden Ask chat, and chat deletion with worktree cleanup.
+ */
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { and, asc, desc, eq, gte, inArray, isNotNull, lt, sql } from 'drizzle-orm'

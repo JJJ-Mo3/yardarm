@@ -1,3 +1,8 @@
+/**
+ * Electron main entry: single-instance lock, app lifecycle, window creation,
+ * tRPC IPC wiring, and startup/shutdown of the background services (agent
+ * preflight, scheduler, integrations, updates).
+ */
 import { app, BrowserWindow, dialog } from 'electron'
 import { createIPCHandler } from 'trpc-electron/main'
 import { initDb, closeDb, maintainDb } from './lib/db'

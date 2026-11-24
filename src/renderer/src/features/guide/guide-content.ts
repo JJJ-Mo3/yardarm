@@ -72,6 +72,10 @@ project root when no chat is selected). Repositories without any commits get a s
 right after it's checked out — one per line, e.g. \`npm install\`, so new chats start with
 dependencies ready. Each command gets 5 minutes and failures are logged but never block the
 chat. They're saved to \`.yardarm/worktree.json\` in the repo, so the whole team shares them.
+Because that file can change with a pull or an agent edit, commands only run after you approve
+them: saving them in Project Settings approves them, and otherwise Yardarm shows the commands
+and asks once when you create a chat (and again whenever they change). Chats created by
+scheduled runs or remote messages skip unapproved commands.
 
 Projects can be archived from the sidebar; archived projects are hidden but nothing is
 deleted unless you explicitly opt in.
@@ -630,7 +634,7 @@ Two distinct systems share the "knowledge" name — one you write, one the agent
 
 ### Knowledge notes (you write them)
 
-**Knowledge notes** (Project Settings → Knowledge) are durable, user-authored facts the agent
+**Knowledge notes** (Project Settings → Knowledge notes) are durable, user-authored facts the agent
 should always know about the project — "deploys go through \`make release\`", "never touch
 \`legacy/\`". Each note can be:
 
@@ -726,7 +730,8 @@ The first word of a message is checked against the commands; anything else is a 
 - \`new <project> [title…]\` — create a fresh chat (own worktree) and bind to it
 - \`status\` — bound target, running state, pending approvals/questions
 - \`unbind\` — remove the binding
-- \`approve\` / \`deny [reason…]\` — resolve the oldest pending tool approval
+- \`approve\` / \`deny [reason…]\` — resolve the pending tool approval; when several are
+  pending the bot lists them and you pick one with \`approve <n>\` / \`deny <n> [reason…]\`
 
 Tool approvals and agent questions are relayed to every bound conversation. Questions are
 answered by simply replying; approvals are only resolved by an explicit \`approve\` or
@@ -773,6 +778,7 @@ doesn't guess.
 App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
 
 - **Appearance** — light/dark/system theme.
+- **Languages** — downloadable language-server packs that power IDE diagnostics.
 - **Keyboard** — rebind the app shortcuts (command palette, find, split panes, …). ⌘1–8 tab
   switching is fixed.
 - **Preferences** — agent behavior defaults (auto-approve, sandbox, **confidence ratings** —
@@ -780,8 +786,8 @@ App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
   **follow-up suggestions** — the next-step chips under replies, on by default — and
   **suggest knowledge notes** — the save-a-note card, on by default),
   token compression and verbosity steering, the **web-search provider** the agent's search tool uses (Tavily or
-  Parallel), **commit attribution** (the co-author trailer on agent-made commits — customize
-  or disable it), experimental **cross-agent communication** (lets running agents discover
+  Parallel), **commit attribution** (the co-author trailer on agent-made commits — set a
+  custom identity), experimental **cross-agent communication** (lets running agents discover
   and signal each other), experimental **schedule tools** (gives the agent
   \`schedule_create/list/update/resume/run\` to manage recurring prompts on its own thread —
   schedules live inside the agent process and end with it; distinct from the app-managed
@@ -833,8 +839,9 @@ App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
 **Project settings** (gear on the project row) cover per-project hooks, custom slash
 commands, agent instructions, **knowledge notes** (see Knowledge notes), resources, plugins,
 and workflows — plugins with configuration schemas get generated settings forms,
-**Create plugin** scaffolds a new plugin for you, and the Workflows tab (\`/workflows\`) runs
-and manages the agent's stored workflows. An **Environment** tab holds per-project
+**Create plugin** scaffolds a new plugin for you, and the **Workflow definitions** tab runs
+and manages the agent's stored workflow definitions (the \`/workflows\` library is the
+separate, app-managed set of run-books built on them). An **Environment** tab holds per-project
 environment variables, added to every agent run and terminal in the project (changing them
 restarts the project's active agents; values are stored in plaintext in the app database —
 the secret toggle only masks display). The General tab also holds the repository host
