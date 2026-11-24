@@ -11,6 +11,7 @@ import {
   TextQuote
 } from 'lucide-react'
 import { useSetAtom } from 'jotai'
+import { trpc } from '../../lib/trpc'
 import { cn } from '../../lib/utils'
 import { composerAttachAtom } from '../../lib/atoms'
 import { encodeBase64Utf8 } from './attachments'
@@ -503,30 +504,38 @@ export function MessageList({
   )
   const forkEligible = useStableSet(useMemo(() => computeForkEligible(messages), [messages]))
 
+  // The suggestion toggles must win here, not just at host boot: running
+  // sessions keep the old guidance until their host restarts, and models
+  // mimic earlier marker lines in the thread even after it is removed — so
+  // turning a preference off hides the suggestions immediately.
+  const suggestKnowledgeEnabled =
+    trpc.settings.get.useQuery({ key: 'suggestKnowledge' }).data !== false
+  const followUpsEnabled = trpc.settings.get.useQuery({ key: 'followUpSuggestions' }).data !== false
+
   // Agent-proposed knowledge note: shown as a save/dismiss card under the
   // transcript, only while the final message is the assistant's reply and the
   // run is idle (a queued or streaming follow-up hides it).
   const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null
   const suggestedKnowledge = useMemo(() => {
-    if (!lastMessage || lastMessage.role !== 'assistant') return null
+    if (!suggestKnowledgeEnabled || !lastMessage || lastMessage.role !== 'assistant') return null
     const text = lastMessage.parts
       .filter((p) => p.type === 'text')
       .map((p) => p.text)
       .join('\n')
     return parseSuggestedKnowledge(text)
-  }, [lastMessage])
+  }, [lastMessage, suggestKnowledgeEnabled])
 
   // Agent-proposed next steps: chips under the transcript with the same
   // last-message/idle gating as the knowledge card; clicking prefills the
   // composer (never auto-sends).
   const followUps = useMemo(() => {
-    if (!lastMessage || lastMessage.role !== 'assistant') return []
+    if (!followUpsEnabled || !lastMessage || lastMessage.role !== 'assistant') return []
     const text = lastMessage.parts
       .filter((p) => p.type === 'text')
       .map((p) => p.text)
       .join('\n')
     return parseFollowUps(text)
-  }, [lastMessage])
+  }, [lastMessage, followUpsEnabled])
 
   useEffect(() => {
     if (stickToBottom.current) {

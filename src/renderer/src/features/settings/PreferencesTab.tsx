@@ -281,7 +281,8 @@ export function PreferencesTab(): React.JSX.Element {
   const suggestKnowledgeEnabled = suggestKnowledgeSetting.data !== false
 
   // Follow-up-suggestion guidance (app_settings KV, default on); hosts read
-  // it at boot, so changes apply to newly started agent sessions.
+  // it at boot and MessageList gates the chips on it live, so turning it off
+  // hides suggestions immediately even in already-running sessions.
   const followUpsSetting = trpc.settings.get.useQuery({ key: 'followUpSuggestions' })
   const setFollowUps = trpc.settings.set.useMutation({
     onSuccess: () => utils.settings.get.invalidate({ key: 'followUpSuggestions' })
@@ -561,10 +562,10 @@ export function PreferencesTab(): React.JSX.Element {
           <div className="text-[11px] text-muted-foreground">
             Asks the agent to end a reply with one durable project fact it learned, shown as a
             save/dismiss card under the message. Saved notes live in Project settings → Knowledge.
-            Applies to newly started agent sessions.
+            Turning this off hides the card immediately, in every chat.
           </div>
         </div>
-        <Tip content="Inject the suggested-knowledge guidance into new agent sessions — when off, the agent never proposes notes and no card appears">
+        <Tip content="Inject the suggested-knowledge guidance into new agent sessions — when off, the card is hidden everywhere right away, including chats whose agent started before the change">
           <label className="flex w-fit items-center gap-2 text-xs">
             <Switch
               checked={suggestKnowledgeEnabled}
@@ -584,10 +585,10 @@ export function PreferencesTab(): React.JSX.Element {
           <div className="text-[11px] text-muted-foreground">
             Asks the agent to end substantial replies with up to three short next-step suggestions,
             shown as clickable chips that prefill the composer — nothing is sent until you press
-            send. Applies to newly started agent sessions.
+            send. Turning this off hides the chips immediately, in every chat.
           </div>
         </div>
-        <Tip content="Inject the follow-up guidance into new agent sessions — when off, the agent never proposes next steps and no chips appear">
+        <Tip content="Inject the follow-up guidance into new agent sessions — when off, the chips are hidden everywhere right away, including chats whose agent started before the change">
           <label className="flex w-fit items-center gap-2 text-xs">
             <Switch
               checked={followUpsEnabled}
