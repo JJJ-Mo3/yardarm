@@ -24,6 +24,7 @@ import {
   Square,
   Wrench
 } from 'lucide-react'
+import { preferPortUrls } from '@shared/chat-port'
 import { isLocalhostHttpUrl, normalizeLocalhostUrl } from '@shared/localhost-url'
 import { composerAttachAtom, mainTabAtom, selectedChatIdAtom } from '../../lib/atoms'
 import { encodeBase64Utf8, type ComposerAttachment } from '../agents/attachments'
@@ -100,12 +101,23 @@ export function PreviewView({
     { ids: terminalIds },
     { enabled: active && terminalIds.length > 0, refetchInterval: 3000 }
   )
-  const urls = detected.data ?? []
+  // Each chat has its own port (YARDARM_PORT); URLs on it are listed — and
+  // auto-loaded — first. A project that hard-codes another port still shows
+  // up: every detected URL stays in the list.
+  const devPort = trpc.terminal.devPort.useQuery(
+    { id: devTerminalId, projectId: projectId ?? undefined },
+    { enabled: active }
+  )
+  const chatPort = devPort.data?.port ?? null
+  const urls = preferPortUrls(detected.data ?? [], chatPort)
 
   // One-click dev server: a detected `pnpm run dev`-style command runs in a
   // dedicated pty; its exit removes the session, so `exists` is running-state.
   const utils = trpc.useUtils()
-  const devCmd = trpc.terminal.devCommand.useQuery({ cwd }, { enabled: active })
+  const devCmd = trpc.terminal.devCommand.useQuery(
+    { cwd, id: devTerminalId, projectId: projectId ?? undefined },
+    { enabled: active }
+  )
   const devRunning = trpc.terminal.exists.useQuery(
     { id: devTerminalId },
     { enabled: active, refetchInterval: 3000 }
@@ -121,10 +133,12 @@ export function PreviewView({
   })
 
   // Dev servers started from other chats' Preview tabs keep running across
-  // chat switches; they'd fight this chat's server for the same port, so the
-  // start action stops them first and the copy says so.
+  // chat switches. Each chat has its own port, so they normally run side by
+  // side; this lists only the ones that would fight this chat's server for a
+  // port (same port, or a project that ignores the assigned port) — the start
+  // action stops those first and the copy says so.
   const otherDev = trpc.terminal.otherDevServers.useQuery(
-    { excludeId: devTerminalId },
+    { excludeId: devTerminalId, projectId: projectId ?? undefined },
     { enabled: active, refetchInterval: 3000 }
   )
   const otherServers = otherDev.data ?? []
@@ -135,14 +149,15 @@ export function PreviewView({
       stopIds: otherServers.map((o) => o.id),
       projectId: projectId ?? undefined
     })
+  const portNote = chatPort !== null ? ` (asked to use port ${chatPort})` : ''
   const startDevTip = (command: string): string =>
     otherServers.length > 0
       ? `Stop the dev server still running in ${otherServers
           .map((o) => o.label)
           .join(
             ' and '
-          )} (servers in different chats clash over the same port), then run \`${command}\` here`
-      : `Run \`${command}\` in a background terminal and preview it here`
+          )} (it would clash with this one over the same port), then run \`${command}\` here${portNote}`
+      : `Run \`${command}\` in a background terminal and preview it here${portNote}`
 
   // The component stays mounted while chatId/projectId change (App keeps the
   // Preview tab alive across tab switches), so reset per-context state when
@@ -691,7 +706,7 @@ export function PreviewView({
             {devCmd.data && devRunning.isSuccess && !devRunning.data && otherServers.length > 0 && (
               <div className="max-w-sm text-xs">
                 A dev server started from {otherServers.map((o) => o.label).join(' and ')} is still
-                running. Starting one here stops it first — both would use the same port.
+                running and would use the same port. Starting one here stops it first.
               </div>
             )}
             {devCmd.data && devRunning.isSuccess && !devRunning.data && (

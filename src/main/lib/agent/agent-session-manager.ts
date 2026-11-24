@@ -18,6 +18,7 @@ import { addIdeEditPath, parseIdeEditPaths, formatIdeEditNote } from './ide-edit
 import { clampMessageForStorage } from './message-clamp'
 import { isPrefillError } from './prefill-error'
 import { isStallError } from '../../../shared/stall-error'
+import { withChatPortEnv } from '../../../shared/chat-port'
 import { splitPlanRejectionFeedback } from './plan-rejection'
 import { resolveVerifyWork } from '../../../shared/verification'
 import {
@@ -574,7 +575,14 @@ export class AgentSessionManager {
       .filter((p): p is string => !!p)
     await mirrorMcpOAuthTokens([cwd, project.path, os.homedir(), ...siblingWorktrees])
 
-    const handle = this.spawnHost(subchatId, boot, projectEnvRecord(chat.projectId))
+    // Project env plus the chat's own port (YARDARM_PORT / _RANGE_END) so
+    // servers the agent starts don't collide with other chats'. User-set
+    // values win, and neither source can carry PATH or YARDARM_BOOT.
+    const handle = this.spawnHost(
+      subchatId,
+      boot,
+      withChatPortEnv(projectEnvRecord(chat.projectId), chat.id)
+    )
     this.hosts.set(subchatId, handle)
     this.emitUI(subchatId, { type: 'status', status: 'starting' })
     await handle.readyPromise

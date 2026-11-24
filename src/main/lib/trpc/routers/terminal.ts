@@ -5,6 +5,13 @@
 import { observable } from '@trpc/server/observable'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
+import {
+  chatIdFromTerminalId,
+  devServerPort,
+  devServersClash,
+  urlPort,
+  withChatPortEnv
+} from '@shared/chat-port'
 import { getDb, schema } from '../../db'
 import { projectEnvRecord } from '../../db/project-settings'
 import { detectDevCommand } from '../../terminal/dev-command'
@@ -35,6 +42,83 @@ function devServerLabel(id: string): string {
     return project ? `project “${project.name}”` : 'another project'
   }
   return 'another chat'
+}
+
+/**
+ * The chat a terminal belongs to: from its id for the per-chat terminals,
+ * else the chat whose worktree is the terminal's cwd (extra sessions opened
+ * in a chat's worktree). Null for project-root terminals.
+ */
+function terminalChatId(id: string, cwd?: string): string | null {
+  const fromId = chatIdFromTerminalId(id)
+  if (fromId || !cwd) return fromId
+  const chat = getDb()
+    .select({ id: schema.chats.id })
+    .from(schema.chats)
+    .where(eq(schema.chats.worktreePath, cwd))
+    .get()
+  return chat?.id ?? null
+}
+
+/**
+ * Env added to a spawned terminal: the project's env vars (Project Settings →
+ * Environment) plus the chat's YARDARM_PORT / YARDARM_PORT_RANGE_END. User
+ * values always win; PATH and YARDARM_BOOT are never set here.
+ */
+function terminalEnv(
+  id: string,
+  cwd: string,
+  projectId: string | undefined
+): Record<string, string> | undefined {
+  const env = withChatPortEnv(projectId ? projectEnvRecord(projectId) : {}, terminalChatId(id, cwd))
+  return Object.keys(env).length > 0 ? env : undefined
+}
+
+/** The port a Preview dev server with this pty id is asked to use (null = project default). */
+function devPortFor(id: string, projectId: string | undefined): number | null {
+  return devServerPort(chatIdFromTerminalId(id), projectId ? projectEnvRecord(projectId) : {})
+}
+
+/** Owning project of a Preview dev-server pty id, looked up from the DB. */
+function devServerProjectId(id: string): string | undefined {
+  if (id.startsWith('dev-project-')) return id.slice('dev-project-'.length)
+  const chatId = chatIdFromTerminalId(id)
+  if (!chatId) return undefined
+  const chat = getDb()
+    .select({ projectId: schema.chats.projectId })
+    .from(schema.chats)
+    .where(eq(schema.chats.id, chatId))
+    .get()
+  return chat?.projectId
+}
+
+/** Ports of the localhost URLs a running pty has printed so far. */
+function seenPorts(id: string): number[] {
+  const ports: number[] = []
+  for (const url of extractLocalhostUrls(ptyManager.buffer(id))) {
+    const port = urlPort(url)
+    if (port !== null && !ports.includes(port)) ports.push(port)
+  }
+  return ports
+}
+
+/**
+ * Other chats'/projects' Preview dev servers that would fight a server
+ * started under `id` for a port (see devServersClash). Servers on their own
+ * per-chat port are left out — they can run side by side.
+ */
+function clashingDevServers(id: string, projectId: string | undefined): string[] {
+  const myPort = devPortFor(id, projectId)
+  return ptyManager
+    .ids()
+    .filter((other) => other !== id)
+    .filter((other) => other.startsWith('dev-chat-') || other.startsWith('dev-project-'))
+    .filter((other) =>
+      devServersClash(myPort, {
+        port: devPortFor(other, devServerProjectId(other)),
+        seenPorts: seenPorts(other)
+      })
+    )
 }
 
 export type TerminalStreamEvent = { type: 'data'; data: string } | { type: 'exit'; code: number }
@@ -76,7 +160,7 @@ export const terminalRouter = router({
         if (!cliPath) throw new Error('Bundled mastracode runtime not found')
         command = buildMastracodeCommand(process.execPath, cliPath)
       }
-      const env = input.projectId ? projectEnvRecord(input.projectId) : undefined
+      const env = terminalEnv(input.id, input.cwd, input.projectId)
       ptyManager.create(input.id, input.cwd, input.cols, input.rows, command, env)
       return { ok: true, attached: true }
     }),
@@ -141,17 +225,37 @@ export const terminalRouter = router({
     return ptyManager.exists(input.id) || ptyManager.finishedOutput(input.id) !== null
   }),
 
-  /** The project's detected dev-server command, if any (Preview tab start chip). */
-  devCommand: publicProcedure.input(z.object({ cwd: z.string() })).query(({ input }) => {
-    return detectDevCommand(input.cwd)
-  }),
+  /**
+   * The project's detected dev-server command, if any (Preview tab start
+   * chip). With the dev-server pty `id`, the command carries that chat's port
+   * where the tool takes one (see dev-command.ts).
+   */
+  devCommand: publicProcedure
+    .input(
+      z.object({ cwd: z.string(), id: z.string().optional(), projectId: z.string().optional() })
+    )
+    .query(({ input }) => {
+      return detectDevCommand(input.cwd, input.id ? devPortFor(input.id, input.projectId) : null)
+    }),
+
+  /**
+   * The port this Preview dev server is asked to use — the chat's own port
+   * unless project env fixes PORT / YARDARM_PORT; null for project-level
+   * servers. Preview prefers detected URLs on it.
+   */
+  devPort: publicProcedure
+    .input(z.object({ id: z.string(), projectId: z.string().optional() }))
+    .query(({ input }) => ({ port: devPortFor(input.id, input.projectId) })),
 
   /**
    * Starts the detected dev command in a dedicated pty (Preview tab). The
    * command is re-detected here rather than accepted from the renderer; the
    * pty ends when the command exits, so `exists` doubles as running-state.
-   * `stopIds` (other chats' Preview dev servers — they'd fight over the same
-   * port) are killed first, with a short grace period for the port to free.
+   * The chat's port reaches the server as PORT (unless project env sets PORT)
+   * and, for tools that need it, on the command line. `stopIds` are killed
+   * first, with a short grace period for the port to free — but only those
+   * that really clash with this server's port; dev servers on their own
+   * per-chat port keep running.
    */
   startDevServer: publicProcedure
     .input(
@@ -164,35 +268,35 @@ export const terminalRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const dev = detectDevCommand(input.cwd)
+      const port = devPortFor(input.id, input.projectId)
+      const dev = detectDevCommand(input.cwd, port)
       if (!dev) throw new Error('No dev/serve/start script or root .html files in this project')
-      const stopped = input.stopIds.filter(
-        (id) =>
-          id !== input.id &&
-          (id.startsWith('dev-chat-') || id.startsWith('dev-project-')) &&
-          ptyManager.exists(id)
-      )
+      const clashing = clashingDevServers(input.id, input.projectId)
+      const stopped = input.stopIds.filter((id) => clashing.includes(id) && ptyManager.exists(id))
       for (const id of stopped) ptyManager.kill(id)
       if (stopped.length > 0) await sleep(1000)
-      const env = input.projectId ? projectEnvRecord(input.projectId) : undefined
+      const env: Record<string, string> = terminalEnv(input.id, input.cwd, input.projectId) ?? {}
+      // PORT is what most Node dev servers read; a PORT from project env wins.
+      if (port !== null && !('PORT' in env)) env.PORT = String(port)
       ptyManager.create(input.id, input.cwd, 80, 24, dev.command, env)
-      return { ok: true }
+      return { ok: true, port }
     }),
 
   /**
-   * Preview dev servers currently running for *other* chats/projects. Ports
-   * clash across worktrees, so the Preview tab offers to stop these when
-   * starting its own server.
+   * Preview dev servers running for *other* chats/projects that would clash
+   * with one started under `excludeId` — same port, no per-chat port on
+   * either side, or a server that visibly ignored its assigned port. The
+   * Preview tab offers to stop these when starting its own server; servers
+   * on a different per-chat port are not listed and keep running.
    */
-  otherDevServers: publicProcedure.input(z.object({ excludeId: z.string() })).query(({ input }) => {
-    return ptyManager
-      .ids()
-      .filter(
-        (id) =>
-          id !== input.excludeId && (id.startsWith('dev-chat-') || id.startsWith('dev-project-'))
-      )
-      .map((id) => ({ id, label: devServerLabel(id) }))
-  }),
+  otherDevServers: publicProcedure
+    .input(z.object({ excludeId: z.string(), projectId: z.string().optional() }))
+    .query(({ input }) => {
+      return clashingDevServers(input.excludeId, input.projectId).map((id) => ({
+        id,
+        label: devServerLabel(id)
+      }))
+    }),
 
   /** Localhost dev-server URLs seen in the given terminals' scrollback (Preview tab). */
   detectUrls: publicProcedure
