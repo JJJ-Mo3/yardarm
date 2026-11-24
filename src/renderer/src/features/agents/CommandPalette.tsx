@@ -18,6 +18,7 @@ import {
   Globe,
   MessageSquare,
   MessagesSquare,
+  Search,
   Settings2,
   SquareChevronRight,
   SquareSlash,
@@ -25,6 +26,7 @@ import {
 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import {
+  chatSearchAtom,
   commandPaletteOpenAtom,
   mainTabAtom,
   MAX_SPLIT_PANES,
@@ -87,6 +89,7 @@ export function CommandPalette(): React.JSX.Element {
   const setSplitPanes = useSetAtom(splitPanesAtom)
   const setSettingsOpen = useSetAtom(settingsOpenAtom)
   const setSettingsTab = useSetAtom(settingsTabAtom)
+  const setChatSearch = useSetAtom(chatSearchAtom)
   const selectChat = useSelectChat()
   const shortcutOverrides = useAtomValue(shortcutOverridesAtom)
   const commands = useSlashCommands(open ? subchatId : null)
@@ -117,6 +120,16 @@ export function CommandPalette(): React.JSX.Element {
         })
       }
     }
+    // App-wide actions that work without an open chat.
+    list.push({
+      id: 'search-chats',
+      group: 'Across chats',
+      label: 'Search all chats…',
+      icon: <Search size={13} />,
+      detail: comboLabel(resolveCombo('searchChats', shortcutOverrides), isMac),
+      keywords: 'find messages full text history',
+      onSelect: () => setChatSearch({ open: true, query: '' })
+    })
     for (const t of TABS) {
       list.push({
         id: `tab:${t.id}`,
@@ -195,6 +208,7 @@ export function CommandPalette(): React.JSX.Element {
     setSplitPanes,
     setSettingsTab,
     setSettingsOpen,
+    setChatSearch,
     selectChat,
     shortcutOverrides
   ])

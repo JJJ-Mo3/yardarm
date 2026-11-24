@@ -15,6 +15,7 @@ import { notifyAgentEvent } from '../notifications'
 import { captureCheckpoint } from '../git/ops'
 import { EventTranslator } from './event-translator'
 import { addIdeEditPath, parseIdeEditPaths, formatIdeEditNote } from './ide-edit-notes'
+import { indexMessage } from '../db/message-search'
 import { clampMessageForStorage } from './message-clamp'
 import { isPrefillError } from './prefill-error'
 import { isStallError } from '../../../shared/stall-error'
@@ -483,6 +484,8 @@ export class AgentSessionManager {
         set: { parts, usage, ...(message.modelId ? { modelId: message.modelId } : {}) }
       })
       .run()
+    // Keep the cross-chat search index in step (best-effort, never throws).
+    indexMessage(subchatId, message)
   }
 
   /** Ensure a host process exists for the subchat; boots one if needed. */

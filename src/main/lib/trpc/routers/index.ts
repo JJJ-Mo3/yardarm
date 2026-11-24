@@ -18,6 +18,7 @@ import { previewRouter } from './preview'
 import { projectConfigRouter } from './project-config'
 import { projectsRouter } from './projects'
 import { schedulesRouter } from './schedules'
+import { searchRouter } from './search'
 import { settingsRouter } from './settings'
 import { systemRouter } from './system'
 import { terminalRouter } from './terminal'
@@ -49,6 +50,7 @@ export const appRouter = router({
   preview: previewRouter,
   projectConfig: projectConfigRouter,
   schedules: schedulesRouter,
+  search: searchRouter,
   system: systemRouter,
   updates: updatesRouter,
   voice: voiceRouter,

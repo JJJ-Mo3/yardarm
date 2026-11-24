@@ -97,6 +97,15 @@ export const composerAttachAtom = atom<ComposerAttachment | ComposerAttachment[]
 export const changesPaneRequestAtom = atom<'changes' | 'history' | 'checkpoints' | null>(null)
 /** Global Cmd+K command palette. */
 export const commandPaletteOpenAtom = atom(false)
+/** Cross-chat search dialog; `query` seeds the input when opened by `/search <text>`. */
+export const chatSearchAtom = atom<{ open: boolean; query: string }>({ open: false, query: '' })
+/**
+ * One-shot request to reveal a message after a cross-chat search result opens
+ * its chat: the primary ChatView for `subchatId` opens the in-chat find bar on
+ * `term` and scrolls to the match inside that message.
+ */
+export type MessageJumpRequest = { subchatId: string; messageId: string; term: string }
+export const messageJumpAtom = atom<MessageJumpRequest | null>(null)
 /** Factory tab: keep the app sidebar visible instead of the immersive auto-hide. */
 export const factorySidebarPinnedAtom = atom(false)
 /** User keyboard-shortcut overrides (persisted in app_settings 'keyboardShortcuts'). */

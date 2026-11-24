@@ -179,6 +179,8 @@ export function Sidebar(): React.JSX.Element {
           sortOrder: null,
           insights: null,
           insightsGeneratedAt: null,
+          sideOfChatId: null,
+          compareGroupId: null,
           createdAt: now,
           updatedAt: now
         },
@@ -198,7 +200,15 @@ export function Sidebar(): React.JSX.Element {
       utils.chats.list.setData({ projectId: vars.projectId }, (old) =>
         (old ?? []).map((c) =>
           c.id === ctx?.tempId
-            ? { ...chat, pinned: false, sortOrder: null, insights: null, insightsGeneratedAt: null }
+            ? {
+                ...chat,
+                pinned: false,
+                sortOrder: null,
+                insights: null,
+                insightsGeneratedAt: null,
+                sideOfChatId: null,
+                compareGroupId: null
+              }
             : c
         )
       )

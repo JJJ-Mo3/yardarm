@@ -596,18 +596,20 @@ export function MessageList({
         </div>
       )}
       {visible.map((m) => (
-        <MessageItem
-          key={m.id}
-          message={m}
-          onRollback={onRollback}
-          showRollback={rollbackEligible.has(m.id)}
-          onFork={onFork}
-          showFork={forkEligible.has(m.id)}
-          hiddenParts={hiddenParts}
-          showConfidence={confidenceEnabled}
-          suspensions={suspensions}
-          onRespondSuspension={onRespondSuspension}
-        />
+        // The id lets the find bar target one message (cross-chat search jump).
+        <div key={m.id} data-message-id={m.id}>
+          <MessageItem
+            message={m}
+            onRollback={onRollback}
+            showRollback={rollbackEligible.has(m.id)}
+            onFork={onFork}
+            showFork={forkEligible.has(m.id)}
+            hiddenParts={hiddenParts}
+            showConfidence={confidenceEnabled}
+            suspensions={suspensions}
+            onRespondSuspension={onRespondSuspension}
+          />
+        </div>
       ))}
       {running && (
         <div className="flex items-center gap-2 text-muted-foreground text-xs">

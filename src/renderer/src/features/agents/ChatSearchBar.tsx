@@ -2,7 +2,9 @@
  * Floating in-chat search overlay (Cmd+F while the Chat tab is visible).
  * Highlights matches in the transcript via the CSS Custom Highlight API —
  * no DOM mutation, so React-managed markdown is never touched — with a
- * match counter and Enter / Shift+Enter navigation.
+ * match counter and Enter / Shift+Enter navigation. A `jump` (from cross-chat
+ * search) seeds the query and makes the first match inside one specific
+ * message the active, scrolled-to match.
  */
 import React, { useEffect, useRef, useState } from 'react'
 import { ChevronDown, ChevronUp, X } from 'lucide-react'
@@ -31,6 +33,18 @@ function collectRanges(root: HTMLElement, query: string): Range[] {
   return ranges
 }
 
+/** Scroll the anchored message into view (and disarm the anchor) once it exists. */
+function scrollToAnchor(root: HTMLElement, anchorRef: React.RefObject<string | null>): void {
+  const anchor = anchorRef.current
+  if (!anchor) return
+  const target = Array.from(root.querySelectorAll('[data-message-id]')).find(
+    (el) => el.getAttribute('data-message-id') === anchor
+  )
+  if (!target) return
+  anchorRef.current = null
+  target.scrollIntoView({ block: 'center' })
+}
+
 function clearHighlights(): void {
   CSS.highlights.delete(HIGHLIGHT_ALL)
   CSS.highlights.delete(HIGHLIGHT_ACTIVE)
@@ -40,6 +54,7 @@ export function ChatSearchBar({
   containerRef,
   refreshKey,
   focusSeq,
+  jump,
   onClose
 }: {
   /** The transcript scroll container to search within. */
@@ -48,6 +63,8 @@ export function ChatSearchBar({
   refreshKey: unknown
   /** Bumped by ChatView when Cmd+F is pressed while already open. */
   focusSeq: number
+  /** Seed query + target message from a cross-chat search result (`seq` re-arms it). */
+  jump?: { term: string; messageId: string; seq: number } | null
   onClose: () => void
 }): React.JSX.Element {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -58,16 +75,28 @@ export function ChatSearchBar({
   // Scroll only on user-initiated navigation/query edits, not on streaming
   // refreshes — a background stream must not yank the viewport around.
   const scrollPending = useRef(false)
+  // Message whose first match should become active once it is in the DOM
+  // (the transcript may still be loading when the jump arrives).
+  const anchorRef = useRef<string | null>(null)
 
   useEffect(() => {
     inputRef.current?.select()
   }, [focusSeq])
+
+  useEffect(() => {
+    if (!jump) return
+    anchorRef.current = jump.messageId
+    setQuery(jump.term)
+    setActive(0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jump?.seq])
 
   // Recompute matches (150ms debounce) when the query or transcript changes.
   useEffect(() => {
     const timer = setTimeout(() => {
       const root = containerRef.current
       if (!root || !query) {
+        if (root) scrollToAnchor(root, anchorRef)
         rangesRef.current = []
         clearHighlights()
         setTotal(0)
@@ -78,6 +107,22 @@ export function ChatSearchBar({
       rangesRef.current = ranges
       CSS.highlights.set(HIGHLIGHT_ALL, new Highlight(...ranges))
       setTotal(ranges.length)
+      const anchor = anchorRef.current
+      if (anchor) {
+        const idx = ranges.findIndex((r) => {
+          const el = r.startContainer.parentElement?.closest('[data-message-id]')
+          return el?.getAttribute('data-message-id') === anchor
+        })
+        if (idx !== -1) {
+          anchorRef.current = null
+          ranges[idx].startContainer.parentElement?.scrollIntoView({ block: 'center' })
+          setActive(idx)
+          return
+        }
+        // No match inside the message (term spans formatting) — at least
+        // bring the message itself into view once it has rendered.
+        scrollToAnchor(root, anchorRef)
+      }
       setActive((a) => (ranges.length === 0 ? 0 : Math.min(a, ranges.length - 1)))
     }, 150)
     return () => clearTimeout(timer)
@@ -119,6 +164,7 @@ export function ChatSearchBar({
         placeholder="Find in chat…"
         onChange={(e) => {
           scrollPending.current = true
+          anchorRef.current = null
           setQuery(e.target.value)
           setActive(0)
         }}

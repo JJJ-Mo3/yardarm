@@ -24,12 +24,14 @@ import {
 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 import {
+  chatSearchAtom,
   composerAttachAtom,
   composerInsertAtom,
   debugEventsAtom,
   detailsOpenAtom,
   helpOpenAtom,
   mainTabAtom,
+  messageJumpAtom,
   onboardingForceOpenAtom,
   projectSettingsOpenAtom,
   projectSettingsTabAtom,
@@ -357,6 +359,28 @@ export function ChatView({
   }, [primary, shortcutOverrides])
   useEffect(() => setSearchOpen(false), [subchatId])
 
+  // Cross-chat search jump: a chosen result selects this chat, then asks the
+  // primary pane to open the find bar on the matched message. Declared after
+  // the reset effect above so a jump that arrives with the subchat switch
+  // still wins.
+  const [messageJump, setMessageJump] = useAtom(messageJumpAtom)
+  const [searchJump, setSearchJump] = useState<{
+    term: string
+    messageId: string
+    seq: number
+  } | null>(null)
+  useEffect(() => {
+    if (!primary || !messageJump || messageJump.subchatId !== subchatId) return
+    setSearchJump((prev) => ({
+      term: messageJump.term,
+      messageId: messageJump.messageId,
+      seq: (prev?.seq ?? 0) + 1
+    }))
+    setSearchOpen(true)
+    setMessageJump(null)
+  }, [primary, messageJump, subchatId, setMessageJump])
+  const setChatSearch = useSetAtom(chatSearchAtom)
+
   const meta = state.meta
   const busy = send.isPending
 
@@ -570,6 +594,9 @@ export function ChatView({
         setMainTab('wiki')
         return
       }
+      case 'search':
+        setChatSearch({ open: true, query: args.trim() })
+        return
       case 'theme':
       case 'settings':
         openSettings('appearance')
@@ -1166,7 +1193,11 @@ export function ChatView({
               containerRef={transcriptRef}
               refreshKey={state.messages}
               focusSeq={searchSeq}
-              onClose={() => setSearchOpen(false)}
+              jump={searchJump}
+              onClose={() => {
+                setSearchOpen(false)
+                setSearchJump(null)
+              }}
             />
           )}
           <MessageList

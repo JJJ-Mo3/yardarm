@@ -47,6 +47,7 @@ import { BootErrorScreen } from './features/boot/BootErrorScreen'
 import { OnboardingWizard } from './features/onboarding/OnboardingWizard'
 import { ChatView } from './features/agents/ChatView'
 import { CommandPalette } from './features/agents/CommandPalette'
+import { ChatSearchDialog } from './features/agents/ChatSearchDialog'
 import { subchatTabTip } from './features/agents/fork-tab'
 import { SplitChatPane } from './features/agents/SplitChatPane'
 import { useChatStatusTracker } from './features/agents/use-chat-status-tracker'
@@ -582,6 +583,7 @@ export default function App(): React.JSX.Element {
         </div>
       </div>
       <CommandPalette />
+      <ChatSearchDialog />
       <QuickFileOpen root={cwd} />
       <SettingsDialog />
       <ProjectSettingsDialog

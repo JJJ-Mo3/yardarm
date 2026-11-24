@@ -2,7 +2,15 @@
  * Drizzle table definitions for the app database. Must stay in step with the
  * MIGRATIONS in ./index.ts — the migrations create the tables, this file types them.
  */
-import { sqliteTable, text, integer, real, uniqueIndex, index } from 'drizzle-orm/sqlite-core'
+import {
+  sqliteTable,
+  text,
+  integer,
+  real,
+  uniqueIndex,
+  index,
+  type AnySQLiteColumn
+} from 'drizzle-orm/sqlite-core'
 
 export const projects = sqliteTable(
   'projects',
@@ -45,10 +53,19 @@ export const chats = sqliteTable(
     /** AI-generated session insights (markdown); regenerated on demand. */
     insights: text('insights'),
     insightsGeneratedAt: integer('insights_generated_at'),
+    /**
+     * Side-question helper chats (/btw): the chat this hidden helper answers
+     * questions about. Cascade-deleted with it; NULL for every other chat.
+     */
+    sideOfChatId: text('side_of_chat_id').references((): AnySQLiteColumn => chats.id, {
+      onDelete: 'cascade'
+    }),
+    /** Chats created together by /compare share one group id; NULL otherwise. */
+    compareGroupId: text('compare_group_id'),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull()
   },
-  (t) => [index('chats_project_idx').on(t.projectId)]
+  (t) => [index('chats_project_idx').on(t.projectId), index('chats_side_of_idx').on(t.sideOfChatId)]
 )
 
 export const subchats = sqliteTable(
@@ -290,6 +307,17 @@ export const integrationBindings = sqliteTable(
     index('integration_bindings_subchat_idx').on(t.subchatId)
   ]
 )
+
+/**
+ * Cross-chat search bookkeeping: one row per message the indexer has
+ * processed. `doc_id` is the rowid of its entry in the `message_search` FTS5
+ * virtual table (created by the v27 migration and queried with raw SQL — see
+ * ./message-search.ts), or NULL when the message has no indexable text.
+ */
+export const messageSearchMap = sqliteTable('message_search_map', {
+  messageId: text('message_id').primaryKey(),
+  docId: integer('doc_id')
+})
 
 export const appSettings = sqliteTable('app_settings', {
   key: text('key').primaryKey(),

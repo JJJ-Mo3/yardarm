@@ -231,7 +231,33 @@ const MIGRATIONS: string[] = [
    CREATE UNIQUE INDEX IF NOT EXISTS integration_bindings_conv_idx
      ON integration_bindings(platform, conversation_id);
    CREATE INDEX IF NOT EXISTS integration_bindings_subchat_idx
-     ON integration_bindings(subchat_id);`
+     ON integration_bindings(subchat_id);`,
+  // v27 — working across chats: (a) cross-chat message search — an FTS5 index
+  // over the plain text of user/assistant messages (rows are written from JS,
+  // see message-search.ts; message_search_map records which messages were
+  // processed and their FTS rowid, and the delete trigger keeps the index in
+  // step with rollbacks and cascade deletes); (b) side-question helper chats
+  // (hidden chat linked to the chat it answers about, deleted with it);
+  // (c) model comparisons (chats created together share a group id)
+  `CREATE TABLE IF NOT EXISTS message_search_map (
+     message_id TEXT PRIMARY KEY,
+     doc_id INTEGER
+   );
+   CREATE VIRTUAL TABLE IF NOT EXISTS message_search USING fts5(
+     message_id UNINDEXED,
+     subchat_id UNINDEXED,
+     role UNINDEXED,
+     body,
+     tokenize = 'unicode61 remove_diacritics 2'
+   );
+   CREATE TRIGGER IF NOT EXISTS messages_search_ad AFTER DELETE ON messages BEGIN
+     DELETE FROM message_search
+       WHERE rowid = (SELECT doc_id FROM message_search_map WHERE message_id = old.id);
+     DELETE FROM message_search_map WHERE message_id = old.id;
+   END;
+   ALTER TABLE chats ADD COLUMN side_of_chat_id TEXT REFERENCES chats(id) ON DELETE CASCADE;
+   CREATE INDEX IF NOT EXISTS chats_side_of_idx ON chats(side_of_chat_id);
+   ALTER TABLE chats ADD COLUMN compare_group_id TEXT;`
 ]
 
 export function initDb(): DB {
@@ -287,6 +313,12 @@ export function maintainDb(): void {
 export function getDb(): DB {
   if (!db) throw new Error('Database not initialized')
   return db
+}
+
+/** The raw better-sqlite3 handle, for SQL drizzle can't express (FTS5). */
+export function getSqlite(): Database.Database {
+  if (!sqlite) throw new Error('Database not initialized')
+  return sqlite
 }
 
 export function closeDb(): void {

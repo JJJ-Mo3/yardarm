@@ -104,6 +104,12 @@ export const BUILTIN_COMMANDS: SlashCommandEntry[] = [
     args: '[generate]',
     kind: 'builtin'
   },
+  {
+    name: 'search',
+    description: 'Search message text across all chats and projects',
+    args: '[query]',
+    kind: 'builtin'
+  },
   { name: 'theme', description: 'Open appearance settings', kind: 'builtin' },
   { name: 'settings', description: 'Open settings', kind: 'builtin' },
   { name: 'mcp', description: 'Configure MCP servers', kind: 'builtin' },

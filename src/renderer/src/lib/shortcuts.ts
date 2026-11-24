@@ -13,6 +13,7 @@ import { useEffect, useMemo } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { trpc } from './trpc'
 import {
+  chatSearchAtom,
   commandPaletteOpenAtom,
   mainTabAtom,
   MAX_SPLIT_PANES,
@@ -72,6 +73,7 @@ export function useAppShortcuts(): void {
   const setPaletteOpen = useSetAtom(commandPaletteOpenAtom)
   const setQuickOpen = useSetAtom(quickOpenAtom)
   const setSplitPanes = useSetAtom(splitPanesAtom)
+  const setChatSearch = useSetAtom(chatSearchAtom)
   const overrides = useAtomValue(shortcutOverridesAtom)
 
   // Effective combo → action map ('find' is dispatched by its owning views).
@@ -137,6 +139,10 @@ export function useAppShortcuts(): void {
           e.preventDefault()
           setSplitPanes((panes) => panes.slice(0, -1))
           break
+        case 'searchChats':
+          e.preventDefault()
+          setChatSearch({ open: true, query: '' })
+          break
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -149,6 +155,7 @@ export function useAppShortcuts(): void {
     setThreadsOpen,
     setPaletteOpen,
     setQuickOpen,
-    setSplitPanes
+    setSplitPanes,
+    setChatSearch
   ])
 }

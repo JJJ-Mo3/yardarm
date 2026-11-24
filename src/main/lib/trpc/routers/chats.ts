@@ -10,6 +10,7 @@ import { z } from 'zod'
 import { buildAskMarker, buildAskPrompt } from '@shared/ask-prompts'
 import { stripAgentMarkers } from '@shared/agent-markers'
 import { getDb, maintainDb, schema } from '../../db'
+import { indexStoredMessages } from '../../db/message-search'
 import { agentSessionManager } from '../../agent/agent-session-manager'
 import {
   createChatWithSubchat,
@@ -611,16 +612,15 @@ export const chatsRouter = router({
         // refs stay owned by the source subchat, so deleting either chat
         // can't unpin the other's checkpoints.
         if (kept.length > 0) {
-          db.insert(schema.messages)
-            .values(
-              kept.map((r) => ({
-                ...r,
-                id: idMap[r.id] ?? randomUUID(),
-                subchatId: newSubchat.id,
-                checkpointRef: null
-              }))
-            )
-            .run()
+          const copies = kept.map((r) => ({
+            ...r,
+            id: idMap[r.id] ?? randomUUID(),
+            subchatId: newSubchat.id,
+            checkpointRef: null
+          }))
+          db.insert(schema.messages).values(copies).run()
+          // Bulk inserts bypass the manager's upsert path — index them here.
+          indexStoredMessages(copies)
         }
         return { subchatId: newSubchat.id }
       } catch (err) {

@@ -20,6 +20,7 @@ export type ShortcutActionId =
   | 'splitAdd'
   | 'splitClose'
   | 'find'
+  | 'searchChats'
 
 export type ShortcutOverrides = Partial<Record<ShortcutActionId, string>>
 
@@ -46,7 +47,8 @@ export const SHORTCUT_DEFS: ShortcutDef[] = [
     group: 'Split view',
     defaultCombo: 'mod+shift+\\'
   },
-  { id: 'find', label: 'Find in chat / terminal', group: 'Search', defaultCombo: 'mod+f' }
+  { id: 'find', label: 'Find in chat / terminal', group: 'Search', defaultCombo: 'mod+f' },
+  { id: 'searchChats', label: 'Search all chats', group: 'Search', defaultCombo: 'mod+shift+f' }
 ]
 
 /** Fixed, non-rebindable combos (⌘1–8 main-tab switching). */
