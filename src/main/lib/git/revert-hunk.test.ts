@@ -1,5 +1,5 @@
 /**
- * Integration tests for per-hunk revert against real
+ * Integration tests for per-hunk revert and conflict detection against real
  * temporary repositories (plain git, no Electron).
  */
 import { execFileSync } from 'node:child_process'
@@ -7,7 +7,7 @@ import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from '
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { fileHunks, gitStatus, revertHunk } from './ops'
+import { fileHunks, gitStatus, mergeIntoBase, MergeConflictError, pull, revertHunk } from './ops'
 
 let repo = ''
 
@@ -146,5 +146,57 @@ describe('revertHunk', () => {
 
   it('refuses paths outside the working tree', async () => {
     await expect(revertHunk(repo, '../x.txt', { index: 0, hash: 'x' })).rejects.toThrow(/escapes/)
+  })
+})
+
+describe('conflict detection', () => {
+  function diverge(): void {
+    write('a.txt', 'base\n')
+    git('add', '-A')
+    git('commit', '-q', '-m', 'base')
+    git('checkout', '-q', '-b', 'feature')
+    write('a.txt', 'feature\n')
+    git('commit', '-q', '-am', 'feature')
+    git('checkout', '-q', 'main')
+    write('a.txt', 'main\n')
+    git('commit', '-q', '-am', 'main')
+  }
+
+  it('aborts a conflicted merge into base and reports the files', async () => {
+    diverge()
+    for (const squash of [false, true]) {
+      const err = await mergeIntoBase(repo, 'feature', 'main', { squash }).catch((e) => e)
+      expect(err).toBeInstanceOf(MergeConflictError)
+      expect((err as MergeConflictError).files).toEqual(['a.txt'])
+      expect((await gitStatus(repo)).files).toEqual([])
+      expect(read('a.txt')).toBe('main\n')
+    }
+  })
+
+  it('aborts a conflicted pull and reports the files', async () => {
+    write('a.txt', 'base\n')
+    git('add', '-A')
+    git('commit', '-q', '-m', 'base')
+    const remote = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'yardarm-remote-')))
+    try {
+      gitIn(remote, 'clone', '-q', '--bare', repo, 'origin.git')
+      git('remote', 'add', 'origin', path.join(remote, 'origin.git'))
+      git('push', '-q', '-u', 'origin', 'main')
+      const other = path.join(remote, 'other')
+      gitIn(remote, 'clone', '-q', path.join(remote, 'origin.git'), 'other')
+      writeFileSync(path.join(other, 'a.txt'), 'theirs\n')
+      gitIn(other, 'commit', '-q', '-am', 'theirs')
+      gitIn(other, 'push', '-q', 'origin', 'main')
+      write('a.txt', 'ours\n')
+      git('commit', '-q', '-am', 'ours')
+      git('config', 'pull.rebase', 'false')
+      const err = await pull(repo).catch((e) => e)
+      expect(err).toBeInstanceOf(MergeConflictError)
+      expect((err as MergeConflictError).files).toEqual(['a.txt'])
+      expect(read('a.txt')).toBe('ours\n')
+      expect((await gitStatus(repo)).files).toEqual([])
+    } finally {
+      rmSync(remote, { recursive: true, force: true })
+    }
   })
 })

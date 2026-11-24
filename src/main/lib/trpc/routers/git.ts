@@ -18,6 +18,7 @@ import {
   gitStatus,
   listBranches,
   mergeBase,
+  MergeConflictError,
   mergeIntoBase,
   pull,
   push,
@@ -163,12 +164,26 @@ export const gitRouter = router({
     .input(cwdInput.extend({ limit: z.number().int().positive().max(200).default(50) }))
     .query(({ input }) => gitLog(input.cwd, input.limit)),
 
+  /**
+   * Pull from the upstream. A conflicted pull is aborted and reported as
+   * `conflict` (a result, not an error) so the UI can offer conflict help.
+   */
   pull: publicProcedure.input(cwdInput).mutation(async ({ input }) => {
-    await pull(input.cwd)
-    return { ok: true }
+    try {
+      await pull(input.cwd)
+      return { ok: true, conflict: null }
+    } catch (err) {
+      if (err instanceof MergeConflictError) {
+        return { ok: false, conflict: { message: err.message, files: err.files } }
+      }
+      throw err
+    }
   }),
 
-  /** Merge a worktree branch into the base branch at the project root. */
+  /**
+   * Merge a worktree branch into the base branch at the project root. A
+   * conflicted merge is aborted and reported as `conflict` with a null sha.
+   */
   mergeIntoBase: publicProcedure
     .input(
       z.object({
@@ -179,12 +194,20 @@ export const gitRouter = router({
         message: z.string().optional()
       })
     )
-    .mutation(({ input }) =>
-      mergeIntoBase(input.projectPath, input.branch, input.baseBranch, {
-        squash: input.squash,
-        message: input.message
-      })
-    ),
+    .mutation(async ({ input }) => {
+      try {
+        const { sha } = await mergeIntoBase(input.projectPath, input.branch, input.baseBranch, {
+          squash: input.squash,
+          message: input.message
+        })
+        return { sha, conflict: null }
+      } catch (err) {
+        if (err instanceof MergeConflictError) {
+          return { sha: null, conflict: { message: err.message, files: err.files } }
+        }
+        throw err
+      }
+    }),
 
   /** Merge base of a compare ref and HEAD (null when unknown/unrelated). */
   mergeBase: publicProcedure

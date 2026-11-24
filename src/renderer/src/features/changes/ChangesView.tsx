@@ -8,12 +8,13 @@
  * and a checkpoint manager pane (named + auto snapshots, A/B compare).
  *
  * The working-tree diff doubles as a review surface: draft line comments
- * (collected per chat, sent to the agent as one prompt) and per-hunk
- * revert.
+ * (collected per chat, sent to the agent as one prompt), per-hunk revert,
+ * and conflict help when a merge or pull stops on conflicts.
  */
 import React, { useEffect, useRef, useState } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
 import {
+  Bot,
   ChevronDown,
   ChevronRight,
   Download,
@@ -79,6 +80,7 @@ import {
   type LineRange,
   type ReviewComment
 } from './review-comments'
+import { buildMergeConflictPrompt, buildPullConflictPrompt } from './conflict-prompts'
 import { CheckpointDiffPanel, CheckpointsList, type SnapshotSel } from './CheckpointsPane'
 
 function statusColor(status: string): string {
@@ -483,6 +485,8 @@ export function ChangesView({
     setComposerInsert(text)
     setMainTab('chat')
   }
+  const pullConflict = pullMut.data?.conflict ?? null
+  const mergeConflict = mergeMut.data?.conflict ?? null
 
   const files = status.data?.files ?? []
   const branchList = branches.data?.all ?? []
@@ -1033,6 +1037,42 @@ export function ChangesView({
                   </span>
                 </Tip>
               </div>
+              {pullConflict && (
+                <div className="space-y-1">
+                  <div className="text-xs text-destructive selectable">
+                    {pullConflict.message}
+                    {pullConflict.files.length > 0 && (
+                      <>
+                        {' '}
+                        Conflicts in: {pullConflict.files.slice(0, 5).join(', ')}
+                        {pullConflict.files.length > 5 &&
+                          ` and ${pullConflict.files.length - 5} more`}
+                        .
+                      </>
+                    )}
+                  </div>
+                  {merge && review && (
+                    <Tip content="Prefill the chat with a request to merge the upstream into this branch in the chat's worktree, resolve the conflicts, run the checks and commit — then pull again">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          prefillComposer(
+                            buildPullConflictPrompt({
+                              branch: currentBranch,
+                              files: pullConflict.files
+                            })
+                          )
+                          pullMut.reset()
+                        }}
+                      >
+                        <Bot size={13} />
+                        Have the agent resolve it
+                      </Button>
+                    </Tip>
+                  )}
+                </div>
+              )}
               {(commit.error ||
                 push.error ||
                 pullMut.error ||
@@ -1449,7 +1489,7 @@ export function ChangesView({
         <Dialog open={mergeOpen} onOpenChange={setMergeOpen}>
           <DialogContent className="max-w-sm">
             <DialogTitle>Merge into {merge.baseBranch}</DialogTitle>
-            {mergeMut.data ? (
+            {mergeMut.data?.sha ? (
               <div className="space-y-3">
                 <div className="text-[13px]">Merged:</div>
                 <div className="font-mono text-[12px] selectable">
@@ -1515,6 +1555,50 @@ export function ChangesView({
                 {mergeMut.error && (
                   <div className="max-h-24 overflow-y-auto text-[11px] text-destructive selectable whitespace-pre-wrap">
                     {mergeMut.error.message}
+                  </div>
+                )}
+                {mergeConflict && (
+                  <div className="space-y-2">
+                    <div className="max-h-24 overflow-y-auto text-xs text-destructive selectable whitespace-pre-wrap">
+                      {mergeConflict.message}
+                      {mergeConflict.files.length > 0 &&
+                        `\nConflicts in:\n${mergeConflict.files.join('\n')}`}
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-muted-foreground">
+                        The agent can merge {merge.baseBranch} into this branch in the chat&apos;s
+                        worktree and resolve the conflicts; then merge again.
+                      </span>
+                      <Tip
+                        content={
+                          review
+                            ? `Prefill the chat with a request to merge ${merge.baseBranch} into ${merge.branch} in the chat's worktree, resolve the conflicts, run the checks and commit — then retry this merge`
+                            : 'Open the chat to ask its agent'
+                        }
+                      >
+                        <span className="inline-flex shrink-0">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            disabled={!review}
+                            onClick={() => {
+                              prefillComposer(
+                                buildMergeConflictPrompt({
+                                  branch: merge.branch,
+                                  baseBranch: merge.baseBranch,
+                                  files: mergeConflict.files
+                                })
+                              )
+                              setMergeOpen(false)
+                              mergeMut.reset()
+                            }}
+                          >
+                            <Bot size={13} />
+                            Have the agent resolve it
+                          </Button>
+                        </span>
+                      </Tip>
+                    </div>
                   </div>
                 )}
               </div>

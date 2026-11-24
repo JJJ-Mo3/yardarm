@@ -5,7 +5,7 @@
  * commit history (per-commit files + diffs), per-hunk revert, and
  * checkpoints (HEAD sha capture / hard reset for rollback).
  */
-import { simpleGit } from 'simple-git'
+import { simpleGit, type SimpleGit } from 'simple-git'
 import { spawn } from 'node:child_process'
 import { assertSafeRef, resolveInside } from './safe-ref'
 import {
@@ -249,8 +249,43 @@ export async function gitLog(
 }
 
 /**
+ * A merge or pull that stopped on conflicts (and was aborted). Carries the
+ * conflicted paths so callers can offer conflict help without parsing text.
+ */
+export class MergeConflictError extends Error {
+  constructor(
+    message: string,
+    readonly files: string[]
+  ) {
+    super(message)
+    this.name = 'MergeConflictError'
+  }
+}
+
+/** Paths with unmerged index entries — non-empty only while a merge is conflicted. */
+async function unmergedFiles(git: SimpleGit): Promise<string[]> {
+  try {
+    const out = await git.raw(['diff', '--name-only', '--diff-filter=U', '-z'])
+    return [...new Set(out.split('\u0000').filter(Boolean))]
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Throw when the index holds unmerged entries. A conflicted `git merge`
+ * reports on stdout only, which the git wrapper does not treat as a failure —
+ * without this check a conflicted merge would look like a success.
+ */
+async function assertNoConflicts(git: SimpleGit): Promise<void> {
+  const files = await unmergedFiles(git)
+  if (files.length > 0) throw new Error(`Automatic merge failed; conflicts in ${files.join(', ')}`)
+}
+
+/**
  * Pull the current branch from its upstream. Conflicted pulls are aborted so
- * the working tree is never left mid-merge.
+ * the working tree is never left mid-merge; they reject with a
+ * MergeConflictError naming the conflicted files.
  */
 export async function pull(cwd: string): Promise<void> {
   const git = simpleGit(cwd)
@@ -259,7 +294,10 @@ export async function pull(cwd: string): Promise<void> {
   if (!s.tracking) throw new Error(`No upstream configured for ${s.current} — push it first`)
   try {
     await git.pull()
+    await assertNoConflicts(git)
   } catch (err) {
+    // Read the conflict state before the abort erases it.
+    const conflicts = await unmergedFiles(git)
     // Abort any half-applied merge or rebase, best-effort.
     const hasMergeHead = await git
       .raw(['rev-parse', '--verify', '-q', 'MERGE_HEAD'])
@@ -268,6 +306,12 @@ export async function pull(cwd: string): Promise<void> {
     if (hasMergeHead) await git.raw(['merge', '--abort']).catch(() => {})
     else await git.raw(['rebase', '--abort']).catch(() => {})
     const msg = err instanceof Error ? err.message : String(err)
+    if (conflicts.length > 0) {
+      throw new MergeConflictError(
+        `Pull stopped on conflicts and was aborted — '${s.current}' is unchanged.`,
+        conflicts
+      )
+    }
     throw new Error(`Pull failed (any partial merge was aborted): ${msg}`)
   }
 }
@@ -275,7 +319,8 @@ export async function pull(cwd: string): Promise<void> {
 /**
  * Merge a worktree branch into the base branch. Runs at the PROJECT ROOT,
  * where the base branch is checked out (git forbids checking it out in the
- * chat worktree). Conflicted merges are aborted so the base stays unchanged.
+ * chat worktree). Conflicted merges are aborted so the base stays unchanged;
+ * they reject with a MergeConflictError naming the conflicted files.
  */
 export async function mergeIntoBase(
   projectPath: string,
@@ -308,15 +353,25 @@ export async function mergeIntoBase(
   try {
     if (opts.squash) {
       await git.raw(['merge', '--squash', branch])
+      await assertNoConflicts(git)
       await git.commit(message)
     } else {
       await git.raw(['merge', '--no-ff', '-m', message, branch])
+      await assertNoConflicts(git)
     }
   } catch (err) {
+    // Read the conflict state before the abort erases it.
+    const conflicts = await unmergedFiles(git)
     // Squash conflicts leave no MERGE_HEAD, so try both cleanups best-effort.
     await git.raw(['merge', '--abort']).catch(() => {})
     await git.raw(['reset', '--merge']).catch(() => {})
     const msg = err instanceof Error ? err.message : String(err)
+    if (conflicts.length > 0) {
+      throw new MergeConflictError(
+        `Merge stopped on conflicts and was aborted — '${baseBranch}' is unchanged.`,
+        conflicts
+      )
+    }
     throw new Error(`Merge failed and was aborted — '${baseBranch}' is unchanged. ${msg}`)
   }
   const sha = (await git.revparse(['HEAD'])).trim()
