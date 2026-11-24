@@ -48,6 +48,12 @@ export const settingsTabAtom = atom<SettingsTab>('appearance')
 export const helpOpenAtom = atom(false)
 /** New-chat dialog in the Sidebar (also opened by Cmd+N). */
 export const newChatOpenAtom = atom(false)
+/**
+ * Prompt carried by a `yardarm://new` link, shown in the new-chat dialog and
+ * placed in the new chat's composer as an unsent draft once the user creates
+ * the chat. Cleared whenever the dialog closes.
+ */
+export const deepLinkPrefillAtom = atom<string | null>(null)
 /** Add-project dialog: false = closed, otherwise the initial mode to show. */
 export const addProjectOpenAtom = atom<false | 'local' | 'clone'>(false)
 /** Threads popover in the active ChatView (also opened by Cmd+P). */

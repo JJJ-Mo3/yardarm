@@ -1,13 +1,17 @@
 /**
  * System router: runtime preflight, mastracode CLI detection/installation,
- * storage info, dock badge, opening external http(s) links, and preview DevTools.
+ * storage info, dock badge, opening external http(s) links, preview DevTools,
+ * and hand-off of validated `yardarm://` deep links to the renderer.
  */
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { app, shell } from 'electron'
+import { observable } from '@trpc/server/observable'
 import { z } from 'zod'
+import type { DeepLinkResult } from '../../../../shared/deep-link'
 import { agentSessionManager } from '../../agent/agent-session-manager'
+import { deepLinkQueue } from '../../deep-links'
 import { mastraAppDataDir } from '../../mastra-config/settings-json'
 import {
   detectGlobalCli,
@@ -98,6 +102,22 @@ export const systemRouter = router({
     const fallback = setTimeout(send, 2000)
     return { terminalId: id }
   }),
+
+  /**
+   * Fires whenever a validated `yardarm://` link is waiting (and once on
+   * subscribe when one arrived before this window existed). The payload is
+   * only a wake-up; the window collects the link itself with takeDeepLink so
+   * exactly one window handles it.
+   */
+  deepLinkSignal: publicProcedure.subscription(() => {
+    return observable<number>((emit) => {
+      if (deepLinkQueue.hasPending()) emit.next(Date.now())
+      return deepLinkQueue.onSignal(() => emit.next(Date.now()))
+    })
+  }),
+
+  /** Collects the waiting deep link (parsed request or a user-facing error); null when none. */
+  takeDeepLink: publicProcedure.mutation((): DeepLinkResult | null => deepLinkQueue.take()),
 
   /** Dock/taskbar badge: chats needing attention (approvals + unread replies). */
   setBadgeCount: publicProcedure

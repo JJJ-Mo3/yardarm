@@ -29,6 +29,7 @@ import { cn, timeAgo } from '../../lib/utils'
 import {
   addProjectOpenAtom,
   chatStatusesAtom,
+  deepLinkPrefillAtom,
   mainTabAtom,
   newChatOpenAtom,
   projectSettingsOpenAtom,
@@ -42,6 +43,7 @@ import {
 } from '../../lib/atoms'
 import { useIsDark } from '../../lib/use-dark'
 import { useSelectChat } from '../../lib/use-select-chat'
+import { saveDraft } from '../agents/drafts'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
@@ -123,6 +125,9 @@ export function Sidebar(): React.JSX.Element {
   const setAddProjectOpen = useSetAtom(addProjectOpenAtom)
   const setWikiAskOpen = useSetAtom(wikiAskOpenAtom)
   const [newChatTitle, setNewChatTitle] = useState('')
+  // Prompt from a yardarm://new link: previewed in the new-chat dialog and
+  // saved as the new chat's unsent composer draft on Create — never sent.
+  const [deepLinkPrefill, setDeepLinkPrefill] = useAtom(deepLinkPrefillAtom)
   const [useWorktree, setUseWorktree] = useState(true)
   const [renameTarget, setRenameTarget] = useState<{ id: string; title: string } | null>(null)
   const [renameTitle, setRenameTitle] = useState('')
@@ -180,6 +185,12 @@ export function Sidebar(): React.JSX.Element {
             : c
         )
       )
+      // A deep link's prompt becomes the new chat's composer draft (the
+      // composer loads its draft by subchat id on mount) — written before the
+      // chat is selected, and only if the dialog it belongs to is still open.
+      const firstSubchatId = chat.subchats[0]?.id
+      if (deepLinkPrefill && firstSubchatId) saveDraft(firstSubchatId, deepLinkPrefill)
+      setDeepLinkPrefill(null)
       setChatId(chat.id)
       setSubchatId(chat.subchats[0]?.id ?? null)
       setNewChatOpen(false)
@@ -735,6 +746,7 @@ export function Sidebar(): React.JSX.Element {
           if (!o) {
             // Fresh form next time: drop the typed title and any stale error.
             setNewChatTitle('')
+            setDeepLinkPrefill(null)
             createChat.reset()
           }
         }}
@@ -746,6 +758,17 @@ export function Sidebar(): React.JSX.Element {
               Name the topic for this chat — you&apos;ll send messages to the agent after it&apos;s
               created.
             </div>
+            {deepLinkPrefill && (
+              <div className="space-y-1 rounded border border-border p-2">
+                <div className="text-[11px] text-muted-foreground">
+                  Opened from a link. This prompt will be placed in the new chat&apos;s message box
+                  for you to review — it is not sent until you send it.
+                </div>
+                <div className="selectable max-h-32 overflow-y-auto whitespace-pre-wrap break-words text-xs">
+                  {deepLinkPrefill}
+                </div>
+              </div>
+            )}
             <Input
               autoFocus
               placeholder="What are you working on?"
@@ -775,7 +798,13 @@ export function Sidebar(): React.JSX.Element {
             </Tip>
             <div className="flex justify-end gap-2">
               <Tip content="Close without creating a chat">
-                <Button variant="ghost" onClick={() => setNewChatOpen(false)}>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setNewChatOpen(false)
+                    setDeepLinkPrefill(null)
+                  }}
+                >
                   Cancel
                 </Button>
               </Tip>

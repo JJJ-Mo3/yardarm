@@ -11,6 +11,7 @@ import { agentSessionManager } from './lib/agent/agent-session-manager'
 import { startScheduler } from './lib/schedules/scheduler'
 import { startIntegrations } from './lib/integrations/manager'
 import { startKeepAwake } from './lib/power/keep-awake'
+import { deepLinkFromArgv, receiveDeepLink, registerDeepLinkProtocol } from './lib/deep-links'
 import { normalizeModelIdsInSettings } from './lib/mastra-config/normalize-model-ids'
 import { seedLspEnabled } from './lib/mastra-config/settings-json'
 import { ptyManager } from './lib/terminal/pty-manager'
@@ -31,15 +32,47 @@ if (!app.requestSingleInstanceLock()) {
   app.quit()
 }
 
-app.on('second-instance', () => {
-  const win = BrowserWindow.getAllWindows()[0]
+/** Bring a window forward, creating one if none is open (no-op before app ready). */
+function focusOrCreateWindow(): void {
+  if (!app.isReady()) return
+  const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
   if (win) {
     if (win.isMinimized()) win.restore()
+    win.show()
     win.focus()
   } else {
     createWindow()
   }
+}
+
+/**
+ * A `yardarm://` link arrived: validate + queue it for the renderer and bring
+ * the window forward. Before app ready the link just waits in the queue for
+ * the first window's renderer to collect it.
+ */
+function handleDeepLink(url: string): void {
+  receiveDeepLink(url)
+  focusOrCreateWindow()
+}
+
+app.on('second-instance', (_event, argv) => {
+  // Windows/Linux deliver a link to the running instance as an argv entry.
+  const link = deepLinkFromArgv(argv)
+  if (link) handleDeepLink(link)
+  else focusOrCreateWindow()
 })
+
+// macOS delivers links here — possibly before ready, hence registered at load.
+app.on('open-url', (event, url) => {
+  event.preventDefault()
+  handleDeepLink(url)
+})
+
+registerDeepLinkProtocol()
+
+// Windows/Linux cold start: the link that launched the app is in our own argv.
+const launchLink = deepLinkFromArgv(process.argv)
+if (launchLink) handleDeepLink(launchLink)
 
 app.whenReady().then(() => {
   app.setAppUserModelId('dev.yardarm.app')

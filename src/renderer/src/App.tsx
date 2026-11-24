@@ -51,6 +51,7 @@ import { subchatTabTip } from './features/agents/fork-tab'
 import { SplitChatPane } from './features/agents/SplitChatPane'
 import { useChatStatusTracker } from './features/agents/use-chat-status-tracker'
 import { useNotificationFocus } from './features/agents/use-notification-focus'
+import { useDeepLinks } from './features/sidebar/use-deep-links'
 import { ChangesView } from './features/changes/ChangesView'
 import { TerminalTabs } from './features/terminal/TerminalTabs'
 import { TerminalView } from './features/terminal/TerminalView'
@@ -145,6 +146,7 @@ export default function App(): React.JSX.Element {
   useAppShortcuts()
   useChatStatusTracker()
   useNotificationFocus()
+  useDeepLinks()
   useAttentionBadge()
   const projectId = useAtomValue(selectedProjectIdAtom)
   const setAddProjectOpen = useSetAtom(addProjectOpenAtom)

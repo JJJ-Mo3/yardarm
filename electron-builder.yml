@@ -7,6 +7,14 @@ directories:
   buildResources: build
   output: dist
 
+# yardarm:// deep links (src/main/lib/deep-links.ts). Declares the scheme in the
+# macOS Info.plist (CFBundleURLTypes) and the Linux desktop entry; Windows
+# registers it at runtime via app.setAsDefaultProtocolClient.
+protocols:
+  - name: Yardarm
+    schemes:
+      - yardarm
+
 files:
   - out/**
   - package.json
