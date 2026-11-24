@@ -342,6 +342,7 @@ export function FactoryRunPanel({
         <Tip content="Go back">
           <span className="inline-flex">
             <Button
+              aria-label="Go back"
               size="icon"
               variant="ghost"
               disabled={!canBack}
@@ -354,6 +355,7 @@ export function FactoryRunPanel({
         <Tip content="Go forward">
           <span className="inline-flex">
             <Button
+              aria-label="Go forward"
               size="icon"
               variant="ghost"
               disabled={!canForward}
@@ -366,6 +368,7 @@ export function FactoryRunPanel({
         <Tip content="Reload the dashboard">
           <span className="inline-flex">
             <Button
+              aria-label="Reload dashboard"
               size="icon"
               variant="ghost"
               disabled={!mounted}
@@ -384,6 +387,7 @@ export function FactoryRunPanel({
         >
           <span className="inline-flex">
             <Button
+              aria-label={devToolsOpen ? 'Close DevTools' : 'Open DevTools'}
               size="icon"
               variant="ghost"
               disabled={!mounted}
@@ -397,6 +401,7 @@ export function FactoryRunPanel({
         <Tip content="Open the dashboard in your browser">
           <span className="inline-flex">
             <Button
+              aria-label="Open in browser"
               size="icon"
               variant="ghost"
               disabled={!mounted}
@@ -413,6 +418,7 @@ export function FactoryRunPanel({
           content={logsOpen ? 'Hide the server logs' : 'Show the server logs (npm run dev output)'}
         >
           <Button
+            aria-label={logsOpen ? 'Hide server logs' : 'Show server logs'}
             size="icon"
             variant="ghost"
             className={cn(logsOpen && 'bg-accent text-foreground')}
@@ -434,13 +440,13 @@ export function FactoryRunPanel({
       )}
 
       {dbWarning && (
-        <div className="shrink-0 border-b border-border bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-500">
+        <div className="shrink-0 border-b border-border bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-600 dark:text-amber-500">
           {dbWarning}
         </div>
       )}
 
       {(bareApi || fixing) && (
-        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-500">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-600 dark:text-amber-500">
           {fixing ? (
             <span className="flex items-center gap-2">
               <Loader2 size={12} className="animate-spin" />

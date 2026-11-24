@@ -10,9 +10,9 @@ import { Tip } from '../../components/ui/tooltip'
 import type { GoalEvaluationInfo } from '../../../../shared/ui-message'
 
 const STATUS_STYLES: Record<string, string> = {
-  active: 'text-blue-400',
-  paused: 'text-amber-500',
-  done: 'text-green-500'
+  active: 'text-blue-600 dark:text-blue-400',
+  paused: 'text-amber-600 dark:text-amber-500',
+  done: 'text-green-600 dark:text-green-500'
 }
 
 export function GoalBanner({
@@ -85,6 +85,11 @@ export function GoalBanner({
             </button>
           </Tip>
         )}
+        {(goalUpdate.error ?? goalClear.error) && (
+          <div className="text-xs text-destructive selectable">
+            {(goalUpdate.error ?? goalClear.error)?.message}
+          </div>
+        )}
       </div>
       {g.status !== 'done' && (
         <Tip
@@ -97,6 +102,7 @@ export function GoalBanner({
           <span className="inline-flex">
             <button
               disabled={goalUpdate.isPending}
+              aria-label={g.status === 'paused' ? 'Resume goal' : 'Pause goal'}
               onClick={() =>
                 goalUpdate.mutate({
                   subchatId,
@@ -114,6 +120,7 @@ export function GoalBanner({
         <span className="inline-flex">
           <button
             disabled={goalClear.isPending}
+            aria-label="Clear goal"
             onClick={() => goalClear.mutate({ subchatId })}
             className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground cursor-pointer"
           >

@@ -44,6 +44,7 @@ export function FollowUpChips({
       ))}
       <Tip content="Hide these suggestions">
         <button
+          aria-label="Hide suggestions"
           onClick={() => setDismissed(new Set([...dismissed, messageId]))}
           className="flex items-center rounded p-0.5 text-muted-foreground hover:text-foreground cursor-pointer"
         >

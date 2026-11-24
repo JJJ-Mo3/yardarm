@@ -56,6 +56,14 @@ interface Draft {
   verbosityEnabled: boolean
 }
 
+/** Enter/Space activates a role="button" card; keys from nested controls are ignored. */
+function cardKeyActivate(e: React.KeyboardEvent, activate: () => void): void {
+  if (e.target !== e.currentTarget) return
+  if (e.key !== 'Enter' && e.key !== ' ') return
+  e.preventDefault()
+  activate()
+}
+
 function OptionCard({
   selected,
   onClick,
@@ -71,9 +79,14 @@ function OptionCard({
 }): React.JSX.Element {
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-pressed={selected}
       onClick={onClick}
+      onKeyDown={(e) => cardKeyActivate(e, onClick)}
       className={cn(
         'cursor-pointer rounded-md border px-3 py-2.5 transition-colors',
+        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
         selected ? 'border-primary bg-accent' : 'border-border hover:bg-accent/50'
       )}
     >
@@ -110,9 +123,15 @@ function TemplateCard({
 }): React.JSX.Element {
   return (
     <div
+      role="button"
+      tabIndex={disabled ? undefined : 0}
+      aria-pressed={selected || !!disabled}
+      aria-disabled={disabled || undefined}
       onClick={disabled ? undefined : onClick}
+      onKeyDown={disabled ? undefined : (e) => cardKeyActivate(e, onClick)}
       className={cn(
         'rounded-md border px-3 py-2 transition-colors',
+        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
         disabled
           ? 'cursor-default border-border opacity-70'
           : selected
@@ -382,7 +401,7 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
                   className={cn(
                     'flex items-center gap-2 rounded-md border px-3 py-2 text-xs',
                     connected.size > 0
-                      ? 'border-green-600/40 text-green-500'
+                      ? 'border-green-600/40 text-green-600 dark:text-green-500'
                       : 'border-border text-muted-foreground'
                   )}
                 >
@@ -408,16 +427,18 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
                   <div className="text-xs text-muted-foreground">Loading packs…</div>
                 )}
                 {!packs.isLoading && modePacks.length === 0 && (
-                  <div className="flex items-start gap-2 rounded-md border border-amber-600/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-500">
+                  <div className="flex items-start gap-2 rounded-md border border-amber-600/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-600 dark:text-amber-500">
                     <AlertTriangle size={13} className="mt-0.5 shrink-0" />
                     <div className="space-y-1.5">
                       <div>
                         No packs are available because no provider is connected yet. Go back to sign
                         in, pick custom models below, or continue and set this up later.
                       </div>
-                      <Button size="sm" variant="outline" onClick={() => setStep('auth')}>
-                        Back to sign-in
-                      </Button>
+                      <Tip content="Return to the provider step to add an API key or log in">
+                        <Button size="sm" variant="outline" onClick={() => setStep('auth')}>
+                          Back to sign-in
+                        </Button>
+                      </Tip>
                     </div>
                   </div>
                 )}
@@ -628,13 +649,15 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
 
             {step === 'yolo' && (
               <div className="space-y-3">
-                <label className="flex items-center gap-2 text-sm">
-                  <Switch
-                    checked={draft.yolo}
-                    onCheckedChange={(v) => setDraft((d) => ({ ...d, yolo: v }))}
-                  />
-                  Auto-approve tool use (YOLO mode)
-                </label>
+                <Tip content="Agents run shell commands and edit files without asking for approval first">
+                  <label className="flex w-fit items-center gap-2 text-sm">
+                    <Switch
+                      checked={draft.yolo}
+                      onCheckedChange={(v) => setDraft((d) => ({ ...d, yolo: v }))}
+                    />
+                    Auto-approve tool use (YOLO mode)
+                  </label>
+                </Tip>
                 <div className="text-[11px] text-muted-foreground">
                   When enabled, agents run shell commands and edit files without asking first. Use
                   with caution — you can toggle this per-chat or in Settings → Preferences later.
@@ -705,12 +728,14 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
                   >
                     <span className="w-40 shrink-0 text-xs text-muted-foreground">{row.label}</span>
                     <span className="min-w-0 flex-1 truncate text-xs">{row.value}</span>
-                    <button
-                      className="text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
-                      onClick={() => setStep(row.target)}
-                    >
-                      Edit
-                    </button>
+                    <Tip content={`Go back to the ${row.label} step to change this`}>
+                      <button
+                        className="text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
+                        onClick={() => setStep(row.target)}
+                      >
+                        Edit
+                      </button>
+                    </Tip>
                   </div>
                 ))}
                 {complete.error && (
@@ -731,19 +756,27 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
       <div className="mx-auto w-full max-w-lg shrink-0 space-y-2 px-8 pb-6 pt-3">
         <div className="flex items-center gap-3">
           {step !== 'welcome' ? (
-            <Button variant="ghost" size="sm" onClick={back} disabled={finishing}>
-              <ArrowLeft size={13} />
-              Back
-            </Button>
+            <Tip content="Go back to the previous step">
+              <span className="inline-flex">
+                <Button variant="ghost" size="sm" onClick={back} disabled={finishing}>
+                  <ArrowLeft size={13} />
+                  Back
+                </Button>
+              </span>
+            </Tip>
           ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => void doSkip()}
-              disabled={skip.isPending}
-            >
-              {skip.isPending ? 'Skipping…' : 'Skip setup'}
-            </Button>
+            <Tip content="Skip setup for now — re-run it any time from Settings → About">
+              <span className="inline-flex">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void doSkip()}
+                  disabled={skip.isPending}
+                >
+                  {skip.isPending ? 'Skipping…' : 'Skip setup'}
+                </Button>
+              </span>
+            </Tip>
           )}
           <div className="flex flex-1 items-center justify-center gap-1.5">
             {STEPS.map((s, i) => (
@@ -757,14 +790,28 @@ export function OnboardingWizard({ onDone }: { onDone: () => void }): React.JSX.
             ))}
           </div>
           {step !== 'summary' ? (
-            <Button size="sm" onClick={next} disabled={!canContinue}>
-              Continue
-              <ArrowRight size={13} />
-            </Button>
+            <Tip
+              content={
+                canContinue
+                  ? 'Continue to the next step'
+                  : 'Pick a model for all three modes to continue'
+              }
+            >
+              <span className="inline-flex">
+                <Button size="sm" onClick={next} disabled={!canContinue}>
+                  Continue
+                  <ArrowRight size={13} />
+                </Button>
+              </span>
+            </Tip>
           ) : (
-            <Button size="sm" onClick={() => void doFinish()} disabled={finishing}>
-              {finishing ? 'Applying and restarting agents…' : 'Finish'}
-            </Button>
+            <Tip content="Apply these choices and open Yardarm">
+              <span className="inline-flex">
+                <Button size="sm" onClick={() => void doFinish()} disabled={finishing}>
+                  {finishing ? 'Applying and restarting agents…' : 'Finish'}
+                </Button>
+              </span>
+            </Tip>
           )}
         </div>
         {skip.error && (

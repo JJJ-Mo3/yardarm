@@ -269,7 +269,13 @@ export function FactoryWorkPanel({
         </span>
       </Tip>
       <Tip content="Cancel creating a project">
-        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setCreating(false)}>
+        <Button
+          aria-label="Cancel creating project"
+          size="icon"
+          variant="ghost"
+          className="h-6 w-6"
+          onClick={() => setCreating(false)}
+        >
           <X size={12} />
         </Button>
       </Tip>
@@ -338,6 +344,7 @@ export function FactoryWorkPanel({
         ) : (
           <Tip content="Create another Factory project">
             <Button
+              aria-label="Create Factory project"
               size="icon"
               variant="ghost"
               className="h-6 w-6"

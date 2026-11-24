@@ -58,7 +58,7 @@ function Step({
         </div>
         <div className="text-[11px] text-muted-foreground">{detail}</div>
         {warning && (
-          <div className="flex items-start gap-1 text-[11px] text-amber-500">
+          <div className="flex items-start gap-1 text-[11px] text-amber-600 dark:text-amber-500">
             <AlertTriangle size={12} className="mt-0.5 shrink-0" />
             {warning}
           </div>

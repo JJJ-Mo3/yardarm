@@ -359,7 +359,7 @@ function ReviewersCard({ projectId }: { projectId: string }): React.JSX.Element 
                 </span>
               </Tip>
               <Tip content="Discard changes">
-                <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
+                <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
                   Cancel
                 </Button>
               </Tip>
@@ -378,6 +378,7 @@ function ReviewersCard({ projectId }: { projectId: string }): React.JSX.Element 
             </div>
             <Tip content="Edit this persona's name and instructions">
               <button
+                aria-label="Edit persona"
                 onClick={() => {
                   setEditingId(p.id)
                   setEditName(p.name)
@@ -390,6 +391,7 @@ function ReviewersCard({ projectId }: { projectId: string }): React.JSX.Element 
             </Tip>
             <Tip content="Delete this persona">
               <button
+                aria-label="Delete persona"
                 onClick={() => {
                   void confirmDialog({
                     title: 'Delete reviewer persona?',
@@ -697,11 +699,21 @@ function CommandsTab({ projectPath }: { projectPath: string }): React.JSX.Elemen
         {(list.data ?? []).map((c) => (
           <div
             key={c.relPath}
+            role="button"
+            tabIndex={0}
             className={cn(
               'group flex cursor-pointer items-center gap-2 rounded px-2 py-1',
+              'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
               selected === c.relPath ? 'bg-accent' : 'hover:bg-accent/50'
             )}
             onClick={() => selectFile(c.relPath)}
+            onKeyDown={(e) => {
+              // Only the row itself activates — nested buttons keep their own keys.
+              if (e.target !== e.currentTarget) return
+              if (e.key !== 'Enter' && e.key !== ' ') return
+              e.preventDefault()
+              selectFile(c.relPath)
+            }}
           >
             <span className="font-mono text-[11px]">/{c.name}</span>
             <span className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground">
@@ -709,7 +721,8 @@ function CommandsTab({ projectPath }: { projectPath: string }): React.JSX.Elemen
             </span>
             <Tip content="Open this command file in your system editor">
               <button
-                className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
+                aria-label="Open command file in editor"
+                className="hidden group-hover:block group-focus-within:block text-muted-foreground hover:text-foreground cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation()
                   openInEditor.mutate({ path: c.path })
@@ -720,7 +733,8 @@ function CommandsTab({ projectPath }: { projectPath: string }): React.JSX.Elemen
             </Tip>
             <Tip content={`Delete this command — /${c.name} disappears from this project's chats`}>
               <button
-                className="hidden group-hover:block text-muted-foreground hover:text-destructive cursor-pointer"
+                aria-label={`Delete command /${c.name}`}
+                className="hidden group-hover:block group-focus-within:block text-muted-foreground hover:text-destructive cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation()
                   void confirmDialog({
@@ -773,13 +787,17 @@ function CommandsTab({ projectPath }: { projectPath: string }): React.JSX.Elemen
             className="font-mono text-[11px]"
             spellCheck={false}
           />
-          <Button
-            size="sm"
-            disabled={!dirty || write.isPending}
-            onClick={() => write.mutate({ projectPath, relPath: selected, content: text })}
-          >
-            Save
-          </Button>
+          <Tip content="Write your edits to this command file">
+            <span className="inline-flex">
+              <Button
+                size="sm"
+                disabled={!dirty || write.isPending}
+                onClick={() => write.mutate({ projectPath, relPath: selected, content: text })}
+              >
+                Save
+              </Button>
+            </span>
+          </Tip>
         </div>
       )}
       {(create.error ?? write.error ?? remove.error) && (
@@ -829,13 +847,17 @@ function InstructionsTab({ projectPath }: { projectPath: string }): React.JSX.El
         placeholder="Project-specific instructions for the agent…"
       />
       <div className="flex items-center gap-2">
-        <Button
-          size="sm"
-          disabled={!dirty || save.isPending}
-          onClick={() => save.mutate({ projectPath, content: text })}
-        >
-          Save
-        </Button>
+        <Tip content="Write the instructions to .mastracode/agent-instructions.md">
+          <span className="inline-flex">
+            <Button
+              size="sm"
+              disabled={!dirty || save.isPending}
+              onClick={() => save.mutate({ projectPath, content: text })}
+            >
+              Save
+            </Button>
+          </span>
+        </Tip>
         {save.error && (
           <span className="text-xs text-destructive selectable">{save.error.message}</span>
         )}
@@ -1028,19 +1050,23 @@ function PluginConfigRow({
         onChange={(e) => setValue(e.target.value)}
         className="h-6 font-mono text-[10px]"
       />
-      <Button
-        size="sm"
-        variant="outline"
-        className="h-6 px-2 text-[10px]"
-        disabled={!key.trim() || setConfig.isPending}
-        onClick={() => {
-          const raw = value.trim()
-          const parsed: string | boolean = raw === 'true' ? true : raw === 'false' ? false : raw
-          setConfig.mutate({ subchatId, pluginId, scope, key: key.trim(), value: parsed })
-        }}
-      >
-        Set
-      </Button>
+      <Tip content="Save this configuration key and value for the plugin">
+        <span className="inline-flex">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-6 px-2 text-[10px]"
+            disabled={!key.trim() || setConfig.isPending}
+            onClick={() => {
+              const raw = value.trim()
+              const parsed: string | boolean = raw === 'true' ? true : raw === 'false' ? false : raw
+              setConfig.mutate({ subchatId, pluginId, scope, key: key.trim(), value: parsed })
+            }}
+          >
+            Set
+          </Button>
+        </span>
+      </Tip>
       {setConfig.error && (
         <span className="text-[10px] text-destructive selectable">{setConfig.error.message}</span>
       )}
@@ -1147,7 +1173,7 @@ function ScaffoldPluginDialog({
           <div className="flex justify-end gap-2">
             <Tip content="Close without creating a plugin">
               <span className="inline-flex">
-                <Button variant="outline" size="sm" disabled={busy} onClick={() => close(false)}>
+                <Button variant="ghost" size="sm" disabled={busy} onClick={() => close(false)}>
                   Cancel
                 </Button>
               </span>
@@ -1307,7 +1333,7 @@ function PluginsTab({
                   className={cn(
                     'rounded px-1 py-0.5 text-[9px] uppercase',
                     p.status === 'active'
-                      ? 'bg-green-500/15 text-green-500'
+                      ? 'bg-green-500/15 text-green-600 dark:text-green-500'
                       : p.status === 'error'
                         ? 'bg-destructive/15 text-destructive'
                         : 'bg-accent'
@@ -1323,15 +1349,17 @@ function PluginsTab({
                       : 'Enable this plugin — its tools, skills, and commands load'
                   }
                 >
-                  <button
-                    className="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
-                    disabled={busy}
-                    onClick={() =>
-                      setEnabled.mutate({ subchatId, pluginId: p.id, scope, enabled: !enabled })
-                    }
-                  >
-                    {enabled ? 'disable' : 'enable'}
-                  </button>
+                  <span className="inline-flex">
+                    <button
+                      className="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+                      disabled={busy}
+                      onClick={() =>
+                        setEnabled.mutate({ subchatId, pluginId: p.id, scope, enabled: !enabled })
+                      }
+                    >
+                      {enabled ? 'disable' : 'enable'}
+                    </button>
+                  </span>
                 </Tip>
                 <Tip content="Set configuration key/value pairs for this plugin">
                   <button
@@ -1342,21 +1370,24 @@ function PluginsTab({
                   </button>
                 </Tip>
                 <Tip content="Uninstall this plugin and delete its files">
-                  <button
-                    className="text-muted-foreground hover:text-destructive cursor-pointer"
-                    disabled={busy}
-                    onClick={() => {
-                      void confirmDialog({
-                        title: 'Uninstall plugin?',
-                        description: `${p.name ?? p.id} will be removed (${scope} scope).`,
-                        confirmLabel: 'Uninstall'
-                      }).then((ok) => {
-                        if (ok) uninstall.mutate({ subchatId, pluginId: p.id, scope })
-                      })
-                    }}
-                  >
-                    <Trash2 size={11} />
-                  </button>
+                  <span className="inline-flex">
+                    <button
+                      aria-label="Uninstall plugin"
+                      className="text-muted-foreground hover:text-destructive cursor-pointer"
+                      disabled={busy}
+                      onClick={() => {
+                        void confirmDialog({
+                          title: 'Uninstall plugin?',
+                          description: `${p.name ?? p.id} will be removed (${scope} scope).`,
+                          confirmLabel: 'Uninstall'
+                        }).then((ok) => {
+                          if (ok) uninstall.mutate({ subchatId, pluginId: p.id, scope })
+                        })
+                      }}
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </span>
                 </Tip>
               </div>
               {p.description && (
@@ -1545,13 +1576,16 @@ function WorkflowsTab({ subchatId }: { subchatId: string | null }): React.JSX.El
               <span
                 className={cn(
                   'rounded px-1 py-0.5 text-[9px] uppercase',
-                  w.status === 'active' ? 'bg-green-500/15 text-green-500' : 'bg-accent'
+                  w.status === 'active'
+                    ? 'bg-green-500/15 text-green-600 dark:text-green-500'
+                    : 'bg-accent'
                 )}
               >
                 {w.status}
               </span>
               <Tip content="View and edit this workflow's stored JSON definition">
                 <button
+                  aria-label="Edit workflow definition"
                   className="text-muted-foreground hover:text-foreground cursor-pointer"
                   onClick={() => setDefFor(w.id)}
                 >
@@ -1566,6 +1600,7 @@ function WorkflowsTab({ subchatId }: { subchatId: string | null }): React.JSX.El
                 }
               >
                 <button
+                  aria-label={runFor === w.id ? 'Hide run form' : 'Run workflow definition'}
                   className="text-muted-foreground hover:text-foreground cursor-pointer"
                   onClick={() => {
                     setRunFor(runFor === w.id ? null : w.id)
@@ -1576,22 +1611,25 @@ function WorkflowsTab({ subchatId }: { subchatId: string | null }): React.JSX.El
                   <Play size={11} />
                 </button>
               </Tip>
-              <Tip content="Delete this stored workflow">
-                <button
-                  className="text-muted-foreground hover:text-destructive cursor-pointer"
-                  disabled={remove.isPending}
-                  onClick={() => {
-                    void confirmDialog({
-                      title: 'Delete workflow?',
-                      description: `"${w.id}" will be removed from workflow storage.`,
-                      confirmLabel: 'Delete'
-                    }).then((ok) => {
-                      if (ok) remove.mutate({ subchatId, workflowId: w.id })
-                    })
-                  }}
-                >
-                  <Trash2 size={11} />
-                </button>
+              <Tip content="Delete this stored workflow definition">
+                <span className="inline-flex">
+                  <button
+                    aria-label="Delete workflow definition"
+                    className="text-muted-foreground hover:text-destructive cursor-pointer"
+                    disabled={remove.isPending}
+                    onClick={() => {
+                      void confirmDialog({
+                        title: 'Delete workflow definition?',
+                        description: `"${w.id}" will be removed from workflow storage.`,
+                        confirmLabel: 'Delete'
+                      }).then((ok) => {
+                        if (ok) remove.mutate({ subchatId, workflowId: w.id })
+                      })
+                    }}
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                </span>
               </Tip>
             </div>
             {w.description && (
@@ -1843,7 +1881,7 @@ function KnowledgeTab({
                   </span>
                 </Tip>
                 <Tip content="Discard these edits">
-                  <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
                     Cancel
                   </Button>
                 </Tip>
@@ -1852,18 +1890,19 @@ function KnowledgeTab({
           ) : (
             <div key={n.id} className="space-y-1.5 rounded-md border border-border p-3">
               <div className="flex items-center gap-2">
-                <button
-                  className="min-w-0 flex-1 truncate text-left text-xs font-medium cursor-pointer"
-                  title={n.title}
-                  onClick={() => {
-                    setEditingId(n.id)
-                    setEditTitle(n.title)
-                    setEditBody(n.body)
-                    setEditTriggers(n.triggers ?? '')
-                  }}
-                >
-                  {n.title}
-                </button>
+                <Tip content={`Edit “${n.title}”`}>
+                  <button
+                    className="min-w-0 flex-1 truncate text-left text-xs font-medium cursor-pointer"
+                    onClick={() => {
+                      setEditingId(n.id)
+                      setEditTitle(n.title)
+                      setEditBody(n.body)
+                      setEditTriggers(n.triggers ?? '')
+                    }}
+                  >
+                    {n.title}
+                  </button>
+                </Tip>
                 {n.source === 'suggested' && (
                   <span className="shrink-0 rounded bg-accent px-1.5 py-0.5 text-[10px] text-muted-foreground">
                     suggested
@@ -1881,6 +1920,7 @@ function KnowledgeTab({
                       size="icon"
                       variant={n.pinned ? 'secondary' : 'ghost'}
                       disabled={mutating}
+                      aria-label={n.pinned ? 'Unpin note' : 'Pin note'}
                       onClick={() =>
                         update.mutate({
                           id: n.id,
@@ -1904,6 +1944,7 @@ function KnowledgeTab({
                 >
                   <span className="inline-flex">
                     <Switch
+                      aria-label={n.enabled ? 'Hide note from the agent' : 'Show note to the agent'}
                       checked={n.enabled}
                       disabled={mutating}
                       onCheckedChange={(checked) =>
@@ -1926,6 +1967,7 @@ function KnowledgeTab({
                       size="icon"
                       variant="ghost"
                       disabled={mutating}
+                      aria-label="Delete note"
                       onClick={() => {
                         void confirmDialog({
                           title: 'Delete knowledge note?',
@@ -1967,6 +2009,8 @@ function KnowledgeTab({
 
 /** One editable env-var row in the Environment tab (local state only). */
 interface EnvRow {
+  /** Local-only stable React key (never persisted). */
+  id: string
   key: string
   value: string
   secret: boolean
@@ -1993,7 +2037,13 @@ function EnvironmentTab({ projectId }: { projectId: string }): React.JSX.Element
   useEffect(() => {
     if (stored.data && rows === null) {
       setRows(
-        stored.data.map((v) => ({ key: v.key, value: v.value, secret: !!v.secret, reveal: false }))
+        stored.data.map((v) => ({
+          id: crypto.randomUUID(),
+          key: v.key,
+          value: v.value,
+          secret: !!v.secret,
+          reveal: false
+        }))
       )
     }
   }, [stored.data, rows])
@@ -2032,7 +2082,7 @@ function EnvironmentTab({ projectId }: { projectId: string }): React.JSX.Element
 
       <div className="space-y-1.5">
         {list.map((r, i) => (
-          <div key={i} className="flex items-center gap-1.5">
+          <div key={r.id} className="flex items-center gap-1.5">
             <Input
               placeholder="NAME"
               value={r.key}
@@ -2051,6 +2101,7 @@ function EnvironmentTab({ projectId }: { projectId: string }): React.JSX.Element
             {r.secret && (
               <Tip content={r.reveal ? 'Hide the value' : 'Show the value'}>
                 <button
+                  aria-label={r.reveal ? 'Hide value' : 'Show value'}
                   onClick={() => edit(i, { reveal: !r.reveal })}
                   className="rounded p-1 text-muted-foreground hover:text-foreground cursor-pointer"
                 >
@@ -2070,6 +2121,7 @@ function EnvironmentTab({ projectId }: { projectId: string }): React.JSX.Element
             </Tip>
             <Tip content="Remove this variable (takes effect on Save)">
               <button
+                aria-label="Remove variable"
                 onClick={() => {
                   setSaved(false)
                   setRows(list.filter((_, j) => j !== i))
@@ -2095,7 +2147,10 @@ function EnvironmentTab({ projectId }: { projectId: string }): React.JSX.Element
               disabled={rows === null || list.length >= 100}
               onClick={() => {
                 setSaved(false)
-                setRows([...list, { key: '', value: '', secret: false, reveal: false }])
+                setRows([
+                  ...list,
+                  { id: crypto.randomUUID(), key: '', value: '', secret: false, reveal: false }
+                ])
               }}
             >
               <Plus size={13} className="mr-1" />
@@ -2186,7 +2241,7 @@ export function ProjectSettingsDialog({
     },
     {
       id: 'knowledge',
-      label: 'Knowledge',
+      label: 'Knowledge notes',
       icon: <Lightbulb size={13} />,
       tip: 'Durable project notes for the agent — pinned ones ride in every prompt'
     },

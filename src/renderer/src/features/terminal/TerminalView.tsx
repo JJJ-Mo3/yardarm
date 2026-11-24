@@ -193,6 +193,7 @@ export function TerminalView({
           />
           <Tip content="Previous match (Shift+Enter)">
             <button
+              aria-label="Previous match"
               onClick={() => findPrevious(query)}
               className="rounded p-0.5 text-muted-foreground hover:text-foreground cursor-pointer"
             >
@@ -201,6 +202,7 @@ export function TerminalView({
           </Tip>
           <Tip content="Next match (Enter)">
             <button
+              aria-label="Next match"
               onClick={() => findNext(query)}
               className="rounded p-0.5 text-muted-foreground hover:text-foreground cursor-pointer"
             >
@@ -209,6 +211,7 @@ export function TerminalView({
           </Tip>
           <Tip content="Close search (Esc)">
             <button
+              aria-label="Close search"
               onClick={closeSearch}
               className="rounded p-0.5 text-muted-foreground hover:text-foreground cursor-pointer"
             >

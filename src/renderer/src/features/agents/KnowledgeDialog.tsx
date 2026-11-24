@@ -76,8 +76,9 @@ export function KnowledgeDialog({
   const entries = list.data?.entries ?? []
   const unavailable =
     list.data && (!list.data.available || list.data.unavailableReason)
-      ? (list.data.unavailableReason ?? 'Knowledge is unavailable in this workspace.') +
-        ' Knowledge is opt-in: enable it in Settings → Preferences → Experimental, then restart the agent.'
+      ? (list.data.unavailableReason ??
+          'The agent knowledge base is unavailable in this workspace.') +
+        ' The agent knowledge base is opt-in: enable it in Settings → Preferences → Experimental, then restart the agent.'
       : null
 
   return (
@@ -85,12 +86,12 @@ export function KnowledgeDialog({
       <DialogContent className="max-w-3xl">
         <DialogTitle className="flex items-center gap-1.5">
           <BookOpen size={14} />
-          Knowledge
+          Agent knowledge base
         </DialogTitle>
         <div className="text-[11px] text-muted-foreground">
           This browses the agent&apos;s own memory (captured automatically as it works). For notes
-          you write yourself, use{' '}
-          <Tip content="Open Project settings → Knowledge — user-authored notes the agent always sees">
+          you write yourself,{' '}
+          <Tip content="Open Project settings → Knowledge notes — user-authored notes the agent always sees">
             <button
               onClick={() => {
                 setProjectSettingsTab('knowledge')
@@ -99,10 +100,10 @@ export function KnowledgeDialog({
               }}
               className="underline underline-offset-2 hover:text-foreground cursor-pointer"
             >
-              Knowledge notes
+              Open Project settings → Knowledge notes
             </button>
-          </Tip>{' '}
-          in Project settings.
+          </Tip>
+          .
         </div>
         <div className="flex h-[26rem] gap-3">
           <div className="flex w-56 shrink-0 flex-col gap-2">
@@ -128,7 +129,7 @@ export function KnowledgeDialog({
             <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
               {list.isLoading && <div className="text-[11px] text-muted-foreground">Loading…</div>}
               {list.error && (
-                <div className="text-[11px] text-red-500">
+                <div className="text-[11px] text-destructive selectable">
                   Failed to load knowledge: {list.error.message}
                 </div>
               )}
@@ -141,23 +142,28 @@ export function KnowledgeDialog({
                 </div>
               )}
               {entries.map((e) => (
-                <button
+                <Tip
                   key={e.handle}
-                  onClick={() => setSelected(e.handle)}
-                  className={`block w-full rounded border px-2 py-1.5 text-left cursor-pointer ${
-                    selected === e.handle
-                      ? 'border-primary/50 bg-accent'
-                      : 'border-border hover:bg-accent/50'
-                  }`}
+                  content="Show this node's content, records and related nodes"
+                  side="right"
                 >
-                  <div className="truncate text-[11px] font-medium" title={e.name}>
-                    {e.name}
-                  </div>
-                  <div className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                    {timeAgo(Date.parse(e.updatedAt))}
-                    {typeof e.records === 'number' ? ` · ${e.records} records` : ''}
-                  </div>
-                </button>
+                  <button
+                    onClick={() => setSelected(e.handle)}
+                    className={`block w-full rounded border px-2 py-1.5 text-left cursor-pointer ${
+                      selected === e.handle
+                        ? 'border-primary/50 bg-accent'
+                        : 'border-border hover:bg-accent/50'
+                    }`}
+                  >
+                    <div className="truncate text-[11px] font-medium" title={e.name}>
+                      {e.name}
+                    </div>
+                    <div className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                      {timeAgo(Date.parse(e.updatedAt))}
+                      {typeof e.records === 'number' ? ` · ${e.records} records` : ''}
+                    </div>
+                  </button>
+                </Tip>
               ))}
             </div>
           </div>
@@ -171,7 +177,7 @@ export function KnowledgeDialog({
               <div className="text-[11px] text-muted-foreground">Loading…</div>
             )}
             {selected && detail.error && (
-              <div className="text-[11px] text-red-500">
+              <div className="text-[11px] text-destructive selectable">
                 Failed to load node: {detail.error.message}
               </div>
             )}

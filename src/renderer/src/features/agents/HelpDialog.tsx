@@ -1,3 +1,6 @@
+/**
+ * Help dialog (/help): slash commands and keyboard shortcuts at a glance.
+ */
 import React from 'react'
 import { useAtom } from 'jotai'
 import { helpOpenAtom } from '../../lib/atoms'

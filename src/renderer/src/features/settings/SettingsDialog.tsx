@@ -1,3 +1,7 @@
+/**
+ * The app-wide Settings dialog: tab navigation plus the API keys tab (stored
+ * keys and env-var references). The other tabs live in sibling files.
+ */
 import React, { useState } from 'react'
 import { useAtom } from 'jotai'
 import {
@@ -35,6 +39,7 @@ import { Input } from '../../components/ui/input'
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
 import { Switch } from '../../components/ui/switch'
 import { Tip } from '../../components/ui/tooltip'
+import { useConfirm } from '../../components/ConfirmDialog'
 import { AboutTab } from './AboutTab'
 import { AgentsTab } from './AgentsTab'
 import { BrowserTab } from './BrowserTab'
@@ -105,6 +110,7 @@ function AppearanceTab(): React.JSX.Element {
 /** Also used by the first-run onboarding wizard's auth step. */
 export function KeysTab(): React.JSX.Element {
   const utils = trpc.useUtils()
+  const confirmDialog = useConfirm()
   const auth = trpc.settings.authList.useQuery()
   const keyEnv = trpc.settings.keyEnvStatus.useQuery()
   const [provider, setProvider] = useState(PROVIDERS[0])
@@ -167,8 +173,17 @@ export function KeysTab(): React.JSX.Element {
             <span className="font-mono text-[11px] text-muted-foreground">••••••••</span>
             <Tip content="Delete this API key — models from this provider become unavailable">
               <button
+                aria-label={`Delete ${entry.provider} API key`}
                 className="text-muted-foreground hover:text-destructive cursor-pointer"
-                onClick={() => removeKey.mutate({ provider: entry.provider })}
+                onClick={async () => {
+                  const ok = await confirmDialog({
+                    title: `Delete the stored ${entry.provider} API key?`,
+                    description:
+                      'Models from this provider become unavailable until a key is added again.',
+                    confirmLabel: 'Delete'
+                  })
+                  if (ok) removeKey.mutate({ provider: entry.provider })
+                }}
               >
                 <Trash2 size={12} />
               </button>
@@ -179,6 +194,9 @@ export function KeysTab(): React.JSX.Element {
           <div className="text-xs text-muted-foreground">No provider keys configured.</div>
         )}
       </div>
+      {removeKey.error && (
+        <div className="text-xs text-destructive selectable">{removeKey.error.message}</div>
+      )}
       <div className="flex gap-2">
         <Tip content="Choose which provider this API key is for">
           <select
@@ -232,17 +250,25 @@ export function KeysTab(): React.JSX.Element {
                   ${row.mappedVar}
                 </span>
                 {row.mappedResolved ? (
-                  <CheckCircle2 size={12} className="shrink-0 text-green-500" />
+                  <CheckCircle2 size={12} className="shrink-0 text-green-600 dark:text-green-500" />
                 ) : (
-                  <span className="flex items-center gap-1 text-[11px] text-yellow-500">
+                  <span className="flex items-center gap-1 text-[11px] text-yellow-600 dark:text-yellow-500">
                     <AlertTriangle size={12} className="shrink-0" />
                     not found in your login shell — export it and relaunch
                   </span>
                 )}
                 <Tip content="Remove this environment-variable reference — models from this provider become unavailable unless a standard variable is set">
                   <button
+                    aria-label={`Remove ${row.provider} environment-variable reference`}
                     className="text-muted-foreground hover:text-destructive cursor-pointer"
-                    onClick={() => removeKeyEnv.mutate({ provider: row.provider })}
+                    onClick={async () => {
+                      const ok = await confirmDialog({
+                        title: `Remove the ${row.provider} environment-variable reference?`,
+                        description: `Yardarm stops reading $${row.mappedVar} for this provider. The variable itself is not changed.`,
+                        confirmLabel: 'Remove'
+                      })
+                      if (ok) removeKeyEnv.mutate({ provider: row.provider })
+                    }}
                   >
                     <Trash2 size={12} />
                   </button>
@@ -256,17 +282,19 @@ export function KeysTab(): React.JSX.Element {
           </div>
         ))}
         <div className="flex gap-2">
-          <select
-            value={envProvider}
-            onChange={(e) => setEnvProvider(e.target.value)}
-            className="h-8 rounded-md border border-border bg-background px-2 text-xs"
-          >
-            {ENV_PROVIDERS.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
+          <Tip content="Choose which provider this environment variable holds the key for">
+            <select
+              value={envProvider}
+              onChange={(e) => setEnvProvider(e.target.value)}
+              className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+            >
+              {ENV_PROVIDERS.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </Tip>
           <Input
             className="font-mono"
             placeholder={standardVarFallback(envProvider)}
@@ -286,7 +314,7 @@ export function KeysTab(): React.JSX.Element {
           </Tip>
         </div>
         {setKeyEnv.data && !setKeyEnv.data.resolved && (
-          <div className="flex items-center gap-1 text-[11px] text-yellow-500">
+          <div className="flex items-center gap-1 text-[11px] text-yellow-600 dark:text-yellow-500">
             <AlertTriangle size={12} className="shrink-0" />
             Saved, but the variable isn&apos;t set in your login shell — export it in your shell
             profile and relaunch Yardarm.

@@ -1,3 +1,8 @@
+/**
+ * The chat transcript: user bubbles, assistant parts (text, reasoning, tool
+ * calls, info), per-message actions, and the suggestion surfaces under the last
+ * reply. Agent marker lines are stripped from text and shown as chips/cards.
+ */
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   Brain,
@@ -87,7 +92,8 @@ function CopyMessageButton({ message }: { message: StoredMessage }): React.JSX.E
           setCopied(true)
           setTimeout(() => setCopied(false), 1500)
         }}
-        className="flex items-center rounded-md border border-border bg-background p-1 text-muted-foreground shadow-sm opacity-0 group-hover/msg:opacity-100 hover:text-foreground cursor-pointer"
+        aria-label="Copy message"
+        className="flex items-center rounded-md border border-border bg-background p-1 text-muted-foreground shadow-sm opacity-0 group-hover/msg:opacity-100 group-focus-within/msg:opacity-100 hover:text-foreground cursor-pointer"
       >
         {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
       </button>
@@ -256,16 +262,18 @@ function ReasoningBlock({ text }: { text: string }): React.JSX.Element {
 
 function Part({
   part,
+  showConfidence,
   suspensions,
   onRespondSuspension
-}: { part: MessagePart } & SuspensionProps): React.JSX.Element | null {
+}: { part: MessagePart; showConfidence: boolean } & SuspensionProps): React.JSX.Element | null {
   switch (part.type) {
     case 'text': {
       // Part only renders assistant messages (user bubbles render raw text):
       // the CONFIDENCE marker line becomes an inline chip on this reply, the
       // Suggested-knowledge line becomes a save/dismiss card, and Follow-up
-      // lines become composer-prefill chips, so hide them all.
-      const confidence = parseConfidenceMarker(part.text)
+      // lines become composer-prefill chips, so hide them all. The marker line
+      // is stripped even when the chip is turned off in Preferences.
+      const confidence = showConfidence ? parseConfidenceMarker(part.text) : null
       const text = stripFollowUpLines(stripSuggestedKnowledgeLine(stripConfidenceLine(part.text)))
       if (!text && !confidence) return null
       return (
@@ -314,6 +322,7 @@ const MessageItem = React.memo(function MessageItem({
   onFork,
   showFork,
   hiddenParts,
+  showConfidence,
   suspensions,
   onRespondSuspension
 }: {
@@ -323,6 +332,7 @@ const MessageItem = React.memo(function MessageItem({
   onFork?: (messageId: string) => void
   showFork?: boolean
   hiddenParts?: Set<string>
+  showConfidence: boolean
 } & SuspensionProps): React.JSX.Element {
   // Hook must run before the user-branch early returns (cheap null for users).
   const gitActivity = useMemo(() => detectGitActivity(message), [message])
@@ -340,7 +350,8 @@ const MessageItem = React.memo(function MessageItem({
             <Tip content="Restore files and chat to just before this was sent">
               <button
                 onClick={() => onRollback(message.id)}
-                className="flex items-center rounded-md border border-border bg-background p-0.5 text-muted-foreground shadow-sm opacity-0 group-hover:opacity-100 hover:text-foreground cursor-pointer"
+                aria-label="Restore to before this message"
+                className="flex items-center rounded-md border border-border bg-background p-0.5 text-muted-foreground shadow-sm opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 hover:text-foreground cursor-pointer"
               >
                 <RotateCcw size={10} />
               </button>
@@ -359,7 +370,8 @@ const MessageItem = React.memo(function MessageItem({
               <Tip content="Fork the chat from just before this message into a new tab — the agent's memory is cloned as a new Mastra thread and the original continues unchanged">
                 <button
                   onClick={() => onFork(message.id)}
-                  className="flex items-center rounded-md border border-border bg-background p-1 text-muted-foreground shadow-sm opacity-70 group-hover:opacity-100 hover:opacity-100 hover:text-foreground cursor-pointer"
+                  aria-label="Fork chat from this message"
+                  className="flex items-center rounded-md border border-border bg-background p-1 text-muted-foreground shadow-sm opacity-70 group-hover:opacity-100 group-focus-within:opacity-100 hover:opacity-100 hover:text-foreground cursor-pointer"
                 >
                   <GitFork size={12} />
                 </button>
@@ -369,7 +381,8 @@ const MessageItem = React.memo(function MessageItem({
               <Tip content="Restore files and chat to just before this message was sent — its text returns to the input for editing">
                 <button
                   onClick={() => onRollback(message.id)}
-                  className="flex items-center rounded-md border border-border bg-background p-1 text-muted-foreground shadow-sm opacity-70 group-hover:opacity-100 hover:opacity-100 hover:text-foreground cursor-pointer"
+                  aria-label="Restore to before this message"
+                  className="flex items-center rounded-md border border-border bg-background p-1 text-muted-foreground shadow-sm opacity-70 group-hover:opacity-100 group-focus-within:opacity-100 hover:opacity-100 hover:text-foreground cursor-pointer"
                 >
                   <RotateCcw size={12} />
                 </button>
@@ -403,6 +416,7 @@ const MessageItem = React.memo(function MessageItem({
       <Part
         key={i}
         part={part}
+        showConfidence={showConfidence}
         suspensions={suspensions}
         onRespondSuspension={onRespondSuspension}
       />
@@ -511,6 +525,7 @@ export function MessageList({
   const suggestKnowledgeEnabled =
     trpc.settings.get.useQuery({ key: 'suggestKnowledge' }).data !== false
   const followUpsEnabled = trpc.settings.get.useQuery({ key: 'followUpSuggestions' }).data !== false
+  const confidenceEnabled = trpc.settings.get.useQuery({ key: 'confidenceRatings' }).data !== false
 
   // Agent-proposed knowledge note: shown as a save/dismiss card under the
   // transcript, only while the final message is the assistant's reply and the
@@ -589,6 +604,7 @@ export function MessageList({
           onFork={onFork}
           showFork={forkEligible.has(m.id)}
           hiddenParts={hiddenParts}
+          showConfidence={confidenceEnabled}
           suspensions={suspensions}
           onRespondSuspension={onRespondSuspension}
         />

@@ -189,9 +189,11 @@ export function SandboxDialog({
                   }
                 >
                   <Tip content="How to alert you when a run finishes: bell (in-app sound), system (macOS notification), or both">
-                    <SelectTrigger className="w-28">
-                      <SelectValue />
-                    </SelectTrigger>
+                    <span className="inline-flex">
+                      <SelectTrigger className="w-28">
+                        <SelectValue />
+                      </SelectTrigger>
+                    </span>
                   </Tip>
                   <SelectContent>
                     {NOTIFICATIONS.map((n) => (
@@ -216,18 +218,21 @@ export function SandboxDialog({
                     >
                       <span className="min-w-0 flex-1 truncate font-mono text-[11px]">{p}</span>
                       <Tip content="Remove this path — sandboxed commands can no longer write to it">
-                        <button
-                          className="text-muted-foreground hover:text-destructive cursor-pointer"
-                          disabled={stateSet.isPending}
-                          onClick={() =>
-                            stateSet.mutate({
-                              subchatId,
-                              patch: { sandboxAllowedPaths: paths.filter((x) => x !== p) }
-                            })
-                          }
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        <span className="inline-flex">
+                          <button
+                            aria-label="Remove allowed path"
+                            className="text-muted-foreground hover:text-destructive cursor-pointer"
+                            disabled={stateSet.isPending}
+                            onClick={() =>
+                              stateSet.mutate({
+                                subchatId,
+                                patch: { sandboxAllowedPaths: paths.filter((x) => x !== p) }
+                              })
+                            }
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </span>
                       </Tip>
                     </div>
                   ))}

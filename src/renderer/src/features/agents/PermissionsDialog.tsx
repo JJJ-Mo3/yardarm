@@ -39,20 +39,22 @@ function PolicySegments({
     <div className="flex overflow-hidden rounded border border-border">
       {POLICIES.map((p) => (
         <Tip key={p} content={POLICY_TIPS[p]}>
-          <button
-            disabled={disabled}
-            onClick={() => onChange(p)}
-            className={cn(
-              'px-2 py-0.5 text-[11px] capitalize cursor-pointer disabled:cursor-default',
-              value === p
-                ? p === 'deny'
-                  ? 'bg-destructive/15 font-medium text-destructive'
-                  : 'bg-accent font-medium'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            {p}
-          </button>
+          <span className="inline-flex">
+            <button
+              disabled={disabled}
+              onClick={() => onChange(p)}
+              className={cn(
+                'px-2 py-0.5 text-[11px] capitalize cursor-pointer disabled:cursor-default',
+                value === p
+                  ? p === 'deny'
+                    ? 'bg-destructive/15 font-medium text-destructive'
+                    : 'bg-accent font-medium'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {p}
+            </button>
+          </span>
         </Tip>
       ))}
     </div>

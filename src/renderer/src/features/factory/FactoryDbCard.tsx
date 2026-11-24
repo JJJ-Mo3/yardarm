@@ -110,7 +110,7 @@ export function FactoryDbCard({
         containers up, then exits.
       </p>
       {dockerHelp && (
-        <div className="mt-2 flex items-center gap-2 rounded-md bg-amber-500/10 px-3 py-2 text-[11px] text-amber-500">
+        <div className="mt-2 flex items-center gap-2 rounded-md bg-amber-500/10 px-3 py-2 text-[11px] text-amber-600 dark:text-amber-500">
           <span className="min-w-0 flex-1">{dockerHelp}</span>
           {d && !d.daemonRunning && d.dockerPath && d.runtime && (
             <Tip

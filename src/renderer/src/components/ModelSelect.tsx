@@ -77,12 +77,14 @@ export function ModelSelect({
           className="mb-1 h-7 text-[11px]"
         />
         <div className="max-h-56 overflow-y-auto">
-          <button
-            onClick={() => pick('')}
-            className="block w-full cursor-pointer rounded px-2 py-1 text-left text-[11px] text-muted-foreground hover:bg-accent"
-          >
-            {placeholder}
-          </button>
+          <Tip content="Clear the selection and fall back to the default">
+            <button
+              onClick={() => pick('')}
+              className="block w-full cursor-pointer rounded px-2 py-1 text-left text-[11px] text-muted-foreground hover:bg-accent"
+            >
+              {placeholder}
+            </button>
+          </Tip>
           {filtered.map((m) => (
             <button
               key={m.id}

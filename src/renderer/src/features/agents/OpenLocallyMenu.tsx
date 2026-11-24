@@ -66,7 +66,9 @@ export function OpenLocallyMenu({
             </span>
           </Tip>
         ))}
-        {error && <div className="px-1.5 pt-1 text-[10px] text-red-500">{error}</div>}
+        {error && (
+          <div className="px-1.5 pt-1 text-[10px] text-destructive selectable">{error}</div>
+        )}
       </PopoverContent>
     </Popover>
   )

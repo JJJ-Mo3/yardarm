@@ -1,3 +1,6 @@
+/**
+ * Full-window error shown when the bundled agent runtime fails its boot preflight.
+ */
 import React from 'react'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { Button } from '../../components/ui/button'

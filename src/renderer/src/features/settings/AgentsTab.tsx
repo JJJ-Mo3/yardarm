@@ -275,13 +275,23 @@ export function AgentsTab(): React.JSX.Element {
           (list.data ?? []).map((a) => (
             <div
               key={a.id}
+              role="button"
+              tabIndex={0}
+              aria-pressed={selected === a.id}
               className={cn(
-                'group cursor-pointer rounded-md border px-2.5 py-1.5 transition-colors',
+                'group cursor-pointer rounded-md border px-2.5 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                 selected === a.id
                   ? 'border-primary/50 bg-accent'
                   : 'border-border hover:bg-accent/50'
               )}
               onClick={() => selectAgent(a.id)}
+              onKeyDown={(e) => {
+                if (e.target !== e.currentTarget) return
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  selectAgent(a.id)
+                }
+              }}
             >
               <div className="flex items-center gap-2">
                 <Bot size={12} className="shrink-0 text-muted-foreground" />
@@ -290,7 +300,8 @@ export function AgentsTab(): React.JSX.Element {
                 </span>
                 <Tip content="Open this agent file in your system editor">
                   <button
-                    className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
+                    aria-label={`Open ${a.id} in editor`}
+                    className="hidden group-hover:block group-focus-within:block text-muted-foreground hover:text-foreground cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation()
                       openInEditor.mutate({ path: a.path })
@@ -301,7 +312,8 @@ export function AgentsTab(): React.JSX.Element {
                 </Tip>
                 <Tip content="Delete this subagent — the agent hosts restart without it">
                   <button
-                    className="hidden group-hover:block text-muted-foreground hover:text-destructive cursor-pointer"
+                    aria-label={`Delete subagent ${a.id}`}
+                    className="hidden group-hover:block group-focus-within:block text-muted-foreground hover:text-destructive cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation()
                       void confirmDialog({

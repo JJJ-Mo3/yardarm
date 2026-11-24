@@ -1,3 +1,7 @@
+/**
+ * Inline card for a pending tool approval: shows the tool call and lets the
+ * user approve, always-allow, or decline with feedback.
+ */
 import React, { useState } from 'react'
 import { ShieldQuestion } from 'lucide-react'
 import { Button } from '../../components/ui/button'
@@ -22,7 +26,7 @@ export function ApprovalCard({
   return (
     <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-2">
       <div className="flex items-center gap-2 min-w-0">
-        <ShieldQuestion size={14} className="text-amber-500 shrink-0" />
+        <ShieldQuestion size={14} className="text-amber-600 dark:text-amber-500 shrink-0" />
         <span className="text-[13px] font-medium shrink-0">{toolTitle(approval.toolName)}?</span>
         <span className="ml-auto font-mono text-[10px] text-muted-foreground shrink-0">
           {approval.toolName}
@@ -39,16 +43,20 @@ export function ApprovalCard({
             onChange={(e) => setFeedback(e.target.value)}
           />
           <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => onDecide('decline', { feedback })}
-            >
-              Deny with feedback
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setShowFeedback(false)}>
-              Cancel
-            </Button>
+            <Tip content="Block this tool call and send your feedback to the agent">
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => onDecide('decline', { feedback })}
+              >
+                Deny with feedback
+              </Button>
+            </Tip>
+            <Tip content="Go back to the approval choices without deciding">
+              <Button size="sm" variant="ghost" onClick={() => setShowFeedback(false)}>
+                Cancel
+              </Button>
+            </Tip>
           </div>
         </div>
       ) : (

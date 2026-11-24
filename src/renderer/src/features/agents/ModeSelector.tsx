@@ -12,7 +12,7 @@ const MODE_META: Record<Mode, { icon: LucideIcon; tip: string; active: string }>
   plan: {
     icon: ClipboardList,
     tip: 'Plan mode — read-only research; the agent proposes a plan for your approval before touching files',
-    active: 'bg-blue-500/15 text-blue-400 border-blue-500/40'
+    active: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/40'
   },
   build: {
     icon: Hammer,

@@ -1,3 +1,7 @@
+/**
+ * Settings → Models: per-mode default models and thinking levels, model packs,
+ * and observational-memory model settings.
+ */
 import React, { useState } from 'react'
 import { useSetAtom } from 'jotai'
 import { KeyRound, Trash2 } from 'lucide-react'
@@ -8,6 +12,7 @@ import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Switch } from '../../components/ui/switch'
 import { Tip } from '../../components/ui/tooltip'
+import { useConfirm } from '../../components/ConfirmDialog'
 import { ModelSelect } from '../../components/ModelSelect'
 
 const MODES = ['build', 'plan', 'fast'] as const
@@ -88,6 +93,7 @@ export function ModelsTab(): React.JSX.Element {
     }
   })
   const deleteCustomPack = trpc.mastraSettings.deleteCustomPack.useMutation({ onSuccess: onSaved })
+  const confirmDialog = useConfirm()
   const applyRestart = trpc.mastraSettings.applyRestart.useMutation({
     onSuccess: () => {
       setDirty(false)
@@ -158,13 +164,15 @@ export function ModelsTab(): React.JSX.Element {
           <span className="min-w-0 flex-1 selectable">
             Could not load the model catalog: {models.error.message}
           </span>
-          <Button size="sm" variant="outline" onClick={() => models.refetch()}>
-            Retry
-          </Button>
+          <Tip content="Try loading the model catalog again">
+            <Button size="sm" variant="outline" onClick={() => models.refetch()}>
+              Retry
+            </Button>
+          </Tip>
         </div>
       )}
       {models.data && modelList.length > 0 && !modelList.some((mm) => mm.hasApiKey) && (
-        <div className="flex items-center gap-2 rounded-md border border-amber-600/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-500">
+        <div className="flex items-center gap-2 rounded-md border border-amber-600/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-600 dark:text-amber-500">
           <KeyRound size={13} className="shrink-0" />
           <span className="min-w-0 flex-1">
             No provider is authenticated yet — add an API key or log in to enable models.
@@ -186,25 +194,27 @@ export function ModelsTab(): React.JSX.Element {
       <div>
         <div className="mb-1.5 text-xs font-medium">Model pack</div>
         <div className="space-y-1.5">
-          <select
-            value={m.activeModelPackId ?? ''}
-            onChange={(e) => {
-              const packId = e.target.value || null
-              const pack = modePacks.find((p) => p.id === packId)
-              setActiveModelPack.mutate({
-                packId,
-                packModels: packId?.startsWith('custom:') ? pack?.models : undefined
-              })
-            }}
-            className="h-7 w-full min-w-0 rounded-md border border-border bg-background px-2 text-[11px]"
-          >
-            <option value="">(none — manual defaults below)</option>
-            {modePacks.map((p) => (
-              <option key={p.id} value={p.id} title={p.description}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+          <Tip content="Apply a model pack — a preset of per-mode models; none uses the manual defaults below">
+            <select
+              value={m.activeModelPackId ?? ''}
+              onChange={(e) => {
+                const packId = e.target.value || null
+                const pack = modePacks.find((p) => p.id === packId)
+                setActiveModelPack.mutate({
+                  packId,
+                  packModels: packId?.startsWith('custom:') ? pack?.models : undefined
+                })
+              }}
+              className="h-7 w-full min-w-0 rounded-md border border-border bg-background px-2 text-[11px]"
+            >
+              <option value="">(none — manual defaults below)</option>
+              {modePacks.map((p) => (
+                <option key={p.id} value={p.id} title={p.description}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </Tip>
           {m.activeModelPackId && (
             <div className="text-[11px] text-muted-foreground">
               {modePacks.find((p) => p.id === m.activeModelPackId)?.description ??
@@ -248,8 +258,17 @@ export function ModelsTab(): React.JSX.Element {
               </span>
               <Tip content="Delete this custom pack">
                 <button
+                  aria-label={`Delete custom pack ${p.name}`}
                   className="text-muted-foreground hover:text-destructive cursor-pointer"
-                  onClick={() => deleteCustomPack.mutate({ name: p.name })}
+                  onClick={() => {
+                    void confirmDialog({
+                      title: 'Delete custom pack?',
+                      description: `Custom model pack "${p.name}" will be removed from settings.json.`,
+                      confirmLabel: 'Delete'
+                    }).then((ok) => {
+                      if (ok) deleteCustomPack.mutate({ name: p.name })
+                    })
+                  }}
                 >
                   <Trash2 size={12} />
                 </button>
@@ -461,6 +480,7 @@ export function ModelsTab(): React.JSX.Element {
               <Input
                 type="number"
                 min={1}
+                key={`max-turns-${m.goalMaxTurns ?? ''}`}
                 className="h-7 w-24 text-[11px]"
                 defaultValue={m.goalMaxTurns ?? ''}
                 placeholder="50 (default)"
@@ -483,18 +503,20 @@ export function ModelsTab(): React.JSX.Element {
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <span className="w-16 text-[11px] text-muted-foreground">OM pack</span>
-            <select
-              value={m.activeOmPackId ?? ''}
-              onChange={(e) => setOmPack.mutate({ packId: e.target.value || null })}
-              className="h-7 w-full min-w-0 rounded-md border border-border bg-background px-2 text-[11px]"
-            >
-              <option value="">(none — manual overrides below)</option>
-              {omPacks.map((p) => (
-                <option key={p.id} value={p.id} title={p.description}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+            <Tip content="Apply an Observational Memory pack; none uses the manual overrides below">
+              <select
+                value={m.activeOmPackId ?? ''}
+                onChange={(e) => setOmPack.mutate({ packId: e.target.value || null })}
+                className="h-7 w-full min-w-0 rounded-md border border-border bg-background px-2 text-[11px]"
+              >
+                <option value="">(none — manual overrides below)</option>
+                {omPacks.map((p) => (
+                  <option key={p.id} value={p.id} title={p.description}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </Tip>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-16 text-[11px] text-muted-foreground">OM model</span>
@@ -532,6 +554,7 @@ export function ModelsTab(): React.JSX.Element {
                 type="number"
                 min={OM_THRESHOLD_MIN}
                 step={1000}
+                key={`om-obs-${m.omObservationThreshold ?? ''}`}
                 className="h-7 w-24 text-[11px]"
                 defaultValue={m.omObservationThreshold ?? ''}
                 placeholder="30000"
@@ -552,6 +575,7 @@ export function ModelsTab(): React.JSX.Element {
                 type="number"
                 min={OM_THRESHOLD_MIN}
                 step={1000}
+                key={`om-refl-${m.omReflectionThreshold ?? ''}`}
                 className="h-7 w-24 text-[11px]"
                 defaultValue={m.omReflectionThreshold ?? ''}
                 placeholder="40000"

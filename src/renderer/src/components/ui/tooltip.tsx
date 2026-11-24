@@ -1,3 +1,7 @@
+/**
+ * Tooltip primitives (Radix) and the `Tip` wrapper every interactive control
+ * uses. Wrap possibly-disabled controls in an inline-flex span inside Tip.
+ */
 import * as React from 'react'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 import { cn } from '../../lib/utils'

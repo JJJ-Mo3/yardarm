@@ -105,7 +105,7 @@ export function KeyboardTab(): React.JSX.Element {
         Click Record, then press the new key combination. Esc cancels; Backspace restores the
         default. Changes apply immediately and are saved.
       </div>
-      {note && <div className="text-[11px] text-yellow-500">{note}</div>}
+      {note && <div className="text-[11px] text-yellow-600 dark:text-yellow-500">{note}</div>}
       {[...groups.entries()].map(([group, defs]) => (
         <div key={group}>
           <div className="mb-1 text-xs font-medium">{group}</div>
@@ -156,6 +156,7 @@ export function KeyboardTab(): React.JSX.Element {
                   <Tip content={`Reset “${def.label}” to its default shortcut`}>
                     <span className="inline-flex">
                       <button
+                        aria-label={`Reset ${def.label} shortcut`}
                         className="text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
                         disabled={!overridden}
                         onClick={() => {

@@ -1,3 +1,7 @@
+/**
+ * The composer: prompt textarea with @-file mentions, / commands and ! note
+ * macros, attachments, voice input, the Goal button, and send/stop.
+ */
 import React, { useEffect, useRef, useState } from 'react'
 import { ArrowUp, FileText, Loader2, Mic, Paperclip, Square, Target, X } from 'lucide-react'
 import { Button } from '../../components/ui/button'
@@ -37,6 +41,21 @@ function fileToAttachment(file: File): Promise<ComposerAttachment> {
     reader.onerror = () => reject(reader.error)
     reader.readAsDataURL(file)
   })
+}
+
+/**
+ * Stable React keys for composer attachments, assigned per object identity so
+ * removing one chip doesn't remount (and shift focus across) the others.
+ */
+const attachmentKeys = new WeakMap<ComposerAttachment, number>()
+let nextAttachmentKey = 0
+function attachmentKey(a: ComposerAttachment): number {
+  let key = attachmentKeys.get(a)
+  if (key === undefined) {
+    key = nextAttachmentKey++
+    attachmentKeys.set(a, key)
+  }
+  return key
 }
 
 export function PromptInput({
@@ -563,7 +582,7 @@ export function PromptInput({
             const isImage = classifyAttachment(a.mediaType, a.filename) === 'image'
             return (
               <div
-                key={i}
+                key={attachmentKey(a)}
                 className={cn(
                   'group relative h-12 overflow-hidden rounded border border-border',
                   isImage ? 'w-12' : 'flex max-w-40 items-center gap-1.5 px-2'
@@ -584,7 +603,8 @@ export function PromptInput({
                 )}
                 <Tip content="Remove this attachment">
                   <button
-                    className="absolute right-0 top-0 hidden rounded-bl bg-background/80 p-0.5 group-hover:block cursor-pointer"
+                    aria-label="Remove attachment"
+                    className="absolute right-0 top-0 rounded-bl bg-background/80 p-0.5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 cursor-pointer"
                     onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
                   >
                     <X size={10} />
@@ -599,6 +619,7 @@ export function PromptInput({
         <textarea
           ref={textareaRef}
           rows={3}
+          aria-label="Message the agent"
           value={value}
           disabled={disabled}
           placeholder="Message the agent… (@ to mention files, ! for knowledge notes, / for commands, paste or drag & drop files)"
@@ -675,6 +696,7 @@ export function PromptInput({
                 <Button
                   size="icon"
                   variant="ghost"
+                  aria-label="Attach files"
                   disabled={disabled}
                   onClick={() => fileInputRef.current?.click()}
                 >
@@ -702,6 +724,7 @@ export function PromptInput({
                   )}
                   <Button
                     size="icon"
+                    aria-label={voice.state === 'recording' ? 'Stop recording' : 'Dictate'}
                     variant={voice.state === 'recording' ? 'destructive' : 'ghost'}
                     className={voice.state === 'recording' ? 'animate-pulse' : undefined}
                     disabled={micDenied || voice.state === 'transcribing'}
@@ -723,7 +746,7 @@ export function PromptInput({
             )}
             {running && !value.trim() ? (
               <Tip content="Stop the agent's current run">
-                <Button size="icon" variant="destructive" onClick={onAbort}>
+                <Button size="icon" variant="destructive" aria-label="Stop run" onClick={onAbort}>
                   <Square size={13} />
                 </Button>
               </Tip>
@@ -738,6 +761,7 @@ export function PromptInput({
                 <span className="inline-flex">
                   <Button
                     size="icon"
+                    aria-label={running ? 'Queue message' : 'Send message'}
                     disabled={disabled || (!value.trim() && attachments.length === 0)}
                     onClick={submit}
                   >

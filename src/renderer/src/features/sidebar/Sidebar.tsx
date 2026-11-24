@@ -1,3 +1,7 @@
+/**
+ * Left sidebar: project picker, the project's chat list (pin, rename, archive,
+ * delete, drag-to-reorder), new-chat creation, and archived chats.
+ */
 import React, { useState } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
@@ -58,6 +62,14 @@ import { Logo } from '../../components/Logo'
 /** dataTransfer type for dragging a sidebar chat row (reorder; split-pane drop). */
 export const CHAT_DRAG_TYPE = 'application/x-yardarm-chat'
 
+/** Enter/Space activates a role="button" row; keys from nested controls are ignored. */
+function rowKeyActivate(e: React.KeyboardEvent, activate: () => void): void {
+  if (e.target !== e.currentTarget) return
+  if (e.key !== 'Enter' && e.key !== ' ') return
+  e.preventDefault()
+  activate()
+}
+
 /**
  * Per-chat activity badge: amber dot = awaiting a user response, spinner =
  * agent working, blue dot = run finished but not yet viewed. Hidden on row
@@ -75,14 +87,14 @@ function ChatStatusIndicator({
   if (awaiting) {
     return (
       <Tip content="The agent is waiting for your response">
-        <span className="block group-hover:hidden h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+        <span className="block group-hover:hidden group-focus-within:hidden h-2 w-2 shrink-0 rounded-full bg-amber-500" />
       </Tip>
     )
   }
   if (running) {
     return (
       <Tip content="The agent is working in this chat">
-        <span className="block group-hover:hidden shrink-0 text-muted-foreground">
+        <span className="block group-hover:hidden group-focus-within:hidden shrink-0 text-muted-foreground">
           <Loader2 size={12} className="animate-spin" />
         </span>
       </Tip>
@@ -91,7 +103,7 @@ function ChatStatusIndicator({
   if (unseen) {
     return (
       <Tip content="The agent finished — you haven't viewed the result yet">
-        <span className="block group-hover:hidden h-2 w-2 shrink-0 rounded-full bg-blue-500" />
+        <span className="block group-hover:hidden group-focus-within:hidden h-2 w-2 shrink-0 rounded-full bg-blue-500" />
       </Tip>
     )
   }
@@ -332,6 +344,7 @@ export function Sidebar(): React.JSX.Element {
               variant="ghost"
               disabled={!projectId}
               className="group"
+              aria-label="Project settings"
               onClick={() => setProjectSettingsOpen(true)}
             >
               {/* FolderCog's built-in gear is too small to read at this size, so
@@ -352,6 +365,7 @@ export function Sidebar(): React.JSX.Element {
             size="icon"
             variant="ghost"
             className="shrink-0"
+            aria-label="Add project"
             onClick={() => setAddProjectOpen('local')}
           >
             <Plus size={14} />
@@ -368,6 +382,7 @@ export function Sidebar(): React.JSX.Element {
               size="icon"
               variant="ghost"
               disabled={!projectId}
+              aria-label="New chat"
               onClick={() => setNewChatOpen(true)}
             >
               <MessageSquarePlus size={14} />
@@ -401,8 +416,14 @@ export function Sidebar(): React.JSX.Element {
             onDragLeave={() => setChatDragOver(null)}
             onDrop={(e) => dropChat(e, c.id)}
             onClick={() => c.status !== 'creating' && selectChat(c.id)}
+            role={c.status !== 'creating' ? 'button' : undefined}
+            tabIndex={c.status !== 'creating' ? 0 : undefined}
+            onKeyDown={(e) => {
+              if (c.status !== 'creating') rowKeyActivate(e, () => selectChat(c.id))
+            }}
             className={cn(
               'group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5',
+              'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
               'border-t-2 border-t-transparent',
               chatDragOver === c.id && 'border-t-sky-500',
               chatId === c.id ? 'bg-accent' : 'hover:bg-accent/50'
@@ -444,11 +465,12 @@ export function Sidebar(): React.JSX.Element {
                   }
                 >
                   <button
+                    aria-label={c.pinned ? 'Unpin chat' : 'Pin chat'}
                     className={cn(
                       'cursor-pointer text-muted-foreground hover:text-foreground',
                       // Pinned rows keep the pin visible as the indicator;
                       // on hover it becomes the unpin control.
-                      c.pinned ? 'block' : 'hidden group-hover:block'
+                      c.pinned ? 'block' : 'hidden group-hover:block group-focus-within:block'
                     )}
                     onClick={(e) => {
                       e.stopPropagation()
@@ -457,8 +479,14 @@ export function Sidebar(): React.JSX.Element {
                   >
                     {c.pinned ? (
                       <>
-                        <Pin size={12} className="block group-hover:hidden" />
-                        <PinOff size={12} className="hidden group-hover:block" />
+                        <Pin
+                          size={12}
+                          className="block group-hover:hidden group-focus-within:hidden"
+                        />
+                        <PinOff
+                          size={12}
+                          className="hidden group-hover:block group-focus-within:block"
+                        />
                       </>
                     ) : (
                       <Pin size={12} />
@@ -467,7 +495,8 @@ export function Sidebar(): React.JSX.Element {
                 </Tip>
                 <Tip content="Rename this chat">
                   <button
-                    className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
+                    aria-label="Rename chat"
+                    className="hidden group-hover:block group-focus-within:block text-muted-foreground hover:text-foreground cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation()
                       renameChat.reset() // don't show a stale error from a previous attempt
@@ -480,7 +509,8 @@ export function Sidebar(): React.JSX.Element {
                 </Tip>
                 <Tip content="Archive this chat — hides it from the list and board without deleting anything">
                   <button
-                    className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
+                    aria-label="Archive chat"
+                    className="hidden group-hover:block group-focus-within:block text-muted-foreground hover:text-foreground cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation()
                       if (chatId === c.id) {
@@ -495,7 +525,8 @@ export function Sidebar(): React.JSX.Element {
                 </Tip>
                 <Tip content="Delete this chat and its worktree">
                   <button
-                    className="hidden group-hover:block text-muted-foreground hover:text-destructive cursor-pointer"
+                    aria-label="Delete chat"
+                    className="hidden group-hover:block group-focus-within:block text-muted-foreground hover:text-destructive cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation()
                       confirmDeleteChat(c)
@@ -508,7 +539,20 @@ export function Sidebar(): React.JSX.Element {
             )}
           </div>
         ))}
-        {projectId && activeChats.length === 0 && (
+        {projects.error && (
+          <div className="px-2 py-1 text-[11px] text-destructive selectable">
+            Could not load projects: {projects.error.message}
+          </div>
+        )}
+        {projectId && chats.isLoading && (
+          <div className="px-2 py-4 text-center text-[11px] text-muted-foreground">Loading…</div>
+        )}
+        {projectId && chats.error && (
+          <div className="px-2 py-1 text-[11px] text-destructive selectable">
+            Could not load chats: {chats.error.message}
+          </div>
+        )}
+        {projectId && !chats.isLoading && !chats.error && activeChats.length === 0 && (
           <div className="px-2 py-4 text-center text-[11px] text-muted-foreground">
             No chats yet
           </div>
@@ -517,7 +561,8 @@ export function Sidebar(): React.JSX.Element {
           <div className="pt-2">
             <Tip content={archivedOpen ? 'Hide archived chats' : 'Show archived chats'}>
               <button
-                className="flex w-full cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground hover:bg-accent/50"
+                aria-expanded={archivedOpen}
+                className="flex w-full cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 onClick={() => setArchivedOpen((o) => !o)}
               >
                 <ChevronRight
@@ -532,8 +577,12 @@ export function Sidebar(): React.JSX.Element {
                 <div
                   key={c.id}
                   onClick={() => selectChat(c.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => rowKeyActivate(e, () => selectChat(c.id))}
                   className={cn(
                     'group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 opacity-70',
+                    'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                     chatId === c.id ? 'bg-accent' : 'hover:bg-accent/50'
                   )}
                 >
@@ -552,7 +601,8 @@ export function Sidebar(): React.JSX.Element {
                   />
                   <Tip content="Restore this chat to the chat list">
                     <button
-                      className="hidden group-hover:block text-muted-foreground hover:text-foreground cursor-pointer"
+                      aria-label="Restore chat"
+                      className="hidden group-hover:block group-focus-within:block text-muted-foreground hover:text-foreground cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation()
                         setArchived.mutate({ id: c.id, archived: false })
@@ -563,7 +613,8 @@ export function Sidebar(): React.JSX.Element {
                   </Tip>
                   <Tip content="Delete this chat and its worktree">
                     <button
-                      className="hidden group-hover:block text-muted-foreground hover:text-destructive cursor-pointer"
+                      aria-label="Delete chat"
+                      className="hidden group-hover:block group-focus-within:block text-muted-foreground hover:text-destructive cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation()
                         confirmDeleteChat(c)
@@ -624,6 +675,7 @@ export function Sidebar(): React.JSX.Element {
               variant="ghost"
               size="icon"
               disabled={!projectId}
+              aria-label="Repo wiki"
               onClick={() => setMainTab('wiki')}
             >
               <BookText size={13} />
@@ -643,6 +695,7 @@ export function Sidebar(): React.JSX.Element {
               variant="ghost"
               size="icon"
               disabled={!projectId}
+              aria-label="Ask about the codebase"
               onClick={() => {
                 setWikiAskOpen(true)
                 setMainTab('wiki')
@@ -653,12 +706,22 @@ export function Sidebar(): React.JSX.Element {
           </span>
         </Tip>
         <Tip content="Open the in-app guide — how every part of Yardarm works, plus FAQ" side="top">
-          <Button variant="ghost" size="icon" onClick={() => setMainTab('guide')}>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Open guide"
+            onClick={() => setMainTab('guide')}
+          >
             <CircleHelp size={13} />
           </Button>
         </Tip>
         <Tip content={isDark ? 'Switch to the light theme' : 'Switch to the dark theme'} side="top">
-          <Button variant="ghost" size="icon" onClick={() => setTheme(isDark ? 'light' : 'dark')}>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+            onClick={() => setTheme(isDark ? 'light' : 'dark')}
+          >
             {isDark ? <Sun size={13} /> : <Moon size={13} />}
           </Button>
         </Tip>
@@ -711,21 +774,27 @@ export function Sidebar(): React.JSX.Element {
               </label>
             </Tip>
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setNewChatOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                disabled={!newChatTitle.trim() || !projectId || createChat.isPending}
-                onClick={() =>
-                  projectId &&
-                  createChat.mutate({ projectId, title: newChatTitle.trim(), useWorktree })
-                }
-              >
-                {createChat.isPending ? 'Creating…' : 'Create'}
-              </Button>
+              <Tip content="Close without creating a chat">
+                <Button variant="ghost" onClick={() => setNewChatOpen(false)}>
+                  Cancel
+                </Button>
+              </Tip>
+              <Tip content="Create the chat with this topic">
+                <span className="inline-flex">
+                  <Button
+                    disabled={!newChatTitle.trim() || !projectId || createChat.isPending}
+                    onClick={() =>
+                      projectId &&
+                      createChat.mutate({ projectId, title: newChatTitle.trim(), useWorktree })
+                    }
+                  >
+                    {createChat.isPending ? 'Creating…' : 'Create'}
+                  </Button>
+                </span>
+              </Tip>
             </div>
             {createChat.error && (
-              <div className="text-xs text-destructive">{createChat.error.message}</div>
+              <div className="text-xs text-destructive selectable">{createChat.error.message}</div>
             )}
           </div>
         </DialogContent>
@@ -747,18 +816,24 @@ export function Sidebar(): React.JSX.Element {
               }}
             />
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setRenameTarget(null)}>
-                Cancel
-              </Button>
-              <Button
-                disabled={!renameTitle.trim() || renameChat.isPending}
-                onClick={() =>
-                  renameTarget &&
-                  renameChat.mutate({ id: renameTarget.id, title: renameTitle.trim() })
-                }
-              >
-                {renameChat.isPending ? 'Renaming…' : 'Rename'}
-              </Button>
+              <Tip content="Close without renaming">
+                <Button variant="ghost" onClick={() => setRenameTarget(null)}>
+                  Cancel
+                </Button>
+              </Tip>
+              <Tip content="Save the new chat title">
+                <span className="inline-flex">
+                  <Button
+                    disabled={!renameTitle.trim() || renameChat.isPending}
+                    onClick={() =>
+                      renameTarget &&
+                      renameChat.mutate({ id: renameTarget.id, title: renameTitle.trim() })
+                    }
+                  >
+                    {renameChat.isPending ? 'Renaming…' : 'Rename'}
+                  </Button>
+                </span>
+              </Tip>
             </div>
             {renameChat.error && (
               <div className="text-xs text-destructive selectable">{renameChat.error.message}</div>

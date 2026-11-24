@@ -111,6 +111,7 @@ export function ReviewFollowupBar({
         )}
         <Tip content="Dismiss">
           <button
+            aria-label="Dismiss"
             onClick={onDismiss}
             className="flex items-center rounded-md p-0.5 text-muted-foreground hover:text-foreground cursor-pointer"
           >

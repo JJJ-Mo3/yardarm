@@ -61,7 +61,7 @@ export function AskPanel({
           <span className="truncate text-sm font-medium">Ask about the codebase</span>
         </div>
         <Tip content="Close the Ask panel">
-          <Button size="icon" variant="ghost" onClick={onClose}>
+          <Button aria-label="Close Ask panel" size="icon" variant="ghost" onClick={onClose}>
             <X size={13} />
           </Button>
         </Tip>
@@ -74,6 +74,7 @@ export function AskPanel({
           </div>
           <Tip content="Dismiss this error">
             <Button
+              aria-label="Dismiss error"
               size="icon"
               variant="ghost"
               onClick={() => {

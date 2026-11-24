@@ -226,7 +226,7 @@ export function FactoryView({ active }: { active: boolean }): React.JSX.Element 
             'Setup',
             'Everything to get this Factory running: guided checklist, scaffold/adopt a checkout, and the .env + database configuration — all on one page',
             dir && scaffolded && missing.length > 0 ? (
-              <span className="rounded-full bg-amber-500/20 px-1.5 text-[10px] font-medium text-amber-500">
+              <span className="rounded-full bg-amber-500/20 px-1.5 text-[10px] font-medium text-amber-600 dark:text-amber-500">
                 {missing.length}
               </span>
             ) : dir && setupIncomplete ? (

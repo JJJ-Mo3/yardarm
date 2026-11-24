@@ -146,6 +146,7 @@ export function FactoryDecisions({
             <span className="selectable truncate">{notice}</span>
             <Tip content="Dismiss this notice">
               <button
+                aria-label="Dismiss notice"
                 className="cursor-pointer hover:text-foreground"
                 onClick={() => setNotice(null)}
               >
@@ -180,6 +181,7 @@ export function FactoryDecisions({
                       <Tip content="Approve this decision — the automation proceeds">
                         <span className="inline-flex">
                           <Button
+                            aria-label="Approve decision"
                             size="icon"
                             variant="ghost"
                             className="h-6 w-6"
@@ -195,6 +197,7 @@ export function FactoryDecisions({
                       <Tip content="Dismiss this decision — the proposed action is dropped">
                         <span className="inline-flex">
                           <Button
+                            aria-label="Dismiss decision"
                             size="icon"
                             variant="ghost"
                             className="h-6 w-6"
@@ -213,6 +216,7 @@ export function FactoryDecisions({
                     <Tip content="Retry this failed automation">
                       <span className="inline-flex">
                         <Button
+                          aria-label="Retry automation"
                           size="icon"
                           variant="ghost"
                           className="h-6 w-6"

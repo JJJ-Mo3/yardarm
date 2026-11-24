@@ -1,8 +1,13 @@
+/**
+ * Card for a suspended run awaiting plan approval (or other tool input):
+ * renders the plan and lets the user approve it or request changes.
+ */
 import React, { useState } from 'react'
 import { Check, ClipboardList, Undo2 } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { Textarea } from '../../components/ui/textarea'
 import { Tip } from '../../components/ui/tooltip'
+import { trpc } from '../../lib/trpc'
 import { Markdown } from './Markdown'
 import { ConfidenceChip } from './ConfidenceChip'
 import { parseConfidenceMarker, stripConfidenceLine } from '../../../../shared/confidence'
@@ -56,15 +61,20 @@ export function PlanApprovalCard({
   // surface it as a chip in the card header and strip the raw line.
   const confidence = planText ? parseConfidenceMarker(planText) : null
   const renderedPlan = planText && confidence ? stripConfidenceLine(planText) : planText
+  // Live setting: turning confidence ratings off hides the chip right away
+  // (the marker line is still stripped above).
+  const showConfidence = trpc.settings.get.useQuery({ key: 'confidenceRatings' }).data !== false
   const [feedback, setFeedback] = useState('')
   const [showReject, setShowReject] = useState(false)
 
   return (
     <div className="rounded-lg border border-blue-500/40 bg-blue-500/5 p-3 space-y-2">
       <div className="flex items-center gap-2 text-[13px] font-medium">
-        <ClipboardList size={14} className="text-blue-400" />
+        <ClipboardList size={14} className="text-blue-600 dark:text-blue-400" />
         {isPlan ? 'Plan ready for review' : `${suspension.toolName} needs input`}
-        {confidence && <ConfidenceChip confidence={confidence} className="ml-auto" />}
+        {confidence && showConfidence && (
+          <ConfidenceChip confidence={confidence} className="ml-auto" />
+        )}
       </div>
       {renderedPlan ? (
         <div className="max-h-96 overflow-y-auto rounded bg-muted p-3 selectable">
@@ -80,28 +90,33 @@ export function PlanApprovalCard({
           <Textarea
             autoFocus
             rows={2}
+            aria-label="Feedback for the agent"
             placeholder="What should change?"
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
           />
           <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => {
-                const trimmed = feedback.trim()
-                onResume({
-                  action: 'rejected',
-                  ...(isPlan ? planResumeRefs(suspension) : {}),
-                  ...(trimmed ? { feedback: trimmed } : {})
-                })
-              }}
-            >
-              Request changes
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setShowReject(false)}>
-              Cancel
-            </Button>
+            <Tip content="Send this feedback — the agent revises the plan and resubmits it">
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => {
+                  const trimmed = feedback.trim()
+                  onResume({
+                    action: 'rejected',
+                    ...(isPlan ? planResumeRefs(suspension) : {}),
+                    ...(trimmed ? { feedback: trimmed } : {})
+                  })
+                }}
+              >
+                Request changes
+              </Button>
+            </Tip>
+            <Tip content="Go back to the approve / request changes choice">
+              <Button size="sm" variant="ghost" onClick={() => setShowReject(false)}>
+                Cancel
+              </Button>
+            </Tip>
           </div>
         </div>
       ) : (
@@ -160,17 +175,17 @@ export function PlanApprovalAnswered({ part }: { part: ToolCallPart }): React.JS
   return (
     <div className="rounded-lg border border-blue-500/40 bg-blue-500/5 p-3 space-y-1.5">
       <div className="flex items-center gap-2 text-[13px] font-medium">
-        <ClipboardList size={14} className="text-blue-400" />
+        <ClipboardList size={14} className="text-blue-600 dark:text-blue-400" />
         Plan review
       </div>
       {approved ? (
-        <div className="flex items-center gap-1.5 text-xs text-blue-400 selectable">
+        <div className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 selectable">
           <Check size={13} />
           Plan approved{title ? ` — ${title}` : ''}
         </div>
       ) : rejected ? (
         <>
-          <div className="flex items-center gap-1.5 text-xs text-amber-500 selectable">
+          <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-500 selectable">
             <Undo2 size={13} />
             Changes requested{title ? ` — ${title}` : ''}
           </div>

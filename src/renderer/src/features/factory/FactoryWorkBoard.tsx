@@ -176,6 +176,7 @@ export function FactoryWorkBoard({
             <span className="selectable truncate">{notice}</span>
             <Tip content="Dismiss this notice">
               <button
+                aria-label="Dismiss notice"
                 className="cursor-pointer hover:text-foreground"
                 onClick={() => setNotice(null)}
               >
@@ -252,8 +253,9 @@ export function FactoryWorkBoard({
                         <Tip
                           content={`Start an agent run on this card (role: ${phase.role ?? 'work'})`}
                         >
-                          <span className="hidden shrink-0 group-hover:inline-flex">
+                          <span className="inline-flex shrink-0 opacity-0 focus-within:opacity-100 group-hover:opacity-100">
                             <button
+                              aria-label="Start agent run"
                               className="cursor-pointer text-muted-foreground hover:text-foreground disabled:opacity-50"
                               disabled={startRun.isPending}
                               onClick={() =>
@@ -311,7 +313,12 @@ export function FactoryWorkBoard({
                       />
                       <div className="flex justify-end gap-1">
                         <Tip content="Close the card composer">
-                          <Button size="icon" variant="ghost" onClick={() => setComposing(false)}>
+                          <Button
+                            aria-label="Close card composer"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setComposing(false)}
+                          >
                             <X size={12} />
                           </Button>
                         </Tip>

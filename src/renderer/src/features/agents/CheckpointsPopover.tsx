@@ -50,7 +50,7 @@ export function CheckpointsPopover({
         <div className="mb-1.5 text-xs font-medium">Checkpoints</div>
         {list.isLoading && <div className="text-[11px] text-muted-foreground">Loading…</div>}
         {list.error && (
-          <div className="text-[11px] text-red-500">
+          <div className="text-[11px] text-destructive selectable">
             Failed to load checkpoints: {list.error.message}
           </div>
         )}

@@ -149,7 +149,7 @@ export function FactoryEnvEditor({
       </div>
 
       {missing.length > 0 && (
-        <div className="mt-3 rounded-md bg-amber-500/10 px-3 py-2 text-[11px] text-amber-500">
+        <div className="mt-3 rounded-md bg-amber-500/10 px-3 py-2 text-[11px] text-amber-600 dark:text-amber-500">
           Required before the server can start: {missing.join(', ')}
         </div>
       )}
@@ -216,7 +216,7 @@ export function FactoryEnvEditor({
                   className={cn(
                     'w-72 shrink-0 truncate font-mono text-[11px]',
                     !present && 'text-muted-foreground',
-                    isMissing && 'text-amber-500'
+                    isMissing && 'text-amber-600 dark:text-amber-500'
                   )}
                 >
                   {k}
@@ -233,6 +233,7 @@ export function FactoryEnvEditor({
                   <Tip content={revealed[k] ? 'Hide this value' : 'Reveal this value'}>
                     <Button
                       size="icon"
+                      aria-label={revealed[k] ? 'Hide value' : 'Reveal value'}
                       variant="ghost"
                       className="h-6 w-6"
                       onClick={() => setRevealed((r) => ({ ...r, [k]: !r[k] }))}

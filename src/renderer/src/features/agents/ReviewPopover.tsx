@@ -181,7 +181,10 @@ export function ReviewPopover({
                           }
                           className="flex w-full items-center gap-1.5 rounded-md border border-border px-2 py-1 text-left text-[11px] hover:bg-accent cursor-pointer"
                         >
-                          <GitPullRequest size={11} className="shrink-0 text-green-500" />
+                          <GitPullRequest
+                            size={11}
+                            className="shrink-0 text-green-600 dark:text-green-500"
+                          />
                           <span className="min-w-0 flex-1 truncate" title={pr.title}>
                             <span className="text-muted-foreground">
                               {fc.refPrefix}

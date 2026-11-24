@@ -10,8 +10,8 @@ import { Tip } from '../../components/ui/tooltip'
 import type { ConfidenceInfo } from '../../../../shared/confidence'
 
 const LEVEL_STYLES: Record<ConfidenceInfo['level'], string> = {
-  green: 'border-green-600/40 bg-green-500/10 text-green-500',
-  yellow: 'border-amber-600/40 bg-amber-500/10 text-amber-500',
+  green: 'border-green-600/40 bg-green-500/10 text-green-600 dark:text-green-500',
+  yellow: 'border-amber-600/40 bg-amber-500/10 text-amber-600 dark:text-amber-500',
   red: 'border-red-600/40 bg-red-500/10 text-red-500'
 }
 

@@ -7,6 +7,7 @@
 import React, { createContext, useCallback, useContext, useRef, useState } from 'react'
 import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from './ui/dialog'
+import { Tip } from './ui/tooltip'
 
 export interface ConfirmOptions {
   title: string
@@ -58,22 +59,26 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }): Re
             )}
             <div className="flex justify-end gap-2 mt-2">
               {/* Destructive confirms focus Cancel so a stray Enter never deletes. */}
-              <Button
-                autoFocus={pending.destructive ?? true}
-                variant="ghost"
-                size="sm"
-                onClick={() => settle(false)}
-              >
-                {pending.cancelLabel ?? 'Cancel'}
-              </Button>
-              <Button
-                autoFocus={!(pending.destructive ?? true)}
-                size="sm"
-                variant={(pending.destructive ?? true) ? 'destructive' : 'default'}
-                onClick={() => settle(true)}
-              >
-                {pending.confirmLabel ?? 'Confirm'}
-              </Button>
+              <Tip content="Close without doing anything">
+                <Button
+                  autoFocus={pending.destructive ?? true}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => settle(false)}
+                >
+                  {pending.cancelLabel ?? 'Cancel'}
+                </Button>
+              </Tip>
+              <Tip content="Go ahead with this action">
+                <Button
+                  autoFocus={!(pending.destructive ?? true)}
+                  size="sm"
+                  variant={(pending.destructive ?? true) ? 'destructive' : 'default'}
+                  onClick={() => settle(true)}
+                >
+                  {pending.confirmLabel ?? 'Confirm'}
+                </Button>
+              </Tip>
             </div>
           </DialogContent>
         )}

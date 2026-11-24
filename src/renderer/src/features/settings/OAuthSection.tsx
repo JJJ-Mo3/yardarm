@@ -82,14 +82,18 @@ export function OAuthSection(): React.JSX.Element {
 
   async function login(provider: string, providerName: string): Promise<void> {
     setError(null)
-    const res = await start.mutateAsync({
-      provider,
-      authMode: modeByProvider[provider] || undefined
-    })
-    const active = { flowId: res.flowId, provider, providerName }
-    flowRef.current = active
-    setFlow(active)
-    setStatusMsg('Starting login…')
+    try {
+      const res = await start.mutateAsync({
+        provider,
+        authMode: modeByProvider[provider] || undefined
+      })
+      const active = { flowId: res.flowId, provider, providerName }
+      flowRef.current = active
+      setFlow(active)
+      setStatusMsg('Starting login…')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
   }
 
   return (
@@ -123,9 +127,11 @@ export function OAuthSection(): React.JSX.Element {
               )}
               {p.loggedIn &&
                 (p.expired ? (
-                  <span className="text-[11px] text-amber-500">Session expired</span>
+                  <span className="text-[11px] text-amber-600 dark:text-amber-500">
+                    Session expired
+                  </span>
                 ) : (
-                  <span className="text-[11px] text-green-500">Logged in</span>
+                  <span className="text-[11px] text-green-600 dark:text-green-500">Logged in</span>
                 ))}
               {p.loggedIn && (
                 <Tip content="Sign out and remove the stored credentials for this provider">
@@ -173,7 +179,7 @@ export function OAuthSection(): React.JSX.Element {
                     href={authUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-1 text-[11px] text-blue-400 hover:underline"
+                    className="flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400 hover:underline"
                   >
                     <ExternalLink size={11} />
                     Open the login page again
@@ -196,30 +202,36 @@ export function OAuthSection(): React.JSX.Element {
                           }
                         }}
                       />
-                      <Button
-                        size="sm"
-                        disabled={!promptValue.trim()}
-                        onClick={() => {
-                          respond.mutate({ flowId: flow.flowId, value: promptValue.trim() })
-                          setPrompt(null)
-                          setPromptValue('')
-                        }}
-                      >
-                        Submit
-                      </Button>
+                      <Tip content="Send this code to the provider to finish the login">
+                        <span className="inline-flex">
+                          <Button
+                            size="sm"
+                            disabled={!promptValue.trim()}
+                            onClick={() => {
+                              respond.mutate({ flowId: flow.flowId, value: promptValue.trim() })
+                              setPrompt(null)
+                              setPromptValue('')
+                            }}
+                          >
+                            Submit
+                          </Button>
+                        </span>
+                      </Tip>
                     </div>
                   </div>
                 )}
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    cancel.mutate({ flowId: flow.flowId })
-                    resetFlow()
-                  }}
-                >
-                  Cancel
-                </Button>
+                <Tip content="Abandon this login attempt">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      cancel.mutate({ flowId: flow.flowId })
+                      resetFlow()
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </Tip>
               </div>
             )}
           </React.Fragment>
@@ -228,6 +240,15 @@ export function OAuthSection(): React.JSX.Element {
       </div>
 
       {error && <div className="text-xs text-destructive selectable">{error}</div>}
+      {logout.error && (
+        <div className="text-xs text-destructive selectable">{logout.error.message}</div>
+      )}
+      {respond.error && (
+        <div className="text-xs text-destructive selectable">{respond.error.message}</div>
+      )}
+      {cancel.error && (
+        <div className="text-xs text-destructive selectable">{cancel.error.message}</div>
+      )}
     </div>
   )
 }

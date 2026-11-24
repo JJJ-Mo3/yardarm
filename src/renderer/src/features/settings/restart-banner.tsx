@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { trpc } from '../../lib/trpc'
 import { Button } from '../../components/ui/button'
+import { Tip } from '../../components/ui/tooltip'
 
 /**
  * Shared "saved — restart agents to apply" banner for settings.json tabs.
@@ -18,16 +19,25 @@ export function useRestartBanner(): { markDirty: () => void; banner: React.React
     }
   })
   const banner = dirty ? (
-    <div className="flex items-center gap-2 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1.5">
-      <span className="flex-1 text-[11px]">Saved. Restart agents to apply.</span>
-      <Button
-        size="sm"
-        className="h-6 px-2 text-[11px]"
-        disabled={applyRestart.isPending}
-        onClick={() => applyRestart.mutate()}
-      >
-        Restart agents
-      </Button>
+    <div className="space-y-1 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1.5">
+      <div className="flex items-center gap-2">
+        <span className="flex-1 text-[11px]">Saved. Restart agents to apply.</span>
+        <Tip content="Restart the running agents so they pick up the saved settings">
+          <span className="inline-flex">
+            <Button
+              size="sm"
+              className="h-6 px-2 text-[11px]"
+              disabled={applyRestart.isPending}
+              onClick={() => applyRestart.mutate()}
+            >
+              Restart agents
+            </Button>
+          </span>
+        </Tip>
+      </div>
+      {applyRestart.error && (
+        <div className="text-xs text-destructive selectable">{applyRestart.error.message}</div>
+      )}
     </div>
   ) : null
   return { markDirty: () => setDirty(true), banner }

@@ -7,6 +7,7 @@
 import React from 'react'
 import { trpc } from '../../../lib/trpc'
 import { timeAgo } from '../../../lib/utils'
+import { Tip } from '../../../components/ui/tooltip'
 
 /** Colored label for a review state; null for plain comments. */
 function reviewBadge(kind: string): { label: string; className: string } | null {
@@ -31,15 +32,16 @@ export function PrCommentsWidget({
   if (!pr.data) return null
   return children(
     <div className="space-y-1.5">
-      <a
-        href={pr.data.url}
-        target="_blank"
-        rel="noreferrer"
-        className="block truncate text-[11px] text-primary underline"
-        title={pr.data.url}
-      >
-        #{pr.data.number} {pr.data.title}
-      </a>
+      <Tip content={`Open the pull request on GitHub — ${pr.data.url}`}>
+        <a
+          href={pr.data.url}
+          target="_blank"
+          rel="noreferrer"
+          className="block truncate text-[11px] text-primary underline"
+        >
+          #{pr.data.number} {pr.data.title}
+        </a>
+      </Tip>
       {pr.data.comments.length === 0 && (
         <div className="text-[11px] text-muted-foreground">No comments yet.</div>
       )}

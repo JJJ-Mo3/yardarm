@@ -1,7 +1,11 @@
+/**
+ * Dialog primitives (Radix) with the app's overlay, surface and close button.
+ */
 import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { Tip } from './tooltip'
 
 export const Dialog = DialogPrimitive.Root
 export const DialogTrigger = DialogPrimitive.Trigger
@@ -23,9 +27,14 @@ export function DialogContent({
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="absolute right-3 top-3 rounded-sm text-muted-foreground hover:text-foreground cursor-pointer">
-          <X size={15} />
-        </DialogPrimitive.Close>
+        <Tip content="Close this dialog">
+          <DialogPrimitive.Close
+            aria-label="Close"
+            className="absolute right-3 top-3 rounded-sm text-muted-foreground hover:text-foreground cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <X size={15} />
+          </DialogPrimitive.Close>
+        </Tip>
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
   )

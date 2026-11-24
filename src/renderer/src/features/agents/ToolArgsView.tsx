@@ -1,3 +1,6 @@
+/**
+ * Readable rendering of a tool call's arguments (key/value rows, code blocks).
+ */
 import React, { useMemo } from 'react'
 import { DiffModeEnum, DiffView } from '@git-diff-view/react'
 import { generateDiffFile } from '@git-diff-view/file'
@@ -5,6 +8,7 @@ import { ChevronRight, FileCode2, Folder, Trash2 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { useIsDark } from '../../lib/use-dark'
 import { Badge } from '../../components/ui/badge'
+import { Tip } from '../../components/ui/tooltip'
 
 /**
  * Human-readable rendering of tool-call arguments, used by the approval
@@ -154,10 +158,12 @@ function Disclosure({
 }): React.JSX.Element {
   return (
     <details className="group">
-      <summary className="flex cursor-pointer list-none items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
-        <ChevronRight size={11} className="transition-transform group-open:rotate-90" />
-        {label}
-      </summary>
+      <Tip content={`Show or hide the ${label.toLowerCase()}`}>
+        <summary className="flex cursor-pointer list-none items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+          <ChevronRight size={11} className="transition-transform group-open:rotate-90" />
+          {label}
+        </summary>
+      </Tip>
       <div className="mt-1">{children}</div>
     </details>
   )

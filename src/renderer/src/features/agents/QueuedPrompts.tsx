@@ -108,13 +108,15 @@ export function QueuedPrompts({
                 />
                 <div className="flex gap-2 text-[11px]">
                   <Tip content="Save the edited message (Enter)">
-                    <button
-                      className="cursor-pointer rounded border border-border px-2 py-0.5 hover:bg-accent disabled:opacity-50"
-                      disabled={!draft.trim()}
-                      onClick={() => saveEdit(item.id)}
-                    >
-                      Save
-                    </button>
+                    <span className="inline-flex">
+                      <button
+                        className="cursor-pointer rounded border border-border px-2 py-0.5 hover:bg-accent disabled:opacity-50"
+                        disabled={!draft.trim()}
+                        onClick={() => saveEdit(item.id)}
+                      >
+                        Save
+                      </button>
+                    </span>
                   </Tip>
                   <Tip content="Discard changes (Esc)">
                     <button
@@ -138,11 +140,12 @@ export function QueuedPrompts({
                 )}
                 <Tip content="Copy this queued message's text">
                   <button
+                    aria-label="Copy queued message"
                     className="shrink-0 cursor-pointer opacity-70 hover:opacity-100"
                     onClick={() => copyItem(item)}
                   >
                     {copiedId === item.id ? (
-                      <Check size={12} className="text-green-500" />
+                      <Check size={12} className="text-green-600 dark:text-green-500" />
                     ) : (
                       <Copy size={12} />
                     )}
@@ -151,6 +154,7 @@ export function QueuedPrompts({
                 {item.editable && (
                   <Tip content="Edit this queued message before it sends">
                     <button
+                      aria-label="Edit queued message"
                       className="shrink-0 cursor-pointer opacity-70 hover:opacity-100"
                       onClick={() => {
                         setDraft(item.text)
@@ -163,6 +167,7 @@ export function QueuedPrompts({
                 )}
                 <Tip content="Remove this queued message — it won't be sent">
                   <button
+                    aria-label="Remove queued message"
                     className="shrink-0 cursor-pointer opacity-70 hover:opacity-100"
                     onClick={() => onDismiss(item.id)}
                   >

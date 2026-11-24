@@ -14,16 +14,17 @@ import { ModelSelect } from '../../components/ModelSelect'
 import type { GoalEvaluationInfo } from '../../../../shared/ui-message'
 
 const STATUS_STYLES: Record<string, string> = {
-  active: 'text-blue-400',
-  paused: 'text-amber-500',
-  done: 'text-green-500'
+  active: 'text-blue-600 dark:text-blue-400',
+  paused: 'text-amber-600 dark:text-amber-500',
+  done: 'text-green-600 dark:text-green-500'
 }
 
 /** Color-coded composer-button fills, matching the ModeSelector's active pattern. */
 export const STATUS_CHIP: Record<string, string> = {
-  active: 'border-blue-500/40 bg-blue-500/15 text-blue-400 hover:bg-blue-500/25',
-  paused: 'border-amber-500/40 bg-amber-500/15 text-amber-500 hover:bg-amber-500/25',
-  done: 'border-green-500/40 bg-green-500/15 text-green-500 hover:bg-green-500/25'
+  active: 'border-blue-500/40 bg-blue-500/15 text-blue-600 dark:text-blue-400 hover:bg-blue-500/25',
+  paused:
+    'border-amber-500/40 bg-amber-500/15 text-amber-600 dark:text-amber-500 hover:bg-amber-500/25',
+  done: 'border-green-500/40 bg-green-500/15 text-green-600 dark:text-green-500 hover:bg-green-500/25'
 }
 
 /** Mirrors @mastra/core DEFAULT_GOAL_MAX_RUNS — applied when no limit is set anywhere. */
@@ -198,6 +199,7 @@ export function GoalPanel({
         </div>
         <Tip content="Close the goal panel">
           <button
+            aria-label="Close goal panel"
             onClick={onClose}
             className="text-muted-foreground hover:text-foreground cursor-pointer"
           >
@@ -332,6 +334,7 @@ export function GoalPanel({
               </div>
               <Tip content="Edit the objective — saving restarts the goal's run count">
                 <button
+                  aria-label="Edit objective"
                   onClick={() => {
                     setObjective(g.objective)
                     setEditing(true)
@@ -455,7 +458,9 @@ export function GoalPanel({
                       <span
                         className={cn(
                           'shrink-0 text-[10px]',
-                          latest.passed ? 'text-green-500' : 'text-muted-foreground'
+                          latest.passed
+                            ? 'text-green-600 dark:text-green-500'
+                            : 'text-muted-foreground'
                         )}
                       >
                         {grp.rows.length}
@@ -471,7 +476,9 @@ export function GoalPanel({
                           <span
                             className={cn(
                               'font-medium',
-                              r.passed ? 'text-green-500' : 'text-amber-500'
+                              r.passed
+                                ? 'text-green-600 dark:text-green-500'
+                                : 'text-amber-600 dark:text-amber-500'
                             )}
                           >
                             #{r.iteration} {r.passed ? 'passed' : 'failed'}

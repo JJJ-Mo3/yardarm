@@ -1,3 +1,7 @@
+/**
+ * Global jotai atoms: selection (project/chat/subchat), open dialogs and tabs,
+ * per-chat status, and persisted UI preferences.
+ */
 import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import type { SubchatStatusInfo } from '../../../shared/ui-message'

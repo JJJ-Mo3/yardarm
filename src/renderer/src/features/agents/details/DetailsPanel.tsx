@@ -86,6 +86,7 @@ export function DetailsPanel({
         <span className="text-xs font-medium">Details</span>
         <Tip content="Close the details panel">
           <button
+            aria-label="Close details panel"
             onClick={onClose}
             className="text-muted-foreground hover:text-foreground cursor-pointer"
           >

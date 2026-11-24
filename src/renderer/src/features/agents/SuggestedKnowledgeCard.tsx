@@ -60,6 +60,7 @@ export function SuggestedKnowledgeCard({
         <span className="flex-1" />
         <Tip content="Dismiss this suggestion (nothing is saved)">
           <button
+            aria-label="Dismiss suggestion"
             onClick={dismiss}
             className="flex items-center rounded p-0.5 text-muted-foreground hover:text-foreground cursor-pointer"
           >
@@ -89,7 +90,7 @@ export function SuggestedKnowledgeCard({
         <Tip
           content={
             project
-              ? 'Save as an unpinned knowledge note (Project settings → Knowledge). Running chats in this project restart'
+              ? 'Save as an unpinned knowledge note (Project settings → Knowledge notes). Running chats in this project restart'
               : 'Select a project first'
           }
         >

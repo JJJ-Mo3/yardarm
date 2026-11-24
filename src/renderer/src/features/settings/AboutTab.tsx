@@ -1,3 +1,7 @@
+/**
+ * Settings → About: app and runtime versions, update checks and installation,
+ * and the auto-update preference.
+ */
 import React, { useEffect, useRef, useState } from 'react'
 import { useSetAtom } from 'jotai'
 import {
@@ -94,14 +98,16 @@ function UpdatesSection(): React.JSX.Element {
             Update v{s.latestVersion} installed. Restart to finish.
           </span>
           <Tip content="Quit and relaunch Yardarm as the new version">
-            <Button
-              size="sm"
-              className="h-6 px-2 text-[11px]"
-              disabled={restart.isPending}
-              onClick={() => restart.mutate()}
-            >
-              Restart
-            </Button>
+            <span className="inline-flex">
+              <Button
+                size="sm"
+                className="h-6 px-2 text-[11px]"
+                disabled={restart.isPending}
+                onClick={() => restart.mutate()}
+              >
+                Restart
+              </Button>
+            </span>
           </Tip>
         </div>
       ) : (
@@ -224,7 +230,7 @@ export function AboutTab(): React.JSX.Element {
               <span className="flex items-center gap-1.5">
                 {p.mastracodeVersion ?? 'not found'}
                 {p.ok ? (
-                  <CheckCircle2 size={12} className="text-green-500" />
+                  <CheckCircle2 size={12} className="text-green-600 dark:text-green-500" />
                 ) : (
                   <XCircle size={12} className="text-destructive" />
                 )}
@@ -252,17 +258,19 @@ export function AboutTab(): React.JSX.Element {
 
       <div className="space-y-2 border-t border-border pt-3">
         <div className="text-xs font-medium">Setup</div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => {
-            setSettingsOpen(false)
-            setForceOnboarding(true)
-          }}
-        >
-          <Wand2 size={12} />
-          Run setup again
-        </Button>
+        <Tip content="Close settings and walk through the first-run setup wizard again">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setSettingsOpen(false)
+              setForceOnboarding(true)
+            }}
+          >
+            <Wand2 size={12} />
+            Run setup again
+          </Button>
+        </Tip>
       </div>
 
       <div className="space-y-2 border-t border-border pt-3">
@@ -353,7 +361,7 @@ export function AboutTab(): React.JSX.Element {
         {exitCode !== null && (
           <div className="text-xs">
             {exitCode === 0 ? (
-              <span className="text-green-500">Install finished.</span>
+              <span className="text-green-600 dark:text-green-500">Install finished.</span>
             ) : (
               <span className="text-destructive">Install exited with code {exitCode}.</span>
             )}

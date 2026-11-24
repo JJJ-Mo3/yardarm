@@ -1,3 +1,6 @@
+/**
+ * Settings → Voice: voice-input (speech-to-text) configuration.
+ */
 import React from 'react'
 import { useSetAtom } from 'jotai'
 import { KeyRound } from 'lucide-react'
@@ -94,7 +97,7 @@ export function VoiceTab(): React.JSX.Element {
       {cloud && (
         <>
           {keysKnown && !providerHasKey && (
-            <div className="flex items-center gap-2 rounded-md border border-amber-600/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-500">
+            <div className="flex items-center gap-2 rounded-md border border-amber-600/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-600 dark:text-amber-500">
               <KeyRound size={13} className="shrink-0" />
               <span className="min-w-0 flex-1">
                 No {provider} API key — cloud transcription needs one. Add it under API Keys

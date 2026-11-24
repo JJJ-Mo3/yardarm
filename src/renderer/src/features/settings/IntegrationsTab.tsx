@@ -26,6 +26,7 @@ import {
 } from '../../components/ui/select'
 import { Switch } from '../../components/ui/switch'
 import { Tip } from '../../components/ui/tooltip'
+import { useConfirm } from '../../components/ConfirmDialog'
 
 const STATE_DOT: Record<string, string> = {
   connected: 'bg-emerald-500',
@@ -55,6 +56,7 @@ function SecretField({
   isSet
 }: SecretFieldProps): React.JSX.Element {
   const utils = trpc.useUtils()
+  const confirmDialog = useConfirm()
   const [value, setValue] = useState('')
   const setSecret = trpc.integrations.setSecret.useMutation({
     onSuccess: () => {
@@ -66,42 +68,57 @@ function SecretField({
     onSuccess: () => utils.integrations.getConfig.invalidate()
   })
 
+  const secretError = setSecret.error ?? clearSecret.error
+
   return (
-    <div className="flex items-center gap-2">
-      <span className="w-24 shrink-0 text-[11px] text-muted-foreground">{label}</span>
-      <Tip content={`${label} — stored encrypted on this machine, never shown again`}>
-        <Input
-          type="password"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder={isSet ? '••••••••  (set)' : placeholder}
-          className="h-7 min-w-0 flex-1 text-[11px]"
-        />
-      </Tip>
-      <Tip content="Save this token (restarts the connection)">
-        <span className="inline-flex">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={!value.trim() || setSecret.isPending}
-            onClick={() => setSecret.mutate({ key: secretKey, value: value.trim() })}
-          >
-            Save
-          </Button>
-        </span>
-      </Tip>
-      <Tip content="Remove the stored token">
-        <span className="inline-flex">
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={!isSet || clearSecret.isPending}
-            onClick={() => clearSecret.mutate({ key: secretKey })}
-          >
-            Clear
-          </Button>
-        </span>
-      </Tip>
+    <div className="space-y-1">
+      <div className="flex items-center gap-2">
+        <span className="w-24 shrink-0 text-[11px] text-muted-foreground">{label}</span>
+        <Tip content={`${label} — stored encrypted on this machine, never shown again`}>
+          <Input
+            type="password"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder={isSet ? '••••••••  (set)' : placeholder}
+            className="h-7 min-w-0 flex-1 text-[11px]"
+          />
+        </Tip>
+        <Tip content="Save this token (restarts the connection)">
+          <span className="inline-flex">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!value.trim() || setSecret.isPending}
+              onClick={() => setSecret.mutate({ key: secretKey, value: value.trim() })}
+            >
+              Save
+            </Button>
+          </span>
+        </Tip>
+        <Tip content="Remove the stored token">
+          <span className="inline-flex">
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={!isSet || clearSecret.isPending}
+              onClick={async () => {
+                const ok = await confirmDialog({
+                  title: `Clear the stored ${label.toLowerCase()}?`,
+                  description:
+                    'The connection stops working until a new token is saved. The token cannot be recovered from Yardarm.',
+                  confirmLabel: 'Clear'
+                })
+                if (ok) clearSecret.mutate({ key: secretKey })
+              }}
+            >
+              Clear
+            </Button>
+          </span>
+        </Tip>
+      </div>
+      {secretError && (
+        <div className="text-xs text-destructive selectable">{secretError.message}</div>
+      )}
     </div>
   )
 }
@@ -273,12 +290,16 @@ function PlatformCard({
       {setConfig.error && (
         <div className="text-xs text-destructive selectable">{setConfig.error.message}</div>
       )}
+      {reconnect.error && (
+        <div className="text-xs text-destructive selectable">{reconnect.error.message}</div>
+      )}
     </div>
   )
 }
 
 export function IntegrationsTab(): React.JSX.Element {
   const utils = trpc.useUtils()
+  const confirmDialog = useConfirm()
   const configQuery = trpc.integrations.getConfig.useQuery()
   const statusQuery = trpc.integrations.status.useQuery()
   const bindings = trpc.integrations.listBindings.useQuery()
@@ -421,7 +442,15 @@ export function IntegrationsTab(): React.JSX.Element {
                       size="icon"
                       variant="ghost"
                       disabled={deleteBinding.isPending}
-                      onClick={() => deleteBinding.mutate({ id: b.id })}
+                      aria-label="Remove binding"
+                      onClick={async () => {
+                        const ok = await confirmDialog({
+                          title: 'Remove this conversation binding?',
+                          description: `${b.platform} conversation ${b.conversationId} is unlinked from ${b.projectName} / ${b.chatTitle}. It can re-bind with the use command.`,
+                          confirmLabel: 'Remove'
+                        })
+                        if (ok) deleteBinding.mutate({ id: b.id })
+                      }}
                     >
                       <Trash2 size={12} />
                     </Button>
@@ -430,6 +459,9 @@ export function IntegrationsTab(): React.JSX.Element {
               </div>
             ))}
           </div>
+        )}
+        {deleteBinding.error && (
+          <div className="text-xs text-destructive selectable">{deleteBinding.error.message}</div>
         )}
       </div>
 

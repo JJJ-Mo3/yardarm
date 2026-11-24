@@ -1,3 +1,7 @@
+/**
+ * Settings → Providers: built-in and custom model providers, with add, edit and
+ * remove for custom ones.
+ */
 import React, { useState } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
@@ -126,6 +130,7 @@ export function ProvidersTab(): React.JSX.Element {
             </div>
             <Tip content="Edit this provider's URL, key, and model list">
               <button
+                aria-label={`Edit provider ${p.name}`}
                 className="text-muted-foreground hover:text-foreground cursor-pointer"
                 onClick={() => {
                   setEditing(p.name)
@@ -142,6 +147,7 @@ export function ProvidersTab(): React.JSX.Element {
             </Tip>
             <Tip content="Remove this provider — its models disappear from the model list">
               <button
+                aria-label={`Remove provider ${p.name}`}
                 className="text-muted-foreground hover:text-destructive cursor-pointer"
                 onClick={() => {
                   void confirmDialog({
@@ -164,12 +170,14 @@ export function ProvidersTab(): React.JSX.Element {
       </div>
 
       {!manualOpen && !editing ? (
-        <button
-          className="text-[11px] text-muted-foreground underline hover:text-foreground cursor-pointer"
-          onClick={() => setManualOpen(true)}
-        >
-          Add manually (advanced)
-        </button>
+        <Tip content="Enter a provider URL, key, and model ids by hand instead of using the guided setup">
+          <button
+            className="text-[11px] text-muted-foreground underline hover:text-foreground cursor-pointer"
+            onClick={() => setManualOpen(true)}
+          >
+            Add manually (advanced)
+          </button>
+        </Tip>
       ) : (
         <div className="space-y-2 rounded border border-border p-2">
           <div className="text-xs font-medium">{editing ? `Edit ${editing}` : 'Add provider'}</div>
@@ -212,32 +220,38 @@ export function ProvidersTab(): React.JSX.Element {
             onChange={(e) => setDraft({ ...draft, models: e.target.value })}
           />
           <div className="flex justify-end gap-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                setEditing(null)
-                setDraft(EMPTY)
-                setManualOpen(false)
-                setDetectError(null)
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              disabled={!canSave || upsert.isPending}
-              onClick={() =>
-                upsert.mutate({
-                  name: draft.name.trim(),
-                  url: draft.url.trim(),
-                  apiKey: draft.apiKey.trim() || undefined,
-                  models: modelList
-                })
-              }
-            >
-              {editing ? 'Save' : 'Add'}
-            </Button>
+            <Tip content="Discard these changes and close the form">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setEditing(null)
+                  setDraft(EMPTY)
+                  setManualOpen(false)
+                  setDetectError(null)
+                }}
+              >
+                Cancel
+              </Button>
+            </Tip>
+            <Tip content="Save this provider to settings.json — restart agents to use its models">
+              <span className="inline-flex">
+                <Button
+                  size="sm"
+                  disabled={!canSave || upsert.isPending}
+                  onClick={() =>
+                    upsert.mutate({
+                      name: draft.name.trim(),
+                      url: draft.url.trim(),
+                      apiKey: draft.apiKey.trim() || undefined,
+                      models: modelList
+                    })
+                  }
+                >
+                  {editing ? 'Save' : 'Add'}
+                </Button>
+              </span>
+            </Tip>
           </div>
         </div>
       )}

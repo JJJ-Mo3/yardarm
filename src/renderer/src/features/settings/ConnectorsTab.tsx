@@ -133,6 +133,7 @@ function ConnectorCard(props: CardProps): React.JSX.Element {
               content={`Open the official ${def.title} MCP server documentation in your browser`}
             >
               <button
+                aria-label={`Open ${def.title} documentation`}
                 className="text-muted-foreground hover:text-foreground cursor-pointer"
                 onClick={props.onOpenDocs}
               >
@@ -308,7 +309,7 @@ function ConnectorCard(props: CardProps): React.JSX.Element {
               <span className="inline-flex">
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant="ghost"
                   className="h-6 px-2 text-[10px]"
                   onClick={props.onCancelAuth}
                 >
@@ -334,7 +335,7 @@ function ConnectorCard(props: CardProps): React.JSX.Element {
                   <span className="inline-flex">
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant="ghost"
                       className="h-6 px-2 text-[10px]"
                       disabled={props.authPending}
                       onClick={props.onAuthenticate}
@@ -349,7 +350,7 @@ function ConnectorCard(props: CardProps): React.JSX.Element {
                   <span className="inline-flex">
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant="ghost"
                       className="h-6 px-2 text-[10px]"
                       disabled={props.authPending}
                       onClick={props.onCancelAuth}

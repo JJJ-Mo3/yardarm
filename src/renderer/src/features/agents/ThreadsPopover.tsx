@@ -1,3 +1,7 @@
+/**
+ * Threads popover (/threads): switch, rename, clone, delete, or open a
+ * conversation thread in a new subchat.
+ */
 import React, { useState } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import {
@@ -144,14 +148,19 @@ export function ThreadsPopover({
                     className="h-6 text-[11px]"
                     placeholder="Thread title"
                   />
-                  <Button
-                    size="sm"
-                    className="h-6 px-2 text-[11px]"
-                    disabled={!title.trim() || renameThread.isPending}
-                    onClick={() => renameThread.mutate({ subchatId, title: title.trim() })}
-                  >
-                    <Check size={11} />
-                  </Button>
+                  <Tip content="Save the new thread title (Enter)">
+                    <span className="inline-flex">
+                      <Button
+                        size="sm"
+                        aria-label="Save thread title"
+                        className="h-6 px-2 text-[11px]"
+                        disabled={!title.trim() || renameThread.isPending}
+                        onClick={() => renameThread.mutate({ subchatId, title: title.trim() })}
+                      >
+                        <Check size={11} />
+                      </Button>
+                    </span>
+                  </Tip>
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5">
@@ -168,11 +177,12 @@ export function ThreadsPopover({
                   {timeAgo(t.updatedAt)}
                   {t.totalTokens ? ` · ${Intl.NumberFormat().format(t.totalTokens)} tok` : ''}
                 </span>
-                <span className="hidden items-center gap-1.5 group-hover:flex">
+                <span className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
                   {t.active ? (
                     <>
                       <Tip content="Rename this thread (/name)">
                         <button
+                          aria-label="Rename thread"
                           className="hover:text-foreground cursor-pointer"
                           onClick={() => {
                             setRenamingId(t.id)
@@ -183,55 +193,67 @@ export function ThreadsPopover({
                         </button>
                       </Tip>
                       <Tip content="Duplicate this thread's history into a new thread (/clone)">
-                        <button
-                          className="hover:text-foreground cursor-pointer"
-                          disabled={busy}
-                          onClick={() => cloneThread.mutate({ subchatId })}
-                        >
-                          <Copy size={11} />
-                        </button>
+                        <span className="inline-flex">
+                          <button
+                            aria-label="Clone thread"
+                            className="hover:text-foreground cursor-pointer"
+                            disabled={busy}
+                            onClick={() => cloneThread.mutate({ subchatId })}
+                          >
+                            <Copy size={11} />
+                          </button>
+                        </span>
                       </Tip>
                     </>
                   ) : (
                     <>
                       <Tip content="Open this thread in a new tab (keeps transcripts separate)">
-                        <button
-                          className="hover:text-foreground cursor-pointer"
-                          disabled={busy || !chatId}
-                          onClick={() =>
-                            chatId && createSubchat.mutate({ chatId, mastraThreadId: t.id })
-                          }
-                        >
-                          <ExternalLink size={11} />
-                        </button>
+                        <span className="inline-flex">
+                          <button
+                            aria-label="Open thread in new tab"
+                            className="hover:text-foreground cursor-pointer"
+                            disabled={busy || !chatId}
+                            onClick={() =>
+                              chatId && createSubchat.mutate({ chatId, mastraThreadId: t.id })
+                            }
+                          >
+                            <ExternalLink size={11} />
+                          </button>
+                        </span>
                       </Tip>
                       <Tip content="Switch this chat to the thread">
-                        <button
-                          className="hover:text-foreground cursor-pointer"
-                          disabled={busy}
-                          onClick={() => switchThread.mutate({ subchatId, threadId: t.id })}
-                        >
-                          <ArrowLeftRight size={11} />
-                        </button>
+                        <span className="inline-flex">
+                          <button
+                            aria-label="Switch to thread"
+                            className="hover:text-foreground cursor-pointer"
+                            disabled={busy}
+                            onClick={() => switchThread.mutate({ subchatId, threadId: t.id })}
+                          >
+                            <ArrowLeftRight size={11} />
+                          </button>
+                        </span>
                       </Tip>
                     </>
                   )}
                   <Tip content="Permanently delete this thread and its history">
-                    <button
-                      className="hover:text-destructive cursor-pointer"
-                      disabled={busy}
-                      onClick={() => {
-                        void confirmDialog({
-                          title: 'Delete thread?',
-                          description: `"${label(t)}" will be permanently deleted. This cannot be undone.`,
-                          confirmLabel: 'Delete'
-                        }).then((ok) => {
-                          if (ok) deleteThread.mutate({ subchatId, threadId: t.id })
-                        })
-                      }}
-                    >
-                      <Trash2 size={11} />
-                    </button>
+                    <span className="inline-flex">
+                      <button
+                        aria-label="Delete thread"
+                        className="hover:text-destructive cursor-pointer"
+                        disabled={busy}
+                        onClick={() => {
+                          void confirmDialog({
+                            title: 'Delete thread?',
+                            description: `"${label(t)}" will be permanently deleted. This cannot be undone.`,
+                            confirmLabel: 'Delete'
+                          }).then((ok) => {
+                            if (ok) deleteThread.mutate({ subchatId, threadId: t.id })
+                          })
+                        }}
+                      >
+                        <Trash2 size={11} />
+                      </button>
+                    </span>
                   </Tip>
                 </span>
               </div>

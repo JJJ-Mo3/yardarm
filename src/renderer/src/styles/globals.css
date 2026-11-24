@@ -15,6 +15,8 @@
   --primary: #18181b;
   --primary-foreground: #fafafa;
   --accent: #f4f4f5;
+  --secondary: #ececee;
+  --secondary-foreground: #18181b;
   --destructive: #dc2626;
   --ring: #a1a1aa;
 }
@@ -29,6 +31,8 @@
   --primary: #ededed;
   --primary-foreground: #111113;
   --accent: #1c1c1f;
+  --secondary: #26262a;
+  --secondary-foreground: #ededed;
   --destructive: #ef4444;
   --ring: #3f3f46;
 }
@@ -43,6 +47,8 @@
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-accent: var(--accent);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
   --color-destructive: var(--destructive);
   --color-ring: var(--ring);
 }

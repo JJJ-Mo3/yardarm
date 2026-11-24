@@ -64,9 +64,18 @@ export function FactorySetup({
     )
   }
 
+  // A failed folder picker surfaces through pick.error instead of rejecting.
+  const pickFolder = async (title: string): Promise<string | null> => {
+    try {
+      return await pick.mutateAsync({ title })
+    } catch {
+      return null
+    }
+  }
+
   const adoptExisting = async (): Promise<void> => {
     setAdoptError(null)
-    const picked = await pick.mutateAsync({ title: 'Choose a Factory server checkout' })
+    const picked = await pickFolder('Choose a Factory server checkout')
     if (!picked) return
     try {
       const insp = await utils.client.factory.inspect.query({ dir: picked })
@@ -104,6 +113,11 @@ export function FactorySetup({
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
+      {(setConfig.error || pick.error) && (
+        <div className="text-xs text-destructive selectable">
+          {setConfig.error?.message ?? pick.error?.message}
+        </div>
+      )}
       {/* Current checkout */}
       {dir && (
         <div className="rounded-lg border border-border p-4">
@@ -133,7 +147,7 @@ export function FactorySetup({
             </div>
           )}
           {inspection && !inspection.dirExists && !scaffoldRunning && !scaffold.isPending && (
-            <div className="mt-3 flex items-center gap-2 rounded-md bg-amber-500/10 px-3 py-2 text-[11px] text-amber-500">
+            <div className="mt-3 flex items-center gap-2 rounded-md bg-amber-500/10 px-3 py-2 text-[11px] text-amber-600 dark:text-amber-500">
               <AlertTriangle size={13} className="shrink-0" />
               This folder no longer exists — scaffold a new checkout or pick a different folder.
             </div>
@@ -218,7 +232,7 @@ export function FactorySetup({
               size="sm"
               variant="outline"
               onClick={async () => {
-                const picked = await pick.mutateAsync({ title: 'Choose a parent folder' })
+                const picked = await pickFolder('Choose a parent folder')
                 if (picked) setParent(picked)
               }}
             >
@@ -282,10 +296,12 @@ export function FactorySetup({
         </p>
         <div className="mt-3">
           <Tip content="Pick the folder of an existing Factory server checkout">
-            <Button size="sm" variant="outline" onClick={adoptExisting} disabled={pick.isPending}>
-              <FolderOpen size={12} />
-              Choose folder
-            </Button>
+            <span className="inline-flex">
+              <Button size="sm" variant="outline" onClick={adoptExisting} disabled={pick.isPending}>
+                <FolderOpen size={12} />
+                Choose folder
+              </Button>
+            </span>
           </Tip>
         </div>
         {adoptError && <div className="mt-2 text-[11px] text-destructive">{adoptError}</div>}

@@ -16,7 +16,7 @@ function statusBadge(status: string): { label: string; className: string } {
   if (s === '??' || s.includes('A')) return { label: 'A', className: 'text-emerald-500' }
   if (s.includes('D')) return { label: 'D', className: 'text-red-500' }
   if (s.includes('R')) return { label: 'R', className: 'text-sky-500' }
-  return { label: 'M', className: 'text-amber-500' }
+  return { label: 'M', className: 'text-amber-600 dark:text-amber-500' }
 }
 
 export function ChangedFilesWidget({ cwd }: { cwd: string | null }): React.JSX.Element {

@@ -138,6 +138,7 @@ export function ChatSearchBar({
       </span>
       <Tip content="Previous match (Shift+Enter)">
         <button
+          aria-label="Previous match"
           onClick={() => step(-1)}
           className="rounded p-0.5 text-muted-foreground hover:text-foreground cursor-pointer"
         >
@@ -146,6 +147,7 @@ export function ChatSearchBar({
       </Tip>
       <Tip content="Next match (Enter)">
         <button
+          aria-label="Next match"
           onClick={() => step(1)}
           className="rounded p-0.5 text-muted-foreground hover:text-foreground cursor-pointer"
         >
@@ -154,6 +156,7 @@ export function ChatSearchBar({
       </Tip>
       <Tip content="Close search (Esc)">
         <button
+          aria-label="Close search"
           onClick={onClose}
           className="rounded p-0.5 text-muted-foreground hover:text-foreground cursor-pointer"
         >

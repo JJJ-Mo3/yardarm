@@ -13,6 +13,7 @@ import { Input } from '../../components/ui/input'
 import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { DiffContent } from './diff-content'
+import { rowKey } from './row-key'
 
 /** A selected snapshot: the effective compare ref is stashSha ?? headSha. */
 export interface SnapshotSel {
@@ -23,8 +24,8 @@ export interface SnapshotSel {
 
 function fileStatusColor(status: string): string {
   if (status.includes('D')) return 'text-destructive'
-  if (status.includes('A')) return 'text-green-500'
-  return 'text-amber-500'
+  if (status.includes('A')) return 'text-green-600 dark:text-green-500'
+  return 'text-amber-600 dark:text-amber-500'
 }
 
 /** Right-pane diff of one file between two snapshots. */
@@ -138,13 +139,19 @@ export function CheckpointsList({
                 />
                 <div className="flex justify-end gap-1">
                   <Tip content="Cancel editing">
-                    <Button size="icon" variant="ghost" onClick={() => setEditingId(null)}>
+                    <Button
+                      aria-label="Cancel editing"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => setEditingId(null)}
+                    >
                       <X size={12} />
                     </Button>
                   </Tip>
                   <Tip content="Save the checkpoint's name and tag">
                     <span className="inline-flex">
                       <Button
+                        aria-label="Save name and tag"
                         size="icon"
                         variant="ghost"
                         disabled={!editName.trim() || update.isPending}
@@ -166,13 +173,19 @@ export function CheckpointsList({
           }
           return (
             <div
+              role="button"
+              tabIndex={0}
+              onKeyDown={rowKey(() => {
+                onFile(null)
+                onToggle({ id: e.id, headSha: e.headSha, stashSha: e.stashSha })
+              })}
               key={e.id}
               onClick={() => {
                 onFile(null)
                 onToggle({ id: e.id, headSha: e.headSha, stashSha: e.stashSha })
               }}
               className={cn(
-                'group flex cursor-pointer items-center gap-1.5 rounded px-2 py-1',
+                'group flex cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring items-center gap-1.5 rounded px-2 py-1',
                 mark ? 'bg-accent' : 'hover:bg-accent/50'
               )}
             >
@@ -200,9 +213,10 @@ export function CheckpointsList({
                 </div>
               </div>
               {e.source === 'manual' && (
-                <span className="hidden shrink-0 items-center gap-0.5 group-hover:flex">
+                <span className="hidden shrink-0 items-center gap-0.5 group-hover:flex group-focus-within:flex">
                   <Tip content="Rename this checkpoint or set a tag">
                     <button
+                      aria-label="Rename checkpoint"
                       className="cursor-pointer text-muted-foreground hover:text-foreground"
                       onClick={(ev) => {
                         ev.stopPropagation()
@@ -216,6 +230,7 @@ export function CheckpointsList({
                   </Tip>
                   <Tip content="Delete this named checkpoint (auto message checkpoints are unaffected)">
                     <button
+                      aria-label="Delete checkpoint"
                       className="cursor-pointer text-muted-foreground hover:text-destructive"
                       onClick={(ev) => {
                         ev.stopPropagation()
@@ -252,10 +267,13 @@ export function CheckpointsList({
           )}
           {(compare.data ?? []).map((f) => (
             <div
+              role="button"
+              tabIndex={0}
+              onKeyDown={rowKey(() => onFile(f.path))}
               key={f.path}
               onClick={() => onFile(f.path)}
               className={cn(
-                'flex cursor-pointer items-center gap-1.5 rounded px-2 py-0.5',
+                'flex cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring items-center gap-1.5 rounded px-2 py-0.5',
                 file === f.path ? 'bg-accent' : 'hover:bg-accent/50'
               )}
             >
@@ -288,6 +306,7 @@ export function CheckpointsList({
           <Tip content="Save the working tree right now as a named checkpoint">
             <span className="inline-flex">
               <Button
+                aria-label="Save checkpoint"
                 size="sm"
                 disabled={!newName.trim() || create.isPending}
                 onClick={() => create.mutate({ chatId, name: newName.trim() })}

@@ -15,9 +15,12 @@ export function TasksWidget({ tasks }: { tasks: TaskItem[] }): React.JSX.Element
       {tasks.map((t, i) => (
         <div key={t.id ?? i} className="flex items-start gap-1.5 text-[11px]">
           {t.status === 'completed' ? (
-            <CheckCircle2 size={11} className="mt-0.5 shrink-0 text-green-500" />
+            <CheckCircle2
+              size={11}
+              className="mt-0.5 shrink-0 text-green-600 dark:text-green-500"
+            />
           ) : t.status === 'in_progress' ? (
-            <CircleDot size={11} className="mt-0.5 shrink-0 text-blue-400" />
+            <CircleDot size={11} className="mt-0.5 shrink-0 text-blue-600 dark:text-blue-400" />
           ) : (
             <Circle size={11} className="mt-0.5 shrink-0 text-muted-foreground" />
           )}

@@ -13,6 +13,7 @@ import { cn } from '../../lib/utils'
 import { activeTerminalIdAtom, extraTerminalsAtom, type ExtraTerminal } from '../../lib/atoms'
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
 import { Tip } from '../../components/ui/tooltip'
+import { useConfirm } from '../../components/ConfirmDialog'
 import { TerminalView } from './TerminalView'
 
 export function TerminalTabs({
@@ -33,6 +34,7 @@ export function TerminalTabs({
   const [activeId, setActiveId] = useAtom(activeTerminalIdAtom)
   const [pickerOpen, setPickerOpen] = useState(false)
   const kill = trpc.terminal.kill.useMutation()
+  const confirm = useConfirm()
   const chats = trpc.chats.list.useQuery({ projectId }, { enabled: pickerOpen })
 
   const defaultId = chatId ? `chat-${chatId}` : `project-${projectId}`
@@ -52,7 +54,15 @@ export function TerminalTabs({
     setPickerOpen(false)
   }
 
-  function closeSession(id: string): void {
+  async function closeSession(id: string, label: string): Promise<void> {
+    // Closing kills the pty, so anything still running in that shell stops.
+    const ok = await confirm({
+      title: 'Close this terminal?',
+      description: `"${label}" will be closed and its shell ended. Anything still running in it stops.`,
+      confirmLabel: 'Close terminal',
+      destructive: false
+    })
+    if (!ok) return
     kill.mutate({ id })
     setExtraMap({ ...extraMap, [projectId]: extras.filter((t) => t.id !== id) })
     if (activeId === id) setActiveId(null)
@@ -110,7 +120,8 @@ export function TerminalTabs({
             </Tip>
             <Tip content="Close this terminal session (ends its shell)" side="bottom">
               <button
-                onClick={() => closeSession(t.id)}
+                aria-label="Close terminal"
+                onClick={() => void closeSession(t.id, t.label)}
                 className="pr-1.5 text-muted-foreground hover:text-foreground cursor-pointer"
               >
                 <X size={11} />
@@ -124,7 +135,10 @@ export function TerminalTabs({
             side="bottom"
           >
             <PopoverTrigger asChild>
-              <button className="rounded p-1 text-muted-foreground hover:text-foreground cursor-pointer">
+              <button
+                aria-label="New terminal session"
+                className="rounded p-1 text-muted-foreground hover:text-foreground cursor-pointer"
+              >
                 <Plus size={13} />
               </button>
             </PopoverTrigger>

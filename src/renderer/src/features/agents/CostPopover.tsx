@@ -1,3 +1,6 @@
+/**
+ * Popover with the chat's token usage and estimated cost breakdown.
+ */
 import React from 'react'
 import { Coins } from 'lucide-react'
 import { trpc } from '../../lib/trpc'

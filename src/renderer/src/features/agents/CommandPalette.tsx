@@ -71,7 +71,7 @@ const SETTINGS_SECTIONS: Array<{ id: SettingsTab; label: string }> = [
   { id: 'connectors', label: 'Connectors' },
   { id: 'integrations', label: 'Integrations' },
   { id: 'mcp', label: 'MCP Servers' },
-  { id: 'agents', label: 'Subagents' },
+  { id: 'agents', label: 'Agents' },
   { id: 'languages', label: 'Languages' },
   { id: 'about', label: 'About' }
 ]

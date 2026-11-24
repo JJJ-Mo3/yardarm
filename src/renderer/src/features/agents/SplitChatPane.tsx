@@ -138,13 +138,25 @@ export function SplitChatPane({
           }
         >
           <span className="inline-flex shrink-0">
-            <Button size="icon" variant="ghost" disabled={!onAdd} onClick={() => onAdd?.()}>
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label="Add split pane"
+              disabled={!onAdd}
+              onClick={() => onAdd?.()}
+            >
               <Plus size={12} />
             </Button>
           </span>
         </Tip>
         <Tip content="Close this split pane">
-          <Button size="icon" variant="ghost" className="shrink-0" onClick={onClose}>
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label="Close split pane"
+            className="shrink-0"
+            onClick={onClose}
+          >
             <X size={12} />
           </Button>
         </Tip>

@@ -4,8 +4,7 @@
  * flash errors, and invalid syntax falls back to the plain code block.
  */
 import React, { useEffect, useState } from 'react'
-import { useAtomValue } from 'jotai'
-import { themeAtom } from '../../lib/atoms'
+import { useIsDark } from '../../lib/use-dark'
 
 type MermaidApi = typeof import('mermaid').default
 
@@ -18,10 +17,7 @@ function loadMermaid(): Promise<MermaidApi> {
 let renderSeq = 0
 
 export function MermaidBlock({ code }: { code: string }): React.JSX.Element {
-  const theme = useAtomValue(themeAtom)
-  const dark =
-    theme === 'dark' ||
-    (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+  const dark = useIsDark()
   const [svg, setSvg] = useState<string | null>(null)
 
   useEffect(() => {

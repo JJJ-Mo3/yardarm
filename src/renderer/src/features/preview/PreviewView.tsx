@@ -258,6 +258,7 @@ export function PreviewView({
         <Tip content="Go back">
           <span className="inline-flex">
             <Button
+              aria-label="Go back"
               size="icon"
               variant="ghost"
               disabled={!canBack}
@@ -270,6 +271,7 @@ export function PreviewView({
         <Tip content="Go forward">
           <span className="inline-flex">
             <Button
+              aria-label="Go forward"
               size="icon"
               variant="ghost"
               disabled={!canForward}
@@ -282,6 +284,7 @@ export function PreviewView({
         <Tip content="Reload the page">
           <span className="inline-flex">
             <Button
+              aria-label="Reload page"
               size="icon"
               variant="ghost"
               disabled={!mounted}
@@ -320,6 +323,7 @@ export function PreviewView({
         >
           <span className="inline-flex">
             <Button
+              aria-label={devToolsOpen ? 'Close DevTools' : 'Open DevTools'}
               size="icon"
               variant="ghost"
               disabled={!mounted}
@@ -339,6 +343,7 @@ export function PreviewView({
         >
           <span className="inline-flex">
             <Button
+              aria-label="Open in browser"
               size="icon"
               variant="ghost"
               disabled={!mounted}

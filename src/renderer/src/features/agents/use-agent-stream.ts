@@ -1,3 +1,7 @@
+/**
+ * Hook that subscribes to a subchat's agent event stream and reduces it into
+ * renderer state (messages, run status, pending approvals, queue).
+ */
 import { useCallback, useReducer } from 'react'
 import { trpc } from '../../lib/trpc'
 import { useSubscriptionAutoReset } from '../../lib/use-subscription-auto-reset'

@@ -250,6 +250,7 @@ export function FactoryAttention({
               <span className="selectable truncate">{notice}</span>
               <Tip content="Dismiss this notice">
                 <button
+                  aria-label="Dismiss notice"
                   className="cursor-pointer hover:text-foreground"
                   onClick={() => setNotice(null)}
                 >

@@ -36,6 +36,7 @@ import {
 import { encodeBase64Utf8 } from '../agents/attachments'
 import { forgeCopy } from '../../lib/forge-copy'
 import { compareRefAtomFamily } from './compare-ref-atom'
+import { rowKey } from './row-key'
 import { buildLocalReviewPrompt, buildReviewMarker } from '../agents/review-prompts'
 import {
   buildPrDraftPrompt,
@@ -63,10 +64,10 @@ import { DiffContent } from './diff-content'
 import { CheckpointDiffPanel, CheckpointsList, type SnapshotSel } from './CheckpointsPane'
 
 function statusColor(status: string): string {
-  if (status.includes('?')) return 'text-green-500'
+  if (status.includes('?')) return 'text-green-600 dark:text-green-500'
   if (status.includes('D')) return 'text-destructive'
-  if (status.includes('A')) return 'text-green-500'
-  return 'text-amber-500'
+  if (status.includes('A')) return 'text-green-600 dark:text-green-500'
+  return 'text-amber-600 dark:text-amber-500'
 }
 
 function FileDiffPanel({
@@ -399,7 +400,12 @@ export function ChangesView({
           {/* Action icons on their own row — they crowd the branch selector otherwise. */}
           <div className="flex items-center justify-evenly">
             <Tip content="Create a new branch from the current HEAD and check it out">
-              <Button size="icon" variant="ghost" onClick={() => setNewBranchOpen(true)}>
+              <Button
+                aria-label="Create branch"
+                size="icon"
+                variant="ghost"
+                onClick={() => setNewBranchOpen(true)}
+              >
                 <GitBranchPlus size={15} />
               </Button>
             </Tip>
@@ -408,6 +414,7 @@ export function ChangesView({
                 content={`Open a ${fc.long} for this branch on ${fc.host} (uses the ${fc.cli} CLI)`}
               >
                 <Button
+                  aria-label={`Open ${fc.long}`}
                   size="icon"
                   variant="ghost"
                   onClick={() => {
@@ -432,6 +439,7 @@ export function ChangesView({
             {review && (
               <Tip content="Ask the agent to review the local changes on this branch">
                 <Button
+                  aria-label="Review local changes"
                   size="icon"
                   variant="ghost"
                   onClick={() => {
@@ -451,6 +459,7 @@ export function ChangesView({
             {merge && (
               <Tip content={`Merge ${merge.branch} into ${merge.baseBranch} at the project root`}>
                 <Button
+                  aria-label="Merge into base branch"
                   size="icon"
                   variant="ghost"
                   onClick={() => {
@@ -466,6 +475,7 @@ export function ChangesView({
               <Tip content="Compare the working tree against another branch (read-only diffs vs the merge base)">
                 <PopoverTrigger asChild>
                   <Button
+                    aria-label="Compare against a branch"
                     size="icon"
                     variant="ghost"
                     className={cn(compareRef && 'text-primary hover:text-primary')}
@@ -511,7 +521,12 @@ export function ChangesView({
               </PopoverContent>
             </Popover>
             <Tip content="Re-read git status, diffs, and branches">
-              <Button size="icon" variant="ghost" onClick={() => invalidate()}>
+              <Button
+                aria-label="Refresh git status"
+                size="icon"
+                variant="ghost"
+                onClick={() => invalidate()}
+              >
                 <RefreshCw size={15} />
               </Button>
             </Tip>
@@ -560,6 +575,7 @@ export function ChangesView({
             </span>
             <Tip content="Stop comparing — return to working-tree changes">
               <button
+                aria-label="Stop comparing"
                 onClick={() => setCompare(null)}
                 className="shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
               >
@@ -641,13 +657,19 @@ export function ChangesView({
             {(log.data ?? []).map((c) => (
               <div key={c.hash}>
                 <div
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={rowKey(() => {
+                    setSelectedCommit(selectedCommit === c.hash ? null : c.hash)
+                    setCommitFile(null)
+                  })}
                   onClick={() => {
                     const next = selectedCommit === c.hash ? null : c.hash
                     setSelectedCommit(next)
                     setCommitFile(null)
                   }}
                   className={cn(
-                    'cursor-pointer rounded px-2 py-1',
+                    'cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded px-2 py-1',
                     selectedCommit === c.hash ? 'bg-accent' : 'hover:bg-accent/50'
                   )}
                 >
@@ -661,10 +683,13 @@ export function ChangesView({
                 {selectedCommit === c.hash &&
                   (commitFilesQuery.data ?? []).map((f) => (
                     <div
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={rowKey(() => setCommitFile(f.path))}
                       key={f.path}
                       onClick={() => setCommitFile(f.path)}
                       className={cn(
-                        'flex cursor-pointer items-center gap-1.5 rounded py-0.5 pl-5 pr-2',
+                        'flex cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring items-center gap-1.5 rounded py-0.5 pl-5 pr-2',
                         commitFile === f.path ? 'bg-accent' : 'hover:bg-accent/50'
                       )}
                     >
@@ -697,10 +722,13 @@ export function ChangesView({
                 )}
               {(compareFilesQ.data ?? []).map((f) => (
                 <div
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={rowKey(() => setSelected(f.path))}
                   key={f.path}
                   onClick={() => setSelected(f.path)}
                   className={cn(
-                    'flex cursor-pointer items-center gap-1.5 rounded px-2 py-1',
+                    'flex cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring items-center gap-1.5 rounded px-2 py-1',
                     selected === f.path ? 'bg-accent' : 'hover:bg-accent/50'
                   )}
                 >
@@ -725,10 +753,13 @@ export function ChangesView({
               )}
               {files.map((f) => (
                 <div
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={rowKey(() => setSelected(f.path))}
                   key={f.path}
                   onClick={() => setSelected(f.path)}
                   className={cn(
-                    'group flex cursor-pointer items-center gap-1.5 rounded px-2 py-1',
+                    'group flex cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring items-center gap-1.5 rounded px-2 py-1',
                     selected === f.path ? 'bg-accent' : 'hover:bg-accent/50'
                   )}
                 >
@@ -736,10 +767,11 @@ export function ChangesView({
                     {f.status.trim() || 'M'}
                   </span>
                   <span className="min-w-0 flex-1 truncate font-mono text-[11px]">{f.path}</span>
-                  <span className="hidden group-hover:flex items-center gap-0.5">
+                  <span className="hidden group-hover:flex group-focus-within:flex items-center gap-0.5">
                     {f.staged ? (
                       <Tip content="Unstage — leave the change in place but drop it from the next commit">
                         <button
+                          aria-label="Unstage file"
                           className="text-muted-foreground hover:text-foreground cursor-pointer"
                           onClick={(e) => {
                             e.stopPropagation()
@@ -752,6 +784,7 @@ export function ChangesView({
                     ) : (
                       <Tip content="Stage this file for the next commit">
                         <button
+                          aria-label="Stage file"
                           className="text-muted-foreground hover:text-foreground cursor-pointer"
                           onClick={(e) => {
                             e.stopPropagation()
@@ -764,6 +797,7 @@ export function ChangesView({
                     )}
                     <Tip content="Discard this file's changes — permanently reverts it">
                       <button
+                        aria-label="Discard changes"
                         className="text-muted-foreground hover:text-destructive cursor-pointer"
                         onClick={(e) => {
                           e.stopPropagation()
@@ -844,6 +878,7 @@ export function ChangesView({
                 <Tip content="Pull from the remote (conflicts abort cleanly)">
                   <span className="inline-flex">
                     <Button
+                      aria-label="Pull"
                       size="sm"
                       variant="secondary"
                       disabled={pullMut.isPending}
@@ -857,6 +892,7 @@ export function ChangesView({
                 <Tip content="Push commits to the remote (sets upstream if needed)">
                   <span className="inline-flex">
                     <Button
+                      aria-label="Push"
                       size="sm"
                       variant="secondary"
                       disabled={push.isPending}
@@ -950,24 +986,30 @@ export function ChangesView({
               Created from the current HEAD ({currentBranch}) and checked out.
             </div>
             <div className="flex justify-end gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setNewBranchOpen(false)
-                  setNewBranchName('')
-                  createBranch.reset()
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                disabled={!newBranchName.trim() || createBranch.isPending}
-                onClick={() => createBranch.mutate({ cwd, branch: newBranchName.trim() })}
-              >
-                {createBranch.isPending ? 'Creating…' : 'Create'}
-              </Button>
+              <Tip content="Close without creating a branch">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setNewBranchOpen(false)
+                    setNewBranchName('')
+                    createBranch.reset()
+                  }}
+                >
+                  Cancel
+                </Button>
+              </Tip>
+              <Tip content="Create the branch from the current HEAD and check it out">
+                <span className="inline-flex">
+                  <Button
+                    size="sm"
+                    disabled={!newBranchName.trim() || createBranch.isPending}
+                    onClick={() => createBranch.mutate({ cwd, branch: newBranchName.trim() })}
+                  >
+                    {createBranch.isPending ? 'Creating…' : 'Create'}
+                  </Button>
+                </span>
+              </Tip>
             </div>
             {createBranch.error && (
               <div className="text-[11px] text-destructive selectable">
@@ -990,36 +1032,46 @@ export function ChangesView({
               if they don&apos;t conflict.
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setSwitchTarget(null)}>
-                Cancel
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={checkout.isPending}
-                onClick={() => {
-                  const branch = switchTarget
-                  setSwitchTarget(null)
-                  if (branch) checkout.mutate({ cwd, branch })
-                }}
-              >
-                Switch anyway
-              </Button>
-              <Button
-                size="sm"
-                disabled={stash.isPending || checkout.isPending}
-                onClick={() => {
-                  const branch = switchTarget
-                  setSwitchTarget(null)
-                  if (!branch) return
-                  stash.mutate(
-                    { cwd, message: `yardarm: switch to ${branch}` },
-                    { onSuccess: () => checkout.mutate({ cwd, branch }) }
-                  )
-                }}
-              >
-                Stash &amp; switch
-              </Button>
+              <Tip content="Stay on the current branch">
+                <Button variant="ghost" size="sm" onClick={() => setSwitchTarget(null)}>
+                  Cancel
+                </Button>
+              </Tip>
+              <Tip content="Switch branches and carry the uncommitted changes over">
+                <span className="inline-flex">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={checkout.isPending}
+                    onClick={() => {
+                      const branch = switchTarget
+                      setSwitchTarget(null)
+                      if (branch) checkout.mutate({ cwd, branch })
+                    }}
+                  >
+                    Switch anyway
+                  </Button>
+                </span>
+              </Tip>
+              <Tip content="Stash the uncommitted changes, then switch branches">
+                <span className="inline-flex">
+                  <Button
+                    size="sm"
+                    disabled={stash.isPending || checkout.isPending}
+                    onClick={() => {
+                      const branch = switchTarget
+                      setSwitchTarget(null)
+                      if (!branch) return
+                      stash.mutate(
+                        { cwd, message: `yardarm: switch to ${branch}` },
+                        { onSuccess: () => checkout.mutate({ cwd, branch }) }
+                      )
+                    }}
+                  >
+                    Stash &amp; switch
+                  </Button>
+                </span>
+              </Tip>
             </div>
           </div>
         </DialogContent>
@@ -1046,18 +1098,22 @@ export function ChangesView({
               <div className="text-[13px]">
                 {fc.long.charAt(0).toUpperCase() + fc.long.slice(1)} created:
               </div>
-              <a
-                href={createPr.data.url}
-                target="_blank"
-                rel="noreferrer"
-                className="block truncate font-mono text-[12px] text-primary underline"
-              >
-                {createPr.data.url}
-              </a>
+              <Tip content="Open it in your browser">
+                <a
+                  href={createPr.data.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block truncate font-mono text-[12px] text-primary underline"
+                >
+                  {createPr.data.url}
+                </a>
+              </Tip>
               <div className="flex justify-end">
-                <Button size="sm" onClick={() => setPrOpen(false)}>
-                  Done
-                </Button>
+                <Tip content="Close this dialog">
+                  <Button size="sm" onClick={() => setPrOpen(false)}>
+                    Done
+                  </Button>
+                </Tip>
               </div>
             </div>
           ) : (
@@ -1106,26 +1162,36 @@ export function ChangesView({
                 onChange={(e) => setPrBody(e.target.value)}
               />
               <div className="flex justify-end gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setPrOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={!prTitle.trim() || createPr.isPending}
-                  onClick={() =>
-                    createPr.mutate({ cwd, title: prTitle.trim(), body: prBody, draft: true })
-                  }
-                >
-                  Draft
-                </Button>
-                <Button
-                  size="sm"
-                  disabled={!prTitle.trim() || createPr.isPending}
-                  onClick={() => createPr.mutate({ cwd, title: prTitle.trim(), body: prBody })}
-                >
-                  {createPr.isPending ? 'Creating…' : `Create ${fc.short}`}
-                </Button>
+                <Tip content="Close without creating anything">
+                  <Button variant="ghost" size="sm" onClick={() => setPrOpen(false)}>
+                    Cancel
+                  </Button>
+                </Tip>
+                <Tip content="Create it as a draft — not yet ready for review">
+                  <span className="inline-flex">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={!prTitle.trim() || createPr.isPending}
+                      onClick={() =>
+                        createPr.mutate({ cwd, title: prTitle.trim(), body: prBody, draft: true })
+                      }
+                    >
+                      Draft
+                    </Button>
+                  </span>
+                </Tip>
+                <Tip content="Create it ready for review">
+                  <span className="inline-flex">
+                    <Button
+                      size="sm"
+                      disabled={!prTitle.trim() || createPr.isPending}
+                      onClick={() => createPr.mutate({ cwd, title: prTitle.trim(), body: prBody })}
+                    >
+                      {createPr.isPending ? 'Creating…' : `Create ${fc.short}`}
+                    </Button>
+                  </span>
+                </Tip>
               </div>
               {(createPr.error || sendDraft.error || draftError) && (
                 <div className="max-h-24 overflow-y-auto text-[11px] text-destructive selectable whitespace-pre-wrap">
@@ -1149,9 +1215,11 @@ export function ChangesView({
                   {mergeMut.data.sha.slice(0, 12)}
                 </div>
                 <div className="flex justify-end">
-                  <Button size="sm" onClick={() => setMergeOpen(false)}>
-                    Done
-                  </Button>
+                  <Tip content="Close this dialog">
+                    <Button size="sm" onClick={() => setMergeOpen(false)}>
+                      Done
+                    </Button>
+                  </Tip>
                 </div>
               </div>
             ) : (
@@ -1160,7 +1228,7 @@ export function ChangesView({
                   {merge.branch} → {merge.baseBranch}
                 </div>
                 {files.length > 0 && (
-                  <div className="text-[11px] text-amber-500">
+                  <div className="text-[11px] text-amber-600 dark:text-amber-500">
                     The worktree has uncommitted changes — only committed work is merged.
                   </div>
                 )}
@@ -1178,24 +1246,30 @@ export function ChangesView({
                   onChange={(e) => setMergeMsg(e.target.value)}
                 />
                 <div className="flex justify-end gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => setMergeOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    disabled={mergeMut.isPending}
-                    onClick={() =>
-                      mergeMut.mutate({
-                        projectPath: merge.projectPath,
-                        branch: merge.branch,
-                        baseBranch: merge.baseBranch,
-                        squash: mergeSquash,
-                        message: mergeMsg.trim() || undefined
-                      })
-                    }
-                  >
-                    {mergeMut.isPending ? 'Merging…' : mergeSquash ? 'Squash & merge' : 'Merge'}
-                  </Button>
+                  <Tip content="Close without merging">
+                    <Button variant="ghost" size="sm" onClick={() => setMergeOpen(false)}>
+                      Cancel
+                    </Button>
+                  </Tip>
+                  <Tip content="Merge the branch into the base branch at the project root">
+                    <span className="inline-flex">
+                      <Button
+                        size="sm"
+                        disabled={mergeMut.isPending}
+                        onClick={() =>
+                          mergeMut.mutate({
+                            projectPath: merge.projectPath,
+                            branch: merge.branch,
+                            baseBranch: merge.baseBranch,
+                            squash: mergeSquash,
+                            message: mergeMsg.trim() || undefined
+                          })
+                        }
+                      >
+                        {mergeMut.isPending ? 'Merging…' : mergeSquash ? 'Squash & merge' : 'Merge'}
+                      </Button>
+                    </span>
+                  </Tip>
                 </div>
                 {mergeMut.error && (
                   <div className="max-h-24 overflow-y-auto text-[11px] text-destructive selectable whitespace-pre-wrap">

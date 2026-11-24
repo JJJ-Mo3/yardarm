@@ -56,7 +56,9 @@ export function ToolCallRow({ part }: { part: ToolCallPart }): React.JSX.Element
           )}
           {stats && (stats.added > 0 || stats.removed > 0) && (
             <span className="shrink-0 font-mono text-[11px]">
-              {stats.added > 0 && <span className="text-green-500">+{stats.added}</span>}
+              {stats.added > 0 && (
+                <span className="text-green-600 dark:text-green-500">+{stats.added}</span>
+              )}
               {stats.added > 0 && stats.removed > 0 && ' '}
               {stats.removed > 0 && <span className="text-destructive">−{stats.removed}</span>}
             </span>
@@ -65,10 +67,10 @@ export function ToolCallRow({ part }: { part: ToolCallPart }): React.JSX.Element
             <span className="shrink-0 text-[11px] text-muted-foreground">{title.suffix}</span>
           )}
           {part.status === 'awaiting-approval' && (
-            <ShieldQuestion size={12} className="shrink-0 text-amber-500" />
+            <ShieldQuestion size={12} className="shrink-0 text-amber-600 dark:text-amber-500" />
           )}
           {part.status === 'suspended' && (
-            <PauseCircle size={12} className="shrink-0 text-amber-500" />
+            <PauseCircle size={12} className="shrink-0 text-amber-600 dark:text-amber-500" />
           )}
           <ChevronRight
             size={11}

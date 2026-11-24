@@ -1,3 +1,8 @@
+/**
+ * App shell: sidebar + tabbed main area (Chat, CLI, IDE, Changes, Terminal,
+ * Analytics, Preview, Guide, Factory, Wiki), global shortcuts, and the dialogs
+ * that hang off the root.
+ */
 import React, { useEffect, useState } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
@@ -266,6 +271,7 @@ export default function App(): React.JSX.Element {
                 side="bottom"
               >
                 <button
+                  aria-label={factorySidebarPinned ? 'Hide sidebar' : 'Keep sidebar visible'}
                   onClick={() => setFactorySidebarPinned((v) => !v)}
                   className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs cursor-pointer text-muted-foreground hover:text-foreground"
                 >
@@ -288,6 +294,7 @@ export default function App(): React.JSX.Element {
               >
                 <span className="inline-flex">
                   <button
+                    aria-label="Add split chat pane"
                     onClick={addSplitPane}
                     disabled={splitPanes.length >= MAX_SPLIT_PANES}
                     className={cn(
@@ -309,6 +316,7 @@ export default function App(): React.JSX.Element {
               side="bottom"
             >
               <button
+                aria-label="Repo wiki"
                 onClick={() => setTab('wiki')}
                 className={cn(
                   'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs cursor-pointer',
@@ -325,6 +333,7 @@ export default function App(): React.JSX.Element {
               side="bottom"
             >
               <button
+                aria-label="Analytics"
                 onClick={() => setTab('analytics')}
                 className={cn(
                   'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs cursor-pointer',
@@ -354,14 +363,18 @@ export default function App(): React.JSX.Element {
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button onClick={() => setAddProjectOpen('local')}>
-                  <Plus size={14} />
-                  Add project folder
-                </Button>
-                <Button variant="outline" onClick={() => setAddProjectOpen('clone')}>
-                  <GitFork size={14} />
-                  Clone from GitHub
-                </Button>
+                <Tip content="Pick a local git repository folder to add as a project">
+                  <Button onClick={() => setAddProjectOpen('local')}>
+                    <Plus size={14} />
+                    Add project folder
+                  </Button>
+                </Tip>
+                <Tip content="Clone a GitHub repository and add it as a project">
+                  <Button variant="outline" onClick={() => setAddProjectOpen('clone')}>
+                    <GitFork size={14} />
+                    Clone from GitHub
+                  </Button>
+                </Tip>
               </div>
               <div className="max-w-md text-[11px] leading-5 text-muted-foreground">
                 Each chat can run in an isolated git worktree · @-mention files · / for slash

@@ -128,7 +128,7 @@ export function ContextPopover({
           <div className="text-[11px] text-muted-foreground">Auditing context…</div>
         )}
         {audit.error && (
-          <div className="text-[11px] text-red-500">
+          <div className="text-[11px] text-destructive selectable">
             Failed to audit context: {audit.error.message}
           </div>
         )}

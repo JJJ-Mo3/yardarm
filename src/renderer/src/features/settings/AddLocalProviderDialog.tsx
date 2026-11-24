@@ -52,9 +52,19 @@ function OptionCard({
 }): React.JSX.Element {
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-pressed={selected}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick()
+        }
+      }}
       className={cn(
-        'cursor-pointer rounded-md border px-3 py-2 transition-colors',
+        'cursor-pointer rounded-md border px-3 py-2 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
         selected ? 'border-primary bg-accent' : 'border-border hover:bg-accent/50'
       )}
     >
@@ -141,6 +151,8 @@ export function AddLocalProviderDialog({
   const startModelPull = trpc.mastraSettings.startModelPull.useMutation()
   const cancelModelPull = trpc.mastraSettings.cancelModelPull.useMutation()
   const startOllamaMut = trpc.mastraSettings.startOllama.useMutation()
+  const [startError, setStartError] = useState<string | null>(null)
+  const [pullError, setPullError] = useState<string | null>(null)
   const upsert = trpc.mastraSettings.upsertCustomProvider.useMutation()
   const applyRestart = trpc.mastraSettings.applyRestart.useMutation()
   // window.open is unreliable in a sandboxed renderer — route through main.
@@ -213,6 +225,8 @@ export function AddLocalProviderDialog({
     setProbe(IDLE_PROBE)
     setOllama('unknown')
     setStarting(false)
+    setStartError(null)
+    setPullError(null)
     setPulls({})
     setSelected(new Set())
     setManualModels('')
@@ -296,6 +310,7 @@ export function AddLocalProviderDialog({
 
   const doStartOllama = async (): Promise<void> => {
     setStarting(true)
+    setStartError(null)
     try {
       await startOllamaMut.mutateAsync()
       for (let i = 0; i < 15; i++) {
@@ -306,13 +321,16 @@ export function AddLocalProviderDialog({
           return
         }
       }
-      setProbe((p) => ({ ...p, error: 'Ollama did not start in time — try again.' }))
+      setStartError('Ollama did not start in time — try again.')
+    } catch (err) {
+      setStartError(err instanceof Error ? err.message : String(err))
     } finally {
       setStarting(false)
     }
   }
 
   const doPull = (tag: string): void => {
+    setPullError(null)
     startModelPull.mutate(
       { url: probe.url || url, model: tag },
       {
@@ -328,7 +346,8 @@ export function AddLocalProviderDialog({
               total: 0
             }
           }))
-        }
+        },
+        onError: (err) => setPullError(`${tag}: ${err.message}`)
       }
     )
   }
@@ -381,7 +400,7 @@ export function AddLocalProviderDialog({
                     subtitle={p.subtitle}
                     badge={
                       scan[p.id] ? (
-                        <span className="rounded-full bg-green-500/15 px-1.5 py-px text-[10px] font-medium text-green-500">
+                        <span className="rounded-full bg-green-500/15 px-1.5 py-px text-[10px] font-medium text-green-600 dark:text-green-500">
                           Running
                         </span>
                       ) : undefined
@@ -397,22 +416,28 @@ export function AddLocalProviderDialog({
               />
             )}
             <div className="flex justify-end gap-2">
-              <Button size="sm" variant="ghost" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                disabled={!url.trim() && presetId === 'custom'}
-                onClick={() => {
-                  if (!url) {
-                    setUrl(preset.defaultUrl)
-                    setName(preset.defaultName)
-                  }
-                  void goConnect()
-                }}
-              >
-                Next
-              </Button>
+              <Tip content="Close without adding a local provider">
+                <Button size="sm" variant="ghost" onClick={() => onOpenChange(false)}>
+                  Cancel
+                </Button>
+              </Tip>
+              <Tip content="Continue to test the connection to this server">
+                <span className="inline-flex">
+                  <Button
+                    size="sm"
+                    disabled={!url.trim() && presetId === 'custom'}
+                    onClick={() => {
+                      if (!url) {
+                        setUrl(preset.defaultUrl)
+                        setName(preset.defaultName)
+                      }
+                      void goConnect()
+                    }}
+                  >
+                    Next
+                  </Button>
+                </span>
+              </Tip>
             </div>
           </div>
         )}
@@ -455,26 +480,35 @@ export function AddLocalProviderDialog({
                   Ollama runs models on your machine — free, no account. Install it, then this
                   wizard will continue automatically.
                 </div>
-                <Button
-                  size="sm"
-                  onClick={() =>
-                    openExternal.mutate({
-                      url: preset.downloadUrl ?? 'https://ollama.com/download'
-                    })
-                  }
-                >
-                  <ExternalLink size={12} className="mr-1" />
-                  Download Ollama
-                </Button>
+                <Tip content="Open the Ollama download page in your browser">
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      openExternal.mutate({
+                        url: preset.downloadUrl ?? 'https://ollama.com/download'
+                      })
+                    }
+                  >
+                    <ExternalLink size={12} className="mr-1" />
+                    Download Ollama
+                  </Button>
+                </Tip>
                 <div className="text-[11px] text-muted-foreground">Waiting for Ollama…</div>
               </div>
             )}
             {showOllamaSetup && ollama === 'installed' && (
               <div className="space-y-2 rounded border border-border p-2.5">
                 <div className="text-xs font-medium">Ollama is installed but not running</div>
-                <Button size="sm" disabled={starting} onClick={() => void doStartOllama()}>
-                  {starting ? 'Starting…' : 'Start Ollama'}
-                </Button>
+                <Tip content="Launch the Ollama server on this machine and wait for it to respond">
+                  <span className="inline-flex">
+                    <Button size="sm" disabled={starting} onClick={() => void doStartOllama()}>
+                      {starting ? 'Starting…' : 'Start Ollama'}
+                    </Button>
+                  </span>
+                </Tip>
+                {startError && (
+                  <div className="text-xs text-destructive selectable">{startError}</div>
+                )}
               </div>
             )}
             {probe.status === 'failed' &&
@@ -483,15 +517,17 @@ export function AddLocalProviderDialog({
                   <div className="text-xs text-destructive selectable">{probe.error}</div>
                   <div className="text-[11px] text-muted-foreground">{preset.downHint}</div>
                   {preset.downloadUrl && presetId !== 'ollama' && (
-                    <button
-                      className="flex items-center gap-1 text-[11px] text-muted-foreground underline hover:text-foreground cursor-pointer"
-                      onClick={() => {
-                        if (preset.downloadUrl) openExternal.mutate({ url: preset.downloadUrl })
-                      }}
-                    >
-                      <ExternalLink size={10} />
-                      Get {preset.title}
-                    </button>
+                    <Tip content={`Open the ${preset.title} download page in your browser`}>
+                      <button
+                        className="flex items-center gap-1 text-[11px] text-muted-foreground underline hover:text-foreground cursor-pointer"
+                        onClick={() => {
+                          if (preset.downloadUrl) openExternal.mutate({ url: preset.downloadUrl })
+                        }}
+                      >
+                        <ExternalLink size={10} />
+                        Get {preset.title}
+                      </button>
+                    </Tip>
                   )}
                 </div>
               )}
@@ -519,7 +555,7 @@ export function AddLocalProviderDialog({
                               onToggle={() => toggle(r.tag)}
                             />
                           </div>
-                          <span className="shrink-0 rounded-full bg-green-500/15 px-1.5 py-px text-[10px] text-green-500">
+                          <span className="shrink-0 rounded-full bg-green-500/15 px-1.5 py-px text-[10px] text-green-600 dark:text-green-500">
                             Installed
                           </span>
                         </div>
@@ -539,6 +575,7 @@ export function AddLocalProviderDialog({
                             </div>
                             <Tip content="Cancel this model download">
                               <button
+                                aria-label={`Cancel download of ${r.tag}`}
                                 className="text-muted-foreground hover:text-destructive cursor-pointer"
                                 onClick={() => {
                                   cancelModelPull.mutate({ jobId: job.jobId })
@@ -615,6 +652,9 @@ export function AddLocalProviderDialog({
                       </div>
                     )
                   })}
+                  {pullError && (
+                    <div className="text-xs text-destructive selectable">{pullError}</div>
+                  )}
                   {anyPullRunning && (
                     <div className="text-[10px] text-muted-foreground">
                       Keep this dialog open while downloading — the model is selected automatically
@@ -627,18 +667,20 @@ export function AddLocalProviderDialog({
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <div className="text-xs font-medium">Installed models</div>
-                      <button
-                        className="text-[10px] text-muted-foreground underline hover:text-foreground cursor-pointer"
-                        onClick={() =>
-                          setSelected((prev) =>
-                            prev.size >= probe.models.length
-                              ? new Set()
-                              : new Set([...prev, ...probe.models])
-                          )
-                        }
-                      >
-                        Select all
-                      </button>
+                      <Tip content="Select every installed model — click again to clear the selection">
+                        <button
+                          className="text-[10px] text-muted-foreground underline hover:text-foreground cursor-pointer"
+                          onClick={() =>
+                            setSelected((prev) =>
+                              prev.size >= probe.models.length
+                                ? new Set()
+                                : new Set([...prev, ...probe.models])
+                            )
+                          }
+                        >
+                          Select all
+                        </button>
+                      </Tip>
                     </div>
                     {otherInstalled.map((m) => (
                       <ModelRow
@@ -669,16 +711,22 @@ export function AddLocalProviderDialog({
             )}
 
             <div className="flex justify-between">
-              <Button size="sm" variant="ghost" onClick={() => setStep('choose')}>
-                Back
-              </Button>
-              <Button
-                size="sm"
-                disabled={probe.status !== 'ok' || chosenModels.length === 0}
-                onClick={() => setStep('save')}
-              >
-                Next
-              </Button>
+              <Tip content="Go back and pick a different server">
+                <Button size="sm" variant="ghost" onClick={() => setStep('choose')}>
+                  Back
+                </Button>
+              </Tip>
+              <Tip content="Continue to name and save the provider with the selected models">
+                <span className="inline-flex">
+                  <Button
+                    size="sm"
+                    disabled={probe.status !== 'ok' || chosenModels.length === 0}
+                    onClick={() => setStep('save')}
+                  >
+                    Next
+                  </Button>
+                </span>
+              </Tip>
             </div>
           </div>
         )}
@@ -708,28 +756,34 @@ export function AddLocalProviderDialog({
               </div>
             )}
             <div className="flex justify-between">
-              <Button size="sm" variant="ghost" onClick={() => setStep('connect')}>
-                Back
-              </Button>
-              <Button
-                size="sm"
-                disabled={
-                  !name.trim() ||
-                  chosenModels.length === 0 ||
-                  upsert.isPending ||
-                  applyRestart.isPending
-                }
-                onClick={() =>
-                  void doSave({
-                    name: name.trim(),
-                    url: probe.url || url.trim(),
-                    apiKey: apiKey.trim() || undefined,
-                    models: chosenModels
-                  })
-                }
-              >
-                {upsert.isPending ? 'Saving…' : applyRestart.isPending ? 'Applying…' : 'Save'}
-              </Button>
+              <Tip content="Go back to the connection and model selection">
+                <Button size="sm" variant="ghost" onClick={() => setStep('connect')}>
+                  Back
+                </Button>
+              </Tip>
+              <Tip content="Save this provider to settings.json and restart agents so its models are usable">
+                <span className="inline-flex">
+                  <Button
+                    size="sm"
+                    disabled={
+                      !name.trim() ||
+                      chosenModels.length === 0 ||
+                      upsert.isPending ||
+                      applyRestart.isPending
+                    }
+                    onClick={() =>
+                      void doSave({
+                        name: name.trim(),
+                        url: probe.url || url.trim(),
+                        apiKey: apiKey.trim() || undefined,
+                        models: chosenModels
+                      })
+                    }
+                  >
+                    {upsert.isPending ? 'Saving…' : applyRestart.isPending ? 'Applying…' : 'Save'}
+                  </Button>
+                </span>
+              </Tip>
             </div>
           </div>
         )}

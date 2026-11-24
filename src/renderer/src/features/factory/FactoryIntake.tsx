@@ -218,6 +218,7 @@ export function FactoryIntake({
                 <span className="selectable min-w-0 flex-1 truncate">{notice}</span>
                 <Tip content="Dismiss this notice">
                   <button
+                    aria-label="Dismiss notice"
                     className="cursor-pointer hover:text-foreground"
                     onClick={() => setNotice(null)}
                   >

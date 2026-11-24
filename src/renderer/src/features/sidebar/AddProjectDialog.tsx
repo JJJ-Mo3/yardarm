@@ -1,3 +1,7 @@
+/**
+ * Add-project dialog: open a local folder, clone a repository by URL, or create
+ * a new project, with the optional agent-instructions bootstrap.
+ */
 import React, { useState } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
 import { FolderOpen, GitFork } from 'lucide-react'
@@ -309,15 +313,19 @@ export function AddProjectDialog(): React.JSX.Element {
                 <div className="text-xs text-muted-foreground">
                   Pick a folder on this machine. It must be (or become) a git repository.
                 </div>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start font-mono text-xs"
-                  disabled={busy}
-                  onClick={chooseLocalFolder}
-                >
-                  <FolderOpen size={14} />
-                  <span className="truncate">{pickedPath ?? 'Choose folder…'}</span>
-                </Button>
+                <Tip content="Choose the project folder on this machine">
+                  <span className="inline-flex w-full">
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start font-mono text-xs"
+                      disabled={busy}
+                      onClick={chooseLocalFolder}
+                    >
+                      <FolderOpen size={14} />
+                      <span className="truncate">{pickedPath ?? 'Choose folder…'}</span>
+                    </Button>
+                  </span>
+                </Tip>
                 {nameField}
                 {needsInit && pickedPath && (
                   <div className="space-y-2 rounded-md border border-border bg-accent/30 p-3 text-xs">
@@ -367,19 +375,23 @@ export function AddProjectDialog(): React.JSX.Element {
                     if (!nameTouched) setName(repoNameFromUrl(e.target.value))
                   }}
                 />
-                <Button
-                  variant="outline"
-                  className="w-full justify-start font-mono text-xs"
-                  disabled={busy}
-                  onClick={() => {
-                    void pickFolder
-                      .mutateAsync({ title: 'Clone into which folder?' })
-                      .then((p) => p && setParentDir(p))
-                  }}
-                >
-                  <FolderOpen size={14} />
-                  <span className="truncate">{parentDir ?? 'Choose destination folder…'}</span>
-                </Button>
+                <Tip content="Choose the folder the repository is cloned into">
+                  <span className="inline-flex w-full">
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start font-mono text-xs"
+                      disabled={busy}
+                      onClick={() => {
+                        void pickFolder
+                          .mutateAsync({ title: 'Clone into which folder?' })
+                          .then((p) => p && setParentDir(p))
+                      }}
+                    >
+                      <FolderOpen size={14} />
+                      <span className="truncate">{parentDir ?? 'Choose destination folder…'}</span>
+                    </Button>
+                  </span>
+                </Tip>
                 {nameField}
                 {parentDir && url.trim() && (
                   <div className="truncate font-mono text-[11px] text-muted-foreground">

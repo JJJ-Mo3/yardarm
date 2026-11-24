@@ -131,9 +131,11 @@ export function OmStatusPopover({
                         : 'Model that condenses accumulated observations into reflections'
                     }
                   >
-                    <SelectTrigger className="h-6 max-w-44 text-[11px]">
-                      <SelectValue placeholder="default" />
-                    </SelectTrigger>
+                    <span className="inline-flex min-w-0">
+                      <SelectTrigger className="h-6 max-w-44 text-[11px]">
+                        <SelectValue placeholder="default" />
+                      </SelectTrigger>
+                    </span>
                   </Tip>
                   <SelectContent>
                     {(models.data ?? [])

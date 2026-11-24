@@ -29,14 +29,15 @@ import {
   X,
   XCircle
 } from 'lucide-react'
-import { useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { useAtom, useSetAtom } from 'jotai'
 import type { LspDiagnosticInfo, LspDiagnosticsResult } from '@shared/ipc-types'
 import { LSP_PACKS } from '@shared/lsp-packs'
 import '../../lib/monaco-setup'
 import { trpc } from '../../lib/trpc'
 import { modLabel } from '../../lib/shortcuts'
 import { cn } from '../../lib/utils'
-import { composerInsertAtom, fileOpenRequestAtom, mainTabAtom, themeAtom } from '../../lib/atoms'
+import { composerInsertAtom, fileOpenRequestAtom, mainTabAtom } from '../../lib/atoms'
+import { useIsDark } from '../../lib/use-dark'
 import { Button } from '../../components/ui/button'
 import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
@@ -87,8 +88,8 @@ function SeverityIcon({
 }): React.JSX.Element {
   if (severity === 'error') return <XCircle size={12} className="shrink-0 text-red-500" />
   if (severity === 'warning')
-    return <AlertTriangle size={12} className="shrink-0 text-yellow-500" />
-  return <Info size={12} className="shrink-0 text-blue-400" />
+    return <AlertTriangle size={12} className="shrink-0 text-yellow-600 dark:text-yellow-500" />
+  return <Info size={12} className="shrink-0 text-blue-600 dark:text-blue-400" />
 }
 
 function DirNode({
@@ -196,18 +197,21 @@ function FileNodeRow({
         selected === path ? 'bg-accent' : 'hover:bg-accent'
       )}
     >
-      <button
-        onClick={() => onSelect(path)}
-        style={{ paddingLeft: depth * 12 + 8 + 13 }}
-        className="flex min-w-0 flex-1 items-center gap-1.5 px-2 py-1 text-left text-[12px] cursor-pointer"
-      >
-        <FileText size={12} className="shrink-0 text-muted-foreground" />
-        <span className="truncate">{name}</span>
-      </button>
+      <Tip content="Open this file in the editor">
+        <button
+          onClick={() => onSelect(path)}
+          style={{ paddingLeft: depth * 12 + 8 + 13 }}
+          className="flex min-w-0 flex-1 items-center gap-1.5 px-2 py-1 text-left text-[12px] cursor-pointer"
+        >
+          <FileText size={12} className="shrink-0 text-muted-foreground" />
+          <span className="truncate">{name}</span>
+        </button>
+      </Tip>
       <Tip content="Mention this file in the chat composer">
         <button
+          aria-label="Mention file in chat"
           onClick={() => onAddToChat(path)}
-          className="mr-1 shrink-0 rounded p-0.5 text-muted-foreground opacity-0 hover:text-foreground group-hover/filerow:opacity-100 cursor-pointer"
+          className="mr-1 shrink-0 rounded p-0.5 text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover/filerow:opacity-100 group-focus-within/filerow:opacity-100 cursor-pointer"
         >
           <Plus size={12} />
         </button>
@@ -223,7 +227,7 @@ export function FilesView({
   root: string
   subchatId: string | null
 }): React.JSX.Element {
-  const theme = useAtomValue(themeAtom)
+  const isDark = useIsDark()
   const [mainTab, setMainTab] = useAtom(mainTabAtom)
   const setComposerInsert = useSetAtom(composerInsertAtom)
   // Mention format matches PromptInput's insertMention: "@<relpath> ".
@@ -616,6 +620,7 @@ export function FilesView({
                   </Tip>
                   <Tip content={t.dirty ? 'Close (unsaved changes)' : 'Close'}>
                     <button
+                      aria-label="Close tab"
                       onClick={() => void requestClose(t.path)}
                       className="flex h-4 w-4 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
                     >
@@ -636,6 +641,7 @@ export function FilesView({
               <Tip content={`Save the active file to disk (${modLabel('S')})`}>
                 <span className="inline-flex">
                   <Button
+                    aria-label="Save file"
                     variant="ghost"
                     size="icon"
                     className="h-6 w-6"
@@ -654,6 +660,7 @@ export function FilesView({
             <span className="min-w-0 flex-1 break-words">{error}</span>
             <Tip content="Dismiss this error">
               <button
+                aria-label="Dismiss error"
                 onClick={() => setError(null)}
                 className="cursor-pointer rounded p-0.5 hover:bg-destructive/20"
               >
@@ -678,7 +685,7 @@ export function FilesView({
                 path={`${root}/${activeTab.path}`}
                 defaultLanguage={languageFor(activeTab.path)}
                 defaultValue={activeTab.savedContent}
-                theme={theme === 'light' ? 'vs' : 'vs-dark'}
+                theme={isDark ? 'vs-dark' : 'vs'}
                 onMount={handleMount}
                 onChange={(v) => {
                   const val = v ?? ''
@@ -725,7 +732,7 @@ export function FilesView({
                     </span>
                   ) : problems.length === 0 ? (
                     <>
-                      <CheckCircle2 size={12} className="text-green-500" />
+                      <CheckCircle2 size={12} className="text-green-600 dark:text-green-500" />
                       <span className="text-muted-foreground">No problems</span>
                     </>
                   ) : (
@@ -738,13 +745,16 @@ export function FilesView({
                       )}
                       {warningCount > 0 && (
                         <span className="flex items-center gap-1">
-                          <AlertTriangle size={12} className="text-yellow-500" />
+                          <AlertTriangle
+                            size={12}
+                            className="text-yellow-600 dark:text-yellow-500"
+                          />
                           {warningCount}
                         </span>
                       )}
                       {problems.length - errorCount - warningCount > 0 && (
                         <span className="flex items-center gap-1">
-                          <Info size={12} className="text-blue-400" />
+                          <Info size={12} className="text-blue-600 dark:text-blue-400" />
                           {problems.length - errorCount - warningCount}
                         </span>
                       )}
@@ -756,6 +766,7 @@ export function FilesView({
               <Tip content="Re-run language-server diagnostics for this file">
                 <span className="inline-flex">
                   <Button
+                    aria-label="Re-run diagnostics"
                     variant="ghost"
                     size="icon"
                     className="h-5 w-5"

@@ -39,7 +39,7 @@ function PreviewBody({ chatId }: { chatId: string }): React.JSX.Element {
         ? 'Unread reply'
         : 'Idle'
   const statusClass = status?.awaiting
-    ? 'text-amber-500'
+    ? 'text-amber-600 dark:text-amber-500'
     : status?.running
       ? 'text-sky-500'
       : unseenChats.has(chatId)

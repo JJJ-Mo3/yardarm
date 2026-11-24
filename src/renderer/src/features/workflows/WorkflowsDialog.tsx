@@ -131,7 +131,9 @@ export function WorkflowsDialog({
           Workflows
         </DialogTitle>
         <div className="flex max-h-[26rem] min-h-[14rem] flex-col gap-2 overflow-y-auto">
-          {mutationError && <div className="text-[11px] text-red-500">{mutationError.message}</div>}
+          {mutationError && (
+            <div className="text-[11px] text-destructive selectable">{mutationError.message}</div>
+          )}
           {view.kind === 'edit' ? (
             <div className="space-y-3">
               <div>
@@ -203,7 +205,7 @@ export function WorkflowsDialog({
               </div>
               <div className="flex items-center justify-end gap-2">
                 <Tip content="Back to the workflow list without saving">
-                  <Button variant="secondary" size="sm" onClick={() => setView({ kind: 'list' })}>
+                  <Button variant="ghost" size="sm" onClick={() => setView({ kind: 'list' })}>
                     Cancel
                   </Button>
                 </Tip>
@@ -307,7 +309,7 @@ export function WorkflowsDialog({
               )}
               {list.isLoading && <div className="text-[11px] text-muted-foreground">Loading…</div>}
               {list.error && (
-                <div className="text-[11px] text-red-500">
+                <div className="text-[11px] text-destructive selectable">
                   Failed to load workflows: {list.error.message}
                 </div>
               )}
@@ -335,7 +337,7 @@ export function WorkflowsDialog({
                             {row.name}
                           </span>
                           {missing && (
-                            <span className="shrink-0 rounded bg-amber-500/15 px-1 py-0.5 text-[9px] text-amber-500">
+                            <span className="shrink-0 rounded bg-amber-500/15 px-1 py-0.5 text-[9px] text-amber-600 dark:text-amber-500">
                               definition missing
                             </span>
                           )}
@@ -368,6 +370,7 @@ export function WorkflowsDialog({
                           <button
                             className="flex items-center text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-50"
                             disabled={!subchatId}
+                            aria-label="Run workflow"
                             onClick={() => setView({ kind: 'run', id: row.id })}
                           >
                             <Play size={13} />
@@ -376,6 +379,7 @@ export function WorkflowsDialog({
                       </Tip>
                       <Tip content="Edit this workflow's name, definition, or default input">
                         <button
+                          aria-label="Edit workflow"
                           className="flex items-center text-muted-foreground hover:text-foreground cursor-pointer"
                           onClick={() => {
                             setForm({
@@ -392,7 +396,8 @@ export function WorkflowsDialog({
                       </Tip>
                       <Tip content="Delete this workflow (the stored definition stays; linked schedules are disabled)">
                         <button
-                          className="flex items-center text-muted-foreground hover:text-red-500 cursor-pointer"
+                          aria-label="Delete workflow"
+                          className="flex items-center text-muted-foreground hover:text-destructive cursor-pointer"
                           onClick={() => {
                             void confirmDialog({
                               title: 'Delete workflow?',
@@ -517,7 +522,7 @@ function WorkflowRunView({
         <div className="text-[11px] text-muted-foreground">Loading definition…</div>
       )}
       {def.error && (
-        <div className="text-[11px] text-red-500">
+        <div className="text-[11px] text-destructive selectable">
           Failed to load the workflow definition: {def.error.message}
         </div>
       )}

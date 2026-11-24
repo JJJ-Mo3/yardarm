@@ -47,6 +47,7 @@ function SubscriptionRow({
           <Tip content={`Unsubscribe from PR #${sub.number}`}>
             <span className="inline-flex">
               <button
+                aria-label={`Unsubscribe from PR #${sub.number}`}
                 className="text-muted-foreground hover:text-foreground disabled:opacity-50 cursor-pointer"
                 onClick={onUnsubscribe}
                 disabled={busy}
@@ -59,7 +60,7 @@ function SubscriptionRow({
       </div>
       <div
         className={`mt-0.5 truncate text-[10px] ${
-          sub.lastSyncStatus === 'error' ? 'text-red-500' : 'text-muted-foreground'
+          sub.lastSyncStatus === 'error' ? 'text-destructive' : 'text-muted-foreground'
         }`}
         title={syncLine}
       >
@@ -142,7 +143,7 @@ export function GithubPrPopover({
         <div className="mb-1.5 text-xs font-medium">PR subscriptions</div>
         {status.isLoading && <div className="text-[11px] text-muted-foreground">Loading…</div>}
         {status.error && (
-          <div className="text-[11px] text-red-500">
+          <div className="text-[11px] text-destructive selectable">
             Failed to load subscriptions: {status.error.message}
           </div>
         )}
@@ -220,7 +221,7 @@ export function GithubPrPopover({
             </div>
           </div>
         )}
-        {error && <div className="mt-1.5 text-[11px] text-red-500">{error}</div>}
+        {error && <div className="mt-1.5 text-[11px] text-destructive selectable">{error}</div>}
       </PopoverContent>
     </Popover>
   )

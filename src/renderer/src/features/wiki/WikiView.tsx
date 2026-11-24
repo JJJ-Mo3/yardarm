@@ -163,6 +163,7 @@ export function WikiView({ projectId }: { projectId: string }): React.JSX.Elemen
               <Tip content="Delete all generated wiki pages for this project">
                 <span className="inline-flex">
                   <Button
+                    aria-label="Delete wiki"
                     size="icon"
                     variant="ghost"
                     disabled={remove.isPending}

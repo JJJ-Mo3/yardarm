@@ -1,3 +1,8 @@
+/**
+ * Settings → Preferences: agent behavior defaults (auto-approve, sandbox,
+ * confidence, verification, suggestions), compression, search provider, commit
+ * attribution, experimental features, tool toggles, notifications and storage.
+ */
 import React, { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { THINKING_LEVELS } from '../../../../shared/mastra-settings'
@@ -273,7 +278,8 @@ export function PreferencesTab(): React.JSX.Element {
   const autoContinueEnabled = autoContinueSetting.data === true
 
   // Suggested-knowledge guidance (app_settings KV, default on); hosts read it
-  // at boot, so changes apply to newly started agent sessions.
+  // at boot and MessageList gates the card on it live, so turning it off
+  // hides the card immediately.
   const suggestKnowledgeSetting = trpc.settings.get.useQuery({ key: 'suggestKnowledge' })
   const setSuggestKnowledge = trpc.settings.set.useMutation({
     onSuccess: () => utils.settings.get.invalidate({ key: 'suggestKnowledge' })
@@ -318,6 +324,7 @@ export function PreferencesTab(): React.JSX.Element {
     setConfidence.error ??
     setVerify.error ??
     setSuggestKnowledge.error ??
+    setAutoContinue.error ??
     setFollowUps.error ??
     setCoAuthor.error
 
@@ -415,6 +422,7 @@ export function PreferencesTab(): React.JSX.Element {
           <Input
             type="number"
             min={0}
+            key={`preview-lines-${p.quietModeMaxToolPreviewLines ?? ''}`}
             className="h-7 w-24 text-[11px]"
             defaultValue={p.quietModeMaxToolPreviewLines ?? ''}
             placeholder="2 (default)"
@@ -561,8 +569,8 @@ export function PreferencesTab(): React.JSX.Element {
           <div className="text-xs font-medium">Suggest knowledge notes</div>
           <div className="text-[11px] text-muted-foreground">
             Asks the agent to end a reply with one durable project fact it learned, shown as a
-            save/dismiss card under the message. Saved notes live in Project settings → Knowledge.
-            Turning this off hides the card immediately, in every chat.
+            save/dismiss card under the message. Saved notes live in Project settings → Knowledge
+            notes. Turning this off hides the card immediately, in every chat.
           </div>
         </div>
         <Tip content="Inject the suggested-knowledge guidance into new agent sessions — when off, the card is hidden everywhere right away, including chats whose agent started before the change">
@@ -710,21 +718,23 @@ export function PreferencesTab(): React.JSX.Element {
         <div className="flex items-center gap-2">
           <span className="w-28 text-[11px] text-muted-foreground">Agent runtime</span>
           <Tip content="Experimental agent execution runtime (settings.json experimentalAgent). Applies to new or restarted agents; invalid setups fail at agent start — switch back to default if agents stop booting">
-            <select
-              value={experimentalAgent}
-              disabled={setExperimentalAgent.isPending}
-              onChange={(e) => {
-                const v = e.target.value
-                setExperimentalAgent.mutate({
-                  value: v === 'durable' || v === 'evented' ? v : null
-                })
-              }}
-              className="h-7 rounded-md border border-border bg-background px-2 text-[11px]"
-            >
-              <option value="off">default</option>
-              <option value="durable">durable</option>
-              <option value="evented">evented</option>
-            </select>
+            <span className="inline-flex">
+              <select
+                value={experimentalAgent}
+                disabled={setExperimentalAgent.isPending}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setExperimentalAgent.mutate({
+                    value: v === 'durable' || v === 'evented' ? v : null
+                  })
+                }}
+                className="h-7 rounded-md border border-border bg-background px-2 text-[11px]"
+              >
+                <option value="off">default</option>
+                <option value="durable">durable</option>
+                <option value="evented">evented</option>
+              </select>
+            </span>
           </Tip>
         </div>
       </div>

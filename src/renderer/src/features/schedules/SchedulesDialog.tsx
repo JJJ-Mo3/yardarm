@@ -23,6 +23,7 @@ import { Input } from '../../components/ui/input'
 import { Textarea } from '../../components/ui/textarea'
 import { Button } from '../../components/ui/button'
 import { Tip } from '../../components/ui/tooltip'
+import { useConfirm } from '../../components/ConfirmDialog'
 import { timeAgo } from '../../lib/utils'
 import {
   describeCadence,
@@ -160,6 +161,7 @@ export function SchedulesDialog({
 }): React.JSX.Element {
   const projectId = useAtomValue(selectedProjectIdAtom)
   const utils = trpc.useUtils()
+  const confirm = useConfirm()
   // 30s refetch keeps the next-run countdowns and last-run dots fresh.
   const list = trpc.schedules.list.useQuery(
     { projectId: projectId ?? '' },
@@ -177,7 +179,13 @@ export function SchedulesDialog({
   const update = trpc.schedules.update.useMutation({ onSuccess: invalidate })
   const setEnabled = trpc.schedules.setEnabled.useMutation({ onSuccess: invalidate })
   const remove = trpc.schedules.delete.useMutation({ onSuccess: invalidate })
-  const runNow = trpc.schedules.runNow.useMutation({ onSuccess: invalidate })
+  const runNow = trpc.schedules.runNow.useMutation({
+    onSuccess: () => {
+      invalidate()
+      // A first run creates the schedule's dedicated chat — show it in the sidebar.
+      utils.chats.list.invalidate()
+    }
+  })
 
   // null = list view; 'new' = create form; otherwise the schedule id being edited.
   const [editing, setEditing] = useState<string | null>(null)
@@ -220,7 +228,9 @@ export function SchedulesDialog({
           Scheduled runs
         </DialogTitle>
         <div className="flex max-h-[26rem] min-h-[14rem] flex-col gap-2 overflow-y-auto">
-          {mutationError && <div className="text-[11px] text-red-500">{mutationError.message}</div>}
+          {mutationError && (
+            <div className="text-[11px] text-destructive selectable">{mutationError.message}</div>
+          )}
           {editing !== null ? (
             <div className="space-y-3">
               <div>
@@ -380,7 +390,7 @@ export function SchedulesDialog({
               )}
               <div className="flex items-center justify-end gap-2">
                 <Tip content="Back to the schedule list without saving">
-                  <Button variant="secondary" size="sm" onClick={() => setEditing(null)}>
+                  <Button variant="ghost" size="sm" onClick={() => setEditing(null)}>
                     Cancel
                   </Button>
                 </Tip>
@@ -409,7 +419,8 @@ export function SchedulesDialog({
             <>
               <div className="flex items-center justify-between">
                 <div className="text-[11px] text-muted-foreground">
-                  Recurring prompts for this project, each in its own “Schedule: …” chat.
+                  Recurring prompts and workflows for this project, each in its own “Schedule: …”
+                  chat.
                 </div>
                 <Tip content="Create a new recurring agent run">
                   <span className="inline-flex">
@@ -430,7 +441,7 @@ export function SchedulesDialog({
               </div>
               {list.isLoading && <div className="text-[11px] text-muted-foreground">Loading…</div>}
               {list.error && (
-                <div className="text-[11px] text-red-500">
+                <div className="text-[11px] text-destructive selectable">
                   Failed to load schedules: {list.error.message}
                 </div>
               )}
@@ -481,6 +492,7 @@ export function SchedulesDialog({
                       >
                         <span className="inline-flex">
                           <Switch
+                            aria-label={row.enabled ? 'Disable schedule' : 'Enable schedule'}
                             checked={row.enabled}
                             onCheckedChange={(v) => setEnabled.mutate({ id: row.id, enabled: v })}
                           />
@@ -491,6 +503,7 @@ export function SchedulesDialog({
                           <button
                             className="flex items-center text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-50"
                             disabled={runNow.isPending}
+                            aria-label="Run schedule now"
                             onClick={() => runNow.mutate({ id: row.id })}
                           >
                             <Play size={13} />
@@ -499,6 +512,7 @@ export function SchedulesDialog({
                       </Tip>
                       <Tip content="Edit this schedule's name, prompt or workflow, or cadence">
                         <button
+                          aria-label="Edit schedule"
                           className="flex items-center text-muted-foreground hover:text-foreground cursor-pointer"
                           onClick={() => {
                             setForm(
@@ -517,8 +531,17 @@ export function SchedulesDialog({
                       </Tip>
                       <Tip content="Delete this schedule (its chat and history stay)">
                         <button
-                          className="flex items-center text-muted-foreground hover:text-red-500 cursor-pointer"
-                          onClick={() => remove.mutate({ id: row.id })}
+                          aria-label="Delete schedule"
+                          className="flex items-center text-muted-foreground hover:text-destructive cursor-pointer"
+                          onClick={() => {
+                            void confirm({
+                              title: 'Delete schedule?',
+                              description: `"${row.name}" will stop running. Its chat and history stay.`,
+                              confirmLabel: 'Delete'
+                            }).then((ok) => {
+                              if (ok) remove.mutate({ id: row.id })
+                            })
+                          }}
                         >
                           <Trash2 size={13} />
                         </button>

@@ -1,3 +1,7 @@
+/**
+ * One chat pane: header controls and ⋯ menu, slash-command handling, the
+ * transcript, pending approvals/questions, queued prompts, and the composer.
+ */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
@@ -722,7 +726,7 @@ export function ChatView({
                 side="bottom"
               >
                 <button
-                  className="flex items-center gap-1 rounded-md border border-amber-600/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-500 hover:bg-amber-500/20 cursor-pointer"
+                  className="flex items-center gap-1 rounded-md border border-amber-600/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-600 dark:text-amber-500 hover:bg-amber-500/20 cursor-pointer"
                   onClick={() => openSettings('keys')}
                 >
                   <KeyRound size={11} />
@@ -734,7 +738,7 @@ export function ChatView({
                 side="bottom"
               >
                 <button
-                  className="flex items-center gap-1 rounded-md border border-amber-600/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-500 hover:bg-amber-500/20 cursor-pointer"
+                  className="flex items-center gap-1 rounded-md border border-amber-600/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-600 dark:text-amber-500 hover:bg-amber-500/20 cursor-pointer"
                   onClick={() => openSettings('providers')}
                 >
                   <Server size={11} />
@@ -817,6 +821,7 @@ export function ChatView({
               side="bottom"
             >
               <button
+                aria-label="Configure sandbox"
                 className="flex items-center gap-1 rounded-md border border-emerald-600/40 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-500 hover:bg-emerald-500/20 cursor-pointer"
                 onClick={() => setSandboxOpen(true)}
               >
@@ -830,7 +835,7 @@ export function ChatView({
 
           {state.approvals.length + state.suspensions.length > 0 && (
             <Tip content="Requests waiting for your approval below" side="bottom">
-              <Badge className="border-amber-500/50 text-amber-500">
+              <Badge className="border-amber-500/50 text-amber-600 dark:text-amber-500">
                 {state.approvals.length + state.suspensions.length} pending
               </Badge>
             </Tip>
@@ -890,6 +895,7 @@ export function ChatView({
             >
               <PopoverTrigger asChild>
                 <button
+                  aria-label="More tools"
                   ref={moreBtnRef}
                   className="flex items-center text-muted-foreground hover:text-foreground cursor-pointer"
                 >
@@ -1194,6 +1200,7 @@ export function ChatView({
                 <span className="min-w-0 flex-1 selectable">{i.text}</span>
                 <Tip content="Dismiss this error">
                   <button
+                    aria-label="Dismiss error"
                     className="shrink-0 cursor-pointer text-destructive/70 hover:text-destructive"
                     onClick={() => setDismissedErrorTs(i.ts)}
                   >
@@ -1255,13 +1262,14 @@ export function ChatView({
             <div
               className={
                 rollbackNotice.warn
-                  ? 'flex items-start gap-2 rounded bg-amber-500/10 px-2 py-1.5 text-xs text-amber-500'
+                  ? 'flex items-start gap-2 rounded bg-amber-500/10 px-2 py-1.5 text-xs text-amber-600 dark:text-amber-500'
                   : 'flex items-start gap-2 rounded bg-accent px-2 py-1.5 text-xs text-muted-foreground'
               }
             >
               <span className="min-w-0 flex-1 selectable">{rollbackNotice.text}</span>
               <Tip content="Dismiss this notice">
                 <button
+                  aria-label="Dismiss notice"
                   className="shrink-0 cursor-pointer opacity-70 hover:opacity-100"
                   onClick={() => setRollbackNotice(null)}
                 >
@@ -1284,6 +1292,7 @@ export function ChatView({
                 </span>
                 <Tip content="Dismiss this error">
                   <button
+                    aria-label="Dismiss error"
                     className="shrink-0 cursor-pointer text-destructive/70 hover:text-destructive"
                     onClick={() => m.reset()}
                   >

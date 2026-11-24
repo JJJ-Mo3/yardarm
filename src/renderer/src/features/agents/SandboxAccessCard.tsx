@@ -26,7 +26,7 @@ export function SandboxAccessCard({
   return (
     <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-2">
       <div className="flex items-center gap-2 text-[13px] font-medium">
-        <ShieldQuestion size={14} className="text-amber-500" />
+        <ShieldQuestion size={14} className="text-amber-600 dark:text-amber-500" />
         Sandbox access request
       </div>
       <div className="text-xs selectable">
@@ -63,7 +63,7 @@ export function SandboxAccessAnswered({ part }: { part: ToolCallPart }): React.J
   return (
     <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-1.5">
       <div className="flex items-center gap-2 text-[13px] font-medium">
-        <ShieldQuestion size={14} className="text-amber-500" />
+        <ShieldQuestion size={14} className="text-amber-600 dark:text-amber-500" />
         Sandbox access request
       </div>
       {args.path && (

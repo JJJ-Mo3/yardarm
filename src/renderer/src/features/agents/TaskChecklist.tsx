@@ -42,9 +42,9 @@ export function TaskChecklist({
           {tasks.map((t, i) => (
             <div key={t.id ?? i} className="flex items-center gap-1.5 text-[11px]">
               {t.status === 'completed' ? (
-                <CheckCircle2 size={11} className="text-green-500 shrink-0" />
+                <CheckCircle2 size={11} className="text-green-600 dark:text-green-500 shrink-0" />
               ) : t.status === 'in_progress' ? (
-                <CircleDot size={11} className="text-blue-400 shrink-0" />
+                <CircleDot size={11} className="text-blue-600 dark:text-blue-400 shrink-0" />
               ) : (
                 <Circle size={11} className="text-muted-foreground shrink-0" />
               )}
