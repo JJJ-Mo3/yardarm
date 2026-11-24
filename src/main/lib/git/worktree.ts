@@ -9,6 +9,7 @@ import { app } from 'electron'
 import { simpleGit } from 'simple-git'
 import { writeJsonAtomic } from '../mastra-config/atomic-json'
 import { getLoginPath } from '../system/login-path'
+import { applyWorktreeConfig, parseWorktreeConfig, type WorktreeConfig } from './worktree-config'
 
 export interface WorktreeInfo {
   worktreePath: string
@@ -96,7 +97,8 @@ export async function ensureBaseCommit(dir: string): Promise<void> {
   }
 }
 
-async function uniqueBranch(projectPath: string, base: string): Promise<string> {
+/** `base`, or `base-2`, `base-3`, … — the first name no local branch uses yet. */
+export async function uniqueBranch(projectPath: string, base: string): Promise<string> {
   const git = simpleGit(projectPath)
   let candidate = base
   for (let i = 2; i < 100; i++) {
@@ -110,26 +112,37 @@ async function uniqueBranch(projectPath: string, base: string): Promise<string> 
   return `${base}-${Date.now()}`
 }
 
-/** Optional per-repo worktree setup commands (.yardarm/worktree.json). */
-export async function readSetupCommands(projectPath: string): Promise<string[]> {
+/** The repo's worktree lifecycle config (.yardarm/worktree.json); empty when missing/invalid. */
+export async function readWorktreeConfig(projectPath: string): Promise<WorktreeConfig> {
   try {
     const raw = await fs.readFile(path.join(projectPath, '.yardarm', 'worktree.json'), 'utf8')
-    const parsed = JSON.parse(raw) as { 'setup-worktree'?: string[] }
-    if (Array.isArray(parsed['setup-worktree'])) {
-      return parsed['setup-worktree'].filter((c): c is string => typeof c === 'string')
-    }
+    return parseWorktreeConfig(JSON.parse(raw) as unknown)
   } catch {
     // missing or invalid — skip
   }
-  return []
+  return parseWorktreeConfig(null)
+}
+
+/** Optional per-repo worktree setup commands (.yardarm/worktree.json). */
+export async function readSetupCommands(projectPath: string): Promise<string[]> {
+  return (await readWorktreeConfig(projectPath)).setup
+}
+
+/** Persist only the setup commands, leaving the other lists as they are. */
+export async function writeSetupCommands(projectPath: string, commands: string[]): Promise<void> {
+  const current = await readWorktreeConfig(projectPath)
+  await writeWorktreeConfig(projectPath, { ...current, setup: commands })
 }
 
 /**
- * Persist setup commands to .yardarm/worktree.json, preserving unknown keys
- * (the file is a user-editable config). An empty list removes the key, and
- * the file too when nothing else remains (best-effort).
+ * Persist the lifecycle config to .yardarm/worktree.json, preserving unknown
+ * keys (the file is a user-editable config). An empty list removes its key,
+ * and the file too when nothing else remains (best-effort).
  */
-export async function writeSetupCommands(projectPath: string, commands: string[]): Promise<void> {
+export async function writeWorktreeConfig(
+  projectPath: string,
+  next: WorktreeConfig
+): Promise<void> {
   const file = path.join(projectPath, '.yardarm', 'worktree.json')
   let config: Record<string, unknown> = {}
   try {
@@ -140,8 +153,7 @@ export async function writeSetupCommands(projectPath: string, commands: string[]
   } catch {
     // missing or invalid — start fresh
   }
-  if (commands.length > 0) config['setup-worktree'] = commands
-  else delete config['setup-worktree']
+  applyWorktreeConfig(config, next)
   if (Object.keys(config).length === 0) {
     try {
       await fs.unlink(file)
@@ -152,25 +164,59 @@ export async function writeSetupCommands(projectPath: string, commands: string[]
   await writeJsonAtomic(file, config)
 }
 
+/** Per-command time limits: installs can be slow, teardown must not stall a delete. */
+const SETUP_TIMEOUT_MS = 300_000
+const TEARDOWN_TIMEOUT_MS = 60_000
+
+async function runShellCommands(
+  kind: 'setup' | 'teardown',
+  worktreePath: string,
+  commands: string[],
+  timeout: number,
+  extraEnv?: Record<string, string>
+): Promise<void> {
+  if (commands.length === 0) return
+  const { exec } = await import('node:child_process')
+  const { promisify } = await import('node:util')
+  const execAsync = promisify(exec)
+  // Login-shell PATH so npm/pnpm etc. resolve in the packaged app. Extra vars
+  // (project env, the chat's port) never replace PATH.
+  const env = { ...process.env, ...extraEnv, PATH: getLoginPath() ?? process.env.PATH }
+  for (const cmd of commands) {
+    try {
+      await execAsync(cmd, { cwd: worktreePath, timeout, env })
+    } catch (err) {
+      console.error(`[worktree] ${kind} command failed: ${cmd}`, err)
+    }
+  }
+}
+
 /**
  * Run setup commands in a worktree, best-effort (npm install etc.). Callers
  * must only pass commands the user approved (isSetupTrusted) — they execute
  * through a shell, outside any agent sandbox.
  */
-export async function runSetupCommands(worktreePath: string, commands: string[]): Promise<void> {
-  if (commands.length === 0) return
-  const { exec } = await import('node:child_process')
-  const { promisify } = await import('node:util')
-  const execAsync = promisify(exec)
-  // Login-shell PATH so npm/pnpm etc. resolve in the packaged app.
-  const env = { ...process.env, PATH: getLoginPath() ?? process.env.PATH }
-  for (const cmd of commands) {
-    try {
-      await execAsync(cmd, { cwd: worktreePath, timeout: 300_000, env })
-    } catch (err) {
-      console.error(`[worktree] setup command failed: ${cmd}`, err)
-    }
-  }
+export async function runSetupCommands(
+  worktreePath: string,
+  commands: string[],
+  extraEnv?: Record<string, string>
+): Promise<void> {
+  await runShellCommands('setup', worktreePath, commands, SETUP_TIMEOUT_MS, extraEnv)
+}
+
+/**
+ * Run teardown commands in a worktree that is about to be removed (stop
+ * containers, drop a scratch database). Best-effort with a short per-command
+ * timeout so a hung command cannot hold up the delete for long. Same trust
+ * rule as setup: callers must only pass approved commands.
+ */
+export async function runTeardownCommands(
+  worktreePath: string,
+  commands: string[],
+  extraEnv?: Record<string, string>
+): Promise<void> {
+  if (!existsSync(worktreePath)) return
+  await runShellCommands('teardown', worktreePath, commands, TEARDOWN_TIMEOUT_MS, extraEnv)
 }
 
 /** Create the chat's worktree. Setup commands are the caller's job (trust-gated). */

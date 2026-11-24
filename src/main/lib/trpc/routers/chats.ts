@@ -11,11 +11,17 @@ import { buildAskMarker, buildAskPrompt } from '@shared/ask-prompts'
 import { stripAgentMarkers } from '@shared/agent-markers'
 import { getDb, maintainDb, schema } from '../../db'
 import { agentSessionManager } from '../../agent/agent-session-manager'
-import { createChatWithSubchat, sandboxDefaults, yoloDefault } from '../../agent/chat-factory'
+import {
+  createChatWithSubchat,
+  provisionWorktree,
+  runTrustedTeardown,
+  sandboxDefaults,
+  yoloDefault
+} from '../../agent/chat-factory'
 import { checkpointStashSha, deleteCheckpointRefs, restoreCheckpoint } from '../../git/ops'
 import { trustSetupCommands } from '../../db/project-settings'
-import { setupCommandsHash } from '../../git/setup-hash'
-import { readSetupCommands, removeWorktree, runSetupCommands } from '../../git/worktree'
+import { worktreeConfigHash } from '../../git/setup-hash'
+import { readWorktreeConfig, removeWorktree } from '../../git/worktree'
 import { ptyManager } from '../../terminal/pty-manager'
 import { publicProcedure, router } from '../trpc'
 
@@ -168,12 +174,21 @@ export const chatsRouter = router({
     }),
 
   /**
-   * Approve the project's worktree setup commands and run them in this chat's
-   * worktree. `commands` is the list the user was shown: it must still match
-   * the repo file, so a change between prompt and click is never approved.
+   * Approve the project's worktree config (setup commands, copy-file patterns,
+   * teardown commands) and apply it to this chat's worktree: copy the files,
+   * then run the setup commands. The lists are what the user was shown: they
+   * must still match the repo file, so a change between prompt and click is
+   * never approved.
    */
   approveSetup: publicProcedure
-    .input(z.object({ chatId: z.string(), commands: z.array(z.string()).min(1) }))
+    .input(
+      z.object({
+        chatId: z.string(),
+        commands: z.array(z.string()),
+        copyFiles: z.array(z.string()).default([]),
+        teardown: z.array(z.string()).default([])
+      })
+    )
     .mutation(async ({ input }) => {
       const db = getDb()
       const chat = db.select().from(schema.chats).where(eq(schema.chats.id, input.chatId)).get()
@@ -184,15 +199,18 @@ export const chatsRouter = router({
         .where(eq(schema.projects.id, chat.projectId))
         .get()
       if (!project) throw new Error('Project not found')
-      const current = await readSetupCommands(project.path)
-      if (setupCommandsHash(current) !== setupCommandsHash(input.commands)) {
-        throw new Error('The setup commands changed — review them again before approving.')
+      const current = await readWorktreeConfig(project.path)
+      const shown = { setup: input.commands, copyFiles: input.copyFiles, teardown: input.teardown }
+      if (worktreeConfigHash(current) !== worktreeConfigHash(shown)) {
+        throw new Error('The worktree setup changed — review it again before approving.')
       }
       trustSetupCommands(project.id, current)
+      let copyCapped = false
       if (chat.worktreePath && existsSync(chat.worktreePath)) {
-        await runSetupCommands(chat.worktreePath, current)
+        const report = await provisionWorktree(project, chat.id, chat.worktreePath, current)
+        copyCapped = report.capped
       }
-      return { ok: true }
+      return { ok: true, copyCapped }
     }),
 
   /**
@@ -366,6 +384,9 @@ export const chatsRouter = router({
     if (chat.worktreePath) {
       ptyManager.killByCwdPrefix(chat.worktreePath)
       if (project) {
+        // Approved teardown commands run in the worktree right before it goes
+        // (best-effort, time-limited; nothing runs when the config is untrusted).
+        await runTrustedTeardown(project, chat)
         await removeWorktree(project.path, chat.worktreePath, chat.branch ?? undefined)
       }
     }

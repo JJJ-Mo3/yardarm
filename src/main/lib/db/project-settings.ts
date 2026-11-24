@@ -5,7 +5,8 @@
  */
 import { eq } from 'drizzle-orm'
 import type { RepoHostSetting } from '../../../shared/ipc-types'
-import { setupCommandsHash } from '../git/setup-hash'
+import { worktreeConfigHash } from '../git/setup-hash'
+import { isWorktreeConfigEmpty, type WorktreeConfig } from '../git/worktree-config'
 import { getDb, schema } from './index'
 
 /** One per-project environment variable (Project Settings → Environment). */
@@ -30,7 +31,7 @@ export interface ProjectSettings {
   envVars?: ProjectEnvVar[]
   /** Reviewer personas selectable when starting a review. */
   reviewers?: ReviewerPersona[]
-  /** Hash of the worktree setup commands the user approved (see setup-hash.ts). */
+  /** Hash of the worktree setup/copy/teardown config the user approved (see setup-hash.ts). */
   trustedSetupHash?: string
   [key: string]: unknown
 }
@@ -109,28 +110,35 @@ export function projectEnvRecord(projectId: string): Record<string, string> {
   return out
 }
 
+/** A bare command list is the setup-commands-only form of the worktree config. */
+function asWorktreeConfig(config: WorktreeConfig | string[]): WorktreeConfig {
+  return Array.isArray(config) ? { setup: config, copyFiles: [], teardown: [] } : config
+}
+
 /**
- * True when the user approved exactly these worktree setup commands for the
- * project. The commands come from a repo file, so they never run unapproved.
+ * True when the user approved exactly this worktree config (setup commands,
+ * copy-file patterns, teardown commands) for the project. It comes from a
+ * repo file, so nothing in it runs or is copied unapproved.
  */
-export function isSetupTrusted(projectId: string, commands: string[]): boolean {
+export function isSetupTrusted(projectId: string, config: WorktreeConfig | string[]): boolean {
   const project = getDb()
     .select({ settings: schema.projects.settings })
     .from(schema.projects)
     .where(eq(schema.projects.id, projectId))
     .get()
   const trusted = parseProjectSettings(project?.settings ?? null).trustedSetupHash
-  return typeof trusted === 'string' && trusted === setupCommandsHash(commands)
+  return typeof trusted === 'string' && trusted === worktreeConfigHash(asWorktreeConfig(config))
 }
 
-/** Record the user's approval of these setup commands (an empty list clears it). */
-export function trustSetupCommands(projectId: string, commands: string[]): void {
+/** Record the user's approval of this worktree config (an empty one clears it). */
+export function trustSetupCommands(projectId: string, config: WorktreeConfig | string[]): void {
   const db = getDb()
   const project = db.select().from(schema.projects).where(eq(schema.projects.id, projectId)).get()
   if (!project) throw new Error('Project not found')
   // Read-modify-write the JSON blob so unknown keys are preserved.
   const settings = parseProjectSettings(project.settings)
-  if (commands.length > 0) settings.trustedSetupHash = setupCommandsHash(commands)
+  const next = asWorktreeConfig(config)
+  if (!isWorktreeConfigEmpty(next)) settings.trustedSetupHash = worktreeConfigHash(next)
   else delete settings.trustedSetupHash
   const serialized = Object.keys(settings).length > 0 ? JSON.stringify(settings) : null
   db.update(schema.projects)

@@ -15,6 +15,7 @@ import { z } from 'zod'
 import { getDb, schema } from '../../db'
 import { parseProjectSettings, projectEnvVars, projectReviewers } from '../../db/project-settings'
 import { agentSessionManager } from '../../agent/agent-session-manager'
+import { runTrustedTeardown } from '../../agent/chat-factory'
 import { checkpointStashSha, deleteCheckpointRefs } from '../../git/ops'
 import {
   detectDefaultBranch,
@@ -218,6 +219,8 @@ export const projectsRouter = router({
       for (const chat of chats) {
         if (!chat.worktreePath) continue
         ptyManager.killByCwdPrefix(chat.worktreePath)
+        // Approved teardown commands only; best-effort and never throws.
+        await runTrustedTeardown(project, chat)
         try {
           await removeWorktree(project.path, chat.worktreePath, chat.branch ?? undefined)
         } catch {

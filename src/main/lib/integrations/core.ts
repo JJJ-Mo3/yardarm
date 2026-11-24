@@ -289,8 +289,8 @@ export class IntegrationsCore {
         this.rebuildSubscriptions()
         await reply(
           `Created "${title}" in ${project.ok.name} and bound this conversation to it.` +
-            (created.pendingSetupCommands.length > 0
-              ? ' Its worktree setup commands were skipped because they have not been approved — approve them in the Yardarm app (Project Settings).'
+            (created.pendingSetupCommands.length > 0 || created.pendingCopyFiles.length > 0
+              ? ' Its worktree setup (commands and files to copy) was skipped because it has not been approved — approve it in the Yardarm app (Project Settings).'
               : '')
         )
         return

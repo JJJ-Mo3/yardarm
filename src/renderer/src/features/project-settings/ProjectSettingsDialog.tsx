@@ -460,17 +460,26 @@ function ReviewersCard({ projectId }: { projectId: string }): React.JSX.Element 
 }
 
 /**
- * Editor for .yardarm/worktree.json "setup-worktree" — shell commands run in
- * every newly created worktree (dependency install etc.). One per line.
+ * Editor for .yardarm/worktree.json: "setup-worktree" (shell commands run in
+ * every newly created worktree), "copy-files" (glob patterns of untracked
+ * files copied into it) and "teardown-worktree" (shell commands run right
+ * before a worktree is removed). One entry per line; one approval covers all
+ * three lists.
  */
 function WorktreeSetupCard({ projectPath }: { projectPath: string }): React.JSX.Element {
   const utils = trpc.useUtils()
   const setup = trpc.projectConfig.worktreeSetupGet.useQuery({ projectPath })
   const [text, setText] = useState('')
+  const [copyText, setCopyText] = useState('')
+  const [teardownText, setTeardownText] = useState('')
   const [dirty, setDirty] = useState(false)
 
   useEffect(() => {
-    if (setup.data && !dirty) setText(setup.data.commands.join('\n'))
+    if (setup.data && !dirty) {
+      setText(setup.data.commands.join('\n'))
+      setCopyText(setup.data.copyFiles.join('\n'))
+      setTeardownText(setup.data.teardown.join('\n'))
+    }
   }, [setup.data, dirty])
   // The dialog is shared across projects — resync when the target changes.
   useEffect(() => {
@@ -495,23 +504,29 @@ function WorktreeSetupCard({ projectPath }: { projectPath: string }): React.JSX.
         Shell commands run in every new chat worktree right after it is created — one per line (e.g.{' '}
         <code>npm install</code>). Each gets 5 minutes and failures are logged but don&apos;t block
         the chat. Saved to <code>.yardarm/worktree.json</code> in the repo. Because that file can
-        change with a pull or an agent edit, commands only run after you approve them; saving here
-        approves them.
+        change with a pull or an agent edit, nothing below runs or is copied until you approve it;
+        saving here approves all three lists.
       </div>
       {needsApproval && (
         <div className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-[11px]">
           <span className="flex-1">
-            These commands were changed outside Yardarm and will not run until you approve them.
-            Review them below first.
+            The commands or file patterns below were changed outside Yardarm. Nothing runs and no
+            files are copied until you approve them. Review all three lists first.
           </span>
-          <Tip content="Approve exactly the commands shown below — they will run in new chat worktrees from now on">
+          <Tip content="Approve exactly the setup commands, file patterns and teardown commands shown below — they apply to chat worktrees from now on">
             <span className="inline-flex">
               <Button
                 size="sm"
                 variant="outline"
                 disabled={approve.isPending}
                 onClick={() =>
-                  setup.data && approve.mutate({ projectPath, commands: setup.data.commands })
+                  setup.data &&
+                  approve.mutate({
+                    projectPath,
+                    commands: setup.data.commands,
+                    copyFiles: setup.data.copyFiles,
+                    teardown: setup.data.teardown
+                  })
                 }
               >
                 {approve.isPending ? 'Approving…' : 'Approve'}
@@ -533,8 +548,48 @@ function WorktreeSetupCard({ projectPath }: { projectPath: string }): React.JSX.
         className="font-mono text-[11px]"
         spellCheck={false}
         placeholder={'npm install'}
+        aria-label="Worktree setup commands, one per line"
       />
-      <Tip content="Write the commands to .yardarm/worktree.json — applies to worktrees created from now on">
+      <div className="pt-1 text-xs font-medium">Files to copy into new worktrees</div>
+      <div className="text-[11px] text-muted-foreground">
+        Glob patterns relative to the project folder, one per line (e.g. <code>.env.local</code>,{' '}
+        <code>config/*.local.json</code>, <code>**/.env.local</code>). Matching files that git does
+        not track are copied to the same path in each new worktree before the setup commands run — a
+        new worktree only contains tracked files, so local env files are otherwise missing. Existing
+        files are never overwritten, <code>node_modules</code> and <code>.git</code> are skipped,
+        symlinks are not followed, and at most 200 files / 25 MB are copied.
+      </div>
+      <Textarea
+        rows={3}
+        value={copyText}
+        onChange={(e) => {
+          setCopyText(e.target.value)
+          setDirty(true)
+        }}
+        className="font-mono text-[11px]"
+        spellCheck={false}
+        placeholder={'.env.local'}
+        aria-label="Files to copy into new worktrees, one glob pattern per line"
+      />
+      <div className="pt-1 text-xs font-medium">Worktree teardown commands</div>
+      <div className="text-[11px] text-muted-foreground">
+        Shell commands run in a chat&apos;s worktree right before it is removed (deleting the chat
+        or removing the project) — one per line (e.g. <code>docker compose down</code>). Each gets 1
+        minute; failures are logged and never block the delete.
+      </div>
+      <Textarea
+        rows={2}
+        value={teardownText}
+        onChange={(e) => {
+          setTeardownText(e.target.value)
+          setDirty(true)
+        }}
+        className="font-mono text-[11px]"
+        spellCheck={false}
+        placeholder={'docker compose down'}
+        aria-label="Worktree teardown commands, one per line"
+      />
+      <Tip content="Write the setup commands, file patterns and teardown commands to .yardarm/worktree.json and approve them — applies to worktrees created or removed from now on">
         <span className="inline-flex">
           <Button
             size="sm"
@@ -542,7 +597,9 @@ function WorktreeSetupCard({ projectPath }: { projectPath: string }): React.JSX.
             onClick={() =>
               save.mutate({
                 projectPath,
-                commands: text.split('\n').map((c) => c.trim())
+                commands: text.split('\n').map((c) => c.trim()),
+                copyFiles: copyText.split('\n').map((c) => c.trim()),
+                teardown: teardownText.split('\n').map((c) => c.trim())
               })
             }
           >

@@ -29,8 +29,11 @@ import { readInstructions, writeInstructions } from '../../mastra-config/agent-i
 import { HOOK_EVENTS, readHooksJson, writeHooksJson } from '../../mastra-config/hooks-json'
 import { getDb, schema } from '../../db'
 import { isSetupTrusted, trustSetupCommands } from '../../db/project-settings'
-import { setupCommandsHash } from '../../git/setup-hash'
-import { readSetupCommands, writeSetupCommands } from '../../git/worktree'
+import { invalidCopyPatterns } from '../../git/copy-files'
+import { worktreeConfigHash } from '../../git/setup-hash'
+import { readWorktreeConfig, writeWorktreeConfig } from '../../git/worktree'
+import { cleanList, isWorktreeConfigEmpty } from '../../git/worktree-config'
+import { assertKnownRoot } from '../../known-roots'
 import { publicProcedure, router } from '../trpc'
 
 const scopeInput = z.object({ projectPath: z.string().optional() })
@@ -242,42 +245,83 @@ export const projectConfigRouter = router({
     }),
 
   // ---- worktree setup commands (.yardarm/worktree.json) ---------------------
-  /** Effective setup commands run in every new worktree (.yardarm/worktree.json). */
+  /**
+   * The worktree lifecycle config in .yardarm/worktree.json: setup commands
+   * run in every new worktree, glob patterns of untracked files copied into
+   * it, and teardown commands run before it is removed.
+   */
   worktreeSetupGet: publicProcedure
     .input(z.object({ projectPath: z.string() }))
     .query(async ({ input }) => {
-      const commands = await readSetupCommands(input.projectPath)
+      const config = await readWorktreeConfig(assertKnownRoot(input.projectPath))
       const projectId = projectIdForPath(input.projectPath)
-      // Commands only run once approved; a change made outside the app
-      // (pull, agent edit) shows up here as untrusted.
+      // Nothing runs or is copied until approved; a change made outside the
+      // app (pull, agent edit) shows up here as untrusted.
       const trusted =
-        commands.length === 0 || (projectId !== null && isSetupTrusted(projectId, commands))
-      return { commands, trusted }
+        isWorktreeConfigEmpty(config) || (projectId !== null && isSetupTrusted(projectId, config))
+      return {
+        commands: config.setup,
+        copyFiles: config.copyFiles,
+        teardown: config.teardown,
+        trusted
+      }
     }),
 
-  /** Persist setup commands (saving them from the app approves them). */
+  /**
+   * Persist the config (saving it from the app approves it). A list left out
+   * of the input keeps its current value in the file.
+   */
   worktreeSetupSet: publicProcedure
-    .input(z.object({ projectPath: z.string(), commands: z.array(z.string()) }))
+    .input(
+      z.object({
+        projectPath: z.string(),
+        commands: z.array(z.string()),
+        copyFiles: z.array(z.string()).optional(),
+        teardown: z.array(z.string()).optional()
+      })
+    )
     .mutation(async ({ input }) => {
-      const commands = input.commands.map((c) => c.trim()).filter((c) => c.length > 0)
-      await writeSetupCommands(input.projectPath, commands)
+      const projectPath = assertKnownRoot(input.projectPath)
+      const current = await readWorktreeConfig(projectPath)
+      const next = {
+        setup: cleanList(input.commands),
+        copyFiles: input.copyFiles ? cleanList(input.copyFiles) : current.copyFiles,
+        teardown: input.teardown ? cleanList(input.teardown) : current.teardown
+      }
+      if (input.copyFiles) {
+        const invalid = invalidCopyPatterns(next.copyFiles)
+        if (invalid.length > 0) {
+          throw new Error(
+            `Copy patterns must be relative paths inside the project (no leading "/", "~", ".." or backslashes): ${invalid.join(', ')}`
+          )
+        }
+      }
+      await writeWorktreeConfig(projectPath, next)
       const projectId = projectIdForPath(input.projectPath)
-      if (projectId) trustSetupCommands(projectId, commands)
+      if (projectId) trustSetupCommands(projectId, next)
       return { ok: true }
     }),
 
   /**
-   * Approve setup commands that changed outside the app. `commands` is the
-   * list the user reviewed; it must still match the repo file.
+   * Approve a config that changed outside the app. The lists are what the
+   * user reviewed; they must still match the repo file.
    */
   worktreeSetupApprove: publicProcedure
-    .input(z.object({ projectPath: z.string(), commands: z.array(z.string()).min(1) }))
+    .input(
+      z.object({
+        projectPath: z.string(),
+        commands: z.array(z.string()),
+        copyFiles: z.array(z.string()).default([]),
+        teardown: z.array(z.string()).default([])
+      })
+    )
     .mutation(async ({ input }) => {
       const projectId = projectIdForPath(input.projectPath)
       if (!projectId) throw new Error('Project not found')
-      const current = await readSetupCommands(input.projectPath)
-      if (setupCommandsHash(current) !== setupCommandsHash(input.commands)) {
-        throw new Error('The setup commands changed — review them again before approving.')
+      const current = await readWorktreeConfig(input.projectPath)
+      const shown = { setup: input.commands, copyFiles: input.copyFiles, teardown: input.teardown }
+      if (worktreeConfigHash(current) !== worktreeConfigHash(shown)) {
+        throw new Error('The worktree setup changed — review it again before approving.')
       }
       trustSetupCommands(projectId, current)
       return { ok: true }

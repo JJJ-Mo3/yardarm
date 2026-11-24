@@ -58,6 +58,7 @@ import { Switch } from '../../components/ui/switch'
 import { Tip } from '../../components/ui/tooltip'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { AddProjectDialog } from './AddProjectDialog'
+import { describePendingSetup, hasPendingSetup } from './new-chat-sources'
 import { ChatHoverCard } from './ChatHoverCard'
 import { Logo } from '../../components/Logo'
 
@@ -195,31 +196,48 @@ export function Sidebar(): React.JSX.Element {
       setSubchatId(chat.subchats[0]?.id ?? null)
       setNewChatOpen(false)
       setNewChatTitle('')
-      // Setup commands come from a repo file, so they were skipped unless
-      // already approved — ask once, then run them in this chat's worktree.
-      const pending = chat.pendingSetupCommands
-      if (pending.length > 0) {
+      if (chat.copyCapped) copyCapNotice()
+      // The setup comes from a repo file, so it was skipped unless already
+      // approved — ask once, then apply it to this chat's worktree.
+      if (hasPendingSetup(chat)) {
         void confirmDialog({
-          title: 'Run worktree setup commands?',
-          description:
-            'This project defines setup commands in .yardarm/worktree.json. They have not been ' +
-            'approved yet (or changed since), so they were not run:\n\n' +
-            pending.join('\n') +
-            '\n\nApprove to run them now and in future worktrees of this project.',
+          title: 'Approve worktree setup?',
+          description: describePendingSetup(chat),
           confirmLabel: 'Approve and run',
           cancelLabel: 'Skip',
           destructive: false
         }).then((ok) => {
-          if (ok) approveSetup.mutate({ chatId: chat.id, commands: pending })
+          if (ok) {
+            approveSetup.mutate({
+              chatId: chat.id,
+              commands: chat.pendingSetupCommands,
+              copyFiles: chat.pendingCopyFiles,
+              teardown: chat.pendingTeardownCommands
+            })
+          }
         })
       }
     },
     onSettled: () => utils.chats.list.invalidate()
   })
+  const copyCapNotice = (): void => {
+    void confirmDialog({
+      title: 'Some files were not copied',
+      description:
+        'More untracked files matched "Files to copy into new worktrees" than the limit of 200 ' +
+        'files / 25 MB, so only part of them were copied into this chat’s worktree. Narrow the ' +
+        'patterns in Project Settings → General.',
+      confirmLabel: 'OK',
+      destructive: false
+    })
+  }
   const approveSetup = trpc.chats.approveSetup.useMutation({
+    onSuccess: (res) => {
+      if (res.copyCapped) copyCapNotice()
+    },
     onError: (err) => {
       void confirmDialog({
-        title: 'Setup commands were not run',
+        title: 'Worktree setup was not applied',
         description: err.message,
         confirmLabel: 'OK',
         destructive: false
