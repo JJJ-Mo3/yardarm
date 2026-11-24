@@ -253,6 +253,14 @@ export function PreferencesTab(): React.JSX.Element {
   })
   const notifEnabled = desktopNotif.data !== false
 
+  // Keep-awake while agents run (app_settings KV, default on); the main
+  // process re-evaluates its power-save blocker as soon as the value is saved.
+  const keepAwakeSetting = trpc.settings.get.useQuery({ key: 'keepAwake' })
+  const setKeepAwake = trpc.settings.set.useMutation({
+    onSuccess: () => utils.settings.get.invalidate({ key: 'keepAwake' })
+  })
+  const keepAwakeEnabled = keepAwakeSetting.data !== false
+
   // Confidence-marker guidance (app_settings KV, default on); hosts read it
   // at boot, so changes apply to newly started agent sessions.
   const confidenceSetting = trpc.settings.get.useQuery({ key: 'confidenceRatings' })
@@ -494,6 +502,30 @@ export function PreferencesTab(): React.JSX.Element {
             Desktop notifications
           </label>
         </Tip>
+      </div>
+
+      <div className="space-y-3 rounded border border-border p-3">
+        <div>
+          <div className="text-xs font-medium">Power</div>
+          <div className="text-[11px] text-muted-foreground">
+            Stops the computer from going to sleep while at least one agent run is active, so long
+            runs are not cut off. The display can still turn off; normal sleep resumes as soon as no
+            agent is running.
+          </div>
+        </div>
+        <Tip content="Prevent system sleep while any agent run is active — released when all runs finish, when this is turned off, and on quit">
+          <label className="flex w-fit items-center gap-2 text-xs">
+            <Switch
+              checked={keepAwakeEnabled}
+              disabled={setKeepAwake.isPending}
+              onCheckedChange={(v) => setKeepAwake.mutate({ key: 'keepAwake', value: v })}
+            />
+            Keep the computer awake while agents are running
+          </label>
+        </Tip>
+        {setKeepAwake.error && (
+          <div className="text-xs text-destructive selectable">{setKeepAwake.error.message}</div>
+        )}
       </div>
 
       <div className="space-y-3 rounded border border-border p-3">

@@ -10,6 +10,7 @@ import { appRouter } from './lib/trpc/routers'
 import { agentSessionManager } from './lib/agent/agent-session-manager'
 import { startScheduler } from './lib/schedules/scheduler'
 import { startIntegrations } from './lib/integrations/manager'
+import { startKeepAwake } from './lib/power/keep-awake'
 import { normalizeModelIdsInSettings } from './lib/mastra-config/normalize-model-ids'
 import { seedLspEnabled } from './lib/mastra-config/settings-json'
 import { ptyManager } from './lib/terminal/pty-manager'
@@ -54,6 +55,7 @@ app.whenReady().then(() => {
   setInterval(maintainDb, 30 * 60 * 1000).unref()
   stopScheduler = startScheduler()
   stopIntegrations = startIntegrations()
+  stopKeepAwake = startKeepAwake()
 
   const handler = createIPCHandler({ router: appRouter, windows: [] })
   setIpcHandler(handler)
@@ -97,6 +99,9 @@ let stopScheduler: (() => void) | null = null
 // Disconnects the Slack/Discord integration sockets at quit.
 let stopIntegrations: (() => void) | null = null
 
+// Releases the keep-awake power-save blocker at quit.
+let stopKeepAwake: (() => void) | null = null
+
 // Quitting mid-run kills agent hosts and discards queued prompts, so confirm
 // first; "Quit anyway" re-enters this handler with the flag set.
 let quitConfirmed = false
@@ -124,6 +129,7 @@ app.on('before-quit', (e) => {
   }
   stopScheduler?.()
   stopIntegrations?.()
+  stopKeepAwake?.()
   agentSessionManager.shutdownAll()
   ptyManager.killAll()
   closeDb()

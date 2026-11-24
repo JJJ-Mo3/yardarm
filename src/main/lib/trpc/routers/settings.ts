@@ -7,6 +7,8 @@ import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb, schema } from '../../db'
 import { agentSessionManager } from '../../agent/agent-session-manager'
+import { refreshKeepAwake } from '../../power/keep-awake'
+import { KEEP_AWAKE_SETTING_KEY } from '../../power/keep-awake-core'
 import { ENV_VAR_NAME_RE } from '../../../../shared/provider-key-env'
 import type { OAuthStatusEvent } from '../../../../shared/ipc-types'
 import { publicProcedure, router } from '../trpc'
@@ -53,6 +55,8 @@ export const settingsRouter = router({
       } else {
         db.insert(schema.appSettings).values({ key: input.key, value }).run()
       }
+      // Turning the preference off must release a held blocker right away.
+      if (input.key === KEEP_AWAKE_SETTING_KEY) refreshKeepAwake()
       return { ok: true }
     }),
 
