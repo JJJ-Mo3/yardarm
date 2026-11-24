@@ -9,7 +9,8 @@
  *
  * The working-tree diff doubles as a review surface: draft line comments
  * (collected per chat, sent to the agent as one prompt), per-hunk revert,
- * and conflict help when a merge or pull stops on conflicts.
+ * conflict help when a merge or pull stops on conflicts, and an
+ * unfinished-tasks reminder in the merge and create-PR dialogs.
  */
 import React, { useEffect, useRef, useState } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
@@ -81,6 +82,7 @@ import {
   type ReviewComment
 } from './review-comments'
 import { buildMergeConflictPrompt, buildPullConflictPrompt } from './conflict-prompts'
+import { openTasksWarning } from './open-tasks'
 import { CheckpointDiffPanel, CheckpointsList, type SnapshotSel } from './CheckpointsPane'
 
 function statusColor(status: string): string {
@@ -435,7 +437,9 @@ export function ChangesView({
   /** Marker id of a draft already completed at click time — ignored as stale. */
   const draftBaseline = useRef<string | null>(null)
   const sendDraft = trpc.agent.send.useMutation()
-  const draftStream = useAgentStream(prOpen && review ? review.subchatId : null)
+  // Also watched while the merge dialog is open, for the unfinished-tasks warning.
+  const draftStream = useAgentStream((prOpen || mergeOpen) && review ? review.subchatId : null)
+  const tasksWarning = openTasksWarning(draftStream.tasks)
   const startDraft = (): void => {
     if (!review) return
     draftBaseline.current = findCompletedPrDraft(draftStream.messages)?.markerId ?? null
@@ -1430,6 +1434,11 @@ export function ChangesView({
                   The agent is reading the branch and drafting a description…
                 </div>
               )}
+              {tasksWarning && (
+                <div className="text-[11px] text-amber-600 dark:text-amber-500 selectable">
+                  {tasksWarning}
+                </div>
+              )}
               <Input
                 autoFocus
                 placeholder="Title"
@@ -1511,6 +1520,11 @@ export function ChangesView({
                 {files.length > 0 && (
                   <div className="text-[11px] text-amber-600 dark:text-amber-500">
                     The worktree has uncommitted changes — only committed work is merged.
+                  </div>
+                )}
+                {tasksWarning && (
+                  <div className="text-[11px] text-amber-600 dark:text-amber-500 selectable">
+                    {tasksWarning}
                   </div>
                 )}
                 <div className="flex items-center gap-2">
