@@ -195,6 +195,42 @@
           <code>yardarm/…</code> branch from the Changes tab, or create chats without a worktree.
         </p>
 
+        <h2 id="inbox">How do I see everything that needs my attention?</h2>
+        <p>
+          Open the <a href="using-the-app.html#across-chats">Inbox</a> (<code>/inbox</code>,
+          <kbd>Cmd+I</kbd>, or the inbox button at the bottom of the sidebar). It lists chats across
+          every project that are waiting for an approval, asked a question, finished without being
+          viewed, or are still running — and you can approve or deny tool calls right there.
+        </p>
+
+        <h2 id="search">How do I find something from an old chat?</h2>
+        <p>
+          <strong>Search all chats</strong> (<code>/search</code>, <kbd>Cmd+Shift+F</kbd>) searches
+          the text you and the agent wrote in every chat and opens the chat at the matching message.
+          Tool output is not searched. The first search indexes older chats in the background.
+        </p>
+
+        <h2 id="compare">Can I try the same task on different models?</h2>
+        <p>
+          Yes — <code>/compare</code> sends one prompt to 2–4 models, each in its own worktree chat,
+          side by side. <strong>Keep this one</strong> archives the others. It needs a git project,
+          and each model's run uses tokens as a normal chat would.
+        </p>
+
+        <h2 id="steer">Can I correct the agent without stopping it?</h2>
+        <p>
+          Yes — type your message while it is running and press <strong>Send now</strong>. The agent
+          reads it at its next step. It is disabled while an approval or question is pending.
+        </p>
+
+        <h2 id="setup-approval">Why didn't my worktree setup commands or copied files run?</h2>
+        <p>
+          They only run after you approve them, because <code>.yardarm/worktree.json</code> lives in
+          the repo and can change with a pull or an agent edit. Approve them in the prompt shown
+          when you create a chat, or save them in Project Settings → General. Chats created by
+          scheduled runs or remote messages never approve and skip them.
+        </p>
+
         <h2 id="remote">Can I use Yardarm from my phone?</h2>
         <p>
           Yes — via the <a href="using-the-app.html#remote-messaging">Slack and Discord bots</a>

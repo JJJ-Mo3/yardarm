@@ -183,6 +183,27 @@
               </td>
             </tr>
             <tr>
+              <td><code>/inbox</code></td>
+              <td>
+                chats across all projects that need you — approvals, questions, finished runs (see
+                <a href="using-the-app.html#across-chats">Working across chats</a>)
+              </td>
+            </tr>
+            <tr>
+              <td><code>/search</code></td>
+              <td>
+                full-text search across every chat; <code>/search &lt;query&gt;</code> works too
+              </td>
+            </tr>
+            <tr>
+              <td><code>/compare</code></td>
+              <td>run one prompt on 2–4 models side by side, each in its own worktree chat</td>
+            </tr>
+            <tr>
+              <td><code>/btw</code></td>
+              <td>ask a side question about the current chat without adding to its thread</td>
+            </tr>
+            <tr>
               <td><code>/setup</code></td>
               <td>re-run the setup wizard</td>
             </tr>
@@ -289,7 +310,10 @@
             </tr>
             <tr>
               <td><strong>Voice</strong></td>
-              <td>dictation engine, STT provider and model</td>
+              <td>
+                dictation engine, STT provider and model (OpenAI-compatible providers, Deepgram, or
+                Mistral Voxtral)
+              </td>
             </tr>
             <tr>
               <td><strong>Browser</strong></td>
@@ -476,7 +500,9 @@
             <a href="using-the-app.html#agent-code-review">Agent code review</a>), and edit the
             <strong>worktree setup commands</strong>
             (<code>.yardarm/worktree.json</code>) that run in every newly created worktree once you
-            have approved them (see
+            have approved them, along with the
+            <strong>files to copy into new worktrees</strong> and the
+            <strong>teardown commands</strong> covered by the same approval (see
             <a href="workspace.html#worktrees">Worktrees</a>). Archived projects move to an
             "Archived" group at the bottom of the project picker, from where they can be reopened
             and unarchived. Removing a project deletes its chats and worktrees but keeps the project

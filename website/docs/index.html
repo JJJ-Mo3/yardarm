@@ -289,6 +289,10 @@ pnpm package     # unpacked app bundle, e.g. dist/mac-arm64/Yardarm.app</code></
             work on the same repo in parallel without conflicts.
           </li>
           <li>Type what you want and press <strong>Enter</strong>. That's it.</li>
+          <li>
+            Prefer to start from existing work? When the project has a GitHub or GitLab remote and
+            its CLI is installed, the new-chat dialog also offers <strong>From issue or PR</strong>.
+          </li>
         </ol>
         <p>A few notes on worktrees:</p>
         <ul>
@@ -296,12 +300,19 @@ pnpm package     # unpacked app bundle, e.g. dist/mac-arm64/Yardarm.app</code></
           <li>
             If your project needs setup in a fresh checkout (dependency installs, codegen), put
             commands in <code>.yardarm/worktree.json</code> at the repo root:
-            <pre><code>{ "setup-worktree": ["pnpm install"] }</code></pre>
-            Setup commands only run after you approve them, because the file lives in the repo and a
-            pull or an agent edit can change it. Saving them in Project Settings → General approves
-            them; otherwise Yardarm shows the commands and asks once when you create a chat, and
-            again whenever they change. Chats created by scheduled runs or remote messages skip
-            unapproved commands.
+            <pre><code>{
+  "setup-worktree": ["pnpm install"],
+  "copy-files": [".env.local"],
+  "teardown-worktree": ["docker compose down"]
+}</code></pre>
+            <code>copy-files</code> copies matching untracked files from the project folder into
+            each new worktree, and <code>teardown-worktree</code> runs right before a chat's
+            worktree is removed (see <a href="workspace.html#worktrees">Worktrees</a>). Setup
+            commands only run after you approve them, because the file lives in the repo and a pull
+            or an agent edit can change it. Saving them in Project Settings → General approves them;
+            otherwise Yardarm shows the commands and asks once when you create a chat, and again
+            whenever they change. Chats created by scheduled runs or remote messages skip unapproved
+            commands.
           </li>
           <li>
             When the work is done, merge or PR the <code>yardarm/…</code> branch from the

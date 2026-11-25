@@ -148,6 +148,32 @@
           <code>core.worktree</code> settings are not supported.
         </p>
 
+        <h2 id="dev-server-ports">Two chats can't run their dev servers at the same time</h2>
+        <p>
+          Each chat has its own port in <code>YARDARM_PORT</code>, and Preview's start chip passes
+          it to the dev server. If your project hard-codes a port (in a script or config), every
+          chat's server still wants that one port, so Preview has to stop the other chat's server
+          first. Make the project read <code>PORT</code> / <code>YARDARM_PORT</code> to run them
+          side by side.
+        </p>
+
+        <h2 id="issue-picker-missing">"From issue or PR" is missing from the new-chat dialog</h2>
+        <p>
+          It appears only when the project has a GitHub or GitLab remote and the matching CLI (<code
+            >gh</code
+          >
+          or <code>glab</code>) is installed and signed in. The same CLIs power PR checks and
+          <strong>Merge when ready</strong>; if auto-merge isn't enabled for the repository, the
+          CLI's message is shown.
+        </p>
+
+        <h2 id="deep-link">A <code>yardarm://</code> link did nothing</h2>
+        <p>
+          Links work only with the installed app, and only the <code>new</code> action is supported.
+          The project name must match an existing project exactly (case-insensitive); otherwise a
+          "Project not found" message appears and nothing else happens.
+        </p>
+
         <h2 id="blank-window">The window went blank</h2>
         <p>
           A blank window means the UI process crashed — usually memory pressure after a very long

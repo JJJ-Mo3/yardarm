@@ -124,7 +124,7 @@ its reasoning, tool calls, and file edits into the transcript.
   any model can read it. Pasting a long block of text turns it into an attachment chip
   instead of flooding the composer.
 - **Voice** — the microphone button dictates your prompt (needs a speech-to-text-capable API
-  key, configured in Settings → Voice).
+  key, configured in Settings → Voice; Mistral Voxtral is among the supported models).
 - **Queueing** — you can keep typing while the agent runs; queued prompts are sent in order
   when the current run finishes, and you can drag queued prompts to reorder them, edit them
   inline, copy their text, or remove them while they wait. Quitting the app while agents are
@@ -1001,6 +1001,38 @@ network connection.
 Yes. Each chat (and each thread) runs independently — use split view or multiple chats to
 parallelize.
 
+### How do I see everything that needs my attention?
+
+Open the **Inbox** (\`/inbox\`, ⌘I, or the inbox button at the bottom of the sidebar). It
+lists chats across every project that are waiting for an approval, asked a question, finished
+without being viewed, or are still running — and you can approve or deny tool calls right
+there. It only shows what is live in this session.
+
+### How do I find something from an old chat?
+
+**Search all chats** (\`/search\`, ⌘⇧F) searches the text you and the agent wrote in every
+chat and opens the chat at the matching message. Tool output is not searched. The first search
+indexes older chats in the background, so early results can be incomplete for a moment.
+
+### Can I try the same task on different models?
+
+Yes — \`/compare\` sends one prompt to 2–4 models, each in its own worktree chat, side by
+side. When you've picked a winner, **Keep this one** archives the others. It needs a git
+project, and each model's run uses tokens as a normal chat would.
+
+### Can I correct the agent without stopping it?
+
+Yes — type your message while it is running and press the ⚡ **Send now** button (or **Send
+now** on a queued prompt). The agent reads it at its next step. It is disabled while an
+approval or question is pending; answer that first.
+
+### Why didn't my worktree setup commands or copied files run?
+
+They only run after you approve them, because \`.yardarm/worktree.json\` lives in the repo
+and can change with a pull or an agent edit. Approve them in the prompt shown when you create
+a chat, or save them in Project Settings → General. Chats created by scheduled runs or remote
+messages never approve and skip them.
+
 ### Can I use Yardarm from my phone?
 
 Yes — via the Slack and Discord bots (Settings → Integrations; see the Remote messaging
@@ -1085,6 +1117,25 @@ compile; give them a moment.
 
 Open the Terminal tab (it's already in the worktree) and fix it with git as usual — worktrees
 are ordinary git checkouts. Deleting a chat cleans up its worktree and checkpoints.
+
+### Two chats can't run their dev servers at the same time
+
+Each chat has its own port in \`YARDARM_PORT\`, and Preview's start chip passes it to the
+dev server. If your project hard-codes a port (in a script or config), every chat's server
+still wants that one port, so Preview has to stop the other chat's server first. Make the
+project read \`PORT\` / \`YARDARM_PORT\` to run them side by side.
+
+### "From issue or PR" is missing from the new-chat dialog
+
+It appears only when the project has a GitHub or GitLab remote and the matching CLI (\`gh\`
+or \`glab\`) is installed and signed in. The same CLIs power PR checks and **Merge when
+ready**; if auto-merge isn't enabled for the repository, the CLI's message is shown.
+
+### A \`yardarm://\` link did nothing
+
+Links work only with the installed app (not a dev run), and only the \`new\` action is
+supported. The project name must match an existing project exactly (case-insensitive);
+otherwise a "Project not found" message appears and nothing else happens.
 
 ### Something else?
 
