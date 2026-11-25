@@ -176,6 +176,26 @@ No accounts or login — everything runs locally against mastracode's own config
   partition everything. A new webview partition needs an entry there.
 - Reply text shown outside the transcript (remote messages, sidebar snippets, exports) goes
   through `stripAgentMarkers` (`src/shared/agent-markers.ts`).
+- `.yardarm/worktree.json` holds three lists — `setup-worktree`, `copy-files`, `teardown-worktree`
+  (`src/main/lib/git/worktree-config.ts`) — under ONE approval hash; the hash of commands alone
+  is unchanged when the other two are empty, so old approvals stay valid (pinned-vector test).
+- Each chat has a deterministic port block derived from its id (`src/shared/chat-port.ts`,
+  `YARDARM_PORT` / `YARDARM_PORT_RANGE_END` in its terminals and agent host); no DB column.
+- Cross-chat search is an FTS5 table (`message_search`, migration v27) indexed from JS in
+  `src/main/lib/db/message-search.ts` — user/assistant text only, markers stripped — with a
+  delete trigger and a lazy chunked backfill on first search. User input goes through
+  `buildFtsQuery` (`src/shared/message-search.ts`); never pass raw FTS syntax.
+- Hidden helper chats: besides the wiki and Ask chats, side questions (`/btw`) use a hidden chat
+  linked by `chats.side_of_chat_id` (cascade-deleted); `/compare` groups chats by
+  `chats.compare_group_id`.
+- "Send now" delivers a user message into a RUNNING turn via the host `steer` command
+  (`Session.sendMessage` while active). It must stay blocked while an approval or suspension is
+  pending — the SDK releases approval gates on that path. Re-verify on runtime bumps.
+- Preview capture/element picking (`src/main/windows/preview-capture.ts`) runs a fixed script in
+  an isolated world of the verified localhost preview guest only; everything it returns is
+  zod-validated and length-capped. Never add a webview preload or grant the partition anything.
+- `yardarm://new?project=&prompt=` deep links (`src/shared/deep-link.ts`) only prefill the
+  new-chat dialog; a link must never create, send, or change anything by itself.
 - Native modules (better-sqlite3, node-pty) are `asarUnpack`ed — see `electron-builder.yml`.
 - Each chat can run in its own git worktree under Electron userData
   (`worktrees/<projectId>/<chatId>`, branch prefix `yardarm/`); rollback checkpoints are stored

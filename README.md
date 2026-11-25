@@ -254,6 +254,25 @@ Yardarm puts a desktop workspace around the agent:
   reply, an optional verify-work pass before finishing, auto-continue for
   unfinished task lists, and next-step follow-up chips under replies — each
   with its own toggle in Settings → Preferences
+- Review like a pull request: leave draft comments on diff lines and send
+  them to the agent as one prompt, revert a single changed block instead of
+  a whole file, see the PR's CI checks with **Fix failing checks** and
+  **Merge when ready**, and hand merge conflicts to the agent
+- Work across chats: an **Inbox** of every chat that needs you (`/inbox`),
+  full-text **search across all chats** (`/search`), **Compare models**
+  (`/compare`) to run one prompt on 2–4 models side by side, **Send now** to
+  steer a running agent mid-run, and **side questions** (`/btw`) that never
+  enter the main conversation
+- Start a chat from an open GitHub/GitLab issue or pull request, or from a
+  `yardarm://new?project=…&prompt=…` link (links only prefill — nothing is
+  created or sent until you confirm)
+- Worktree conveniences: copy untracked files such as `.env.local` into new
+  worktrees, teardown commands, and a port per chat (`YARDARM_PORT`) so
+  several chats can run dev servers at once
+- Preview: screenshot the page into the chat, or pick an element to attach
+  its selector, styles and a cropped screenshot
+- IDE previews for images, Markdown, and CSV/TSV; keeps the computer awake
+  while agents run
 - Threads (`/threads`): switch, rename, clone, delete, open in a new subchat,
   with per-thread token usage in the cost popover (`/cost`) — new threads
   name themselves automatically after your first message
@@ -513,8 +532,16 @@ commit". If your project needs setup after a fresh worktree (installs,
 codegen), put commands in `.yardarm/worktree.json`:
 
 ```json
-{ "setup-worktree": ["pnpm install"] }
+{
+  "setup-worktree": ["pnpm install"],
+  "copy-files": [".env.local"],
+  "teardown-worktree": ["docker compose down"]
+}
 ```
+
+`copy-files` copies matching untracked files from the project folder into each
+new worktree; `teardown-worktree` runs before a chat's worktree is removed.
+Every chat also gets its own port in `YARDARM_PORT` for dev servers.
 
 Setup commands only run after you approve them: the file lives in the repo, so a pull or an
 agent edit can change it. Saving them in Project Settings → General approves them; otherwise

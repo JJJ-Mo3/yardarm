@@ -103,6 +103,46 @@
           whenever they change. Chats created by scheduled runs or remote messages skip unapproved
           commands.
         </p>
+        <p>The same card and the same one-time approval cover two more lists:</p>
+        <ul>
+          <li>
+            <strong>Files to copy into new worktrees</strong> — glob patterns, one per line (e.g.
+            <code>.env.local</code>, <code>config/*.local.json</code>), for files git doesn't track
+            but a fresh worktree needs. Matching untracked files are copied from the project folder;
+            existing files are never overwritten, symlinks, <code>.git</code> and
+            <code>node_modules</code> are skipped, and at most 200 files / 25 MB are copied. A
+            pattern without a <code>/</code> matches at the project root only — use
+            <code>**/.env.local</code> for any depth.
+          </li>
+          <li>
+            <strong>Worktree teardown commands</strong> — run in a chat's worktree right before it
+            is removed (e.g. <code>docker compose down</code>).
+          </li>
+        </ul>
+        <pre><code>{
+  "setup-worktree": ["pnpm install"],
+  "copy-files": [".env.local"],
+  "teardown-worktree": ["docker compose down"]
+}</code></pre>
+        <p>
+          <strong>A port for every chat.</strong> Each chat gets its own stable port, exposed to its
+          terminals and agent as <code>YARDARM_PORT</code> (the first of a block of ten;
+          <code>YARDARM_PORT_RANGE_END</code> is the last), so several chats can run dev servers
+          side by side.
+        </p>
+        <p>
+          <strong>Start from an issue or pull request.</strong> When the project has a GitHub or
+          GitLab remote and its CLI (<code>gh</code> / <code>glab</code>) is installed, the new-chat
+          dialog offers <strong>From issue or PR</strong>: pick an open issue to create a chat with
+          the issue's details placed in the message box (not sent until you send it), or pick a
+          pull/merge request to get a worktree on that request's branch.
+        </p>
+        <p>
+          <strong>Links into the app.</strong>
+          <code>yardarm://new?project=&lt;name&gt;&amp;prompt=&lt;text&gt;</code> opens Yardarm on
+          that project with the new-chat dialog showing the prompt. A link only prefills — it never
+          creates a chat or sends anything until you confirm.
+        </p>
 
         <h2 id="terminal">Terminal</h2>
         <p>
@@ -125,7 +165,9 @@
         <h2 id="ide">IDE</h2>
         <p>
           The <strong>IDE</strong> tab (<kbd>Cmd+3</kbd>) is a file tree + Monaco editor scoped to
-          the worktree. Open multiple files as tabs and save with <kbd>Cmd+S</kbd>.
+          the worktree. Open multiple files as tabs and save with <kbd>Cmd+S</kbd>. Images open as a
+          preview, Markdown files get an <strong>Edit / Preview</strong> toggle, and CSV/TSV files a
+          <strong>Text / Table</strong> toggle.
         </p>
         <ul>
           <li>
@@ -194,9 +236,19 @@
             dedicated terminal.
           </li>
           <li>
-            Dev servers are per chat (each runs in its own worktree) and would clash over the same
-            port, so if another chat's server is still running, the start chip says so and stops it
-            before starting here.
+            Dev servers are per chat, and each chat has its own port (<code>YARDARM_PORT</code>), so
+            chats can run their servers side by side. Preview only stops another chat's server when
+            the two would clash — for example when a project hard-codes its port — and says which
+            chat it is first.
+          </li>
+          <li>
+            <strong>Screenshot to chat</strong> — the camera button attaches a capture of the
+            visible page to the chat's message box.
+          </li>
+          <li>
+            <strong>Pick element</strong> — click an element in the page to attach its selector,
+            text, size, key styles and a cropped screenshot to the message box, then type what
+            should change. <kbd>Esc</kbd> cancels.
           </li>
           <li>
             Back/forward, reload, DevTools, and open-in-browser controls are in the toolbar — the

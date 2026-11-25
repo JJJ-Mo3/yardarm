@@ -79,6 +79,29 @@ scheduled runs or remote messages skip unapproved commands.
 
 Projects can be archived from the sidebar; archived projects are hidden but nothing is
 deleted unless you explicitly opt in.
+
+**Files to copy into new worktrees** (same card) lists glob patterns — one per line, e.g.
+\`.env.local\` or \`config/*.local.json\` — for files that git doesn't track but a fresh
+worktree needs. Matching untracked files are copied from the project folder into each new
+worktree (existing files are never overwritten; symlinks, \`.git\` and \`node_modules\` are
+skipped; at most 200 files / 25 MB). A pattern without a \`/\` matches at the project root
+only — use \`**/.env.local\` for any depth. **Worktree teardown commands** run in a chat's
+worktree right before it is removed (e.g. \`docker compose down\`). Both are saved to the same
+\`.yardarm/worktree.json\` and covered by the same one-time approval as setup commands.
+
+**A port for every chat.** Each chat gets its own stable port, exposed to its terminals and
+agent as \`YARDARM_PORT\` (the first of a block of ten; \`YARDARM_PORT_RANGE_END\` is the
+last). Preview's dev-server start uses it, so several chats can run dev servers side by side.
+
+**Start from an issue or pull request.** When the project has a GitHub or GitLab remote and
+its CLI (\`gh\` / \`glab\`) is installed, the new-chat dialog offers **From issue or PR**:
+pick an open issue to create a chat with the issue's details placed in the message box (not
+sent until you send it), or pick a pull/merge request to get a worktree on that request's
+branch.
+
+**Links into the app.** \`yardarm://new?project=<name>&prompt=<text>\` opens Yardarm on that
+project with the new-chat dialog showing the prompt. A link only prefills — it never creates a
+chat or sends anything until you confirm.
 `
   },
   {
@@ -172,6 +195,25 @@ The model selector in the chat header switches the model per chat — it's searc
 type to filter long model lists. Models come from the providers you configured in Settings;
 local models (e.g. via Ollama) work too — models with at least a 64k context window are
 required, 128k+ recommended.
+
+### Working across chats
+
+- **Inbox** (\`/inbox\`, ⌘I, or the inbox button at the bottom of the sidebar) — every chat
+  across all projects that needs you: **Needs approval** (approve or deny right there),
+  **Asked a question**, **Finished — not viewed**, and **Running**. Click a row to jump to
+  the chat.
+- **Search all chats** (\`/search\`, ⌘⇧F) — full-text search over what you and the agent
+  wrote in every chat. Choosing a result opens the chat at that message. Older chats are
+  indexed in the background the first time you search.
+- **Compare models** (\`/compare\`) — send one prompt to 2–4 models at once. Each runs in its
+  own worktree chat, opened side by side; **Keep this one** archives the others (nothing is
+  deleted). Needs a git project.
+- **Send now** — while the agent is working, the ⚡ button in the composer (or **Send now** on
+  a queued prompt) delivers your message to the running agent at its next step instead of
+  waiting for the run to finish. It is unavailable while an approval or question is pending.
+- **Side question** (\`/btw\`, or the **btw** button by the composer) — ask a quick question
+  about the current chat in a side panel. It is answered from the chat's context by a separate
+  read-only helper and never enters the main conversation.
 `
   },
   {
@@ -361,6 +403,24 @@ root).
 - **Draft with AI** — inside the Create PR/MR dialog, the Draft with AI button has the chat's
   agent read the branch's commits and diff and write the PR title and description for you.
   Both fields stay editable, so polish before creating. Needs the chat's agent to be idle.
+
+### Commenting and partial reverts
+
+- **Line comments** — hover a diff line and click the **+** in the gutter (or select lines
+  and choose **Comment**) to leave a draft comment. Drafts collect across files in the
+  **Review comments** bar; **Send to agent** puts all of them — with file, lines and quoted
+  code — into the message box as one prompt for you to send.
+- **Revert this change** — under each changed block of a file, reverts just that block
+  instead of discarding the whole file.
+- **Merge conflicts** — if merging or pulling hits conflicts, the merge is aborted so your
+  project folder is never left half-merged, and **Have the agent resolve it** prefills a
+  prompt asking the agent to merge the base branch into the chat's branch and fix the
+  conflicts there.
+- **PR checks** — when the chat's branch has a pull/merge request, the details panel shows
+  its CI checks. **Fix failing checks** hands the failures to the agent; **Merge when ready**
+  turns on auto-merge.
+- **Open tasks** — the merge and create-PR dialogs warn if the agent's task list still has
+  unfinished items.
 `
   },
   {
@@ -457,6 +517,9 @@ Language servers come in three tiers:
 - **External binaries** — Go, Rust and Ruby use gopls / rust-analyzer / ruby-lsp from your
   PATH (well-known install dirs like \`~/go/bin\` and \`~/.cargo/bin\` are searched too);
   Rails smarts come from your project's ruby-lsp-rails gem.
+
+**Previews.** Image files open as an image preview. Markdown files get an **Edit / Preview**
+toggle, and CSV/TSV files a **Text / Table** toggle (first 500 rows).
 `
   },
   {
@@ -486,9 +549,14 @@ The Preview tab shows localhost dev servers in-app.
   are detected automatically and offered in the address bar.
 - **One-click start** — if nothing is running, a start chip offers to launch the project's
   dev server (detected from the project; static sites get a fallback server) in a dedicated
-  terminal. Each chat runs the server in its own worktree, so if another chat's server is
-  still running, starting here stops that one first — two servers would fight over the same
-  port. Preview tells you which chat it is before you click.
+  terminal. Each chat has its own port (\`YARDARM_PORT\`), so chats can run their dev
+  servers side by side. Preview only stops another chat's server when the two would clash —
+  for example when a project hard-codes its port — and tells you which chat it is first.
+- **Screenshot to chat** — the camera button attaches a capture of the visible page to the
+  chat's message box.
+- **Pick element** — click an element in the page to attach its selector, text, size, key
+  styles and a cropped screenshot to the message box, then type what should change. Esc
+  cancels. Elements inside iframes can't be picked individually.
 - **DevTools** — the wrench button opens a full Chrome DevTools pane docked beside the page:
   inspect elements, read the console, and watch network requests of the previewed app.
 - **Open externally** — the browser button opens the current URL in your default browser.
@@ -796,7 +864,8 @@ App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
   section), an experimental **agent runtime**
   selector (durable/evented — leave on default unless you know you need it; invalid setups
   fail at agent start), and per-tool toggles to disable built-in agent tools you never
-  want used. A **Notifications** card controls desktop notifications (a system notification
+  want used. A **Power** card keeps the computer awake while agents are running (on by
+  default; the display may still turn off). A **Notifications** card controls desktop notifications (a system notification
   when a run finishes or the agent needs input while the app is in the background — clicking
   one opens the chat), and a **Storage** card shows how much space mastracode storage and the
   chat database use, with a **Prune now** button (\`/prune\`).
@@ -812,7 +881,8 @@ App settings (⌘,) — most of these are shared with the \`mastracode\` CLI:
   or down, and (with multiple logins for a provider) a preferred account per model.
 - **Providers** — provider OAuth logins and local providers (e.g. Ollama), including
   installing and pulling local models.
-- **Voice** — speech-to-text for the composer microphone.
+- **Voice** — speech-to-text for the composer microphone (OpenAI-compatible providers,
+  Deepgram, or Mistral Voxtral).
 - **Browser** — the agent's built-in browser tool: viewport size and, for the Stagehand
   provider, the model that drives page interactions.
 - **Connectors** — one-click service sign-ins (see the Connectors section), plus
@@ -862,6 +932,8 @@ override, the **reviewer personas** used by code review (see Reviewing changes),
 | ⌘N | New chat |
 | ⌘O | Quick file open (into the IDE tab) |
 | ⌘P | Thread switcher |
+| ⌘I | Inbox — chats that need you |
+| ⌘⇧F | Search all chats |
 | ⌘F | Find in chat (Chat tab) / find in terminal (Terminal tab) |
 | ⌘J | Toggle the Terminal tab |
 | ⌘\\ | Add a split chat pane |

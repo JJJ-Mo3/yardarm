@@ -176,8 +176,17 @@ A few notes on worktrees:
   codegen), put commands in `.yardarm/worktree.json` at the repo root:
 
   ```json
-  { "setup-worktree": ["pnpm install"] }
+  {
+    "setup-worktree": ["pnpm install"],
+    "copy-files": [".env.local"],
+    "teardown-worktree": ["docker compose down"]
+  }
   ```
+
+  `copy-files` copies matching untracked files (ones git doesn't track) from
+  the project folder into each new worktree; `teardown-worktree` runs right
+  before a chat's worktree is removed. Each chat also gets its own port in
+  `YARDARM_PORT`, so several chats can run dev servers at once.
 
   Setup commands only run after you approve them, because the file lives in
   the repo and a pull or an agent edit can change it. Saving them in Project
@@ -467,6 +476,18 @@ here:
   project, managed by the app and kept across restarts.
 - **Repo wiki and Ask** (`/wiki`, `/ask`) — an agent-written wiki of the
   codebase plus read-only questions about the project.
+- **Inbox, search, compare** — `/inbox` lists every chat that needs you,
+  `/search` searches the text of all chats, and `/compare` runs one prompt on
+  2–4 models side by side.
+- **Send now and side questions** — steer a running agent mid-run with the ⚡
+  button, or ask a quick `/btw` question that stays out of the main chat.
+- **Review tools in the Changes tab** — draft line comments sent to the agent
+  as one prompt, per-block revert, PR checks, and agent help with merge
+  conflicts.
+- **Start from an issue or PR** — the new-chat dialog can start a chat from an
+  open GitHub/GitLab issue or pull request.
+- **Preview capture** — screenshot the previewed page or pick an element and
+  attach it to the chat.
 
 ## Goals: let the agent run to completion
 

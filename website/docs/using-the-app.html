@@ -544,6 +544,35 @@
           </li>
         </ul>
         <p>Nothing the agent does in a worktree touches your own checkout until you merge it.</p>
+        <h3 id="review-tools">Commenting, partial reverts, and PR checks</h3>
+        <ul>
+          <li>
+            <strong>Line comments</strong> — hover a diff line and click the <strong>+</strong> in
+            the gutter (or select lines and choose <strong>Comment</strong>) to leave a draft
+            comment. Drafts collect across files in the <strong>Review comments</strong> bar;
+            <strong>Send to agent</strong> puts all of them — with file, lines and quoted code —
+            into the message box as one prompt for you to send.
+          </li>
+          <li>
+            <strong>Revert this change</strong> — under each changed block of a file, reverts just
+            that block instead of discarding the whole file.
+          </li>
+          <li>
+            <strong>Merge conflicts</strong> — if merging or pulling hits conflicts, the merge is
+            aborted so your project folder is never left half-merged, and
+            <strong>Have the agent resolve it</strong> prefills a prompt asking the agent to merge
+            the base branch into the chat's branch and fix the conflicts there.
+          </li>
+          <li>
+            <strong>PR checks</strong> — when the chat's branch has a pull/merge request, the
+            details panel shows its CI checks. <strong>Fix failing checks</strong> hands the
+            failures to the agent; <strong>Merge when ready</strong> turns on auto-merge.
+          </li>
+          <li>
+            <strong>Open tasks</strong> — the merge and create-PR dialogs warn if the agent's task
+            list still has unfinished items.
+          </li>
+        </ul>
 
         <h2 id="agent-code-review">Agent code review</h2>
         <p>
@@ -946,6 +975,41 @@
           Knowledge lives in mastracode's shared local storage, so the CLI sees the same knowledge
           base.
         </p>
+
+        <h2 id="across-chats">Working across chats</h2>
+        <ul>
+          <li>
+            <strong>Inbox</strong> (<code>/inbox</code>, <kbd>Cmd+I</kbd>, or the inbox button at
+            the bottom of the sidebar) — every chat across all projects that needs you:
+            <strong>Needs approval</strong> (approve or deny right there),
+            <strong>Asked a question</strong>, <strong>Finished — not viewed</strong>, and
+            <strong>Running</strong>. Click a row to jump to the chat.
+          </li>
+          <li>
+            <strong>Search all chats</strong> (<code>/search</code>, <kbd>Cmd+Shift+F</kbd>) —
+            full-text search over what you and the agent wrote in every chat. Choosing a result
+            opens the chat at that message. Older chats are indexed in the background the first time
+            you search.
+          </li>
+          <li>
+            <strong>Compare models</strong> (<code>/compare</code>) — send one prompt to 2–4 models
+            at once. Each runs in its own worktree chat, opened side by side;
+            <strong>Keep this one</strong> archives the others (nothing is deleted). Needs a git
+            project.
+          </li>
+          <li>
+            <strong>Send now</strong> — while the agent is working, the lightning button in the
+            composer (or <strong>Send now</strong> on a queued prompt) delivers your message to the
+            running agent at its next step instead of waiting for the run to finish. It is
+            unavailable while an approval or question is pending.
+          </li>
+          <li>
+            <strong>Side question</strong> (<code>/btw</code>, or the <strong>btw</strong> button by
+            the composer) — ask a quick question about the current chat in a side panel. It is
+            answered from the chat's context by a separate read-only helper and never enters the
+            main conversation.
+          </li>
+        </ul>
 
         <h2 id="threads">Threads, subchats, forking, and split view</h2>
         <p>
